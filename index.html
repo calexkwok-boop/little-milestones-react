@@ -18,18 +18,23 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.33.0/dist/tabler-icons.min.css" />
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { height: 100%; overflow: hidden; }
       body {
         font-family: 'Inter', sans-serif;
         background: #C4CEBC;
-        min-height: 100vh;
+        height: 100dvh;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 24px;
       }
+      @media (max-width: 480px) {
+        body { padding: 0; background: #F2F4EC; }
+      }
       #root {
         width: 100%;
         max-width: 420px;
+        height: 100%;
       }
     </style>
   </head>

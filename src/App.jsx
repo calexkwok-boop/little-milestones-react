@@ -193,7 +193,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     const emptyGreeting = onlyChild ? `Dear ${onlyChild},` : 'To my children,';
     return (
       <div className="screen">
-        <div className="scroll-area">
+        <div className="scroll-area" style={{ overflowY: 'hidden' }}>
           <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 28 }}>
             <Header />
             <div
@@ -364,7 +364,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, onBack }) {
+function EntryDetailScreen({ entry, kid, onBack, onEdit }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
@@ -375,6 +375,7 @@ function EntryDetailScreen({ entry, kid, onBack }) {
         <div style={{ position: 'relative' }}>
           <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
             <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+            <button className="icon-btn-ghost" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
           </div>
           {media.length > 0 ? (
             <div className="gallery-stage">
@@ -421,17 +422,19 @@ function EntryDetailScreen({ entry, kid, onBack }) {
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, onCancel, onSave }) {
-  const [selectedKids, setSelectedKids] = useState(kids.length === 1 ? [kids[0].id] : []);
-  const [text, setText] = useState('');
-  const [mood, setMood] = useState(null);
-  const [milestoneType, setMilestoneType] = useState(null);
-  const [media, setMedia] = useState([]);
-  const [fileObjects, setFileObjects] = useState([]);
+function NewEntryScreen({ kids, onCancel, onSave, existingEntry }) {
+  const [selectedKids, setSelectedKids] = useState(
+    existingEntry ? existingEntry.kids : (kids.length === 1 ? [kids[0].id] : [])
+  );
+  const [text, setText] = useState(existingEntry?.text || '');
+  const [mood, setMood] = useState(existingEntry?.mood || null);
+  const [milestoneType, setMilestoneType] = useState(existingEntry?.milestone || null);
+  const [media, setMedia] = useState(existingEntry?.media || []);
+  const [fileObjects, setFileObjects] = useState(existingEntry?.media?.map(() => null) || []);
   const [saving, setSaving] = useState(false);
-  const [entryDate, setEntryDate] = useState(TODAY);
+  const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
-  const [showExtras, setShowExtras] = useState(false);
+  const [showExtras, setShowExtras] = useState(!!(existingEntry?.mood || existingEntry?.milestone));
   const [showKidPicker, setShowKidPicker] = useState(false);
   const [showMediaMenu, setShowMediaMenu] = useState(false);
   const [editingDate, setEditingDate] = useState(false);
@@ -494,11 +497,12 @@ function NewEntryScreen({ kids, onCancel, onSave }) {
     await onSave({
       kids: selectedKids,
       text: text.trim(),
-      mood: mood || 'Joyful',
+      mood: existingEntry ? (mood || null) : (mood || 'Joyful'),
       milestone: milestoneType || null,
       media,
       fileObjects,
       date: entryDate,
+      entryId: existingEntry?.id,
     });
     setSaving(false);
   }
@@ -517,7 +521,7 @@ function NewEntryScreen({ kids, onCancel, onSave }) {
           disabled={!canSave || saving}
           onClick={handleSave}
         >
-          {saving ? 'Saving…' : 'Save'}
+          {saving ? 'Saving…' : existingEntry ? 'Update' : 'Save'}
         </button>
       </div>
 
@@ -549,7 +553,6 @@ function NewEntryScreen({ kids, onCancel, onSave }) {
 
         {/* Writing area */}
         <textarea
-          autoFocus
           value={text}
           onChange={e => setText(e.target.value)}
           placeholder="You did the most surprising thing today. I never want you to forget what it felt like to be there…"
@@ -678,7 +681,7 @@ function NewEntryScreen({ kids, onCancel, onSave }) {
             <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: '0 0 16px' }}>When did this happen?</p>
             <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
               <div style={{ position: 'relative', flex: 2.2 }}>
-                <select value={editMonth} onChange={e => setEditMonth(e.target.value)} style={{ width: '100%', border: '1px solid #CCDAC8', borderRadius: 10, padding: '14px 36px 14px 14px', fontSize: 15, outline: 'none', background: '#fff', color: editMonth ? '#2C3828' : '#9AA89C', fontFamily: "'Inter', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
+                <select value={editMonth} onChange={e => setEditMonth(e.target.value)} style={{ width: '100%', border: '1px solid #CCDAC8', borderRadius: 10, padding: '14px 36px 14px 14px', fontSize: 16, outline: 'none', background: '#fff', color: editMonth ? '#2C3828' : '#9AA89C', fontFamily: "'Inter', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
                   <option value="" disabled>Month</option>
                   {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
                     <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
@@ -686,8 +689,8 @@ function NewEntryScreen({ kids, onCancel, onSave }) {
                 </select>
                 <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: '#9AA89C', fontSize: 13, pointerEvents: 'none' }} />
               </div>
-              <input type="number" placeholder="Day" value={editDay} min={1} max={31} onChange={e => setEditDay(e.target.value)} style={{ flex: 1, border: '1px solid #CCDAC8', borderRadius: 10, padding: '14px 10px', fontSize: 15, outline: 'none', background: '#fff', color: '#2C3828', fontFamily: "'Inter', sans-serif", textAlign: 'center' }} />
-              <input type="number" placeholder="Year" value={editYear} min={1900} max={2030} onChange={e => setEditYear(e.target.value)} style={{ flex: 1.5, border: '1px solid #CCDAC8', borderRadius: 10, padding: '14px 10px', fontSize: 15, outline: 'none', background: '#fff', color: '#2C3828', fontFamily: "'Inter', sans-serif", textAlign: 'center' }} />
+              <input type="number" placeholder="Day" value={editDay} min={1} max={31} onChange={e => setEditDay(e.target.value)} style={{ flex: 1, border: '1px solid #CCDAC8', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: '#fff', color: '#2C3828', fontFamily: "'Inter', sans-serif", textAlign: 'center' }} />
+              <input type="number" placeholder="Year" value={editYear} min={1900} max={2030} onChange={e => setEditYear(e.target.value)} style={{ flex: 1.5, border: '1px solid #CCDAC8', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: '#fff', color: '#2C3828', fontFamily: "'Inter', sans-serif", textAlign: 'center' }} />
             </div>
             <button className="btn btn-primary" style={{ width: '100%' }} onClick={applyDate}>Done</button>
           </div>
@@ -1134,107 +1137,9 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
   );
 }
 
-// ─── Import review ─────────────────────────────────────────────────────────
-
-function ImportReviewScreen({ initialPhotos, processing, kids, onBack, onImport }) {
-  const [photos, setPhotos] = useState(initialPhotos);
-
-  useEffect(() => { setPhotos(initialPhotos); }, [initialPhotos]);
-
-  function update(id, field, value) {
-    setPhotos(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
-  }
-
-  if (processing) {
-    return (
-      <div className="screen">
-        <div className="scroll-area" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ textAlign: 'center' }}>
-            <i className="ti ti-loader-2" style={{ fontSize: 36, color: '#9AA89C', display: 'block', marginBottom: 12, animation: 'spin 1s linear infinite' }} />
-            <p style={{ fontSize: 14, color: '#9AA89C', margin: 0 }}>Reading photo dates…</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="screen">
-      <div className="scroll-area">
-        <div className="scrollpad">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-x" /></button>
-            <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>
-              Review {photos.length} photo{photos.length !== 1 ? 's' : ''}
-            </h2>
-            <div style={{ width: 36 }} />
-          </div>
-
-          <p style={{ fontSize: 13, color: '#9AA89C', margin: 0, lineHeight: 1.5 }}>
-            Assign each photo to a child. Dates are read from photo metadata.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {photos.map(photo => (
-              <div key={photo.id} style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 14, padding: 12, display: 'flex', gap: 12 }}>
-                <img src={photo.url} alt="" style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 10, flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {kids.map(k => (
-                      <div
-                        key={k.id}
-                        className={`kid-chip ${photo.kidId === k.id ? 'active' : ''}`}
-                        style={photo.kidId === k.id ? { background: k.accent } : {}}
-                        onClick={() => update(photo.id, 'kidId', k.id)}
-                      >
-                        <KidThumb kid={k} size={16} />{k.name}
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <i className="ti ti-calendar" style={{ color: '#9AA89C', fontSize: 13, flexShrink: 0 }} />
-                    <input
-                      type="date"
-                      value={photo.date}
-                      onChange={e => update(photo.id, 'date', e.target.value)}
-                      style={{ border: 'none', outline: 'none', fontSize: 12, background: 'transparent', color: '#4A5E50', fontFamily: 'Inter, sans-serif', flex: 1, padding: 0 }}
-                    />
-                    {!photo.dateFromExif && (
-                      <span style={{ fontSize: 10, color: '#F0897A', fontWeight: 600, whiteSpace: 'nowrap' }}>no date found</span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setPhotos(prev => prev.filter(p => p.id !== photo.id))}
-                  style={{ background: 'none', border: 'none', color: '#C4BAA8', cursor: 'pointer', padding: 0, alignSelf: 'flex-start', fontSize: 18 }}
-                >
-                  <i className="ti ti-x" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {photos.length > 0 && (
-            <button
-              className="btn btn-primary"
-              onClick={() => onImport(photos)}
-              disabled={photos.some(p => p.kidId === null)}
-              style={{ opacity: photos.some(p => p.kidId === null) ? 0.45 : 1 }}
-            >
-              Import {photos.length} moment{photos.length !== 1 ? 's' : ''}
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Nav bar ────────────────────────────────────────────────────────────
 
-function NavBar({ active, onNavigate, onImportFiles }) {
-  const [showMenu, setShowMenu] = useState(false);
-  const importRef = useRef(null);
+function NavBar({ active, onNavigate }) {
 
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
@@ -1248,34 +1153,8 @@ function NavBar({ active, onNavigate, onImportFiles }) {
     return { backgroundColor: isActive ? tab.color : 'transparent', color: isActive ? '#ffffff' : '#A89A85' };
   }
 
-  const menuBtn = { display: 'flex', alignItems: 'center', gap: 12, width: '100%', padding: '14px 18px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: '#4A5E50', fontWeight: 600, fontFamily: 'Inter, sans-serif', textAlign: 'left' };
-
   return (
     <>
-      {showMenu && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50 }} onClick={() => setShowMenu(false)}>
-          <div
-            style={{ position: 'absolute', bottom: 96, left: '50%', transform: 'translateX(-50%)', background: '#fff', borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.16)', overflow: 'hidden', minWidth: 220 }}
-            onClick={e => e.stopPropagation()}
-          >
-            <button style={menuBtn} onClick={() => { setShowMenu(false); onNavigate('new-entry'); }}>
-              <i className="ti ti-edit" style={{ fontSize: 18, color: '#4A5E50' }} /> Write a moment
-            </button>
-            <div style={{ height: 1, background: '#CCDAC8' }} />
-            <button style={menuBtn} onClick={() => { setShowMenu(false); importRef.current?.click(); }}>
-              <i className="ti ti-photos" style={{ fontSize: 18, color: '#4A5E50' }} /> Import from Photos
-            </button>
-          </div>
-        </div>
-      )}
-      <input
-        ref={importRef}
-        type="file"
-        accept="image/*"
-        multiple
-        style={{ display: 'none' }}
-        onChange={e => { const files = Array.from(e.target.files); e.target.value = ''; if (files.length) onImportFiles(files); }}
-      />
       <div className="nav-frame">
         <div className="nav-bar">
           {tabs.map(tab => (
@@ -1285,7 +1164,7 @@ function NavBar({ active, onNavigate, onImportFiles }) {
             </button>
           ))}
           <div className="nv-add-wrap">
-            <button className="nv-add" onClick={() => setShowMenu(m => !m)}><i className="ti ti-plus" /></button>
+            <button className="nv-add" onClick={() => onNavigate('new-entry')}><i className="ti ti-plus" /></button>
           </div>
           {tabsRight.map(tab => (
             <button key={tab.id} className="nv-tab" style={tabStyle(tab)} onClick={() => onNavigate(tab.id)}>
@@ -1656,8 +1535,6 @@ export default function App() {
   const [activeEntry, setActiveEntry] = useState(null);
   const [profileKidId, setProfileKidId] = useState(localMode ? localData.kids[0]?.id ?? null : null);
   const [celebration, setCelebration] = useState(null);
-  const [importPhotos, setImportPhotos] = useState([]);
-  const [importProcessing, setImportProcessing] = useState(false);
 
   // Auth listener
   useEffect(() => {
@@ -1717,10 +1594,53 @@ export default function App() {
     setScreen('entry-detail');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date }) {
+  function editEntry(entry) {
+    setActiveEntry(entry);
+    setScreen('edit-entry');
+  }
+
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId }) {
     const primaryKid = kids.find(k => k.id === kidIds[0]);
     const { years, months } = exactAge(primaryKid.birthdate, date);
     const ageMonths = years * 12 + months;
+
+    // ── UPDATE existing entry ──
+    if (entryId) {
+      if (localMode || !supabase || !session) {
+        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media } : e));
+        setScreen('home');
+        return;
+      }
+      await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths }).eq('id', entryId);
+
+      // Delete existing media rows, then re-insert (handles removals + new uploads)
+      await supabase.from('entry_media').delete().eq('entry_id', entryId);
+      const finalMedia = [];
+      for (let i = 0; i < media.length; i++) {
+        const fileObj = fileObjects?.[i];
+        let url = media[i].url;
+        if (fileObj) {
+          try {
+            const ext = fileObj.type.startsWith('video') ? 'mp4' : 'jpg';
+            const path = `${session.user.id}/${entryId}-edit${Date.now()}-${i}.${ext}`;
+            const { error } = await supabase.storage.from('media').upload(path, fileObj);
+            if (!error) {
+              const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
+              url = publicUrl;
+            }
+          } catch {}
+        }
+        finalMedia.push({ url, type: media[i].type });
+      }
+      if (finalMedia.length > 0) {
+        await supabase.from('entry_media').insert(finalMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type })));
+      }
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia } : e));
+      setScreen('home');
+      return;
+    }
+
+    // ── CREATE new entry ──
     const palette = PALETTES[Math.floor(Math.random() * PALETTES.length)];
 
     if (localMode || !supabase || !session) {
@@ -1739,7 +1659,7 @@ export default function App() {
       if (milestone) {
         setCelebration({ kid: primaryKid, milestoneType: milestone });
       } else {
-        setScreen('journal');
+        setScreen('home');
       }
       return;
     }
@@ -1786,7 +1706,7 @@ export default function App() {
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone });
     } else {
-      setScreen('journal');
+      setScreen('home');
     }
   }
 
@@ -1835,89 +1755,6 @@ export default function App() {
       setKids(data.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent, avatar: k.avatar_url })));
       setProfileKidId(data[0]?.id ?? null);
     }
-  }
-
-  async function handleImportFiles(files) {
-    setImportProcessing(true);
-    setImportPhotos([]);
-    setScreen('import-review');
-    const defaultKidId = kids[0]?.id ?? null;
-    const processed = await Promise.all(
-      files.filter(f => f.type.startsWith('image')).map(async (file, i) => {
-        const url = URL.createObjectURL(file);
-        let date = TODAY;
-        let dateFromExif = false;
-        try {
-          const tags = await exifr.parse(file, ['DateTimeOriginal']);
-          if (tags?.DateTimeOriginal) {
-            date = new Date(tags.DateTimeOriginal).toISOString().slice(0, 10);
-            dateFromExif = true;
-          }
-        } catch {}
-        return { id: `${i}_${Date.now()}`, url, file, date, dateFromExif, kidId: defaultKidId };
-      })
-    );
-    setImportPhotos(processed.sort((a, b) => new Date(b.date) - new Date(a.date)));
-    setImportProcessing(false);
-  }
-
-  async function handleBulkImport(photos) {
-    if (localMode || !supabase || !session) {
-      const newEntries = photos.map((photo, idx) => {
-        const kid = kids.find(k => k.id === photo.kidId);
-        const { years, months } = exactAge(kid.birthdate, photo.date);
-        return {
-          id: Date.now() + idx,
-          kids: [photo.kidId],
-          date: photo.date,
-          text: '',
-          mood: 'Joyful',
-          milestone: null,
-          ageMonths: years * 12 + months,
-          palette: PALETTES[Math.floor(Math.random() * PALETTES.length)],
-          media: [{ url: photo.url, type: 'image' }],
-        };
-      });
-      setEntries(prev => [...newEntries, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
-      setImportPhotos([]);
-      setScreen('journal');
-      return;
-    }
-    const userId = session.user.id;
-    const newEntries = [];
-    for (const photo of photos) {
-      const kid = kids.find(k => k.id === photo.kidId);
-      const { years, months } = exactAge(kid.birthdate, photo.date);
-      const palette = PALETTES[Math.floor(Math.random() * PALETTES.length)];
-      const { data: entry } = await supabase.from('entries').insert({
-        user_id: userId,
-        kid_ids: [photo.kidId],
-        text: '',
-        mood: 'Joyful',
-        milestone: null,
-        date: photo.date,
-        age_months: years * 12 + months,
-        palette,
-      }).select().single();
-      if (entry) {
-        let mediaUrl = photo.url;
-        if (photo.file) {
-          try {
-            const path = `${userId}/${entry.id}-0.jpg`;
-            const { error } = await supabase.storage.from('media').upload(path, photo.file);
-            if (!error) {
-              const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
-              mediaUrl = publicUrl;
-              await supabase.from('entry_media').insert({ entry_id: entry.id, url: mediaUrl, type: 'image' });
-            }
-          } catch {}
-        }
-        newEntries.push({ id: entry.id, kids: [photo.kidId], date: photo.date, text: '', mood: 'Joyful', milestone: null, ageMonths: years * 12 + months, palette, media: [{ url: mediaUrl, type: 'image' }] });
-      }
-    }
-    setEntries(prev => [...newEntries, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
-    setImportPhotos([]);
-    setScreen('journal');
   }
 
   if (authLoading || dataLoading) {
@@ -1976,11 +1813,21 @@ export default function App() {
           entry={activeEntry}
           kid={kids.find(k => k.id === activeEntry.kids[0])}
           onBack={() => setScreen('home')}
+          onEdit={editEntry}
         />
       )}
 
       {screen === 'new-entry' && (
         <NewEntryScreen kids={kids} onCancel={() => setScreen('home')} onSave={handleSaveEntry} />
+      )}
+
+      {screen === 'edit-entry' && activeEntry && (
+        <NewEntryScreen
+          kids={kids}
+          existingEntry={activeEntry}
+          onCancel={() => setScreen('entry-detail')}
+          onSave={handleSaveEntry}
+        />
       )}
 
       {screen === 'recap' && (
@@ -2029,20 +1876,10 @@ export default function App() {
         />
       )}
 
-      {screen === 'import-review' && (
-        <ImportReviewScreen
-          initialPhotos={importPhotos}
-          processing={importProcessing}
-          kids={kids}
-          onBack={() => setScreen('home')}
-          onImport={handleBulkImport}
-        />
+      {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'reel' && screen !== 'profile' && (
+        <NavBar active={screen} onNavigate={setScreen} />
       )}
-
-      {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'reel' && screen !== 'profile' && (
-        <NavBar active={screen} onNavigate={setScreen} onImportFiles={handleImportFiles} />
-      )}
-      {screen === 'profile' && <NavBar active="home" onNavigate={setScreen} onImportFiles={handleImportFiles} />}
+      {screen === 'profile' && <NavBar active="home" onNavigate={setScreen} />}
 
       {celebration && (
         <CelebrationOverlay

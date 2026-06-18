@@ -7,9 +7,13 @@
   border-radius: 28px;
   overflow: hidden;
   min-height: 720px;
+  height: 100%;
   display: flex;
   flex-direction: column;
   box-shadow: 0 16px 56px rgba(44,56,40,0.24);
+}
+@media (max-width: 480px) {
+  .app-root { border-radius: 0; box-shadow: none; min-height: unset; }
 }
 
 .screen { display: flex; flex-direction: column; flex: 1; min-height: 0; }
@@ -46,7 +50,7 @@
 
 .input-field {
   width: 100%; border: 1px solid #CCDAC8; border-radius: 10px;
-  padding: 12px 14px; font-size: 15px; outline: none;
+  padding: 12px 14px; font-size: 16px; outline: none;
   background: #fff; color: #2C3828; font-family: 'Inter', sans-serif;
 }
 textarea.input-field { resize: none; min-height: 120px; line-height: 1.7; font-family: 'Source Serif 4', serif; font-size: 16px; }
