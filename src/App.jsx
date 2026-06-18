@@ -1882,10 +1882,17 @@ export default function App() {
         setMyDisplayName(myMembership.display_name);
       }
 
-      const [{ data: kidsData }, { data: entriesData }] = await Promise.all([
+      const [{ data: kidsData, error: kidsError }, { data: entriesData }] = await Promise.all([
         supabase.from('kids').select('*').order('created_at'),
         supabase.from('entries').select('*, entry_media(*)').order('date', { ascending: false }),
       ]);
+
+      // Bad/expired session — sign out so the login screen appears
+      if (kidsError && !kidsData) {
+        await supabase.auth.signOut();
+        setDataLoading(false);
+        return;
+      }
 
       // Auto-migrate existing user who has kids but no family yet
       if (!currentFamilyId && kidsData && kidsData.length > 0) {
