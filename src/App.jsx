@@ -94,7 +94,7 @@ function LetterCard({ entry, kid, allKids, featured, onClick }) {
   return (
     <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
       {entry.media && entry.media.length > 0 && (
-        <div style={{ height: featured ? 200 : 150, backgroundImage: `url('${entry.media[0].url}')`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+        <div style={{ height: featured ? 220 : 160, backgroundImage: `url('${entry.media[0].url}')`, backgroundSize: 'cover', backgroundPosition: 'top center' }} />
       )}
       <div style={{ padding: '16px 18px 14px' }}>
         <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#9AA89C', margin: '0 0 7px' }}>
@@ -129,7 +129,7 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick }) {
       </div>
       <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
         {entry.media && entry.media.length > 0 && (
-          <div style={{ height: 230, backgroundImage: `url('${entry.media[0].url}')`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+          <div style={{ height: 260, backgroundImage: `url('${entry.media[0].url}')`, backgroundSize: 'cover', backgroundPosition: 'top center' }} />
         )}
         <div style={{ padding: '20px 20px 18px' }}>
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: '#9AA89C', margin: '0 0 10px' }}>
