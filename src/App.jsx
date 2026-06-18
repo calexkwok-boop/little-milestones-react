@@ -1,13 +1,32 @@
 import { useState, useRef, useEffect } from 'react';
 import './App.css';
 import exifr from 'exifr';
-import { supabase } from './supabase.js';
+import { supabase, supabaseConfigured } from './supabase.js';
 import {
+  KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY,
   ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle,
 } from './constants.js';
 
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
+const LOCAL_STORAGE_KEY = 'patina-local-data';
+
+function loadLocalData() {
+  if (typeof window === 'undefined') {
+    return { kids: KIDS_INITIAL, entries: ENTRIES_INITIAL };
+  }
+  try {
+    const raw = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!raw) return { kids: KIDS_INITIAL, entries: ENTRIES_INITIAL };
+    const parsed = JSON.parse(raw);
+    return {
+      kids: Array.isArray(parsed.kids) ? parsed.kids : KIDS_INITIAL,
+      entries: Array.isArray(parsed.entries) ? parsed.entries : ENTRIES_INITIAL,
+    };
+  } catch {
+    return { kids: KIDS_INITIAL, entries: ENTRIES_INITIAL };
+  }
+}
 
 // ─── Shared bits ─────────────────────────────────────────────────────────
 
@@ -1625,21 +1644,27 @@ function OnboardingScreen({ onDone }) {
 // ─── Root App ──────────────────────────────────────────────────────────────
 
 export default function App() {
+  const localMode = !supabaseConfigured;
+  const localData = localMode ? loadLocalData() : null;
   const [session, setSession] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [authLoading, setAuthLoading] = useState(!localMode);
   const [dataLoading, setDataLoading] = useState(false);
-  const [kids, setKids] = useState([]);
-  const [entries, setEntries] = useState([]);
+  const [kids, setKids] = useState(localMode ? localData.kids : []);
+  const [entries, setEntries] = useState(localMode ? localData.entries : []);
   const [screen, setScreen] = useState('home');
   const [kidFilter, setKidFilter] = useState(null);
   const [activeEntry, setActiveEntry] = useState(null);
-  const [profileKidId, setProfileKidId] = useState(null);
+  const [profileKidId, setProfileKidId] = useState(localMode ? localData.kids[0]?.id ?? null : null);
   const [celebration, setCelebration] = useState(null);
   const [importPhotos, setImportPhotos] = useState([]);
   const [importProcessing, setImportProcessing] = useState(false);
 
   // Auth listener
   useEffect(() => {
+    if (localMode || !supabase) {
+      setAuthLoading(false);
+      return undefined;
+    }
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
@@ -1649,11 +1674,16 @@ export default function App() {
       if (!session) { setKids([]); setEntries([]); }
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [localMode]);
+
+  useEffect(() => {
+    if (!localMode || typeof window === 'undefined') return;
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ kids, entries }));
+  }, [entries, kids, localMode]);
 
   // Load kids and entries after sign-in
   useEffect(() => {
-    if (!session) return;
+    if (localMode || !session || !supabase) return;
     setDataLoading(true);
     async function loadData() {
       const [{ data: kidsData }, { data: entriesData }] = await Promise.all([
@@ -1692,6 +1722,27 @@ export default function App() {
     const { years, months } = exactAge(primaryKid.birthdate, date);
     const ageMonths = years * 12 + months;
     const palette = PALETTES[Math.floor(Math.random() * PALETTES.length)];
+
+    if (localMode || !supabase || !session) {
+      const newEntry = {
+        id: Date.now(),
+        kids: kidIds,
+        date,
+        text: text || '',
+        mood,
+        milestone,
+        ageMonths,
+        palette,
+        media: media.map(item => ({ url: item.url, type: item.type })),
+      };
+      setEntries(prev => [newEntry, ...prev]);
+      if (milestone) {
+        setCelebration({ kid: primaryKid, milestoneType: milestone });
+      } else {
+        setScreen('journal');
+      }
+      return;
+    }
 
     const { data: entry, error } = await supabase.from('entries').insert({
       user_id: session.user.id,
@@ -1742,6 +1793,7 @@ export default function App() {
   async function handleAvatarUpload(kidId, file) {
     const localUrl = URL.createObjectURL(file);
     setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: localUrl } : k));
+    if (localMode || !supabase || !session) return;
     try {
       const path = `${session.user.id}/avatar-${kidId}.jpg`;
       const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true });
@@ -1759,6 +1811,16 @@ export default function App() {
   }
 
   async function handleOnboardingDone(newKids) {
+    if (localMode || !supabase || !session) {
+      const normalizedKids = newKids.map((kid, i) => ({
+        ...kid,
+        id: kid.id ?? Date.now() + i,
+        accent: kid.accent || KID_ACCENTS[i % KID_ACCENTS.length],
+      }));
+      setKids(normalizedKids);
+      setProfileKidId(normalizedKids[0]?.id ?? null);
+      return;
+    }
     const userId = session.user.id;
     const { data } = await supabase.from('kids').insert(
       newKids.map((k, i) => ({
@@ -1800,6 +1862,27 @@ export default function App() {
   }
 
   async function handleBulkImport(photos) {
+    if (localMode || !supabase || !session) {
+      const newEntries = photos.map((photo, idx) => {
+        const kid = kids.find(k => k.id === photo.kidId);
+        const { years, months } = exactAge(kid.birthdate, photo.date);
+        return {
+          id: Date.now() + idx,
+          kids: [photo.kidId],
+          date: photo.date,
+          text: '',
+          mood: 'Joyful',
+          milestone: null,
+          ageMonths: years * 12 + months,
+          palette: PALETTES[Math.floor(Math.random() * PALETTES.length)],
+          media: [{ url: photo.url, type: 'image' }],
+        };
+      });
+      setEntries(prev => [...newEntries, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date)));
+      setImportPhotos([]);
+      setScreen('journal');
+      return;
+    }
     const userId = session.user.id;
     const newEntries = [];
     for (const photo of photos) {
@@ -1845,7 +1928,7 @@ export default function App() {
     );
   }
 
-  if (!session) {
+  if (!session && !localMode) {
     return (
       <div className="app-root">
         <AuthScreen />
@@ -1930,7 +2013,19 @@ export default function App() {
           setSelectedKidId={setProfileKidId}
           onBack={() => setScreen('home')}
           onAvatarUpload={handleAvatarUpload}
-          onSignOut={() => supabase.auth.signOut()}
+          onSignOut={() => {
+            if (localMode || !supabase) {
+              setKids([]);
+              setEntries([]);
+              setProfileKidId(null);
+              setScreen('home');
+              if (typeof window !== 'undefined') {
+                window.localStorage.removeItem(LOCAL_STORAGE_KEY);
+              }
+              return;
+            }
+            supabase.auth.signOut();
+          }}
         />
       )}
 
