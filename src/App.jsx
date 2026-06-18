@@ -85,7 +85,62 @@ function buildSalutation(entry, allKids) {
   return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
 }
 
-function LetterCard({ entry, kid, allKids, featured, onClick }) {
+// ─── Crop modal ──────────────────────────────────────────────────────────────
+
+function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
+  const scrollRef = useRef(null);
+  const imgRef = useRef(null);
+
+  function scrollToCropY(y) {
+    const img = imgRef.current;
+    const container = scrollRef.current;
+    if (!img || !container) return;
+    const scale = container.offsetWidth / img.naturalWidth;
+    const scaledH = img.naturalHeight * scale;
+    const extra = scaledH - cardHeight;
+    if (extra > 0) container.scrollTop = (y / 100) * extra;
+  }
+
+  function handleLoad() {
+    scrollToCropY(cropY);
+  }
+
+  function handleSave() {
+    const img = imgRef.current;
+    const container = scrollRef.current;
+    if (!img || !container) return onSave(cropY);
+    const scale = container.offsetWidth / img.naturalWidth;
+    const scaledH = img.naturalHeight * scale;
+    const extra = scaledH - cardHeight;
+    const newY = extra > 0 ? Math.round((container.scrollTop / extra) * 100) : 50;
+    onSave(Math.min(100, Math.max(0, newY)));
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <p style={{ color: 'rgba(255,255,255,0.6)', textAlign: 'center', fontSize: 13, margin: '0 0 14px', fontFamily: 'Inter, sans-serif' }}>
+        Scroll to reposition
+      </p>
+      <div
+        ref={scrollRef}
+        style={{ height: cardHeight, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', margin: '0 0' }}
+      >
+        <img ref={imgRef} src={url} style={{ width: '100%', display: 'block' }} onLoad={handleLoad} alt="" />
+      </div>
+      <div style={{ display: 'flex', gap: 12, padding: '20px 24px 44px' }}>
+        <button onClick={onClose} style={{ flex: 1, padding: '13px', border: '1px solid rgba(255,255,255,0.25)', background: 'none', color: '#fff', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          Cancel
+        </button>
+        <button onClick={handleSave} style={{ flex: 1, padding: '13px', background: '#4A5E50', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+          Done
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCropEdit }) {
+  const cardH = featured ? 200 : 150;
   const preview = entry.text.length > (featured ? 160 : 110)
     ? entry.text.slice(0, featured ? 160 : 110) + '…'
     : entry.text;
@@ -94,15 +149,28 @@ function LetterCard({ entry, kid, allKids, featured, onClick }) {
   return (
     <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
       {entry.media && entry.media.length > 0 && (
-        <div style={{ height: featured ? 220 : 160, backgroundImage: `url('${entry.media[0].url}')`, backgroundSize: 'cover', backgroundPosition: 'top center' }} />
+        <div style={{ position: 'relative', height: cardH, overflow: 'hidden' }}>
+          <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+          <button
+            onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH); }}
+            style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', borderRadius: 8, padding: '5px 9px', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Inter, sans-serif', fontWeight: 500 }}
+          >
+            <i className="ti ti-arrows-move" style={{ fontSize: 13 }} /> Reposition
+          </button>
+        </div>
       )}
       <div style={{ padding: '16px 18px 14px' }}>
         <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#9AA89C', margin: '0 0 7px' }}>
           Dear {allKids ? buildSalutation(entry, allKids) : kid.name},
         </p>
         {preview && (
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 16 : 14, color: '#2C3828', margin: '0 0 14px', lineHeight: 1.65 }}>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 16 : 14, color: '#2C3828', margin: '0 0 8px', lineHeight: 1.65 }}>
             {preview}
+          </p>
+        )}
+        {entry.signedAs && (
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#9AA89C', margin: '0 0 10px' }}>
+            — {entry.signedAs}
           </p>
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -116,7 +184,8 @@ function LetterCard({ entry, kid, allKids, featured, onClick }) {
   );
 }
 
-function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick }) {
+function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onCropEdit }) {
+  const cardH = 250;
   const preview = entry.text.length > 200 ? entry.text.slice(0, 200) + '…' : entry.text;
   const yearLabel = yearsAgo === 1 ? 'One year ago today' : `${yearsAgo} years ago today`;
 
@@ -129,7 +198,15 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick }) {
       </div>
       <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
         {entry.media && entry.media.length > 0 && (
-          <div style={{ height: 260, backgroundImage: `url('${entry.media[0].url}')`, backgroundSize: 'cover', backgroundPosition: 'top center' }} />
+          <div style={{ position: 'relative', height: cardH, overflow: 'hidden' }}>
+            <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+            <button
+              onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH); }}
+              style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', borderRadius: 8, padding: '5px 9px', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Inter, sans-serif', fontWeight: 500 }}
+            >
+              <i className="ti ti-arrows-move" style={{ fontSize: 13 }} /> Reposition
+            </button>
+          </div>
         )}
         <div style={{ padding: '20px 20px 18px' }}>
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: '#9AA89C', margin: '0 0 10px' }}>
@@ -166,6 +243,24 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   const todayMMDD = TODAY.slice(5);
   const todayYear = parseInt(TODAY.slice(0, 4));
   const todayLabel = new Date(TODAY + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  const [cropPositions, setCropPositions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('patina-crop-positions') || '{}'); } catch { return {}; }
+  });
+  const [cropModal, setCropModal] = useState(null); // { entryId, url, cardH }
+
+  function openCropModal(entryId, cardH) {
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry?.media?.[0]?.url) return;
+    setCropModal({ entryId, url: entry.media[0].url, cardH });
+  }
+
+  function saveCropY(y) {
+    const next = { ...cropPositions, [cropModal.entryId]: y };
+    setCropPositions(next);
+    try { localStorage.setItem('patina-crop-positions', JSON.stringify(next)); } catch {}
+    setCropModal(null);
+  }
 
   const onThisDay = entries
     .filter(e => e.date.slice(5) === todayMMDD && parseInt(e.date.slice(0, 4)) < todayYear)
@@ -230,7 +325,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
             const entry = onThisDay[0];
             const kid = kids.find(k => k.id === entry.kids[0]);
             const yearsAgo = todayYear - parseInt(entry.date.slice(0, 4));
-            return <OnThisDayCard entry={entry} kid={kid} allKids={kids} yearsAgo={yearsAgo} onClick={() => onOpenEntry(entry)} />;
+            return <OnThisDayCard entry={entry} kid={kid} allKids={kids} yearsAgo={yearsAgo} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />;
           })()}
 
           {recent.length > 0 && (
@@ -238,7 +333,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               <SectionDivider label="Recent letters" />
               {recent.map((entry, idx) => {
                 const kid = kids.find(k => k.id === entry.kids[0]);
-                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={idx === 0} onClick={() => onOpenEntry(entry)} />;
+                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={idx === 0} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />;
               })}
               {entries.length > 4 && (
                 <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#7A8C78', fontFamily: "'Inter', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
@@ -262,6 +357,15 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
 
         </div>
       </div>
+      {cropModal && (
+        <CropModal
+          url={cropModal.url}
+          cropY={cropPositions[cropModal.entryId] ?? 50}
+          cardHeight={cropModal.cardH}
+          onSave={saveCropY}
+          onClose={() => setCropModal(null)}
+        />
+      )}
     </div>
   );
 }
@@ -404,16 +508,23 @@ function EntryDetailScreen({ entry, kid, onBack, onEdit }) {
             <div>
               <p style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>{kid.name}</p>
               <p style={{ fontSize: 12, color: '#9AA89C', margin: '2px 0 0' }}>
-                {exactAgeLabel(kid.birthdate, entry.date)} old · {new Date(entry.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                {exactAgeLabel(kid.birthdate, entry.date)} old · {new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </p>
             </div>
           </div>
           <p style={{ fontSize: 17, color: '#2C3828', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: entry.text ? 'italic' : 'normal' }}>{entry.text}</p>
+          {entry.signedAs && (
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#9AA89C', margin: 0, textAlign: 'right' }}>
+              — {entry.signedAs}
+            </p>
+          )}
           <div style={{ height: 1, background: '#CCDAC8' }} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <span style={{ fontSize: 12, color: '#9AA89C' }}>Feeling</span>
-            <span className="chip selected" style={{ cursor: 'default' }}>{entry.mood}</span>
-          </div>
+          {entry.mood && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ fontSize: 12, color: '#9AA89C' }}>Feeling</span>
+              <span className="chip selected" style={{ cursor: 'default' }}>{entry.mood}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -422,7 +533,7 @@ function EntryDetailScreen({ entry, kid, onBack, onEdit }) {
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, onCancel, onSave, existingEntry }) {
+function NewEntryScreen({ kids, onCancel, onSave, existingEntry, signedDefault }) {
   const [selectedKids, setSelectedKids] = useState(
     existingEntry ? existingEntry.kids : (kids.length === 1 ? [kids[0].id] : [])
   );
@@ -432,6 +543,7 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry }) {
   const [media, setMedia] = useState(existingEntry?.media || []);
   const [fileObjects, setFileObjects] = useState(existingEntry?.media?.map(() => null) || []);
   const [saving, setSaving] = useState(false);
+  const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? signedDefault ?? '');
   const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
   const [showExtras, setShowExtras] = useState(!!(existingEntry?.mood || existingEntry?.milestone));
@@ -497,12 +609,13 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry }) {
     await onSave({
       kids: selectedKids,
       text: text.trim(),
-      mood: existingEntry ? (mood || null) : (mood || 'Joyful'),
+      mood: mood || null,
       milestone: milestoneType || null,
       media,
       fileObjects,
       date: entryDate,
       entryId: existingEntry?.id,
+      signedAs: signedAs.trim() || null,
     });
     setSaving(false);
   }
@@ -513,8 +626,34 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry }) {
     <div className="screen" style={{ background: '#F8FAF6', position: 'relative' }}>
 
       {/* Top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px', flexShrink: 0 }}>
-        <button className="icon-btn" onClick={onCancel}><i className="ti ti-x" /></button>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px', flexShrink: 0, position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button className="icon-btn" onClick={onCancel}><i className="ti ti-x" /></button>
+          <div style={{ position: 'relative' }}>
+            {showMediaMenu && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setShowMediaMenu(false)} />
+                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: '#fff', border: '1px solid #CCDAC8', borderRadius: 14, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', minWidth: 210, zIndex: 10 }}>
+                  <button onClick={() => { cameraInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: '#2C3828', fontFamily: "'Inter', sans-serif", fontWeight: 500 }}>
+                    <i className="ti ti-camera" style={{ fontSize: 17, color: '#4A5E50' }} />
+                    Take a photo
+                  </button>
+                  <div style={{ height: 1, background: '#CCDAC8' }} />
+                  <button onClick={() => { uploadInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: '#2C3828', fontFamily: "'Inter', sans-serif", fontWeight: 500 }}>
+                    <i className="ti ti-photo" style={{ fontSize: 17, color: '#4A5E50' }} />
+                    Upload from library
+                  </button>
+                </div>
+              </>
+            )}
+            <button onClick={() => setShowMediaMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showMediaMenu ? '#4A5E50' : '#9AA89C', fontSize: 20, borderRadius: 10 }}>
+              <i className="ti ti-camera" />
+            </button>
+          </div>
+          <button onClick={() => setShowExtras(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showExtras ? '#4A5E50' : '#9AA89C', fontSize: 20, borderRadius: 10 }}>
+            <i className="ti ti-dots" />
+          </button>
+        </div>
         <button
           className="btn btn-primary"
           style={{ padding: '9px 22px', fontSize: 14, borderRadius: 10, opacity: canSave && !saving ? 1 : 0.4 }}
@@ -523,6 +662,8 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry }) {
         >
           {saving ? 'Saving…' : existingEntry ? 'Update' : 'Save'}
         </button>
+        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFileChange} />
+        <input ref={uploadInputRef} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
       </div>
 
       {/* Letter body */}
@@ -563,6 +704,19 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry }) {
             minHeight: 260, padding: 0,
           }}
         />
+
+        {/* Sign-off */}
+        {signedDefault && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 16 }}>
+            <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#9AA89C' }}>—</span>
+            <input
+              value={signedAs}
+              onChange={e => setSignedAs(e.target.value)}
+              placeholder={signedDefault}
+              style={{ border: 'none', outline: 'none', background: 'transparent', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#4A5E50', width: '100%', padding: 0 }}
+            />
+          </div>
+        )}
 
         {/* Photo strip */}
         {media.length > 0 && (
@@ -644,34 +798,6 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry }) {
 
           </div>
         )}
-      </div>
-
-      {/* Bottom toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 16px 24px', borderTop: '1px solid #D4E4D0', flexShrink: 0, background: '#F8FAF6', position: 'relative' }}>
-        {showMediaMenu && (
-          <>
-            <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setShowMediaMenu(false)} />
-            <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 16, background: '#fff', border: '1px solid #CCDAC8', borderRadius: 14, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', minWidth: 210, zIndex: 10 }}>
-              <button onClick={() => { cameraInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: '#2C3828', fontFamily: "'Inter', sans-serif", fontWeight: 500 }}>
-                <i className="ti ti-camera" style={{ fontSize: 17, color: '#4A5E50' }} />
-                Take a photo
-              </button>
-              <div style={{ height: 1, background: '#CCDAC8' }} />
-              <button onClick={() => { uploadInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: '#2C3828', fontFamily: "'Inter', sans-serif", fontWeight: 500 }}>
-                <i className="ti ti-photo" style={{ fontSize: 17, color: '#4A5E50' }} />
-                Upload from library
-              </button>
-            </div>
-          </>
-        )}
-        <button onClick={() => setShowMediaMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showMediaMenu ? '#4A5E50' : '#9AA89C', fontSize: 20, borderRadius: 10 }}>
-          <i className="ti ti-camera" />
-        </button>
-        <button onClick={() => setShowExtras(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showExtras ? '#4A5E50' : '#9AA89C', fontSize: 20, borderRadius: 10 }}>
-          <i className="ti ti-dots" />
-        </button>
-        <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFileChange} />
-        <input ref={uploadInputRef} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
       </div>
 
       {/* Date edit sheet */}
@@ -871,6 +997,14 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
   const [compareAge, setCompareAge] = useState(24);
   const ages = [12, 18, 24, 36, 48, 60, 72];
 
+  function matchesAgeBucket(entryAgeMonths) {
+    const currentIndex = ages.indexOf(compareAge);
+    if (currentIndex === -1) return false;
+    const nextAge = ages[currentIndex + 1];
+    if (nextAge == null) return entryAgeMonths >= compareAge;
+    return entryAgeMonths >= compareAge && entryAgeMonths < nextAge;
+  }
+
   return (
     <div className="screen">
       <div className="scroll-area">
@@ -897,7 +1031,7 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
             {kids.map(kid => {
-              const matches = entries.filter(e => e.kids.includes(kid.id) && Math.abs(e.ageMonths - compareAge) <= 3);
+              const matches = entries.filter(e => e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths));
               return (
                 <div key={kid.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1060,11 +1194,15 @@ function RecapReelScreen({ entries, kids, onClose }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack, onAvatarUpload, onSignOut }) {
+function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName }) {
   const kid = kids.find(k => k.id === selectedKidId);
   const kidEntries = entries.filter(e => e.kids.includes(selectedKidId));
   const milestoneCount = kidEntries.filter(e => e.milestone).length;
   const fileInputRef = useRef(null);
+  const [inviteCode, setInviteCode] = useState(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(myDisplayName);
 
   function handleFile(e) {
     const file = e.target.files[0];
@@ -1073,13 +1211,25 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
     e.target.value = '';
   }
 
+  async function handleInvite() {
+    setInviteLoading(true);
+    const code = await onInvite();
+    setInviteCode(code);
+    setInviteLoading(false);
+  }
+
+  function handleSaveName() {
+    if (nameInput.trim()) onUpdateDisplayName(nameInput.trim());
+    setEditingName(false);
+  }
+
   return (
     <div className="screen">
       <div className="scroll-area">
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>Manage kids</h2>
+            <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>Your family</h2>
             <div style={{ width: 36 }} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 22 }}>
@@ -1096,10 +1246,6 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
                 </p>
               </div>
             ))}
-            <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => alert('Add a new kid profile here — same flow as the existing two.')}>
-              <div className="avatar-upload-zone"><i className="ti ti-plus" /></div>
-              <p style={{ fontSize: 13, color: '#9AA89C', margin: '8px 0 0', fontWeight: 600 }}>Add kid</p>
-            </div>
           </div>
           <div style={{ textAlign: 'center' }}>
             <button className="btn btn-outline" style={{ width: 'auto', padding: '10px 22px', margin: '0 auto' }} onClick={() => fileInputRef.current?.click()}>
@@ -1113,7 +1259,7 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
               <div>
                 <p style={{ fontSize: 15, fontWeight: 700, color: '#4A5E50', margin: 0 }}>{kid.name}</p>
                 <p style={{ fontSize: 12, color: '#9AA89C', margin: '2px 0 0' }}>
-                  Born {new Date(kid.birthdate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  Born {(() => { const [y,m,d] = kid.birthdate.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); })()}
                 </p>
               </div>
             </div>
@@ -1128,8 +1274,129 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
               </div>
             </div>
           </div>
+
+          {/* Parents section */}
+          {familyMembers && familyMembers.length > 0 && (
+            <div style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 14, padding: 16 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 14px' }}>Parents</p>
+              {familyMembers.map(m => (
+                <div key={m.id || m.user_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#EEF2EA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <i className="ti ti-user" style={{ fontSize: 16, color: '#4A5E50' }} />
+                    </div>
+                    <span style={{ fontSize: 14, color: '#2C3828', fontWeight: 600 }}>{m.display_name}</span>
+                  </div>
+                  {m.user_id === undefined && myDisplayName === m.display_name && (
+                    <button onClick={() => { setNameInput(myDisplayName); setEditingName(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#9AA89C', padding: 0, fontFamily: "'Inter', sans-serif" }}>
+                      Edit
+                    </button>
+                  )}
+                </div>
+              ))}
+              {onInvite && familyMembers.length < 2 && (
+                inviteCode ? (
+                  <div style={{ marginTop: 14, padding: '12px 14px', background: '#EEF2EA', borderRadius: 12, textAlign: 'center' }}>
+                    <p style={{ fontSize: 11, color: '#7A8C78', margin: '0 0 6px', fontWeight: 600 }}>Share this code with your partner</p>
+                    <p style={{ fontSize: 26, fontWeight: 700, color: '#4A5E50', letterSpacing: 4, margin: '0 0 10px', fontFamily: "'Inter', sans-serif" }}>{inviteCode}</p>
+                    <button onClick={() => { navigator.clipboard?.writeText(inviteCode); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#9AA89C', fontFamily: "'Inter', sans-serif", fontWeight: 500 }}>
+                      <i className="ti ti-copy" style={{ fontSize: 13, marginRight: 4 }} />Copy code
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    className="btn btn-outline"
+                    style={{ width: '100%', marginTop: 14, fontSize: 13, padding: '10px 14px' }}
+                    onClick={handleInvite}
+                    disabled={inviteLoading}
+                  >
+                    <i className="ti ti-user-plus" />
+                    {inviteLoading ? 'Generating…' : 'Invite your partner'}
+                  </button>
+                )
+              )}
+            </div>
+          )}
+
+          {/* Edit display name sheet */}
+          {editingName && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, padding: '0 16px' }} onClick={() => setEditingName(false)}>
+              <div style={{ background: '#F2F4EC', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: '0 0 16px' }}>What do the kids call you?</p>
+                <input
+                  className="input-field"
+                  value={nameInput}
+                  onChange={e => setNameInput(e.target.value)}
+                  placeholder="Mom, Dad, Mama…"
+                  style={{ marginBottom: 16, fontSize: 18 }}
+                  autoFocus
+                />
+                <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleSaveName}>Save</button>
+              </div>
+            </div>
+          )}
+
           <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#9AA89C', fontFamily: "'Inter', sans-serif", padding: '8px 0', fontWeight: 600, alignSelf: 'center' }}>
             Sign out
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Join family screen ───────────────────────────────────────────────────
+
+function JoinFamilyScreen({ onJoin, onBack }) {
+  const [code, setCode] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleJoin() {
+    if (!code.trim() || !displayName.trim()) return;
+    setLoading(true);
+    setError('');
+    const result = await onJoin(code, displayName.trim());
+    if (result?.error) { setError(result.error); setLoading(false); }
+  }
+
+  return (
+    <div className="screen">
+      <div className="scroll-area">
+        <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560, justifyContent: 'center' }}>
+          <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 32px', display: 'flex', alignItems: 'center', gap: 6, color: '#9AA89C', fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", alignSelf: 'flex-start' }}>
+            <i className="ti ti-arrow-left" style={{ fontSize: 16 }} /> Back
+          </button>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: '#2C3828', margin: '0 0 10px', lineHeight: 1.2 }}>
+            Join a family journal
+          </h2>
+          <p style={{ fontSize: 14, color: '#7A8C78', lineHeight: 1.7, margin: '0 0 32px' }}>
+            Enter the invite code your partner shared with you, then tell us what the kids call you.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+            <input
+              className="input-field"
+              placeholder="Invite code (e.g. XK7P2M)"
+              value={code}
+              onChange={e => setCode(e.target.value.toUpperCase())}
+              style={{ fontSize: 22, letterSpacing: 4, textAlign: 'center', fontWeight: 700 }}
+            />
+            <input
+              className="input-field"
+              placeholder="What do the kids call you? (Mom, Dad…)"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+            />
+          </div>
+          {error && <p style={{ fontSize: 13, color: '#D4856A', marginBottom: 12, textAlign: 'center' }}>{error}</p>}
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%', opacity: code.trim() && displayName.trim() && !loading ? 1 : 0.4 }}
+            disabled={!code.trim() || !displayName.trim() || loading}
+            onClick={handleJoin}
+          >
+            {loading ? 'Joining…' : 'Join family'}
           </button>
         </div>
       </div>
@@ -1285,7 +1552,7 @@ function AuthScreen() {
 
 // ─── Onboarding ────────────────────────────────────────────────────────────
 
-function OnboardingScreen({ onDone }) {
+function OnboardingScreen({ onDone, onJoinFamily }) {
   const [step, setStep] = useState('welcome');
   const [doneKids, setDoneKids] = useState([]);
   const [name, setName] = useState('');
@@ -1296,6 +1563,7 @@ function OnboardingScreen({ onDone }) {
     ? `${bdYear}-${bdMonth}-${bdDay.padStart(2, '0')}`
     : '';
   const [avatar, setAvatar] = useState(null);
+  const [displayName, setDisplayName] = useState('');
   const fileInputRef = useRef(null);
 
   const kidIndex = doneKids.length;
@@ -1307,6 +1575,7 @@ function OnboardingScreen({ onDone }) {
     else if (step === 'birthdate') setStep('name');
     else if (step === 'photo') setStep('birthdate');
     else if (step === 'another') setStep('photo');
+    else if (step === 'yourname') setStep('another');
   }
 
   function handleFile(e) {
@@ -1327,11 +1596,16 @@ function OnboardingScreen({ onDone }) {
   }
 
   function handleFinish() {
-    onDone([...doneKids, {
+    setDoneKids(prev => [...prev, {
       id: kidIndex, name: name.trim(),
       accent: KID_ACCENTS[kidIndex % KID_ACCENTS.length],
       birthdate, avatar,
     }]);
+    setStep('yourname');
+  }
+
+  function handleReallyDone() {
+    onDone(doneKids, displayName.trim() || 'Parent');
   }
 
   return (
@@ -1354,9 +1628,17 @@ function OnboardingScreen({ onDone }) {
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: '#7A8C78', lineHeight: 1.8, margin: '0 0 52px' }}>
                 For all the things you wish they knew.
               </p>
-              <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('name')}>
+              <button className="btn btn-primary" style={{ width: '100%', marginBottom: 16 }} onClick={() => setStep('name')}>
                 Begin
               </button>
+              {onJoinFamily && (
+                <button
+                  onClick={onJoinFamily}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#9AA89C', fontFamily: "'Inter', sans-serif", fontWeight: 500 }}
+                >
+                  Joining your partner's family? Enter an invite code
+                </button>
+              )}
             </div>
           )}
 
@@ -1514,6 +1796,29 @@ function OnboardingScreen({ onDone }) {
             </div>
           )}
 
+          {step === 'yourname' && (
+            <div style={{ flex: 1 }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: '#2C3828', lineHeight: 1.25, margin: '0 0 12px' }}>
+                One last thing —
+              </h2>
+              <p style={{ fontSize: 15, color: '#7A8C78', lineHeight: 1.7, margin: '0 0 32px' }}>
+                What do the kids call you?
+              </p>
+              <input
+                className="input-field"
+                placeholder="Mom, Dad, Mama…"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleReallyDone()}
+                autoFocus
+                style={{ fontSize: 20, padding: '16px 18px', marginBottom: 24 }}
+              />
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleReallyDone}>
+                Start writing
+              </button>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
@@ -1535,6 +1840,10 @@ export default function App() {
   const [activeEntry, setActiveEntry] = useState(null);
   const [profileKidId, setProfileKidId] = useState(localMode ? localData.kids[0]?.id ?? null : null);
   const [celebration, setCelebration] = useState(null);
+  const [familyId, setFamilyId] = useState(null);
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [myDisplayName, setMyDisplayName] = useState('');
+  const [joiningFamily, setJoiningFamily] = useState(false);
 
   // Auth listener
   useEffect(() => {
@@ -1563,25 +1872,51 @@ export default function App() {
     if (localMode || !session || !supabase) return;
     setDataLoading(true);
     async function loadData() {
+      // Check family membership
+      const { data: myMembership } = await supabase
+        .from('family_members').select('*').eq('user_id', session.user.id).maybeSingle();
+
+      let currentFamilyId = myMembership?.family_id ?? null;
+      if (myMembership) {
+        setFamilyId(currentFamilyId);
+        setMyDisplayName(myMembership.display_name);
+      }
+
       const [{ data: kidsData }, { data: entriesData }] = await Promise.all([
         supabase.from('kids').select('*').order('created_at'),
         supabase.from('entries').select('*, entry_media(*)').order('date', { ascending: false }),
       ]);
+
+      // Auto-migrate existing user who has kids but no family yet
+      if (!currentFamilyId && kidsData && kidsData.length > 0) {
+        const { data: family } = await supabase.from('families').insert({}).select().single();
+        if (family) {
+          currentFamilyId = family.id;
+          setFamilyId(currentFamilyId);
+          const { data: mem } = await supabase.from('family_members').insert({
+            family_id: currentFamilyId, user_id: session.user.id, display_name: 'Parent',
+          }).select().single();
+          setMyDisplayName('Parent');
+          setFamilyMembers(mem ? [mem] : []);
+          await supabase.from('kids').update({ family_id: currentFamilyId }).eq('user_id', session.user.id);
+          await supabase.from('entries').update({ family_id: currentFamilyId }).eq('user_id', session.user.id);
+        }
+      } else if (currentFamilyId) {
+        const { data: membersData } = await supabase.from('family_members').select('*').eq('family_id', currentFamilyId);
+        if (membersData) setFamilyMembers(membersData);
+      }
+
       if (kidsData) {
         setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url })));
         setProfileKidId(kidsData[0]?.id ?? null);
       }
       if (entriesData) {
         setEntries(entriesData.map(e => ({
-          id: e.id,
-          kids: e.kid_ids,
-          date: e.date,
-          text: e.text || '',
-          mood: e.mood,
-          milestone: e.milestone,
-          ageMonths: e.age_months,
+          id: e.id, kids: e.kid_ids, date: e.date, text: e.text || '',
+          mood: e.mood, milestone: e.milestone, ageMonths: e.age_months,
           palette: e.palette || PALETTES[0],
           media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
+          signedAs: e.signed_as,
         })));
       }
       setDataLoading(false);
@@ -1599,7 +1934,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs }) {
     const primaryKid = kids.find(k => k.id === kidIds[0]);
     const { years, months } = exactAge(primaryKid.birthdate, date);
     const ageMonths = years * 12 + months;
@@ -1611,7 +1946,7 @@ export default function App() {
         setScreen('home');
         return;
       }
-      await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths }).eq('id', entryId);
+      await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null }).eq('id', entryId);
 
       // Delete existing media rows, then re-insert (handles removals + new uploads)
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
@@ -1635,7 +1970,7 @@ export default function App() {
       if (finalMedia.length > 0) {
         await supabase.from('entry_media').insert(finalMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type })));
       }
-      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia } : e));
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null } : e));
       setScreen('home');
       return;
     }
@@ -1666,6 +2001,9 @@ export default function App() {
 
     const { data: entry, error } = await supabase.from('entries').insert({
       user_id: session.user.id,
+      family_id: familyId,
+      author_id: session.user.id,
+      signed_as: signedAs || null,
       kid_ids: kidIds,
       text: text || '',
       mood,
@@ -1700,7 +2038,7 @@ export default function App() {
       await supabase.from('entry_media').insert(savedMedia.map(m => ({ entry_id: entry.id, url: m.url, type: m.type })));
     }
 
-    const newEntry = { id: entry.id, kids: kidIds, date, text: text || '', mood, milestone, ageMonths, palette, media: savedMedia };
+    const newEntry = { id: entry.id, kids: kidIds, date, text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null };
     setEntries(prev => [newEntry, ...prev]);
 
     if (milestone) {
@@ -1730,7 +2068,7 @@ export default function App() {
     setScreen('profile');
   }
 
-  async function handleOnboardingDone(newKids) {
+  async function handleOnboardingDone(newKids, displayName = 'Parent') {
     if (localMode || !supabase || !session) {
       const normalizedKids = newKids.map((kid, i) => ({
         ...kid,
@@ -1742,9 +2080,18 @@ export default function App() {
       return;
     }
     const userId = session.user.id;
+    const { data: family } = await supabase.from('families').insert({}).select().single();
+    const newFamilyId = family.id;
+    setFamilyId(newFamilyId);
+    const { data: mem } = await supabase.from('family_members').insert({
+      family_id: newFamilyId, user_id: userId, display_name: displayName,
+    }).select().single();
+    setMyDisplayName(displayName);
+    setFamilyMembers(mem ? [mem] : []);
     const { data } = await supabase.from('kids').insert(
       newKids.map((k, i) => ({
         user_id: userId,
+        family_id: newFamilyId,
         name: k.name,
         birthdate: k.birthdate,
         accent: k.accent || KID_ACCENTS[i % KID_ACCENTS.length],
@@ -1755,6 +2102,59 @@ export default function App() {
       setKids(data.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent, avatar: k.avatar_url })));
       setProfileKidId(data[0]?.id ?? null);
     }
+  }
+
+  async function handleJoinFamily(code, displayName) {
+    if (!supabase || !session) return { error: 'Not authenticated' };
+    const { data: invite } = await supabase
+      .from('family_invites').select('*')
+      .eq('token', code.toUpperCase().trim()).is('accepted_at', null).maybeSingle();
+    if (!invite) return { error: 'Invalid or expired code — check with your partner' };
+    const { error: joinError } = await supabase.from('family_members').insert({
+      family_id: invite.family_id, user_id: session.user.id, display_name: displayName,
+    });
+    if (joinError) return { error: 'Could not join — you may already be in this family' };
+    await supabase.from('family_invites').update({ accepted_at: new Date().toISOString() }).eq('id', invite.id);
+    setFamilyId(invite.family_id);
+    setMyDisplayName(displayName);
+    const [{ data: kidsData }, { data: entriesData }, { data: membersData }] = await Promise.all([
+      supabase.from('kids').select('*').order('created_at'),
+      supabase.from('entries').select('*, entry_media(*)').order('date', { ascending: false }),
+      supabase.from('family_members').select('*').eq('family_id', invite.family_id),
+    ]);
+    if (kidsData) {
+      setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url })));
+      setProfileKidId(kidsData[0]?.id ?? null);
+    }
+    if (entriesData) {
+      setEntries(entriesData.map(e => ({
+        id: e.id, kids: e.kid_ids, date: e.date, text: e.text || '',
+        mood: e.mood, milestone: e.milestone, ageMonths: e.age_months,
+        palette: e.palette || PALETTES[0],
+        media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
+        signedAs: e.signed_as,
+      })));
+    }
+    if (membersData) setFamilyMembers(membersData);
+    setScreen('home');
+    return { success: true };
+  }
+
+  async function handleInvitePartner() {
+    if (!familyId || !supabase || !session) return null;
+    const token = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const { error } = await supabase.from('family_invites').insert({
+      family_id: familyId, invited_by: session.user.id, token,
+    });
+    return error ? null : token;
+  }
+
+  async function handleUpdateDisplayName(name) {
+    setMyDisplayName(name);
+    setFamilyMembers(prev => prev.map(m => m.user_id === session?.user.id ? { ...m, display_name: name } : m));
+    if (!supabase || !session || !familyId) return;
+    await supabase.from('family_members').update({ display_name: name })
+      .eq('family_id', familyId).eq('user_id', session.user.id);
   }
 
   if (authLoading || dataLoading) {
@@ -1776,7 +2176,10 @@ export default function App() {
   if (kids.length === 0) {
     return (
       <div className="app-root">
-        <OnboardingScreen onDone={handleOnboardingDone} />
+        {joiningFamily
+          ? <JoinFamilyScreen onJoin={handleJoinFamily} onBack={() => setJoiningFamily(false)} />
+          : <OnboardingScreen onDone={handleOnboardingDone} onJoinFamily={() => setJoiningFamily(true)} />
+        }
       </div>
     );
   }
@@ -1818,7 +2221,7 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} onCancel={() => setScreen('home')} onSave={handleSaveEntry} />
+        <NewEntryScreen kids={kids} onCancel={() => setScreen('home')} onSave={handleSaveEntry} signedDefault={myDisplayName || undefined} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
@@ -1827,6 +2230,7 @@ export default function App() {
           existingEntry={activeEntry}
           onCancel={() => setScreen('entry-detail')}
           onSave={handleSaveEntry}
+          signedDefault={myDisplayName || undefined}
         />
       )}
 
@@ -1860,6 +2264,10 @@ export default function App() {
           setSelectedKidId={setProfileKidId}
           onBack={() => setScreen('home')}
           onAvatarUpload={handleAvatarUpload}
+          familyMembers={familyMembers}
+          myDisplayName={myDisplayName}
+          onInvite={handleInvitePartner}
+          onUpdateDisplayName={handleUpdateDisplayName}
           onSignOut={() => {
             if (localMode || !supabase) {
               setKids([]);

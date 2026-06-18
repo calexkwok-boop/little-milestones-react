@@ -21,7 +21,13 @@ export const PALETTES = [
 
 export const ENTRIES_INITIAL = [];
 
-export const TODAY = '2026-06-17';
+const _now = new Date();
+export const TODAY = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, '0')}-${String(_now.getDate()).padStart(2, '0')}`;
+
+function localDate(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
 
 export function ageLabel(months) {
   const y = Math.floor(months / 12), m = months % 12;
@@ -31,8 +37,8 @@ export function ageLabel(months) {
 }
 
 export function exactAge(birthdate, entryDate) {
-  const b = new Date(birthdate);
-  const e = new Date(entryDate);
+  const b = localDate(birthdate);
+  const e = localDate(entryDate);
   let years = e.getFullYear() - b.getFullYear();
   let months = e.getMonth() - b.getMonth();
   let days = e.getDate() - b.getDate();
