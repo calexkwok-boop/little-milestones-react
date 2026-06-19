@@ -546,7 +546,7 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry, signedDefault }
   const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? signedDefault ?? '');
   const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
-  const [showExtras, setShowExtras] = useState(!!(existingEntry?.mood || existingEntry?.milestone));
+  const [showExtras, setShowExtras] = useState(true);
   const [showKidPicker, setShowKidPicker] = useState(false);
   const [showMediaMenu, setShowMediaMenu] = useState(false);
   const [editingDate, setEditingDate] = useState(false);
@@ -994,12 +994,19 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
 // ─── Compare screen ──────────────────────────────────────────────────────
 
 function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
+  const [filterTab, setFilterTab] = useState('age');
   const [compareAge, setCompareAge] = useState(24);
-  const [searchQuery, setSearchQuery] = useState('');
   const [milestoneFilter, setMilestoneFilter] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const ages = [12, 18, 24, 36, 48, 60, 72];
   const isSearching = searchQuery.trim().length > 0;
-  const isMilestoneFiltering = !isSearching && milestoneFilter !== null;
+  const isMilestoneFiltering = !isSearching && filterTab === 'milestone' && milestoneFilter !== null;
+
+  function switchTab(tab) {
+    setFilterTab(tab);
+    setMilestoneFilter(null);
+    setSearchQuery('');
+  }
 
   function matchesAgeBucket(entryAgeMonths) {
     const currentIndex = ages.indexOf(compareAge);
@@ -1012,14 +1019,23 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
   function entryMatchesSearch(e) {
     const q = searchQuery.toLowerCase();
     const m = e.milestone ? milestoneInfo(e.milestone) : null;
-    return (
-      e.text.toLowerCase().includes(q) ||
-      (m && m.label.toLowerCase().includes(q))
-    );
+    return e.text.toLowerCase().includes(q) || (m && m.label.toLowerCase().includes(q));
   }
 
   const showMeta = isSearching || isMilestoneFiltering;
-  const emptyLabel = isSearching ? 'No matches' : isMilestoneFiltering ? 'None logged yet' : 'No moments yet at this age';
+  const emptyLabel = isSearching ? 'No matches'
+    : filterTab === 'milestone' && !milestoneFilter ? 'Pick a milestone above'
+    : isMilestoneFiltering ? 'None logged yet'
+    : 'No moments yet at this age';
+
+  const tabStyle = (tab) => ({
+    flex: 1, border: 'none', borderRadius: 8, padding: '8px 0',
+    fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    background: filterTab === tab ? '#fff' : 'transparent',
+    color: filterTab === tab ? '#4A5E50' : '#9AA89C',
+    boxShadow: filterTab === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+    transition: 'all 0.15s',
+  });
 
   return (
     <div className="screen">
@@ -1031,105 +1047,112 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
             <div style={{ width: 36 }} />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#fff', border: '1px solid #ECE5D6', borderRadius: 10, padding: '10px 14px' }}>
-            <i className="ti ti-search" style={{ color: '#9AA89C', fontSize: 16 }} />
-            <input
-              type="text"
-              placeholder="Search moments..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{ border: 'none', outline: 'none', flex: 1, fontSize: 14, background: 'transparent', color: '#4A5E50', fontFamily: 'Inter, sans-serif' }}
-            />
-            {isSearching && (
-              <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9AA89C', padding: 0, display: 'flex', alignItems: 'center' }}>
-                <i className="ti ti-x" style={{ fontSize: 14 }} />
-              </button>
-            )}
+          <div style={{ display: 'flex', background: '#E8EDE4', borderRadius: 10, padding: 3 }}>
+            <button style={tabStyle('age')} onClick={() => switchTab('age')}>By Age</button>
+            <button style={tabStyle('milestone')} onClick={() => switchTab('milestone')}>Milestones</button>
+            <button style={tabStyle('search')} onClick={() => switchTab('search')}>Search</button>
           </div>
 
-          {!isSearching && (
-            <>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: '#5C6B5E', marginBottom: 9 }}>Milestones</p>
-                <div className="scrollx">
-                  {MILESTONE_TYPES.filter(ms => ms.id !== 'custom').map(ms => {
-                    const active = milestoneFilter === ms.id;
-                    return (
-                      <div
-                        key={ms.id}
-                        className="kid-chip"
-                        style={{ padding: '7px 14px', ...(active ? { background: '#C8993E', borderColor: '#C8993E', color: '#fff' } : {}) }}
-                        onClick={() => setMilestoneFilter(active ? null : ms.id)}
-                      >
-                        <i className={`ti ${ms.icon}`} style={{ fontSize: 13 }} />
-                        {ms.label}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {!isMilestoneFiltering && (
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: '#5C6B5E', marginBottom: 9 }}>Pick an age</p>
-                  <div className="scrollx">
-                    {ages.map(age => (
-                      <div
-                        key={age}
-                        className={`kid-chip ${compareAge === age ? 'active' : ''}`}
-                        style={{ padding: '7px 14px', ...(compareAge === age ? { background: '#4A5E50' } : {}) }}
-                        onClick={() => setCompareAge(age)}
-                      >
-                        {ageLabel(age)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
+          {filterTab === 'search' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#fff', border: '1px solid #ECE5D6', borderRadius: 10, padding: '10px 14px' }}>
+              <i className="ti ti-search" style={{ color: '#9AA89C', fontSize: 16 }} />
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search moments..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ border: 'none', outline: 'none', flex: 1, fontSize: 14, background: 'transparent', color: '#4A5E50', fontFamily: 'Inter, sans-serif' }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9AA89C', padding: 0, display: 'flex', alignItems: 'center' }}>
+                  <i className="ti ti-x" style={{ fontSize: 14 }} />
+                </button>
               )}
-            </>
+            </div>
           )}
 
-          <div style={{ display: 'flex', gap: 12 }}>
-            {kids.map(kid => {
-              const matches = isSearching
-                ? entries.filter(e => e.kids.includes(kid.id) && entryMatchesSearch(e))
-                : isMilestoneFiltering
-                  ? entries.filter(e => e.kids.includes(kid.id) && e.milestone === milestoneFilter)
-                  : entries.filter(e => e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths));
-              return (
-                <div key={kid.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <KidThumb kid={kid} />
-                    <p style={{ fontSize: 14, fontWeight: 700, color: '#4A5E50', margin: 0 }}>{kid.name}</p>
-                  </div>
-                  {matches.length === 0 ? (
-                    <div style={{ background: '#fff', border: '1px dashed #D8CFBC', borderRadius: 12, padding: '24px 12px', textAlign: 'center' }}>
-                      <p style={{ fontSize: 12, color: '#9AA89C', margin: 0 }}>{emptyLabel}</p>
-                    </div>
-                  ) : matches.map(e => {
-                    const m = e.milestone ? milestoneInfo(e.milestone) : null;
-                    const ageStr = exactAgeLabel(kid.birthdate, e.date);
-                    const dateStr = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-                    return (
-                      <div key={e.id} style={{ borderRadius: 12, overflow: 'hidden' }} onClick={() => onOpenEntry(e)}>
-                        <div className="compare-photo" style={entryBgStyle(e)}>
-                          <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
-                          <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
-                            <p style={{ fontSize: 11, color: '#fff', margin: '0 0 2px', fontWeight: 700 }}>{ageStr}</p>
-                            {showMeta && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', margin: '0 0 2px' }}>{dateStr}</p>}
-                            {m && !isMilestoneFiltering && <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 600, opacity: 0.9 }}>{m.label}</p>}
-                          </div>
-                        </div>
-                        <p style={{ fontSize: 12, color: '#5C6B5E', lineHeight: 1.5, margin: '8px 2px 0' }}>
-                          {e.text.slice(0, 70)}{e.text.length > 70 ? '...' : ''}
-                        </p>
-                      </div>
-                    );
-                  })}
+          {filterTab === 'age' && (
+            <div className="scrollx">
+              {ages.map(age => (
+                <div
+                  key={age}
+                  className={`kid-chip ${compareAge === age ? 'active' : ''}`}
+                  style={{ padding: '7px 14px', ...(compareAge === age ? { background: '#4A5E50' } : {}) }}
+                  onClick={() => setCompareAge(age)}
+                >
+                  {ageLabel(age)}
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {filterTab === 'milestone' && (
+            <div className="scrollx">
+              {MILESTONE_TYPES.filter(ms => ms.id !== 'custom').map(ms => {
+                const active = milestoneFilter === ms.id;
+                return (
+                  <div
+                    key={ms.id}
+                    className="kid-chip"
+                    style={{ padding: '7px 14px', ...(active ? { background: '#C8993E', borderColor: '#C8993E', color: '#fff' } : {}) }}
+                    onClick={() => setMilestoneFilter(active ? null : ms.id)}
+                  >
+                    <i className={`ti ${ms.icon}`} style={{ fontSize: 13 }} />
+                    {ms.label}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {filterTab === 'milestone' && !milestoneFilter ? (
+            <div className="empty-state" style={{ padding: '32px 24px' }}>
+              <p style={{ fontSize: 13, color: '#9AA89C', margin: 0 }}>Pick a milestone above to compare</p>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 12 }}>
+              {kids.map(kid => {
+                const matches = isSearching
+                  ? entries.filter(e => e.kids.includes(kid.id) && entryMatchesSearch(e))
+                  : isMilestoneFiltering
+                    ? entries.filter(e => e.kids.includes(kid.id) && e.milestone === milestoneFilter)
+                    : entries.filter(e => e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths));
+                return (
+                  <div key={kid.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <KidThumb kid={kid} />
+                      <p style={{ fontSize: 14, fontWeight: 700, color: '#4A5E50', margin: 0 }}>{kid.name}</p>
+                    </div>
+                    {matches.length === 0 ? (
+                      <div style={{ background: '#fff', border: '1px dashed #D8CFBC', borderRadius: 12, padding: '24px 12px', textAlign: 'center' }}>
+                        <p style={{ fontSize: 12, color: '#9AA89C', margin: 0 }}>{emptyLabel}</p>
+                      </div>
+                    ) : matches.map(e => {
+                      const m = e.milestone ? milestoneInfo(e.milestone) : null;
+                      const ageStr = exactAgeLabel(kid.birthdate, e.date);
+                      const dateStr = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                      return (
+                        <div key={e.id} style={{ borderRadius: 12, overflow: 'hidden' }} onClick={() => onOpenEntry(e)}>
+                          <div className="compare-photo" style={entryBgStyle(e)}>
+                            <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
+                            <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
+                              <p style={{ fontSize: 11, color: '#fff', margin: '0 0 2px', fontWeight: 700 }}>{ageStr}</p>
+                              {showMeta && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', margin: '0 0 2px' }}>{dateStr}</p>}
+                              {m && !isMilestoneFiltering && <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 600, opacity: 0.9 }}>{m.label}</p>}
+                            </div>
+                          </div>
+                          <p style={{ fontSize: 12, color: '#5C6B5E', lineHeight: 1.5, margin: '8px 2px 0' }}>
+                            {e.text.slice(0, 70)}{e.text.length > 70 ? '...' : ''}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1261,11 +1284,13 @@ function RecapReelScreen({ entries, kids, onClose }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid }) {
+function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId }) {
   const kid = kids.find(k => k.id === selectedKidId);
   const kidEntries = entries.filter(e => e.kids.includes(selectedKidId));
   const milestoneCount = kidEntries.filter(e => e.milestone).length;
   const fileInputRef = useRef(null);
+  const familyAvatarInputRef = useRef(null);
+  const [activeFamilyAvatarId, setActiveFamilyAvatarId] = useState(null);
   const [inviteCode, setInviteCode] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [editingName, setEditingName] = useState(false);
@@ -1292,6 +1317,14 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
     const file = e.target.files[0];
     if (!file) return;
     onAvatarUpload(selectedKidId, file);
+    e.target.value = '';
+  }
+
+  function handleFamilyAvatarFile(e) {
+    const file = e.target.files[0];
+    if (!file || !activeFamilyAvatarId) return;
+    onFamilyAvatarUpload?.(activeFamilyAvatarId, file);
+    setActiveFamilyAvatarId(null);
     e.target.value = '';
   }
 
@@ -1372,18 +1405,31 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
               {familyMembers.map(m => (
                 <div key={m.id || m.user_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#EEF2EA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <i className="ti ti-user" style={{ fontSize: 16, color: '#4A5E50' }} />
+                    <div
+                      onClick={() => {
+                        if (!onFamilyAvatarUpload || m.user_id !== currentUserId) return;
+                        setActiveFamilyAvatarId(m.id || m.user_id);
+                        familyAvatarInputRef.current?.click();
+                      }}
+                      style={{ width: 34, height: 34, borderRadius: '50%', background: '#EEF2EA', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: m.user_id === currentUserId ? 'pointer' : 'default' }}
+                    >
+                      <AvatarImg src={m.avatar_url} alt={m.display_name} fallback={<i className="ti ti-user" style={{ fontSize: 16, color: '#4A5E50' }} />} />
                     </div>
                     <span style={{ fontSize: 14, color: '#2C3828', fontWeight: 600 }}>{m.display_name}</span>
                   </div>
-                  {m.user_id === undefined && myDisplayName === m.display_name && (
-                    <button onClick={() => { setNameInput(myDisplayName); setEditingName(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#9AA89C', padding: 0, fontFamily: "'Inter', sans-serif" }}>
-                      Edit
-                    </button>
+                  {m.user_id === currentUserId && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <button onClick={() => { setActiveFamilyAvatarId(m.id || m.user_id); familyAvatarInputRef.current?.click(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#9AA89C', padding: 0, fontFamily: "'Inter', sans-serif" }}>
+                        Photo
+                      </button>
+                      <button onClick={() => { setNameInput(myDisplayName); setEditingName(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#9AA89C', padding: 0, fontFamily: "'Inter', sans-serif" }}>
+                        Edit
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
+              <input ref={familyAvatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFamilyAvatarFile} />
               {onInvite && familyMembers.length < 2 && (
                 inviteCode ? (
                   <div style={{ marginTop: 14, padding: '12px 14px', background: '#EEF2EA', borderRadius: 12, textAlign: 'center' }}>
@@ -1957,16 +2003,15 @@ function OnboardingScreen({ onDone, onJoinFamily }) {
 
 export default function App() {
   const localMode = !supabaseConfigured;
-  const localData = localMode ? loadLocalData() : null;
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(!localMode);
   const [dataLoading, setDataLoading] = useState(false);
-  const [kids, setKids] = useState(localMode ? localData.kids : []);
-  const [entries, setEntries] = useState(localMode ? localData.entries : []);
+  const [kids, setKids] = useState(() => localMode ? loadLocalData().kids : []);
+  const [entries, setEntries] = useState(() => localMode ? loadLocalData().entries : []);
   const [screen, setScreen] = useState('home');
   const [kidFilter, setKidFilter] = useState(null);
   const [activeEntry, setActiveEntry] = useState(null);
-  const [profileKidId, setProfileKidId] = useState(localMode ? localData.kids[0]?.id ?? null : null);
+  const [profileKidId, setProfileKidId] = useState(() => localMode ? (loadLocalData().kids[0]?.id ?? null) : null);
   const [celebration, setCelebration] = useState(null);
   const [familyId, setFamilyId] = useState(null);
   const [familyMembers, setFamilyMembers] = useState([]);
@@ -2057,7 +2102,8 @@ export default function App() {
       setDataLoading(false);
     }
     loadData();
-  }, [session]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id]);
 
   function openEntry(entry) {
     setActiveEntry(entry);
@@ -2315,6 +2361,25 @@ export default function App() {
       .eq('family_id', familyId).eq('user_id', session.user.id);
   }
 
+  async function handleFamilyAvatarUpload(memberId, file) {
+    const localUrl = URL.createObjectURL(file);
+    setFamilyMembers(prev => prev.map(m => (m.id === memberId || m.user_id === memberId) ? { ...m, avatar_url: localUrl } : m));
+    if (localMode || !supabase || !session || !familyId) return;
+    const path = `${session.user.id}/family-avatar-${memberId}.jpg`;
+    const { error: uploadError } = await supabase.storage.from('media').upload(path, file, { upsert: true });
+    if (uploadError) {
+      alert('Photo upload failed: ' + uploadError.message);
+      return;
+    }
+    const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
+    setFamilyMembers(prev => prev.map(m => (m.id === memberId || m.user_id === memberId) ? { ...m, avatar_url: publicUrl } : m));
+    const { error: dbError } = await supabase.from('family_members').update({ avatar_url: publicUrl })
+      .eq('family_id', familyId).eq('user_id', session.user.id);
+    if (dbError) {
+      alert('Photo saved locally but failed to sync: ' + dbError.message);
+    }
+  }
+
   if (authLoading || dataLoading) {
     return (
       <div className="app-root" style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -2427,6 +2492,8 @@ export default function App() {
           onInvite={handleInvitePartner}
           onUpdateDisplayName={handleUpdateDisplayName}
           onAddKid={handleAddKid}
+          onFamilyAvatarUpload={handleFamilyAvatarUpload}
+          currentUserId={session?.user?.id}
           onSignOut={() => {
             if (localMode || !supabase) {
               setKids([]);
