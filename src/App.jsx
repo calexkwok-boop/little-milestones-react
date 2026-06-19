@@ -1214,12 +1214,10 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId }) {
-  const kid = kids.find(k => k.id === selectedKidId);
-  const kidEntries = entries.filter(e => e.kids.includes(selectedKidId));
-  const milestoneCount = kidEntries.filter(e => e.milestone).length;
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
+  const [uploadKidId, setUploadKidId] = useState(null);
   const [activeFamilyAvatarId, setActiveFamilyAvatarId] = useState(null);
   const [inviteCode, setInviteCode] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -1245,8 +1243,9 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
 
   function handleFile(e) {
     const file = e.target.files[0];
-    if (!file) return;
-    onAvatarUpload(selectedKidId, file);
+    if (!file || !uploadKidId) return;
+    onAvatarUpload(uploadKidId, file);
+    setUploadKidId(null);
     e.target.value = '';
   }
 
@@ -1279,54 +1278,47 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
             <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>Your family</h2>
             <div style={{ width: 36 }} />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 22, flexWrap: 'wrap' }}>
-            {kids.map(k => (
-              <div key={k.id} style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setSelectedKidId(k.id)}>
-                <div
-                  className="avatar-upload-zone"
-                  style={k.id === selectedKidId ? { boxShadow: `0 0 0 2px ${k.accent}` } : {}}
-                >
-                  <AvatarImg src={k.avatar} alt={k.name} fallback={<i className="ti ti-camera" />} />
+          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
+
+          {kids.map(k => {
+            const kEntries = entries.filter(e => e.kids.includes(k.id));
+            const kMilestones = kEntries.filter(e => e.milestone).length;
+            const bornLabel = (() => { const [y,m,d] = k.birthdate.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); })();
+            return (
+              <div key={k.id} style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 14, padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                  <div
+                    className="avatar-upload-zone"
+                    style={{ width: 52, height: 52, flexShrink: 0 }}
+                    onClick={() => { setUploadKidId(k.id); fileInputRef.current?.click(); }}
+                    title="Tap to change photo"
+                  >
+                    <AvatarImg src={k.avatar} alt={k.name} fallback={<i className="ti ti-camera" />} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#4A5E50', margin: 0 }}>{k.name}</p>
+                    <p style={{ fontSize: 12, color: '#9AA89C', margin: '2px 0 0' }}>Born {bornLabel}</p>
+                  </div>
                 </div>
-                <p style={{ fontSize: 13, color: k.id === selectedKidId ? '#4A5E50' : '#9AA89C', margin: '8px 0 0', fontWeight: 600 }}>
-                  {k.name}
-                </p>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div className="stat-tile">
+                    <p style={{ fontSize: 18, color: '#4A5E50', margin: 0, fontWeight: 700 }}>{kEntries.length}</p>
+                    <p style={{ fontSize: 11, color: '#9AA89C', margin: '3px 0 0' }}>moments</p>
+                  </div>
+                  <div className="stat-tile">
+                    <p style={{ fontSize: 18, color: '#4A5E50', margin: 0, fontWeight: 700 }}>{kMilestones}</p>
+                    <p style={{ fontSize: 11, color: '#9AA89C', margin: '3px 0 0' }}>milestones</p>
+                  </div>
+                </div>
               </div>
-            ))}
-            {kids.length < 4 && (
-              <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setAddingKid(true)}>
-                <div className="avatar-upload-zone"><i className="ti ti-plus" /></div>
-                <p style={{ fontSize: 13, color: '#9AA89C', margin: '8px 0 0', fontWeight: 600 }}>Add</p>
-              </div>
-            )}
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <button className="btn btn-outline" style={{ width: 'auto', padding: '10px 22px', margin: '0 auto' }} onClick={() => fileInputRef.current?.click()}>
-              <i className="ti ti-upload" />Upload photo for {kid.name}
+            );
+          })}
+
+          {kids.length < 4 && (
+            <button className="btn btn-outline" onClick={() => setAddingKid(true)}>
+              <i className="ti ti-plus" />Add a child
             </button>
-            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
-          </div>
-          <div style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 14, padding: 16 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-              <KidThumb kid={kid} size={38} />
-              <div>
-                <p style={{ fontSize: 15, fontWeight: 700, color: '#4A5E50', margin: 0 }}>{kid.name}</p>
-                <p style={{ fontSize: 12, color: '#9AA89C', margin: '2px 0 0' }}>
-                  Born {(() => { const [y,m,d] = kid.birthdate.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); })()}
-                </p>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div className="stat-tile">
-                <p style={{ fontSize: 18, color: '#4A5E50', margin: 0, fontWeight: 700 }}>{kidEntries.length}</p>
-                <p style={{ fontSize: 11, color: '#9AA89C', margin: '3px 0 0' }}>moments</p>
-              </div>
-              <div className="stat-tile">
-                <p style={{ fontSize: 18, color: '#4A5E50', margin: 0, fontWeight: 700 }}>{milestoneCount}</p>
-                <p style={{ fontSize: 11, color: '#9AA89C', margin: '3px 0 0' }}>milestones</p>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Parents section */}
           {familyMembers && familyMembers.length > 0 && (
@@ -2441,8 +2433,6 @@ export default function App() {
         <ProfileScreen
           kids={kids}
           entries={entries}
-          selectedKidId={profileKidId}
-          setSelectedKidId={setProfileKidId}
           onBack={() => setScreen('home')}
           onAvatarUpload={handleAvatarUpload}
           familyMembers={familyMembers}
