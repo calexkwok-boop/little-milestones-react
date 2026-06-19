@@ -1747,7 +1747,7 @@ function GrowthScreen({ kid, onBack, onSave }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId, onRenameKid, onOpenGrowth }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -1758,6 +1758,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   const [nameInput, setNameInput] = useState(myDisplayName);
   const [editingKid, setEditingKid] = useState(null);
   const [kidNameInput, setKidNameInput] = useState('');
+  const [kidSexInput, setKidSexInput] = useState(null);
   const [addingKid, setAddingKid] = useState(false);
   const [newName, setNewName] = useState('');
   const [newBdMonth, setNewBdMonth] = useState('');
@@ -1841,7 +1842,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 </div>
                 <p
                   style={{ fontSize: 15, fontWeight: 700, color: '#4A5E50', margin: '0 0 2px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                  onClick={() => { setEditingKid(k); setKidNameInput(k.name); }}
+                  onClick={() => { setEditingKid(k); setKidNameInput(k.name); setKidSexInput(k.sex ?? null); }}
                 >
                   {k.name} <i className="ti ti-pencil" style={{ fontSize: 12, color: '#9AA89C' }} />
                 </p>
@@ -1972,25 +1973,32 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
             </div>
           )}
 
-          {/* Rename kid sheet */}
+          {/* Edit kid sheet */}
           {editingKid && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, padding: '0 16px' }} onClick={() => setEditingKid(null)}>
               <div style={{ background: '#F2F4EC', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
-                <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: '0 0 16px' }}>Rename {editingKid.name}</p>
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: '0 0 16px' }}>Edit {editingKid.name}</p>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>Name</p>
                 <input
                   className="input-field"
                   value={kidNameInput}
                   onChange={e => setKidNameInput(e.target.value)}
                   placeholder="Name"
-                  style={{ marginBottom: 16, fontSize: 18 }}
+                  style={{ marginBottom: 16, fontSize: 16 }}
                   autoFocus
-                  onKeyDown={e => { if (e.key === 'Enter' && kidNameInput.trim()) { onRenameKid(editingKid.id, kidNameInput.trim()); setEditingKid(null); } }}
+                  onKeyDown={e => { if (e.key === 'Enter' && kidNameInput.trim()) { onRenameKid(editingKid.id, kidNameInput.trim()); onUpdateKidSex?.(editingKid.id, kidSexInput); setEditingKid(null); } }}
                 />
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>Sex <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(for growth chart percentiles)</span></p>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                  {[['M', 'Boy'], ['F', 'Girl']].map(([val, label]) => (
+                    <button key={val} onClick={() => setKidSexInput(kidSexInput === val ? null : val)} style={{ flex: 1, border: `1px solid ${kidSexInput === val ? '#4A5E50' : '#CCDAC8'}`, borderRadius: 10, padding: '11px 0', fontSize: 14, fontWeight: 600, fontFamily: "'Inter', sans-serif", background: kidSexInput === val ? '#4A5E50' : '#fff', color: kidSexInput === val ? '#fff' : '#5C6B5E', cursor: 'pointer' }}>{label}</button>
+                  ))}
+                </div>
                 <button
                   className="btn btn-primary"
                   style={{ width: '100%', opacity: kidNameInput.trim() ? 1 : 0.4 }}
                   disabled={!kidNameInput.trim()}
-                  onClick={() => { onRenameKid(editingKid.id, kidNameInput.trim()); setEditingKid(null); }}
+                  onClick={() => { onRenameKid(editingKid.id, kidNameInput.trim()); onUpdateKidSex?.(editingKid.id, kidSexInput); setEditingKid(null); }}
                 >
                   Save
                 </button>
@@ -3071,6 +3079,12 @@ export default function App() {
     await supabase.from('kids').update({ name }).eq('id', kidId);
   }
 
+  async function handleUpdateKidSex(kidId, sex) {
+    setKids(prev => prev.map(k => k.id === kidId ? { ...k, sex } : k));
+    if (localMode || !supabase || !session) return;
+    await supabase.from('kids').update({ sex }).eq('id', kidId);
+  }
+
   async function handleAddKid({ name, birthdate, sex }) {
     const accent = KID_ACCENTS[kids.length % KID_ACCENTS.length];
     if (localMode || !supabase || !session) {
@@ -3255,6 +3269,7 @@ export default function App() {
           onUpdateDisplayName={handleUpdateDisplayName}
           onAddKid={handleAddKid}
           onRenameKid={handleRenameKid}
+          onUpdateKidSex={handleUpdateKidSex}
           onFamilyAvatarUpload={handleFamilyAvatarUpload}
           currentUserId={session?.user?.id}
           onOpenGrowth={kidId => { setGrowthKidId(kidId); setScreen('growth'); }}
