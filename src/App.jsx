@@ -1765,6 +1765,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   const [newBdYear, setNewBdYear] = useState('');
   const [addSaving, setAddSaving] = useState(false);
   const [newSex, setNewSex] = useState(null);
+  const [cropState, setCropState] = useState(null);
   const newBirthdate = (newBdMonth && newBdDay && newBdYear && newBdYear.length === 4)
     ? `${newBdYear}-${newBdMonth}-${newBdDay.padStart(2, '0')}` : '';
 
@@ -1780,7 +1781,11 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   function handleFile(e) {
     const file = e.target.files[0];
     if (!file || !uploadKidId) return;
-    onAvatarUpload(uploadKidId, file);
+    const kidId = uploadKidId;
+    setCropState({
+      src: URL.createObjectURL(file),
+      onConfirm: blob => onAvatarUpload(kidId, new File([blob], 'avatar.jpg', { type: 'image/jpeg' })),
+    });
     setUploadKidId(null);
     e.target.value = '';
   }
@@ -1788,7 +1793,11 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   function handleFamilyAvatarFile(e) {
     const file = e.target.files[0];
     if (!file || !activeFamilyAvatarId) return;
-    onFamilyAvatarUpload?.(activeFamilyAvatarId, file);
+    const memberId = activeFamilyAvatarId;
+    setCropState({
+      src: URL.createObjectURL(file),
+      onConfirm: blob => onFamilyAvatarUpload?.(memberId, new File([blob], 'avatar.jpg', { type: 'image/jpeg' })),
+    });
     setActiveFamilyAvatarId(null);
     e.target.value = '';
   }
@@ -2012,6 +2021,14 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           </button>
         </div>
       </div>
+
+      {cropState && (
+        <AvatarCropModal
+          imageSrc={cropState.src}
+          onConfirm={blob => { cropState.onConfirm(blob); setCropState(null); }}
+          onCancel={() => setCropState(null)}
+        />
+      )}
     </div>
   );
 }
@@ -2227,6 +2244,171 @@ function AuthScreen() {
   );
 }
 
+// ─── Avatar crop / zoom modal ─────────────────────────────────────────────
+
+function AvatarCropModal({ imageSrc, onConfirm, onCancel }) {
+  const DISPLAY = 296;
+  const CIRCLE_R = 128;
+  const OUTPUT = 400;
+
+  const canvasRef = useRef(null);
+  const imgRef = useRef(null);
+  // All mutable state lives in a plain object via ref to avoid stale-closure issues
+  const st = useRef({
+    scale: 1, ox: 0, oy: 0, nw: 0, nh: 0, minScale: 0.1,
+    dragging: false, lx: 0, ly: 0, pd: null, ps: 1, loaded: false,
+  }).current;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    imgRef.current = img;
+    let raf = null;
+
+    function draw() {
+      ctx.clearRect(0, 0, DISPLAY, DISPLAY);
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, DISPLAY, DISPLAY);
+      if (!st.loaded) return;
+      const dw = st.nw * st.scale;
+      const dh = st.nh * st.scale;
+      const dx = DISPLAY / 2 - dw / 2 + st.ox;
+      const dy = DISPLAY / 2 - dh / 2 + st.oy;
+      ctx.drawImage(img, dx, dy, dw, dh);
+      // Dark overlay outside crop circle using evenodd fill
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, DISPLAY, DISPLAY);
+      ctx.arc(DISPLAY / 2, DISPLAY / 2, CIRCLE_R, 0, Math.PI * 2, true);
+      ctx.fillStyle = 'rgba(0,0,0,0.58)';
+      ctx.fill('evenodd');
+      ctx.restore();
+      // Circle border
+      ctx.strokeStyle = 'rgba(255,255,255,0.72)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(DISPLAY / 2, DISPLAY / 2, CIRCLE_R, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    function schedule() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(draw);
+    }
+
+    img.onload = () => {
+      st.nw = img.naturalWidth;
+      st.nh = img.naturalHeight;
+      st.loaded = true;
+      const shorter = Math.min(st.nw, st.nh);
+      st.minScale = (CIRCLE_R * 2) / shorter;
+      st.scale = st.minScale;
+      st.ox = 0; st.oy = 0;
+      schedule();
+    };
+    img.src = imageSrc;
+
+    function onWheel(e) {
+      e.preventDefault();
+      st.scale = Math.min(10, Math.max(st.minScale, st.scale * (e.deltaY < 0 ? 1.1 : 1 / 1.1)));
+      schedule();
+    }
+    function onMouseDown(e) { st.dragging = true; st.lx = e.clientX; st.ly = e.clientY; }
+    function onMouseMove(e) {
+      if (!st.dragging) return;
+      st.ox += e.clientX - st.lx; st.oy += e.clientY - st.ly;
+      st.lx = e.clientX; st.ly = e.clientY;
+      schedule();
+    }
+    function onMouseUp() { st.dragging = false; }
+
+    function onTouchStart(e) {
+      if (e.touches.length === 1) {
+        st.dragging = true; st.pd = null;
+        st.lx = e.touches[0].clientX; st.ly = e.touches[0].clientY;
+      } else if (e.touches.length === 2) {
+        st.dragging = false;
+        st.pd = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+        st.ps = st.scale;
+      }
+    }
+    function onTouchMove(e) {
+      e.preventDefault();
+      if (e.touches.length === 1 && st.dragging) {
+        st.ox += e.touches[0].clientX - st.lx; st.oy += e.touches[0].clientY - st.ly;
+        st.lx = e.touches[0].clientX; st.ly = e.touches[0].clientY;
+        schedule();
+      } else if (e.touches.length === 2 && st.pd !== null) {
+        const d = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+        st.scale = Math.min(10, Math.max(st.minScale, st.ps * (d / st.pd)));
+        schedule();
+      }
+    }
+    function onTouchEnd() { st.dragging = false; st.pd = null; }
+
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+    canvas.addEventListener('touchend', onTouchEnd);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      canvas.removeEventListener('wheel', onWheel);
+      canvas.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      canvas.removeEventListener('touchstart', onTouchStart);
+      canvas.removeEventListener('touchmove', onTouchMove);
+      canvas.removeEventListener('touchend', onTouchEnd);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handleConfirm() {
+    const img = imgRef.current;
+    if (!img || !st.loaded) return;
+    const out = document.createElement('canvas');
+    out.width = OUTPUT; out.height = OUTPUT;
+    const ctx = out.getContext('2d');
+    const dw = st.nw * st.scale;
+    const dh = st.nh * st.scale;
+    const imgLeft = DISPLAY / 2 - dw / 2 + st.ox;
+    const imgTop = DISPLAY / 2 - dh / 2 + st.oy;
+    const cropLeft = DISPLAY / 2 - CIRCLE_R;
+    const cropTop = DISPLAY / 2 - CIRCLE_R;
+    const srcX = (cropLeft - imgLeft) / st.scale;
+    const srcY = (cropTop - imgTop) / st.scale;
+    const srcSize = (CIRCLE_R * 2) / st.scale;
+    ctx.drawImage(img, srcX, srcY, srcSize, srcSize, 0, 0, OUTPUT, OUTPUT);
+    out.toBlob(blob => { if (blob) onConfirm(blob); }, 'image/jpeg', 0.92);
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 20px' }}>
+      <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, margin: '0 0 14px', fontFamily: 'Inter, sans-serif' }}>
+        Drag to reposition · Pinch or scroll to zoom
+      </p>
+      <canvas
+        ref={canvasRef}
+        width={DISPLAY}
+        height={DISPLAY}
+        style={{ display: 'block', borderRadius: 12, cursor: 'grab', touchAction: 'none', maxWidth: '100%' }}
+      />
+      <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+        <button onClick={onCancel} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600, padding: '12px 28px', borderRadius: 12, cursor: 'pointer' }}>
+          Cancel
+        </button>
+        <button onClick={handleConfirm} style={{ background: '#4A5E50', border: 'none', color: '#fff', fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: 600, padding: '12px 28px', borderRadius: 12, cursor: 'pointer' }}>
+          Use Photo
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Onboarding ────────────────────────────────────────────────────────────
 
 function OnboardingScreen({ onDone, onJoinFamily }) {
@@ -2240,7 +2422,10 @@ function OnboardingScreen({ onDone, onJoinFamily }) {
     ? `${bdYear}-${bdMonth}-${bdDay.padStart(2, '0')}`
     : '';
   const [avatar, setAvatar] = useState(null);
+  const [cropSrc, setCropSrc] = useState(null);
   const [displayName, setDisplayName] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const fileInputRef = useRef(null);
 
   const kidIndex = doneKids.length;
@@ -2258,7 +2443,7 @@ function OnboardingScreen({ onDone, onJoinFamily }) {
   function handleFile(e) {
     const file = e.target.files[0];
     if (!file) return;
-    setAvatar(URL.createObjectURL(file));
+    setCropSrc(URL.createObjectURL(file));
     e.target.value = '';
   }
 
@@ -2273,6 +2458,7 @@ function OnboardingScreen({ onDone, onJoinFamily }) {
   }
 
   function handleFinish() {
+    setSaveError('');
     setDoneKids(prev => [...prev, {
       id: kidIndex, name: name.trim(),
       accent: KID_ACCENTS[kidIndex % KID_ACCENTS.length],
@@ -2281,8 +2467,14 @@ function OnboardingScreen({ onDone, onJoinFamily }) {
     setStep('yourname');
   }
 
-  function handleReallyDone() {
-    onDone(doneKids, displayName.trim() || 'Parent');
+  async function handleReallyDone() {
+    setSavingProfile(true);
+    setSaveError('');
+    const result = await onDone(doneKids, displayName.trim() || 'Parent');
+    if (result?.error) {
+      setSaveError(result.error);
+      setSavingProfile(false);
+    }
   }
 
   return (
@@ -2311,9 +2503,10 @@ function OnboardingScreen({ onDone, onJoinFamily }) {
               {onJoinFamily && (
                 <button
                   onClick={onJoinFamily}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#9AA89C', fontFamily: "'Inter', sans-serif", fontWeight: 500 }}
+                  className="btn btn-outline"
+                  style={{ width: '100%' }}
                 >
-                  Joining your partner's family? Enter an invite code
+                  Join an existing family
                 </button>
               )}
             </div>
@@ -2490,14 +2683,25 @@ function OnboardingScreen({ onDone, onJoinFamily }) {
                 autoFocus
                 style={{ fontSize: 20, padding: '16px 18px', marginBottom: 24 }}
               />
-              <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleReallyDone}>
-                Start writing
+              {saveError && (
+                <p style={{ fontSize: 13, color: '#D4856A', margin: '0 0 12px', textAlign: 'center', lineHeight: 1.5 }}>{saveError}</p>
+              )}
+              <button className="btn btn-primary" style={{ width: '100%', opacity: savingProfile ? 0.6 : 1 }} onClick={handleReallyDone} disabled={savingProfile}>
+                {savingProfile ? 'Saving…' : 'Start writing'}
               </button>
             </div>
           )}
 
         </div>
       </div>
+
+      {cropSrc && (
+        <AvatarCropModal
+          imageSrc={cropSrc}
+          onConfirm={blob => { setAvatar(URL.createObjectURL(blob)); setCropSrc(null); }}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
     </div>
   );
 }
@@ -2779,18 +2983,24 @@ export default function App() {
       }));
       setKids(normalizedKids);
       setProfileKidId(normalizedKids[0]?.id ?? null);
-      return;
+      return { success: true };
     }
     const userId = session.user.id;
-    const { data: family } = await supabase.from('families').insert({}).select().single();
+    const { data: family, error: familyError } = await supabase.from('families').insert({}).select().single();
+    if (familyError || !family) {
+      return { error: familyError?.message || 'Could not create your family yet.' };
+    }
     const newFamilyId = family.id;
     setFamilyId(newFamilyId);
-    const { data: mem } = await supabase.from('family_members').insert({
+    const { data: mem, error: memberError } = await supabase.from('family_members').insert({
       family_id: newFamilyId, user_id: userId, display_name: displayName,
     }).select().single();
+    if (memberError) {
+      return { error: memberError.message };
+    }
     setMyDisplayName(displayName);
     setFamilyMembers(mem ? [mem] : []);
-    const { data } = await supabase.from('kids').insert(
+    const { data, error: kidsError } = await supabase.from('kids').insert(
       newKids.map((k, i) => ({
         user_id: userId,
         family_id: newFamilyId,
@@ -2800,10 +3010,14 @@ export default function App() {
         avatar_url: null,
       }))
     ).select();
+    if (kidsError) {
+      return { error: kidsError.message };
+    }
     if (data) {
       setKids(data.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent, avatar: k.avatar_url })));
       setProfileKidId(data[0]?.id ?? null);
     }
+    return { success: true };
   }
 
   async function handleJoinFamily(code, displayName) {
