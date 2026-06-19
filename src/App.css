@@ -128,16 +128,6 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   font-size: 20px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
 }
 
-.reel-stage { position: relative; aspect-ratio: 9/14; border-radius: 18px; overflow: hidden; background: #000; }
-.reel-progress { position: absolute; top: 12px; left: 12px; right: 12px; display: flex; gap: 4px; z-index: 5; }
-.reel-progress-seg { flex: 1; height: 2px; border-radius: 1px; background: rgba(255,255,255,0.3); overflow: hidden; }
-.reel-progress-fill { height: 100%; background: #fff; }
-.reel-slide {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  justify-content: flex-end; transition: opacity 0.4s;
-}
-.reel-tap-zone { position: absolute; top: 0; bottom: 0; width: 50%; z-index: 4; cursor: pointer; }
-
 .compare-photo {
   aspect-ratio: 1; border-radius: 10px; position: relative; overflow: hidden;
   display: flex; align-items: flex-end; cursor: pointer;

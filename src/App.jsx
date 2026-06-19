@@ -217,11 +217,17 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
               {preview}
             </p>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <KidThumb kid={kid} size={20} />
-            <span style={{ fontSize: 12, color: '#9AA89C' }}>
-              {kid.name} was {exactAgeLabel(kid.birthdate, entry.date)}
-            </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {entry.kids.map(kidId => {
+              const k = allKids.find(k => k.id === kidId);
+              if (!k) return null;
+              return (
+                <div key={kidId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <KidThumb kid={k} size={20} />
+                  <span style={{ fontSize: 12, color: '#9AA89C' }}>{k.name} was {exactAgeLabel(k.birthdate, entry.date)}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1205,82 +1211,6 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
   );
 }
 
-// ─── Recap reel ────────────────────────────────────────────────────────────
-
-function RecapReelScreen({ entries, kids, onClose }) {
-  const slides = (() => {
-    const ms = entries.filter(e => e.milestone).sort((a, b) => new Date(a.date) - new Date(b.date));
-    return ms.length ? ms : entries.slice(0, 4);
-  })();
-
-  const [index, setIndex] = useState(0);
-  const timerRef = useRef(null);
-
-  useEffect(() => {
-    clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      if (index < slides.length - 1) setIndex(index + 1);
-      else onClose();
-    }, 3500);
-    return () => clearTimeout(timerRef.current);
-  }, [index]);
-
-  function prev() { if (index > 0) setIndex(index - 1); }
-  function next() { if (index < slides.length - 1) setIndex(index + 1); else onClose(); }
-
-  return (
-    <div className="screen">
-      <div className="scroll-area">
-        <div className="scrollpad" style={{ paddingBottom: 0 }}>
-          <button className="icon-btn" onClick={onClose} style={{ alignSelf: 'flex-start' }}><i className="ti ti-x" /></button>
-        </div>
-        <div style={{ padding: '8px 36px 24px' }}>
-          <div className="reel-stage">
-            <div className="reel-progress">
-              {slides.map((_, i) => (
-                <div className="reel-progress-seg" key={i}>
-                  <div
-                    className="reel-progress-fill"
-                    style={{
-                      width: i < index ? '100%' : i === index ? '100%' : '0%',
-                      transition: i === index ? 'width 3.5s linear' : 'none',
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="reel-tap-zone" style={{ left: 0 }} onClick={prev} />
-            <div className="reel-tap-zone" style={{ right: 0 }} onClick={next} />
-            {slides.map((e, i) => {
-              const kid = kids.find(k => k.id === e.kids[0]);
-              const m = e.milestone ? milestoneInfo(e.milestone) : null;
-              return (
-                <div key={e.id} className="reel-slide" style={{ opacity: i === index ? 1 : 0, ...entryBgStyle(e) }}>
-                  <div className="scrim" style={tintedScrimStyle(e, 0.72)} />
-                  <div style={{ position: 'relative', zIndex: 3, padding: '20px 22px 32px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                      <KidThumb kid={kid} size={28} />
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>{kid.name}</span>
-                      <span style={{ fontSize: 11, fontWeight: 600, padding: '3px 8px', borderRadius: 6, background: 'rgba(255,255,255,0.22)', color: '#fff' }}>
-                        {exactAgeLabel(kid.birthdate, e.date)}
-                      </span>
-                    </div>
-                    {m && (
-                      <div style={{ display: 'inline-block', marginBottom: 10, fontSize: 11, fontWeight: 700, color: '#fff', background: 'rgba(0,0,0,0.2)', padding: '5px 10px', borderRadius: 7 }}>
-                        {m.label.toUpperCase()}
-                      </div>
-                    )}
-                    <p style={{ fontSize: 16, color: '#fff', lineHeight: 1.5, margin: 0, fontWeight: 500 }}>{e.text}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
@@ -2230,19 +2160,33 @@ export default function App() {
   }
 
   async function handleAvatarUpload(kidId, file) {
+    const previousAvatar = kids.find(k => k.id === kidId)?.avatar ?? null;
     const localUrl = URL.createObjectURL(file);
     setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: localUrl } : k));
     if (localMode || !supabase || !session) return;
-    const path = `${session.user.id}/avatar-${kidId}.jpg`;
-    const { error: uploadError } = await supabase.storage.from('media').upload(path, file, { upsert: true });
+    const { data: { session: activeSession } } = await supabase.auth.getSession();
+    const activeUserId = activeSession?.user?.id;
+    if (!activeUserId) {
+      setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: previousAvatar } : k));
+      alert('Upload failed because your session expired. Please sign out and sign back in, then try again.');
+      return;
+    }
+    const ext = file.name?.split('.').pop()?.toLowerCase() || 'jpg';
+    const path = `${activeUserId}/avatar-${kidId}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from('media').upload(path, file);
     if (uploadError) {
-      alert('Photo upload failed: ' + uploadError.message);
+      setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: previousAvatar } : k));
+      const hint = uploadError.message?.includes('row-level security')
+        ? ' Your account may not be fully signed in on this device yet. Try signing out and back in, then retry.'
+        : '';
+      alert('Photo upload failed: ' + uploadError.message + hint);
       return;
     }
     const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
     setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: publicUrl } : k));
     const { error: dbError } = await supabase.from('kids').update({ avatar_url: publicUrl }).eq('id', kidId);
     if (dbError) {
+      setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: previousAvatar } : k));
       alert('Photo saved locally but failed to sync: ' + dbError.message);
     }
   }
@@ -2362,13 +2306,26 @@ export default function App() {
   }
 
   async function handleFamilyAvatarUpload(memberId, file) {
+    const previousAvatar = familyMembers.find(m => m.id === memberId || m.user_id === memberId)?.avatar_url ?? null;
     const localUrl = URL.createObjectURL(file);
     setFamilyMembers(prev => prev.map(m => (m.id === memberId || m.user_id === memberId) ? { ...m, avatar_url: localUrl } : m));
     if (localMode || !supabase || !session || !familyId) return;
-    const path = `${session.user.id}/family-avatar-${memberId}.jpg`;
-    const { error: uploadError } = await supabase.storage.from('media').upload(path, file, { upsert: true });
+    const { data: { session: activeSession } } = await supabase.auth.getSession();
+    const activeUserId = activeSession?.user?.id;
+    if (!activeUserId) {
+      setFamilyMembers(prev => prev.map(m => (m.id === memberId || m.user_id === memberId) ? { ...m, avatar_url: previousAvatar } : m));
+      alert('Upload failed because your session expired. Please sign out and sign back in, then try again.');
+      return;
+    }
+    const ext = file.name?.split('.').pop()?.toLowerCase() || 'jpg';
+    const path = `${activeUserId}/family-avatar-${memberId}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from('media').upload(path, file);
     if (uploadError) {
-      alert('Photo upload failed: ' + uploadError.message);
+      setFamilyMembers(prev => prev.map(m => (m.id === memberId || m.user_id === memberId) ? { ...m, avatar_url: previousAvatar } : m));
+      const hint = uploadError.message?.includes('row-level security')
+        ? ' Your account may not be fully signed in on this device yet. Try signing out and back in, then retry.'
+        : '';
+      alert('Photo upload failed: ' + uploadError.message + hint);
       return;
     }
     const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
@@ -2376,7 +2333,12 @@ export default function App() {
     const { error: dbError } = await supabase.from('family_members').update({ avatar_url: publicUrl })
       .eq('family_id', familyId).eq('user_id', session.user.id);
     if (dbError) {
-      alert('Photo saved locally but failed to sync: ' + dbError.message);
+      setFamilyMembers(prev => prev.map(m => (m.id === memberId || m.user_id === memberId) ? { ...m, avatar_url: previousAvatar } : m));
+      if (dbError.message?.includes("avatar_url")) {
+        alert("Your photo uploaded, but your Supabase database is missing the family_members.avatar_url column. Run the SQL in family-members-avatar-column.sql, then try again.");
+      } else {
+        alert('Photo saved locally but failed to sync: ' + dbError.message);
+      }
     }
   }
 
@@ -2475,11 +2437,7 @@ export default function App() {
         <SearchScreen entries={entries} kids={kids} onBack={() => setScreen('home')} onOpenEntry={openEntry} />
       )}
 
-      {screen === 'reel' && (
-        <RecapReelScreen entries={entries} kids={kids} onClose={() => setScreen('home')} />
-      )}
-
-      {screen === 'profile' && (
+{screen === 'profile' && (
         <ProfileScreen
           kids={kids}
           entries={entries}
@@ -2510,7 +2468,7 @@ export default function App() {
         />
       )}
 
-      {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'reel' && screen !== 'profile' && (
+      {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'profile' && (
         <NavBar active={screen} onNavigate={setScreen} />
       )}
       {screen === 'profile' && <NavBar active="home" onNavigate={setScreen} />}
