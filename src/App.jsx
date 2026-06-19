@@ -1194,7 +1194,7 @@ function RecapReelScreen({ entries, kids, onClose }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName }) {
+function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid }) {
   const kid = kids.find(k => k.id === selectedKidId);
   const kidEntries = entries.filter(e => e.kids.includes(selectedKidId));
   const milestoneCount = kidEntries.filter(e => e.milestone).length;
@@ -1203,6 +1203,23 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
   const [inviteLoading, setInviteLoading] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(myDisplayName);
+  const [addingKid, setAddingKid] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newBdMonth, setNewBdMonth] = useState('');
+  const [newBdDay, setNewBdDay] = useState('');
+  const [newBdYear, setNewBdYear] = useState('');
+  const [addSaving, setAddSaving] = useState(false);
+  const newBirthdate = (newBdMonth && newBdDay && newBdYear && newBdYear.length === 4)
+    ? `${newBdYear}-${newBdMonth}-${newBdDay.padStart(2, '0')}` : '';
+
+  async function handleSaveNewKid() {
+    if (!newName.trim() || !newBirthdate) return;
+    setAddSaving(true);
+    await onAddKid({ name: newName.trim(), birthdate: newBirthdate });
+    setAddingKid(false);
+    setNewName(''); setNewBdMonth(''); setNewBdDay(''); setNewBdYear('');
+    setAddSaving(false);
+  }
 
   function handleFile(e) {
     const file = e.target.files[0];
@@ -1232,7 +1249,7 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
             <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>Your family</h2>
             <div style={{ width: 36 }} />
           </div>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 22 }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 22, flexWrap: 'wrap' }}>
             {kids.map(k => (
               <div key={k.id} style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setSelectedKidId(k.id)}>
                 <div
@@ -1246,6 +1263,12 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
                 </p>
               </div>
             ))}
+            {kids.length < 4 && (
+              <div style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => setAddingKid(true)}>
+                <div className="avatar-upload-zone"><i className="ti ti-plus" /></div>
+                <p style={{ fontSize: 13, color: '#9AA89C', margin: '8px 0 0', fontWeight: 600 }}>Add</p>
+              </div>
+            )}
           </div>
           <div style={{ textAlign: 'center' }}>
             <button className="btn btn-outline" style={{ width: 'auto', padding: '10px 22px', margin: '0 auto' }} onClick={() => fileInputRef.current?.click()}>
@@ -1315,6 +1338,44 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
                   </button>
                 )
               )}
+            </div>
+          )}
+
+          {/* Add kid sheet */}
+          {addingKid && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, padding: '0 16px' }} onClick={() => setAddingKid(false)}>
+              <div style={{ background: '#F2F4EC', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: '0 0 16px' }}>Add a child</p>
+                <input
+                  className="input-field"
+                  placeholder="Name"
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                  style={{ marginBottom: 10, fontSize: 16 }}
+                  autoFocus
+                />
+                <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                  <div style={{ position: 'relative', flex: 2.2 }}>
+                    <select value={newBdMonth} onChange={e => setNewBdMonth(e.target.value)} style={{ width: '100%', border: '1px solid #CCDAC8', borderRadius: 10, padding: '13px 32px 13px 14px', fontSize: 15, outline: 'none', background: '#fff', color: newBdMonth ? '#2C3828' : '#9AA89C', fontFamily: "'Inter', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
+                      <option value="" disabled>Month</option>
+                      {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
+                        <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
+                      ))}
+                    </select>
+                    <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#9AA89C', fontSize: 12, pointerEvents: 'none' }} />
+                  </div>
+                  <input type="number" placeholder="Day" value={newBdDay} min={1} max={31} onChange={e => setNewBdDay(e.target.value)} style={{ flex: 1, border: '1px solid #CCDAC8', borderRadius: 10, padding: '13px 8px', fontSize: 15, outline: 'none', background: '#fff', color: '#2C3828', fontFamily: "'Inter', sans-serif", textAlign: 'center' }} />
+                  <input type="number" placeholder="Year" value={newBdYear} min={1900} max={2030} onChange={e => setNewBdYear(e.target.value)} style={{ flex: 1.5, border: '1px solid #CCDAC8', borderRadius: 10, padding: '13px 8px', fontSize: 15, outline: 'none', background: '#fff', color: '#2C3828', fontFamily: "'Inter', sans-serif", textAlign: 'center' }} />
+                </div>
+                <button
+                  className="btn btn-primary"
+                  style={{ width: '100%', opacity: newName.trim() && newBirthdate && !addSaving ? 1 : 0.4 }}
+                  disabled={!newName.trim() || !newBirthdate || addSaving}
+                  onClick={handleSaveNewKid}
+                >
+                  {addSaving ? 'Saving…' : 'Add'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -2156,6 +2217,26 @@ export default function App() {
     return error ? null : token;
   }
 
+  async function handleAddKid({ name, birthdate }) {
+    const accent = KID_ACCENTS[kids.length % KID_ACCENTS.length];
+    if (localMode || !supabase || !session) {
+      const newKid = { id: Date.now(), name, birthdate, accent, avatar: null };
+      setKids(prev => [...prev, newKid]);
+      return;
+    }
+    const { data } = await supabase.from('kids').insert({
+      user_id: session.user.id,
+      family_id: familyId,
+      name,
+      birthdate,
+      accent,
+      avatar_url: null,
+    }).select().single();
+    if (data) {
+      setKids(prev => [...prev, { id: data.id, name: data.name, birthdate: data.birthdate, accent: data.accent, avatar: null }]);
+    }
+  }
+
   async function handleUpdateDisplayName(name) {
     setMyDisplayName(name);
     setFamilyMembers(prev => prev.map(m => m.user_id === session?.user.id ? { ...m, display_name: name } : m));
@@ -2275,6 +2356,7 @@ export default function App() {
           myDisplayName={myDisplayName}
           onInvite={handleInvitePartner}
           onUpdateDisplayName={handleUpdateDisplayName}
+          onAddKid={handleAddKid}
           onSignOut={() => {
             if (localMode || !supabase) {
               setKids([]);
