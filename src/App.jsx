@@ -179,11 +179,15 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
             — {entry.signedAs}
           </p>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-          <KidThumb kid={kid} size={18} />
-          <span style={{ fontSize: 11, color: '#9AA89C' }}>
-            {exactAgeLabel(kid.birthdate, entry.date)} · {dateLabel}
-          </span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => (
+            <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <KidThumb kid={k} size={18} />
+              <span style={{ fontSize: 11, color: '#9AA89C' }}>
+                {exactAgeLabel(k.birthdate, entry.date)} · {dateLabel}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
