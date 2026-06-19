@@ -50,6 +50,9 @@ function KidThumb({ kid, size = 24 }) {
 
 function AvatarImg({ src, alt, fallback }) {
   const [broken, setBroken] = useState(false);
+  useEffect(() => {
+    setBroken(false);
+  }, [src]);
   if (!src || broken) return fallback;
   return <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} />;
 }
@@ -245,6 +248,28 @@ function SectionDivider({ label }) {
   );
 }
 
+function ordinal(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function daysUntilBirthday(birthdate) {
+  const [, bm, bd] = birthdate.split('-').map(Number);
+  const [ty, tm, td] = TODAY.split('-').map(Number);
+  const today = new Date(ty, tm - 1, td);
+  let next = new Date(ty, bm - 1, bd);
+  if (next < today) next = new Date(ty + 1, bm - 1, bd);
+  return Math.round((next - today) / 86400000);
+}
+
+function turningAge(birthdate) {
+  const [by, bm, bd] = birthdate.split('-').map(Number);
+  const [ty, tm, td] = TODAY.split('-').map(Number);
+  const birthdayPassedThisYear = new Date(ty, bm - 1, bd) < new Date(ty, tm - 1, td);
+  return birthdayPassedThisYear ? ty + 1 - by : ty - by;
+}
+
 function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll }) {
   const todayMMDD = TODAY.slice(5);
   const todayYear = parseInt(TODAY.slice(0, 4));
@@ -278,6 +303,9 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     .slice(0, 4);
 
   const letterCounts = kids.map(k => ({ kid: k, count: entries.filter(e => e.kids.includes(k.id)).length }));
+
+  const birthdayToday = kids.filter(k => daysUntilBirthday(k.birthdate) === 0);
+  const birthdayNextWeek = kids.filter(k => daysUntilBirthday(k.birthdate) === 7);
 
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -326,6 +354,36 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           {kids.length > 1 && (
             <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} />
           )}
+
+          {birthdayToday.map(k => (
+            <div key={k.id} style={{ background: '#4A5E50', borderRadius: 16, padding: '22px 20px', textAlign: 'center' }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                <i className="ti ti-cake" style={{ fontSize: 24, color: '#C8993E' }} />
+              </div>
+              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>
+                Happy Birthday, {k.name}!
+              </p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', margin: 0 }}>
+                {k.name} turns {ordinal(turningAge(k.birthdate))} today
+              </p>
+            </div>
+          ))}
+
+          {birthdayNextWeek.map(k => (
+            <div key={k.id} style={{ background: '#EDE8DE', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(200,153,62,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <i className="ti ti-cake" style={{ fontSize: 20, color: '#C8993E' }} />
+              </div>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 700, color: '#4A5E50', margin: '0 0 2px' }}>
+                  {k.name}'s {ordinal(turningAge(k.birthdate))} birthday is in one week
+                </p>
+                <p style={{ fontSize: 12, color: '#9AA89C', margin: 0 }}>
+                  Write something special for the occasion
+                </p>
+              </div>
+            </div>
+          ))}
 
           {onThisDay.length > 0 && (() => {
             const entry = onThisDay[0];
@@ -1214,7 +1272,7 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId, onRenameKid }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -1223,6 +1281,8 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   const [inviteLoading, setInviteLoading] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState(myDisplayName);
+  const [editingKid, setEditingKid] = useState(null);
+  const [kidNameInput, setKidNameInput] = useState('');
   const [addingKid, setAddingKid] = useState(false);
   const [newName, setNewName] = useState('');
   const [newBdMonth, setNewBdMonth] = useState('');
@@ -1285,21 +1345,22 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
             const kMilestones = kEntries.filter(e => e.milestone).length;
             const bornLabel = (() => { const [y,m,d] = k.birthdate.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); })();
             return (
-              <div key={k.id} style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 14, padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                  <div
-                    className="avatar-upload-zone"
-                    style={{ width: 52, height: 52, flexShrink: 0 }}
-                    onClick={() => { setUploadKidId(k.id); fileInputRef.current?.click(); }}
-                    title="Tap to change photo"
-                  >
-                    <AvatarImg src={k.avatar} alt={k.name} fallback={<i className="ti ti-camera" />} />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 15, fontWeight: 700, color: '#4A5E50', margin: 0 }}>{k.name}</p>
-                    <p style={{ fontSize: 12, color: '#9AA89C', margin: '2px 0 0' }}>Born {bornLabel}</p>
-                  </div>
+              <div key={k.id} style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 14, padding: '20px 16px 16px', textAlign: 'center' }}>
+                <div
+                  className="avatar-upload-zone"
+                  style={{ width: 84, height: 84, margin: '0 auto 12px' }}
+                  onClick={() => { setUploadKidId(k.id); fileInputRef.current?.click(); }}
+                  title="Tap to change photo"
+                >
+                  <AvatarImg src={k.avatar} alt={k.name} fallback={<i className="ti ti-camera" />} />
                 </div>
+                <p
+                  style={{ fontSize: 15, fontWeight: 700, color: '#4A5E50', margin: '0 0 2px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                  onClick={() => { setEditingKid(k); setKidNameInput(k.name); }}
+                >
+                  {k.name} <i className="ti ti-pencil" style={{ fontSize: 12, color: '#9AA89C' }} />
+                </p>
+                <p style={{ fontSize: 12, color: '#9AA89C', margin: '0 0 14px' }}>Born {bornLabel}</p>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <div className="stat-tile">
                     <p style={{ fontSize: 18, color: '#4A5E50', margin: 0, fontWeight: 700 }}>{kEntries.length}</p>
@@ -1337,18 +1398,17 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                     >
                       <AvatarImg src={m.avatar_url} alt={m.display_name} fallback={<i className="ti ti-user" style={{ fontSize: 16, color: '#4A5E50' }} />} />
                     </div>
-                    <span style={{ fontSize: 14, color: '#2C3828', fontWeight: 600 }}>{m.display_name}</span>
+                    {m.user_id === currentUserId ? (
+                      <span
+                        style={{ fontSize: 14, color: '#2C3828', fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+                        onClick={() => { setNameInput(myDisplayName); setEditingName(true); }}
+                      >
+                        {m.display_name} <i className="ti ti-pencil" style={{ fontSize: 12, color: '#9AA89C' }} />
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: 14, color: '#2C3828', fontWeight: 600 }}>{m.display_name}</span>
+                    )}
                   </div>
-                  {m.user_id === currentUserId && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <button onClick={() => { setActiveFamilyAvatarId(m.id || m.user_id); familyAvatarInputRef.current?.click(); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#9AA89C', padding: 0, fontFamily: "'Inter', sans-serif" }}>
-                        Photo
-                      </button>
-                      <button onClick={() => { setNameInput(myDisplayName); setEditingName(true); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#9AA89C', padding: 0, fontFamily: "'Inter', sans-serif" }}>
-                        Edit
-                      </button>
-                    </div>
-                  )}
                 </div>
               ))}
               <input ref={familyAvatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFamilyAvatarFile} />
@@ -1409,6 +1469,32 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   onClick={handleSaveNewKid}
                 >
                   {addSaving ? 'Saving…' : 'Add'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Rename kid sheet */}
+          {editingKid && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, padding: '0 16px' }} onClick={() => setEditingKid(null)}>
+              <div style={{ background: '#F2F4EC', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: '0 0 16px' }}>Rename {editingKid.name}</p>
+                <input
+                  className="input-field"
+                  value={kidNameInput}
+                  onChange={e => setKidNameInput(e.target.value)}
+                  placeholder="Name"
+                  style={{ marginBottom: 16, fontSize: 18 }}
+                  autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter' && kidNameInput.trim()) { onRenameKid(editingKid.id, kidNameInput.trim()); setEditingKid(null); } }}
+                />
+                <button
+                  className="btn btn-primary"
+                  style={{ width: '100%', opacity: kidNameInput.trim() ? 1 : 0.4 }}
+                  disabled={!kidNameInput.trim()}
+                  onClick={() => { onRenameKid(editingKid.id, kidNameInput.trim()); setEditingKid(null); }}
+                >
+                  Save
                 </button>
               </div>
             </div>
@@ -2269,6 +2355,12 @@ export default function App() {
     return error ? null : token;
   }
 
+  async function handleRenameKid(kidId, name) {
+    setKids(prev => prev.map(k => k.id === kidId ? { ...k, name } : k));
+    if (localMode || !supabase || !session) return;
+    await supabase.from('kids').update({ name }).eq('id', kidId);
+  }
+
   async function handleAddKid({ name, birthdate }) {
     const accent = KID_ACCENTS[kids.length % KID_ACCENTS.length];
     if (localMode || !supabase || !session) {
@@ -2440,6 +2532,7 @@ export default function App() {
           onInvite={handleInvitePartner}
           onUpdateDisplayName={handleUpdateDisplayName}
           onAddKid={handleAddKid}
+          onRenameKid={handleRenameKid}
           onFamilyAvatarUpload={handleFamilyAvatarUpload}
           currentUserId={session?.user?.id}
           onSignOut={() => {
