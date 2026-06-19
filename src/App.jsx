@@ -73,11 +73,11 @@ function KidChip({ kid, active, onClick, icon, label }) {
 function KidSelector({ kids, selected, onSelect, onManage }) {
   return (
     <div className="scrollx">
-      <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-users" label="Both" />
+      <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-users" label={kids.length > 2 ? 'All' : 'Both'} />
       {kids.map(k => (
         <KidChip key={k.id} kid={k} active={selected === k.id} onClick={() => onSelect(k.id)} />
       ))}
-      <KidChip icon="ti-settings" label="Manage" onClick={onManage} />
+      <KidChip icon="ti-home-heart" label="Family" onClick={onManage} />
     </div>
   );
 }
@@ -532,7 +532,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, onBack, onEdit }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
@@ -567,14 +567,18 @@ function EntryDetailScreen({ entry, kid, onBack, onEdit }) {
               <i className={`ti ${m.icon}`} style={{ fontSize: 13 }} />{m.label}
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-            <KidThumb kid={kid} size={32} />
-            <div>
-              <p style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>{kid.name}</p>
-              <p style={{ fontSize: 12, color: '#9AA89C', margin: '2px 0 0' }}>
-                {exactAgeLabel(kid.birthdate, entry.date)} old · {new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-              </p>
-            </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => (
+              <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+                <KidThumb kid={k} size={32} />
+                <div>
+                  <p style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>{k.name}</p>
+                  <p style={{ fontSize: 12, color: '#9AA89C', margin: '2px 0 0' }}>
+                    {exactAgeLabel(k.birthdate, entry.date)} old · {new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
           <p style={{ fontSize: 17, color: '#2C3828', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: entry.text ? 'italic' : 'normal' }}>{entry.text}</p>
           {entry.signedAs && (
@@ -956,23 +960,62 @@ function CelebrationOverlay({ kid, milestoneType, onDone }) {
 
 // ─── Recap screen ──────────────────────────────────────────────────────────
 
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
-  const [selectedMonth, setSelectedMonth] = useState(TODAY.slice(0, 7));
+function RecapEntryRow({ entry, kids, onOpenEntry }) {
+  const kid = kids.find(k => k.id === entry.kids[0]);
+  if (!kid) return null;
+  const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
+  const dayLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const snippet = entry.text.slice(0, 90) + (entry.text.length > 90 ? '…' : '');
+  return (
+    <div
+      onClick={() => onOpenEntry(entry)}
+      style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 12, padding: '11px 13px', cursor: 'pointer', display: 'flex', gap: 11, alignItems: 'flex-start' }}
+    >
+      <KidThumb kid={kid} size={28} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: snippet ? 4 : 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: '#4A5E50' }}>{kid.name}</span>
+          <span style={{ fontSize: 11, color: '#B8CCB4' }}>·</span>
+          <span style={{ fontSize: 11, color: '#9AA89C' }}>{exactAgeLabel(kid.birthdate, entry.date)}</span>
+          <span style={{ fontSize: 11, color: '#B8CCB4', marginLeft: 'auto', flexShrink: 0 }}>{dayLabel}</span>
+        </div>
+        {snippet && (
+          <p style={{ fontSize: 13, color: '#5C6B5E', margin: 0, lineHeight: 1.5, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+            {snippet}
+          </p>
+        )}
+        {m && (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 5, fontSize: 10, fontWeight: 700, color: '#C8993E', background: '#FDF3E0', padding: '2px 8px', borderRadius: 999 }}>
+            <i className={`ti ${m.icon}`} style={{ fontSize: 10 }} />{m.label}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
 
-  const monthEntries = entries.filter(e => e.date.startsWith(selectedMonth));
-  const momentCount = monthEntries.length;
-  const milestoneCount = monthEntries.filter(e => e.milestone).length;
-  const photoCount = monthEntries.reduce((sum, e) => sum + (e.media?.length || 0), 0);
-  const monthMilestones = monthEntries.filter(e => e.milestone);
+function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
+  const [viewMode, setViewMode] = useState('month');
+  const [selectedMonth, setSelectedMonth] = useState(TODAY.slice(0, 7));
+  const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
+
+  const segTabStyle = (tab) => ({
+    border: 'none', borderRadius: 7, padding: '6px 14px',
+    fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    background: viewMode === tab ? '#fff' : 'transparent',
+    color: viewMode === tab ? '#4A5E50' : '#9AA89C',
+    boxShadow: viewMode === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+  });
+
+  const monthEntries = [...entries.filter(e => e.date.startsWith(selectedMonth))].sort((a, b) => new Date(b.date) - new Date(a.date));
   const monthLabel = new Date(selectedMonth + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const canGoNext = selectedMonth < TODAY.slice(0, 7);
+  const canGoNextMonth = selectedMonth < TODAY.slice(0, 7);
 
   function prevMonth() {
     const [y, m] = selectedMonth.split('-').map(Number);
     const d = new Date(y, m - 2, 1);
     setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
   }
-
   function nextMonth() {
     const [y, m] = selectedMonth.split('-').map(Number);
     const d = new Date(y, m, 1);
@@ -980,23 +1023,66 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
     if (next <= TODAY.slice(0, 7)) setSelectedMonth(next);
   }
 
+  const yearEntries = [...entries.filter(e => e.date.startsWith(selectedYear))].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const canGoNextYear = selectedYear < TODAY.slice(0, 4);
+
+  const yearGroups = [];
+  let curMonthLabel = null;
+  yearEntries.forEach(e => {
+    const label = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long' });
+    if (label !== curMonthLabel) { curMonthLabel = label; yearGroups.push({ label, entries: [] }); }
+    yearGroups[yearGroups.length - 1].entries.push(e);
+  });
+
+  const allEntries = [...entries].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const allGroups = [];
+  let curAllLabel = null;
+  allEntries.forEach(e => {
+    const label = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    if (label !== curAllLabel) { curAllLabel = label; allGroups.push({ label, entries: [] }); }
+    allGroups[allGroups.length - 1].entries.push(e);
+  });
+
+  const periodEntries = viewMode === 'month' ? monthEntries : viewMode === 'year' ? yearEntries : allEntries;
+  const momentCount = periodEntries.length;
+  const milestoneCount = periodEntries.filter(e => e.milestone).length;
+  const photoCount = periodEntries.reduce((sum, e) => sum + (e.media?.length || 0), 0);
+  const periodEmpty = viewMode === 'month' ? `No moments logged in ${monthLabel}.` : viewMode === 'year' ? `No moments logged in ${selectedYear}.` : 'No moments logged yet.';
+
   return (
     <div className="screen">
       <div className="scroll-area">
         <div className="scrollpad">
+
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={prevMonth} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9AA89C', fontSize: 16, padding: 4, display: 'flex' }}>
-                <i className="ti ti-chevron-left" />
-              </button>
-              <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700, minWidth: 130, textAlign: 'center' }}>{monthLabel}</h2>
-              <button onClick={nextMonth} style={{ background: 'none', border: 'none', cursor: canGoNext ? 'pointer' : 'default', color: canGoNext ? '#9AA89C' : 'transparent', fontSize: 16, padding: 4, display: 'flex' }}>
-                <i className="ti ti-chevron-right" />
-              </button>
+            <div style={{ display: 'flex', background: '#E8EDE4', borderRadius: 9, padding: 3 }}>
+              <button style={segTabStyle('month')} onClick={() => setViewMode('month')}>Month</button>
+              <button style={segTabStyle('year')} onClick={() => setViewMode('year')}>Year</button>
+              <button style={segTabStyle('all')} onClick={() => setViewMode('all')}>All</button>
             </div>
             <div style={{ width: 36 }} />
           </div>
+
+          {viewMode !== 'all' && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <button
+                onClick={viewMode === 'month' ? prevMonth : () => setSelectedYear(y => String(Number(y) - 1))}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9AA89C', fontSize: 16, padding: 4, display: 'flex' }}
+              >
+                <i className="ti ti-chevron-left" />
+              </button>
+              <h2 style={{ fontSize: 17, color: '#4A5E50', margin: 0, fontWeight: 700, minWidth: 150, textAlign: 'center' }}>
+                {viewMode === 'month' ? monthLabel : selectedYear}
+              </h2>
+              <button
+                onClick={viewMode === 'month' ? nextMonth : () => { if (canGoNextYear) setSelectedYear(y => String(Number(y) + 1)); }}
+                style={{ background: 'none', border: 'none', cursor: (viewMode === 'month' ? canGoNextMonth : canGoNextYear) ? 'pointer' : 'default', color: (viewMode === 'month' ? canGoNextMonth : canGoNextYear) ? '#9AA89C' : 'transparent', fontSize: 16, padding: 4, display: 'flex' }}
+              >
+                <i className="ti ti-chevron-right" />
+              </button>
+            </div>
+          )}
 
           {momentCount === 0 ? (
             <div className="empty-state">
@@ -1004,7 +1090,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
                 <i className="ti ti-calendar" style={{ fontSize: 22, color: '#9AA89C' }} />
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: '#4A5E50', margin: '0 0 6px' }}>Nothing written</p>
-              <p style={{ fontSize: 13, color: '#9AA89C', margin: 0 }}>No moments logged in {monthLabel}.</p>
+              <p style={{ fontSize: 13, color: '#9AA89C', margin: 0 }}>{periodEmpty}</p>
             </div>
           ) : (
             <>
@@ -1025,22 +1111,22 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
                 </div>
               </div>
 
-              {monthMilestones.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  {monthMilestones.map(e => {
-                    const kid = kids.find(k => k.id === e.kids[0]);
-                    const m = milestoneInfo(e.milestone);
-                    return (
-                      <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 11, cursor: 'pointer', background: '#fff', border: '1px solid #C4D8C0', borderRadius: 12, padding: '12px 14px' }} onClick={() => onOpenEntry(e)}>
-                        <KidThumb kid={kid} size={34} />
-                        <div style={{ flex: 1 }}>
-                          <p style={{ fontSize: 14, fontWeight: 600, color: '#4A5E50', margin: 0 }}>{m.label}</p>
-                          <p style={{ fontSize: 12, color: '#9AA89C', margin: '1px 0 0' }}>{kid.name} · {exactAgeLabel(kid.birthdate, e.date)}</p>
-                        </div>
-                        <i className={`ti ${m.icon}`} style={{ color: '#C8993E', fontSize: 17 }} />
+              {viewMode === 'month' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {monthEntries.map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {(viewMode === 'year' ? yearGroups : allGroups).map(group => (
+                    <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', letterSpacing: 0.4, textTransform: 'uppercase' }}>{group.label}</span>
+                        <div style={{ flex: 1, height: 1, background: '#CCDAC8' }} />
+                        <span style={{ fontSize: 11, color: '#B8CCB4', fontWeight: 600 }}>{group.entries.length}</span>
                       </div>
-                    );
-                  })}
+                      {group.entries.map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
+                    </div>
+                  ))}
                 </div>
               )}
             </>
@@ -2484,6 +2570,7 @@ export default function App() {
         <EntryDetailScreen
           entry={activeEntry}
           kid={kids.find(k => k.id === activeEntry.kids[0])}
+          allKids={kids}
           onBack={() => setScreen('home')}
           onEdit={editEntry}
         />
