@@ -34,7 +34,7 @@ function KidThumb({ kid, size = 24 }) {
   if (kid.avatar) {
     return (
       <span className="thumb" style={{ width: size, height: size }}>
-        <img src={kid.avatar} alt={kid.name} />
+        <img src={kid.avatar} alt={kid.name} onError={e => { e.currentTarget.style.display = 'none'; }} />
       </span>
     );
   }
@@ -46,6 +46,12 @@ function KidThumb({ kid, size = 24 }) {
       {kid.name[0]}
     </span>
   );
+}
+
+function AvatarImg({ src, alt, fallback }) {
+  const [broken, setBroken] = useState(false);
+  if (!src || broken) return fallback;
+  return <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} />;
 }
 
 function KidChip({ kid, active, onClick, icon, label }) {
@@ -149,14 +155,11 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
   return (
     <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
       {entry.media && entry.media.length > 0 && (
-        <div style={{ position: 'relative', height: cardH, overflow: 'hidden' }}>
+        <div
+          onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH); }}
+          style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
+        >
           <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
-          <button
-            onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH); }}
-            style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', borderRadius: 8, padding: '5px 9px', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Inter, sans-serif', fontWeight: 500 }}
-          >
-            <i className="ti ti-arrows-move" style={{ fontSize: 13 }} /> Reposition
-          </button>
         </div>
       )}
       <div style={{ padding: '16px 18px 14px' }}>
@@ -198,14 +201,11 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
       </div>
       <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
         {entry.media && entry.media.length > 0 && (
-          <div style={{ position: 'relative', height: cardH, overflow: 'hidden' }}>
+          <div
+            onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH); }}
+            style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
+          >
             <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
-            <button
-              onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH); }}
-              style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', borderRadius: 8, padding: '5px 9px', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'Inter, sans-serif', fontWeight: 500 }}
-            >
-              <i className="ti ti-arrows-move" style={{ fontSize: 13 }} /> Reposition
-            </button>
           </div>
         )}
         <div style={{ padding: '20px 20px 18px' }}>
@@ -331,9 +331,9 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           {recent.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <SectionDivider label="Recent letters" />
-              {recent.map((entry, idx) => {
+              {recent.map(entry => {
                 const kid = kids.find(k => k.id === entry.kids[0]);
-                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={idx === 0} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />;
+                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />;
               })}
               {entries.length > 4 && (
                 <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#7A8C78', fontFamily: "'Inter', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
@@ -995,7 +995,11 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
 
 function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
   const [compareAge, setCompareAge] = useState(24);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [milestoneFilter, setMilestoneFilter] = useState(null);
   const ages = [12, 18, 24, 36, 48, 60, 72];
+  const isSearching = searchQuery.trim().length > 0;
+  const isMilestoneFiltering = !isSearching && milestoneFilter !== null;
 
   function matchesAgeBucket(entryAgeMonths) {
     const currentIndex = ages.indexOf(compareAge);
@@ -1004,6 +1008,18 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
     if (nextAge == null) return entryAgeMonths >= compareAge;
     return entryAgeMonths >= compareAge && entryAgeMonths < nextAge;
   }
+
+  function entryMatchesSearch(e) {
+    const q = searchQuery.toLowerCase();
+    const m = e.milestone ? milestoneInfo(e.milestone) : null;
+    return (
+      e.text.toLowerCase().includes(q) ||
+      (m && m.label.toLowerCase().includes(q))
+    );
+  }
+
+  const showMeta = isSearching || isMilestoneFiltering;
+  const emptyLabel = isSearching ? 'No matches' : isMilestoneFiltering ? 'None logged yet' : 'No moments yet at this age';
 
   return (
     <div className="screen">
@@ -1014,24 +1030,72 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
             <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>At this age</h2>
             <div style={{ width: 36 }} />
           </div>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#5C6B5E', marginBottom: 9 }}>Pick an age</p>
-            <div className="scrollx">
-              {ages.map(age => (
-                <div
-                  key={age}
-                  className={`kid-chip ${compareAge === age ? 'active' : ''}`}
-                  style={{ padding: '7px 14px', ...(compareAge === age ? { background: '#4A5E50' } : {}) }}
-                  onClick={() => setCompareAge(age)}
-                >
-                  {ageLabel(age)}
-                </div>
-              ))}
-            </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: '#fff', border: '1px solid #ECE5D6', borderRadius: 10, padding: '10px 14px' }}>
+            <i className="ti ti-search" style={{ color: '#9AA89C', fontSize: 16 }} />
+            <input
+              type="text"
+              placeholder="Search moments..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ border: 'none', outline: 'none', flex: 1, fontSize: 14, background: 'transparent', color: '#4A5E50', fontFamily: 'Inter, sans-serif' }}
+            />
+            {isSearching && (
+              <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9AA89C', padding: 0, display: 'flex', alignItems: 'center' }}>
+                <i className="ti ti-x" style={{ fontSize: 14 }} />
+              </button>
+            )}
           </div>
+
+          {!isSearching && (
+            <>
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: '#5C6B5E', marginBottom: 9 }}>Milestones</p>
+                <div className="scrollx">
+                  {MILESTONE_TYPES.filter(ms => ms.id !== 'custom').map(ms => {
+                    const active = milestoneFilter === ms.id;
+                    return (
+                      <div
+                        key={ms.id}
+                        className="kid-chip"
+                        style={{ padding: '7px 14px', ...(active ? { background: '#C8993E', borderColor: '#C8993E', color: '#fff' } : {}) }}
+                        onClick={() => setMilestoneFilter(active ? null : ms.id)}
+                      >
+                        <i className={`ti ${ms.icon}`} style={{ fontSize: 13 }} />
+                        {ms.label}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {!isMilestoneFiltering && (
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: '#5C6B5E', marginBottom: 9 }}>Pick an age</p>
+                  <div className="scrollx">
+                    {ages.map(age => (
+                      <div
+                        key={age}
+                        className={`kid-chip ${compareAge === age ? 'active' : ''}`}
+                        style={{ padding: '7px 14px', ...(compareAge === age ? { background: '#4A5E50' } : {}) }}
+                        onClick={() => setCompareAge(age)}
+                      >
+                        {ageLabel(age)}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
           <div style={{ display: 'flex', gap: 12 }}>
             {kids.map(kid => {
-              const matches = entries.filter(e => e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths));
+              const matches = isSearching
+                ? entries.filter(e => e.kids.includes(kid.id) && entryMatchesSearch(e))
+                : isMilestoneFiltering
+                  ? entries.filter(e => e.kids.includes(kid.id) && e.milestone === milestoneFilter)
+                  : entries.filter(e => e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths));
               return (
                 <div key={kid.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1040,17 +1104,20 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
                   </div>
                   {matches.length === 0 ? (
                     <div style={{ background: '#fff', border: '1px dashed #D8CFBC', borderRadius: 12, padding: '24px 12px', textAlign: 'center' }}>
-                      <p style={{ fontSize: 12, color: '#9AA89C', margin: 0 }}>No moments yet at this age</p>
+                      <p style={{ fontSize: 12, color: '#9AA89C', margin: 0 }}>{emptyLabel}</p>
                     </div>
                   ) : matches.map(e => {
                     const m = e.milestone ? milestoneInfo(e.milestone) : null;
+                    const ageStr = exactAgeLabel(kid.birthdate, e.date);
+                    const dateStr = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                     return (
                       <div key={e.id} style={{ borderRadius: 12, overflow: 'hidden' }} onClick={() => onOpenEntry(e)}>
                         <div className="compare-photo" style={entryBgStyle(e)}>
                           <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
                           <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
-                            <p style={{ fontSize: 11, color: '#fff', margin: '0 0 4px', fontWeight: 700 }}>{exactAgeLabel(kid.birthdate, e.date)}</p>
-                            {m && <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 600, opacity: 0.9 }}>{m.label}</p>}
+                            <p style={{ fontSize: 11, color: '#fff', margin: '0 0 2px', fontWeight: 700 }}>{ageStr}</p>
+                            {showMeta && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', margin: '0 0 2px' }}>{dateStr}</p>}
+                            {m && !isMilestoneFiltering && <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 600, opacity: 0.9 }}>{m.label}</p>}
                           </div>
                         </div>
                         <p style={{ fontSize: 12, color: '#5C6B5E', lineHeight: 1.5, margin: '8px 2px 0' }}>
@@ -1256,7 +1323,7 @@ function ProfileScreen({ kids, entries, selectedKidId, setSelectedKidId, onBack,
                   className="avatar-upload-zone"
                   style={k.id === selectedKidId ? { boxShadow: `0 0 0 2px ${k.accent}` } : {}}
                 >
-                  {k.avatar ? <img src={k.avatar} alt={k.name} /> : <i className="ti ti-camera" />}
+                  <AvatarImg src={k.avatar} alt={k.name} fallback={<i className="ti ti-camera" />} />
                 </div>
                 <p style={{ fontSize: 13, color: k.id === selectedKidId ? '#4A5E50' : '#9AA89C', margin: '8px 0 0', fontWeight: 600 }}>
                   {k.name}
@@ -2120,15 +2187,18 @@ export default function App() {
     const localUrl = URL.createObjectURL(file);
     setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: localUrl } : k));
     if (localMode || !supabase || !session) return;
-    try {
-      const path = `${session.user.id}/avatar-${kidId}.jpg`;
-      const { error } = await supabase.storage.from('media').upload(path, file, { upsert: true });
-      if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
-        setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: publicUrl } : k));
-        await supabase.from('kids').update({ avatar_url: publicUrl }).eq('id', kidId);
-      }
-    } catch {}
+    const path = `${session.user.id}/avatar-${kidId}.jpg`;
+    const { error: uploadError } = await supabase.storage.from('media').upload(path, file, { upsert: true });
+    if (uploadError) {
+      alert('Photo upload failed: ' + uploadError.message);
+      return;
+    }
+    const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
+    setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: publicUrl } : k));
+    const { error: dbError } = await supabase.from('kids').update({ avatar_url: publicUrl }).eq('id', kidId);
+    if (dbError) {
+      alert('Photo saved locally but failed to sync: ' + dbError.message);
+    }
   }
 
   function openProfile(kidId) {
