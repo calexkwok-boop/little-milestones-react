@@ -10,6 +10,15 @@ import {
 
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
 const LOCAL_STORAGE_KEY = 'patina-local-data';
+const PROD_APP_URL = 'https://little-milestones-react.vercel.app';
+
+function getAuthRedirectUrl() {
+  if (typeof window === 'undefined') return PROD_APP_URL;
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return PROD_APP_URL;
+  }
+  return window.location.origin;
+}
 
 function loadLocalData() {
   if (typeof window === 'undefined') {
@@ -1760,7 +1769,13 @@ function AuthScreen() {
     setLoading(true);
     setError('');
     if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: getAuthRedirectUrl(),
+        },
+      });
       if (error) setError(error.message);
       else setCheckEmail(true);
     } else {
