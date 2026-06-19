@@ -1002,6 +1002,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
   const [viewMode, setViewMode] = useState('month');
   const [selectedMonth, setSelectedMonth] = useState(TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
+  const [recapFilter, setRecapFilter] = useState(null);
 
   const segTabStyle = (tab) => ({
     border: 'none', borderRadius: 7, padding: '6px 14px',
@@ -1061,9 +1062,9 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
             <div style={{ display: 'flex', background: '#E8EDE4', borderRadius: 9, padding: 3 }}>
-              <button style={segTabStyle('month')} onClick={() => setViewMode('month')}>Month</button>
-              <button style={segTabStyle('year')} onClick={() => setViewMode('year')}>Year</button>
-              <button style={segTabStyle('all')} onClick={() => setViewMode('all')}>All</button>
+              <button style={segTabStyle('month')} onClick={() => { setViewMode('month'); setRecapFilter(null); }}>Month</button>
+              <button style={segTabStyle('year')} onClick={() => { setViewMode('year'); setRecapFilter(null); }}>Year</button>
+              <button style={segTabStyle('all')} onClick={() => { setViewMode('all'); setRecapFilter(null); }}>All</button>
             </div>
             <div style={{ width: 36 }} />
           </div>
@@ -1104,18 +1105,45 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: '5px 0 0', fontWeight: 600 }}>moment{momentCount !== 1 ? 's' : ''} logged</p>
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ background: '#EEF2EA', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, padding: '12px 14px' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#4A5E50' }}>milestones</span>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: '#4A5E50' }}>{milestoneCount}</span>
+                  <div
+                    onClick={() => setRecapFilter(f => f === 'milestones' ? null : 'milestones')}
+                    style={{ background: recapFilter === 'milestones' ? '#4A5E50' : '#EEF2EA', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, padding: '12px 14px', cursor: milestoneCount > 0 ? 'pointer' : 'default' }}
+                  >
+                    <span style={{ fontSize: 11, fontWeight: 700, color: recapFilter === 'milestones' ? '#C8993E' : '#4A5E50' }}>milestones</span>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: recapFilter === 'milestones' ? '#fff' : '#4A5E50' }}>{milestoneCount}</span>
                   </div>
-                  <div style={{ background: '#EDE8DE', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, padding: '12px 14px' }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#7A6850' }}>photos</span>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: '#7A6850' }}>{photoCount}</span>
+                  <div
+                    onClick={() => setRecapFilter(f => f === 'photos' ? null : 'photos')}
+                    style={{ background: recapFilter === 'photos' ? '#7A6850' : '#EDE8DE', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, padding: '12px 14px', cursor: photoCount > 0 ? 'pointer' : 'default' }}
+                  >
+                    <span style={{ fontSize: 11, fontWeight: 700, color: recapFilter === 'photos' ? 'rgba(255,255,255,0.8)' : '#7A6850' }}>photos</span>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: recapFilter === 'photos' ? '#fff' : '#7A6850' }}>{photoCount}</span>
                   </div>
                 </div>
               </div>
 
-              {viewMode === 'month' ? (
+              {recapFilter === 'photos' ? (
+                (() => {
+                  const allPhotos = periodEntries.flatMap(e => (e.media || []).map(m => ({ ...m, entry: e })));
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                      {allPhotos.map((item, i) => (
+                        <div
+                          key={i}
+                          onClick={() => onOpenEntry(item.entry)}
+                          style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: '#EEF2EA' }}
+                        >
+                          <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
+              ) : recapFilter === 'milestones' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {periodEntries.filter(e => e.milestone).map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
+                </div>
+              ) : viewMode === 'month' ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {monthEntries.map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
                 </div>
