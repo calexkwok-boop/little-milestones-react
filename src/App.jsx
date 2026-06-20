@@ -576,11 +576,14 @@ function JournalEntryRow({ entry, kid, onClick }) {
             <KidThumb kid={kid} size={20} />
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4A5E50' }}>{kid.name}</span>
             <span style={{ fontSize: 11, color: '#9AA89C' }}>· {exactAgeLabel(kid.birthdate, entry.date)}</span>
-            {m && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3 }}>
-                <span style={{ fontSize: 9 }}>✦</span>{m.label}
-              </span>
-            )}
+            <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {entry.favorited && <i className="ti ti-heart-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
+              {m && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <span style={{ fontSize: 9 }}>✦</span>{m.label}
+                </span>
+              )}
+            </div>
           </div>
           <p style={{ fontSize: 15, color: '#3A3020', lineHeight: 1.65, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: text ? 'italic' : 'normal' }}>{text}</p>
           {entry.media && entry.media.length > 0 && (
@@ -654,7 +657,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
@@ -667,7 +670,10 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit }) {
             <>
               <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
                 <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-                <button className="icon-btn-ghost" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button className="icon-btn-ghost" onClick={() => onToggleFavorite(entry.id)} style={entry.favorited ? { color: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
+                  <button className="icon-btn-ghost" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
+                </div>
               </div>
               <div className="gallery-stage">
                 {media.map((item, i) => (
@@ -684,7 +690,10 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit }) {
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 0' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <button className="icon-btn" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="icon-btn" onClick={() => onToggleFavorite(entry.id)} style={entry.favorited ? { color: '#C8993E', borderColor: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
+                <button className="icon-btn" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
+              </div>
             </div>
           )}
         </div>
@@ -1111,7 +1120,10 @@ function RecapEntryRow({ entry, kids, onOpenEntry }) {
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: snippet ? 3 : 0 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: '#4A5E50' }}>{nameLabel}</span>
-          <span style={{ fontSize: 11, color: '#B8CCB4', flexShrink: 0, marginLeft: 8 }}>{dayLabel}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 8 }}>
+            {entry.favorited && <i className="ti ti-heart-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
+            <span style={{ fontSize: 11, color: '#B8CCB4' }}>{dayLabel}</span>
+          </div>
         </div>
         {snippet && (
           <p style={{ fontSize: 13, color: '#8A9A8C', margin: 0, lineHeight: 1.5, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
@@ -1133,6 +1145,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
   const [selectedMonth, setSelectedMonth] = useState(TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
   const [recapFilter, setRecapFilter] = useState(null);
+  const [kidFilter, setKidFilter] = useState(null);
 
   const segTabStyle = (tab) => ({
     border: 'none', borderRadius: 7, padding: '6px 14px',
@@ -1142,7 +1155,9 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
     boxShadow: viewMode === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
   });
 
-  const monthEntries = [...entries.filter(e => e.date.startsWith(selectedMonth))].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const filterByKid = (arr) => kidFilter ? arr.filter(e => (e.kids || []).includes(kidFilter)) : arr;
+
+  const monthEntries = filterByKid([...entries.filter(e => e.date.startsWith(selectedMonth))].sort((a, b) => new Date(b.date) - new Date(a.date)));
   const monthLabel = new Date(selectedMonth + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const canGoNextMonth = selectedMonth < TODAY.slice(0, 7);
 
@@ -1158,7 +1173,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
     if (next <= TODAY.slice(0, 7)) setSelectedMonth(next);
   }
 
-  const yearEntries = [...entries.filter(e => e.date.startsWith(selectedYear))].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const yearEntries = filterByKid([...entries.filter(e => e.date.startsWith(selectedYear))].sort((a, b) => new Date(b.date) - new Date(a.date)));
   const canGoNextYear = selectedYear < TODAY.slice(0, 4);
 
   const yearGroups = [];
@@ -1169,7 +1184,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
     yearGroups[yearGroups.length - 1].entries.push(e);
   });
 
-  const allEntries = [...entries].sort((a, b) => new Date(b.date) - new Date(a.date));
+  const allEntries = filterByKid([...entries].sort((a, b) => new Date(b.date) - new Date(a.date)));
   const allGroups = [];
   let curAllLabel = null;
   allEntries.forEach(e => {
@@ -1182,6 +1197,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
   const momentCount = periodEntries.length;
   const milestoneCount = periodEntries.filter(e => e.milestone).length;
   const photoCount = periodEntries.reduce((sum, e) => sum + (e.media?.length || 0), 0);
+  const favoriteCount = periodEntries.filter(e => e.favorited).length;
   const periodEmpty = viewMode === 'month' ? `No moments logged in ${monthLabel}.` : viewMode === 'year' ? `No moments logged in ${selectedYear}.` : 'No moments logged yet.';
 
   return (
@@ -1219,6 +1235,24 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
             </div>
           )}
 
+          {kids.length > 1 && (
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
+              <button
+                onClick={() => setKidFilter(null)}
+                style={{ width: 48, height: 48, borderRadius: '50%', border: kidFilter === null ? '2.5px solid #4A5E50' : '2px solid #CCDAC8', background: kidFilter === null ? '#4A5E50' : '#fff', color: kidFilter === null ? '#fff' : '#9AA89C', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}
+              >All</button>
+              {kids.map(kid => (
+                <button
+                  key={kid.id}
+                  onClick={() => setKidFilter(f => f === kid.id ? null : kid.id)}
+                  style={{ width: 48, height: 48, borderRadius: '50%', border: kidFilter === kid.id ? '2.5px solid #4A5E50' : '2px solid transparent', padding: 0, cursor: 'pointer', overflow: 'hidden', flexShrink: 0, opacity: kidFilter !== null && kidFilter !== kid.id ? 0.4 : 1, transition: 'opacity 0.15s, border-color 0.15s' }}
+                >
+                  <KidThumb kid={kid} size={48} />
+                </button>
+              ))}
+            </div>
+          )}
+
           {momentCount === 0 ? (
             <div className="empty-state">
               <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#EEF2EA', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
@@ -1229,26 +1263,31 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
             </div>
           ) : (
             <>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1.3, background: '#4A5E50', borderRadius: 14, padding: 16 }}>
-                  <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: 0, lineHeight: 1 }}>{momentCount}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div onClick={() => setRecapFilter(null)} style={{ background: '#4A5E50', borderRadius: 14, padding: '14px 16px', opacity: recapFilter !== null ? 0.4 : 1, transition: 'opacity 0.15s', cursor: recapFilter !== null ? 'pointer' : 'default' }}>
+                  <p style={{ fontSize: 32, fontWeight: 800, color: '#C8993E', margin: 0, lineHeight: 1 }}>{momentCount}</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: '5px 0 0', fontWeight: 600 }}>moment{momentCount !== 1 ? 's' : ''} logged</p>
                 </div>
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div
-                    onClick={() => setRecapFilter(f => f === 'milestones' ? null : 'milestones')}
-                    style={{ background: recapFilter === 'milestones' ? '#4A5E50' : '#EEF2EA', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, padding: '12px 14px', cursor: milestoneCount > 0 ? 'pointer' : 'default' }}
-                  >
-                    <span style={{ fontSize: 11, fontWeight: 700, color: recapFilter === 'milestones' ? '#C8993E' : '#4A5E50' }}>milestones</span>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: recapFilter === 'milestones' ? '#fff' : '#4A5E50' }}>{milestoneCount}</span>
-                  </div>
-                  <div
-                    onClick={() => setRecapFilter(f => f === 'photos' ? null : 'photos')}
-                    style={{ background: recapFilter === 'photos' ? '#7A6850' : '#EDE8DE', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flex: 1, padding: '12px 14px', cursor: photoCount > 0 ? 'pointer' : 'default' }}
-                  >
-                    <span style={{ fontSize: 11, fontWeight: 700, color: recapFilter === 'photos' ? 'rgba(255,255,255,0.8)' : '#7A6850' }}>photos</span>
-                    <span style={{ fontSize: 18, fontWeight: 800, color: recapFilter === 'photos' ? '#fff' : '#7A6850' }}>{photoCount}</span>
-                  </div>
+                <div
+                  onClick={() => setRecapFilter(f => f === 'milestones' ? null : 'milestones')}
+                  style={{ background: recapFilter === 'milestones' ? '#D4856A' : '#FAF0ED', borderRadius: 14, padding: '14px 16px', cursor: milestoneCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'milestones' ? 0.4 : 1, transition: 'opacity 0.15s' }}
+                >
+                  <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'milestones' ? '#fff' : '#D4856A', margin: 0, lineHeight: 1 }}>{milestoneCount}</p>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'milestones' ? 'rgba(255,255,255,0.75)' : '#D4856A', margin: '5px 0 0' }}>milestones</p>
+                </div>
+                <div
+                  onClick={() => setRecapFilter(f => f === 'photos' ? null : 'photos')}
+                  style={{ background: recapFilter === 'photos' ? '#A09080' : '#F0ECE8', borderRadius: 14, padding: '14px 16px', cursor: photoCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'photos' ? 0.4 : 1, transition: 'opacity 0.15s' }}
+                >
+                  <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'photos' ? '#fff' : '#A09080', margin: 0, lineHeight: 1 }}>{photoCount}</p>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'photos' ? 'rgba(255,255,255,0.75)' : '#A09080', margin: '5px 0 0' }}>photos</p>
+                </div>
+                <div
+                  onClick={() => setRecapFilter(f => f === 'favorites' ? null : 'favorites')}
+                  style={{ background: recapFilter === 'favorites' ? '#C8993E' : '#FDF3E0', borderRadius: 14, padding: '14px 16px', cursor: favoriteCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'favorites' ? 0.4 : 1, transition: 'opacity 0.15s' }}
+                >
+                  <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'favorites' ? '#fff' : '#C8993E', margin: 0, lineHeight: 1 }}>{favoriteCount}</p>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'favorites' ? 'rgba(255,255,255,0.75)' : '#C8993E', margin: '5px 0 0' }}>favorites</p>
                 </div>
               </div>
 
@@ -1269,6 +1308,10 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
                     </div>
                   );
                 })()
+              ) : recapFilter === 'favorites' ? (
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {periodEntries.filter(e => e.favorited).map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
+                </div>
               ) : recapFilter === 'milestones' ? (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {periodEntries.filter(e => e.milestone).map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
@@ -1835,7 +1878,7 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCompressPhotos, migrationState }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -2156,28 +2199,6 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
             </div>
           )}
 
-          {onCompressPhotos && (
-            <div style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 14, padding: 16 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 6px' }}>Storage</p>
-              <p style={{ fontSize: 12, color: '#9AA89C', margin: '0 0 14px', lineHeight: 1.5 }}>Compress your existing photos to save storage space. Only affects photos you uploaded.</p>
-              {migrationState ? (
-                <div>
-                  <div style={{ height: 6, background: '#EEF2EA', borderRadius: 99, overflow: 'hidden', marginBottom: 8 }}>
-                    <div style={{ height: '100%', background: '#7A9E8C', borderRadius: 99, width: migrationState.total > 0 ? `${(migrationState.done / migrationState.total) * 100}%` : '0%', transition: 'width 0.3s' }} />
-                  </div>
-                  <p style={{ fontSize: 12, color: '#9AA89C', margin: 0, textAlign: 'center' }}>
-                    {migrationState.running
-                      ? `Compressing ${migrationState.done} of ${migrationState.total}…`
-                      : `Done — ${migrationState.done} photos compressed${migrationState.errors > 0 ? `, ${migrationState.errors} skipped` : ''}`}
-                  </p>
-                </div>
-              ) : (
-                <button className="btn btn-outline" style={{ width: '100%', fontSize: 13, padding: '10px 14px' }} onClick={onCompressPhotos}>
-                  <i className="ti ti-photo-compress" />Compress existing photos
-                </button>
-              )}
-            </div>
-          )}
 
           <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#9AA89C', fontFamily: "'Inter', sans-serif", padding: '8px 0', fontWeight: 600, alignSelf: 'center' }}>
             Sign out
@@ -2294,7 +2315,7 @@ function NavBar({ active, onNavigate }) {
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
   ];
   const tabsRight = [
-    { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', color: '#7BA99A' },
+    { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', color: '#F0897A' },
   ];
 
   function tabStyle(tab) {
@@ -3030,6 +3051,16 @@ export default function App() {
     setScreen('entry-detail');
   }
 
+  async function handleToggleFavorite(entryId) {
+    const entry = entries.find(e => e.id === entryId);
+    if (!entry) return;
+    const newFavorited = !entry.favorited;
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, favorited: newFavorited } : e));
+    setActiveEntry(prev => prev?.id === entryId ? { ...prev, favorited: newFavorited } : prev);
+    if (localMode || !supabase || !session) return;
+    await supabase.from('entries').update({ favorited: newFavorited }).eq('id', entryId);
+  }
+
   function editEntry(entry) {
     setActiveEntry(entry);
     setScreen('edit-entry');
@@ -3322,36 +3353,6 @@ export default function App() {
     await supabase.from('kids').update({ growth_log: newLog }).eq('id', kidId);
   }
 
-  const [migrationState, setMigrationState] = useState(null);
-
-  async function handleCompressExistingPhotos() {
-    if (!supabase || !session) return;
-    setMigrationState({ running: true, total: 0, done: 0, errors: 0 });
-    const { data: allMedia } = await supabase.from('entry_media').select('url, type');
-    if (!allMedia) { setMigrationState(null); return; }
-    const myPrefix = `/${session.user.id}/`;
-    const images = allMedia.filter(m => m.type !== 'video' && m.url.includes(myPrefix));
-    setMigrationState({ running: true, total: images.length, done: 0, errors: 0 });
-    let done = 0, errors = 0;
-    for (const item of images) {
-      try {
-        const match = item.url.match(/\/object\/(?:public\/)?media\/(.+)/);
-        if (!match) throw new Error('bad url');
-        const path = match[1];
-        const { data: blob, error: dlErr } = await supabase.storage.from('media').download(path);
-        if (dlErr || !blob) throw dlErr;
-        const compressed = await compressImage(new File([blob], path.split('/').pop(), { type: 'image/jpeg' }));
-        if (compressed.size < blob.size * 0.95) {
-          await supabase.storage.from('media').remove([path]);
-          await supabase.storage.from('media').upload(path, compressed, { contentType: 'image/jpeg' });
-        }
-      } catch { errors++; }
-      done++;
-      setMigrationState({ running: true, total: images.length, done, errors });
-    }
-    setMigrationState({ running: false, total: images.length, done, errors });
-  }
-
   async function handleDeleteGrowthEntry(kidId, date) {
     const kid = kids.find(k => k.id === kidId);
     if (!kid) return;
@@ -3467,6 +3468,7 @@ export default function App() {
           allKids={kids}
           onBack={() => setScreen('home')}
           onEdit={editEntry}
+          onToggleFavorite={handleToggleFavorite}
         />
       )}
 
@@ -3518,8 +3520,6 @@ export default function App() {
           onFamilyAvatarUpload={handleFamilyAvatarUpload}
           currentUserId={session?.user?.id}
           onOpenGrowth={kidId => { setGrowthKidId(kidId); setScreen('growth'); }}
-          onCompressPhotos={handleCompressExistingPhotos}
-          migrationState={migrationState}
           onSignOut={() => {
             if (localMode || !supabase) {
               setKids([]);
