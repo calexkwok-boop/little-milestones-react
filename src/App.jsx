@@ -1554,9 +1554,10 @@ function GrowthChart({ measurements, refTable, color }) {
   );
 }
 
-function GrowthScreen({ kid, onBack, onSave }) {
+function GrowthScreen({ kid, onBack, onSave, onDelete }) {
   const [metric, setMetric] = useState('height');
   const [addingEntry, setAddingEntry] = useState(false);
+  const [editingEntry, setEditingEntry] = useState(null);
   const [entryDate, setEntryDate] = useState(TODAY);
   const [editMonth, setEditMonth] = useState('');
   const [editDay, setEditDay] = useState('');
@@ -1586,14 +1587,40 @@ function GrowthScreen({ kid, onBack, onSave }) {
     setEditingDate(false);
   }
 
+  function closeSheet() {
+    setAddingEntry(false);
+    setEditingEntry(null);
+    setNewFt(''); setNewIn(''); setNewLb(''); setNewOz('');
+    setEntryDate(TODAY);
+  }
+
+  function openEdit(entry) {
+    setEditingEntry(entry);
+    setEntryDate(entry.date);
+    if (entry.height != null) {
+      setNewFt(String(Math.floor(entry.height / 12)));
+      setNewIn(String(parseFloat((entry.height % 12).toFixed(2))));
+    } else { setNewFt(''); setNewIn(''); }
+    if (entry.weight != null) {
+      const lb = Math.floor(entry.weight);
+      const oz = parseFloat(((entry.weight - lb) * 16).toFixed(1));
+      setNewLb(String(lb));
+      setNewOz(oz > 0 ? String(oz) : '');
+    } else { setNewLb(''); setNewOz(''); }
+    setAddingEntry(true);
+  }
+
   function handleAdd() {
     const height = (newFt || newIn) ? parseFloat(newFt || 0) * 12 + parseFloat(newIn || 0) : null;
     const weight = (newLb || newOz) ? parseFloat(newLb || 0) + parseFloat(newOz || 0) / 16 : null;
     if (!height && !weight) return;
     onSave({ date: entryDate, height: height || null, weight: weight || null });
-    setAddingEntry(false);
-    setNewFt(''); setNewIn(''); setNewLb(''); setNewOz('');
-    setEntryDate(TODAY);
+    closeSheet();
+  }
+
+  function handleDelete() {
+    if (editingEntry) onDelete(editingEntry.date);
+    closeSheet();
   }
 
   const canSave = newFt || newIn || newLb || newOz;
@@ -1672,8 +1699,13 @@ function GrowthScreen({ kid, onBack, onSave }) {
                 return (
                   <div key={i} style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 12, padding: '12px 14px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: '#4A5E50', margin: 0 }}>{dateStr}</p>
-                      <p style={{ fontSize: 11, color: '#9AA89C', margin: 0 }}>{ageLabel(Math.round(ageMo))} old</p>
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: '#4A5E50', margin: 0 }}>{dateStr}</p>
+                        <p style={{ fontSize: 11, color: '#9AA89C', margin: '2px 0 0' }}>{ageLabel(Math.round(ageMo))} old</p>
+                      </div>
+                      <button onClick={() => openEdit(entry)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9AA89C', fontSize: 15, padding: 4, display: 'flex' }}>
+                        <i className="ti ti-pencil" />
+                      </button>
                     </div>
                     <div style={{ display: 'flex', gap: 10 }}>
                       {entry.height && (
@@ -1697,15 +1729,21 @@ function GrowthScreen({ kid, onBack, onSave }) {
         </div>
       </div>
 
-      {/* Add measurement sheet */}
+      {/* Add / edit measurement sheet */}
       {addingEntry && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 20 }} onClick={() => setAddingEntry(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 20 }} onClick={closeSheet}>
           <div style={{ background: '#F2F4EC', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px', width: '100%', maxWidth: 480 }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: 0 }}>Add measurement</p>
-              <button onClick={openDateEdit} style={{ background: '#EEF2EA', border: 'none', cursor: 'pointer', fontSize: 12, color: '#5C6B5E', fontFamily: "'Inter', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
-                <i className="ti ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
-              </button>
+              <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: 0 }}>{editingEntry ? 'Edit measurement' : 'Add measurement'}</p>
+              {editingEntry ? (
+                <span style={{ fontSize: 12, color: '#9AA89C', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <i className="ti ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
+                </span>
+              ) : (
+                <button onClick={openDateEdit} style={{ background: '#EEF2EA', border: 'none', cursor: 'pointer', fontSize: 12, color: '#5C6B5E', fontFamily: "'Inter', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
+                  <i className="ti ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
+                </button>
+              )}
             </div>
             <p style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>Height</p>
             <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -1729,7 +1767,12 @@ function GrowthScreen({ kid, onBack, onSave }) {
                 <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: '#9AA89C', pointerEvents: 'none' }}>oz</span>
               </div>
             </div>
-            <button className="btn btn-primary" style={{ width: '100%', opacity: canSave ? 1 : 0.4 }} disabled={!canSave} onClick={handleAdd}>Save</button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              {editingEntry && (
+                <button className="btn btn-outline" style={{ flex: 1, color: '#C0523A', borderColor: '#F0C4BA' }} onClick={handleDelete}>Delete</button>
+              )}
+              <button className="btn btn-primary" style={{ flex: editingEntry ? 2 : 1, opacity: canSave ? 1 : 0.4 }} disabled={!canSave} onClick={handleAdd}>Save</button>
+            </div>
           </div>
         </div>
       )}
@@ -3178,6 +3221,15 @@ export default function App() {
     await supabase.from('kids').update({ growth_log: newLog }).eq('id', kidId);
   }
 
+  async function handleDeleteGrowthEntry(kidId, date) {
+    const kid = kids.find(k => k.id === kidId);
+    if (!kid) return;
+    const newLog = (kid.growthLog || []).filter(e => e.date !== date);
+    setKids(prev => prev.map(k => k.id === kidId ? { ...k, growthLog: newLog } : k));
+    if (localMode || !supabase || !session) return;
+    await supabase.from('kids').update({ growth_log: newLog }).eq('id', kidId);
+  }
+
   async function handleUpdateDisplayName(name) {
     setMyDisplayName(name);
     setFamilyMembers(prev => prev.map(m => m.user_id === session?.user.id ? { ...m, display_name: name } : m));
@@ -3358,6 +3410,7 @@ export default function App() {
             kid={kid}
             onBack={() => setScreen('profile')}
             onSave={entry => handleSaveGrowthEntry(growthKidId, entry)}
+            onDelete={date => handleDeleteGrowthEntry(growthKidId, date)}
           />
         ) : null;
       })()}
