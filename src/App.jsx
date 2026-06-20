@@ -414,6 +414,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         <div className="scroll-area" style={{ overflowY: 'hidden' }}>
           <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 28 }}>
             <Header />
+            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} />
             <div
               onClick={onAddMoment}
               style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, padding: '24px 22px 28px', cursor: 'pointer' }}
@@ -546,8 +547,8 @@ function JournalEntryRow({ entry, kid, onClick }) {
             <span style={{ fontSize: 12, fontWeight: 600, color: '#4A5E50' }}>{kid.name}</span>
             <span style={{ fontSize: 11, color: '#9AA89C' }}>· {exactAgeLabel(kid.birthdate, entry.date)}</span>
             {m && (
-              <span style={{ fontSize: 10, fontWeight: 700, color: entry.palette.tint, background: entry.palette.bg, padding: '2px 8px', borderRadius: 999, marginLeft: 'auto' }}>
-                {m.label}
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 3 }}>
+                <span style={{ fontSize: 9 }}>✦</span>{m.label}
               </span>
             )}
           </div>
@@ -630,30 +631,37 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit }) {
     <div className="screen">
       <div className="scroll-area">
         <div style={{ position: 'relative' }}>
-          <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
-            <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <button className="icon-btn-ghost" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
-          </div>
           {media.length > 0 ? (
-            <div className="gallery-stage">
-              {media.map((item, i) => (
-                <div
-                  key={i}
-                  className="gallery-slide"
-                  style={{ backgroundImage: `url('${item.url}')`, opacity: i === activeSlide ? 1 : 0 }}
-                >
-                  {item.type === 'video' && <div className="video-play-overlay"><i className="ti ti-player-play" /></div>}
-                </div>
-              ))}
-            </div>
+            <>
+              <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
+                <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+                <button className="icon-btn-ghost" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
+              </div>
+              <div className="gallery-stage">
+                {media.map((item, i) => (
+                  <div
+                    key={i}
+                    className="gallery-slide"
+                    style={{ backgroundImage: `url('${item.url}')`, opacity: i === activeSlide ? 1 : 0 }}
+                  >
+                    {item.type === 'video' && <div className="video-play-overlay"><i className="ti ti-player-play" /></div>}
+                  </div>
+                ))}
+              </div>
+            </>
           ) : (
-            <div style={{ aspectRatio: '4/3', ...entryBgStyle(entry) }} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 0' }}>
+              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <button className="icon-btn" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
+            </div>
           )}
         </div>
         <div className="scrollpad">
           {m && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, width: 'fit-content', background: entry.palette.bg, color: entry.palette.tint, fontSize: 12, fontWeight: 700, padding: '6px 12px', borderRadius: 999 }}>
-              <i className={`ti ${m.icon}`} style={{ fontSize: 13 }} />{m.label}
+            <div style={{ background: 'linear-gradient(135deg, #FDF3E0, #FAE8C0)', borderRadius: 16, padding: '18px 20px', textAlign: 'center', border: '1px solid rgba(200,153,62,0.25)', boxShadow: '0 2px 10px rgba(200,153,62,0.12)' }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 8px' }}>Milestone</p>
+              <i className={`ti ${m.icon}`} style={{ fontSize: 28, color: '#C8993E', display: 'block', marginBottom: 8 }} />
+              <p style={{ fontSize: 15, fontWeight: 700, color: '#7A6030', margin: 0 }}>{m.label}</p>
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1050,32 +1058,37 @@ function CelebrationOverlay({ kid, milestoneType, onDone }) {
 // ─── Recap screen ──────────────────────────────────────────────────────────
 
 function RecapEntryRow({ entry, kids, onOpenEntry }) {
-  const kid = kids.find(k => k.id === entry.kids[0]);
-  if (!kid) return null;
+  const entryKids = (entry.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
+  if (entryKids.length === 0) return null;
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const dayLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const snippet = entry.text.slice(0, 90) + (entry.text.length > 90 ? '…' : '');
+  const snippet = (entry.text || '').slice(0, 120) + (entry.text?.length > 120 ? '…' : '');
+  const nameLabel = entryKids.map(k => k.name).join(' & ');
   return (
     <div
       onClick={() => onOpenEntry(entry)}
-      style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 12, padding: '11px 13px', cursor: 'pointer', display: 'flex', gap: 11, alignItems: 'flex-start' }}
+      style={{ cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start', padding: '13px 0', borderBottom: '1px solid #EEF2EA' }}
     >
-      <KidThumb kid={kid} size={28} />
+      <div style={{ display: 'flex', flexShrink: 0 }}>
+        {entryKids.map((kid, i) => (
+          <div key={kid.id} style={{ marginLeft: i > 0 ? -8 : 0, zIndex: entryKids.length - i, position: 'relative' }}>
+            <KidThumb kid={kid} size={30} />
+          </div>
+        ))}
+      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: snippet ? 4 : 0 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: '#4A5E50' }}>{kid.name}</span>
-          <span style={{ fontSize: 11, color: '#B8CCB4' }}>·</span>
-          <span style={{ fontSize: 11, color: '#9AA89C' }}>{exactAgeLabel(kid.birthdate, entry.date)}</span>
-          <span style={{ fontSize: 11, color: '#B8CCB4', marginLeft: 'auto', flexShrink: 0 }}>{dayLabel}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: snippet ? 3 : 0 }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#4A5E50' }}>{nameLabel}</span>
+          <span style={{ fontSize: 11, color: '#B8CCB4', flexShrink: 0, marginLeft: 8 }}>{dayLabel}</span>
         </div>
         {snippet && (
-          <p style={{ fontSize: 13, color: '#5C6B5E', margin: 0, lineHeight: 1.5, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+          <p style={{ fontSize: 13, color: '#8A9A8C', margin: 0, lineHeight: 1.5, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
             {snippet}
           </p>
         )}
         {m && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 5, fontSize: 10, fontWeight: 700, color: '#C8993E', background: '#FDF3E0', padding: '2px 8px', borderRadius: 999 }}>
-            <i className={`ti ${m.icon}`} style={{ fontSize: 10 }} />{m.label}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 5, fontSize: 10, fontWeight: 700, color: '#C8993E' }}>
+            <span style={{ fontSize: 9 }}>✦</span>{m.label}
           </span>
         )}
       </div>
@@ -1225,18 +1238,18 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
                   );
                 })()
               ) : recapFilter === 'milestones' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {periodEntries.filter(e => e.milestone).map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
                 </div>
               ) : viewMode === 'month' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
                   {monthEntries.map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {(viewMode === 'year' ? yearGroups : allGroups).map(group => (
-                    <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div key={group.label} style={{ display: 'flex', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 6 }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', letterSpacing: 0.4, textTransform: 'uppercase' }}>{group.label}</span>
                         <div style={{ flex: 1, height: 1, background: '#CCDAC8' }} />
                         <span style={{ fontSize: 11, color: '#B8CCB4', fontWeight: 600 }}>{group.entries.length}</span>
@@ -2044,6 +2057,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
 // ─── Join family screen ───────────────────────────────────────────────────
 
 function JoinFamilyScreen({ onJoin, onBack }) {
+  const [step, setStep] = useState('code');
   const [code, setCode] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -2057,43 +2071,73 @@ function JoinFamilyScreen({ onJoin, onBack }) {
     if (result?.error) { setError(result.error); setLoading(false); }
   }
 
+  const backFn = step === 'name' ? () => setStep('code') : onBack;
+
   return (
     <div className="screen">
       <div className="scroll-area">
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560, justifyContent: 'center' }}>
-          <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 32px', display: 'flex', alignItems: 'center', gap: 6, color: '#9AA89C', fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", alignSelf: 'flex-start' }}>
+          <button onClick={backFn} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 36px', display: 'flex', alignItems: 'center', gap: 6, color: '#9AA89C', fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", alignSelf: 'flex-start' }}>
             <i className="ti ti-arrow-left" style={{ fontSize: 16 }} /> Back
           </button>
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: '#2C3828', margin: '0 0 10px', lineHeight: 1.2 }}>
-            Join a family journal
-          </h2>
-          <p style={{ fontSize: 14, color: '#7A8C78', lineHeight: 1.7, margin: '0 0 32px' }}>
-            Enter the invite code your partner shared with you, then tell us what the kids call you.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-            <input
-              className="input-field"
-              placeholder="Invite code (e.g. XK7P2M)"
-              value={code}
-              onChange={e => setCode(e.target.value.toUpperCase())}
-              style={{ fontSize: 22, letterSpacing: 4, textAlign: 'center', fontWeight: 700 }}
-            />
-            <input
-              className="input-field"
-              placeholder="What do the kids call you? (Mom, Dad…)"
-              value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
-            />
-          </div>
-          {error && <p style={{ fontSize: 13, color: '#D4856A', marginBottom: 12, textAlign: 'center' }}>{error}</p>}
-          <button
-            className="btn btn-primary"
-            style={{ width: '100%', opacity: code.trim() && displayName.trim() && !loading ? 1 : 0.4 }}
-            disabled={!code.trim() || !displayName.trim() || loading}
-            onClick={handleJoin}
-          >
-            {loading ? 'Joining…' : 'Join family'}
-          </button>
+
+          {step === 'code' && (
+            <>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: '#2C3828', margin: '0 0 10px', lineHeight: 1.2 }}>
+                Enter your<br />invite code
+              </h2>
+              <p style={{ fontSize: 14, color: '#9AA89C', lineHeight: 1.7, margin: '0 0 32px' }}>
+                Ask your partner for the code from the Family screen.
+              </p>
+              <input
+                className="input-field"
+                placeholder="XK7P2M"
+                value={code}
+                onChange={e => setCode(e.target.value.toUpperCase())}
+                style={{ fontSize: 28, letterSpacing: 6, textAlign: 'center', fontWeight: 700, marginBottom: 20 }}
+                autoFocus
+                autoCapitalize="characters"
+                onKeyDown={e => { if (e.key === 'Enter' && code.trim().length >= 4) setStep('name'); }}
+              />
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', opacity: code.trim().length >= 4 ? 1 : 0.4 }}
+                disabled={code.trim().length < 4}
+                onClick={() => setStep('name')}
+              >
+                Continue
+              </button>
+            </>
+          )}
+
+          {step === 'name' && (
+            <>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: '#2C3828', margin: '0 0 10px', lineHeight: 1.2 }}>
+                What do the<br />kids call you?
+              </h2>
+              <p style={{ fontSize: 14, color: '#9AA89C', lineHeight: 1.7, margin: '0 0 32px' }}>
+                This is how you'll appear in the journal.
+              </p>
+              <input
+                className="input-field"
+                placeholder="Mom, Dad, Mama…"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                style={{ fontSize: 20, marginBottom: 20 }}
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter' && displayName.trim()) handleJoin(); }}
+              />
+              {error && <p style={{ fontSize: 13, color: '#D4856A', marginBottom: 12, textAlign: 'center' }}>{error}</p>}
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', opacity: displayName.trim() && !loading ? 1 : 0.4 }}
+                disabled={!displayName.trim() || loading}
+                onClick={handleJoin}
+              >
+                {loading ? 'Joining…' : 'Join family'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -2419,7 +2463,7 @@ function AvatarCropModal({ imageSrc, onConfirm, onCancel }) {
 
 // ─── Onboarding ────────────────────────────────────────────────────────────
 
-function OnboardingScreen({ onDone, onJoinFamily }) {
+function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
   const [step, setStep] = useState('welcome');
   const [doneKids, setDoneKids] = useState([]);
   const [name, setName] = useState('');
@@ -2441,7 +2485,8 @@ function OnboardingScreen({ onDone, onJoinFamily }) {
   const initial = name.trim() ? name.trim()[0].toUpperCase() : null;
 
   function goBack() {
-    if (step === 'name') setStep('welcome');
+    if (step === 'join-or-new') setStep('welcome');
+    else if (step === 'name') setStep('join-or-new');
     else if (step === 'birthdate') setStep('name');
     else if (step === 'photo') setStep('birthdate');
     else if (step === 'another') setStep('photo');
@@ -2505,18 +2550,35 @@ function OnboardingScreen({ onDone, onJoinFamily }) {
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: '#7A8C78', lineHeight: 1.8, margin: '0 0 52px' }}>
                 For all the things you wish they knew.
               </p>
-              <button className="btn btn-primary" style={{ width: '100%', marginBottom: 16 }} onClick={() => setStep('name')}>
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('join-or-new')}>
                 Begin
               </button>
-              {onJoinFamily && (
-                <button
-                  onClick={onJoinFamily}
-                  className="btn btn-outline"
-                  style={{ width: '100%' }}
-                >
-                  Join an existing family
+              {onSignOut && (
+                <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#B8CCB4', fontFamily: "'Inter', sans-serif", fontWeight: 500, marginTop: 24 }}>
+                  Sign out
                 </button>
               )}
+            </div>
+          )}
+
+          {step === 'join-or-new' && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: '#2C3828', lineHeight: 1.25, margin: '0 0 10px' }}>
+                Is this a new<br />Patina journal?
+              </h2>
+              <p style={{ fontSize: 14, color: '#9AA89C', lineHeight: 1.6, margin: '0 0 36px' }}>
+                If your partner already set one up, you can join theirs instead.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('name')}>
+                  Yes, start fresh
+                </button>
+                {onJoinFamily && (
+                  <button className="btn btn-outline" style={{ width: '100%' }} onClick={onJoinFamily}>
+                    No, I have an invite code
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
@@ -3182,7 +3244,7 @@ export default function App() {
       <div className="app-root">
         {joiningFamily
           ? <JoinFamilyScreen onJoin={handleJoinFamily} onBack={() => setJoiningFamily(false)} />
-          : <OnboardingScreen onDone={handleOnboardingDone} onJoinFamily={() => setJoiningFamily(true)} />
+          : <OnboardingScreen onDone={handleOnboardingDone} onJoinFamily={() => setJoiningFamily(true)} onSignOut={() => supabase ? supabase.auth.signOut() : undefined} />
         }
       </div>
     );
