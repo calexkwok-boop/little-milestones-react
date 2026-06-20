@@ -69,6 +69,28 @@ function lerpRef(table, ageMo) {
   return table[i].slice(1).map((v, j) => v + (table[i + 1][j + 1] - v) * t);
 }
 
+function compressImage(file, maxDim = 1920, quality = 0.82) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        blob => resolve(blob ? new File([blob], file.name || 'photo.jpg', { type: 'image/jpeg' }) : file),
+        'image/jpeg', quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 function avgTable(tM, tF) {
   return tM.map((rowM, i) => [rowM[0], ...rowM.slice(1).map((v, j) => (v + tF[i][j + 1]) / 2)]);
 }
@@ -564,7 +586,9 @@ function JournalEntryRow({ entry, kid, onClick }) {
           {entry.media && entry.media.length > 0 && (
             <div className="journal-thumb-strip">
               {entry.media.slice(0, 4).map((mm, i) => (
-                <div key={i} className="journal-thumb" style={{ backgroundImage: `url('${mm.url}')` }} />
+                <div key={i} className="journal-thumb">
+                  <img src={mm.url} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
+                </div>
               ))}
             </div>
           )}
@@ -1168,9 +1192,9 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
             <div style={{ display: 'flex', background: '#E8EDE4', borderRadius: 9, padding: 3 }}>
-              <button style={segTabStyle('month')} onClick={() => { setViewMode('month'); setRecapFilter(null); }}>Month</button>
-              <button style={segTabStyle('year')} onClick={() => { setViewMode('year'); setRecapFilter(null); }}>Year</button>
-              <button style={segTabStyle('all')} onClick={() => { setViewMode('all'); setRecapFilter(null); }}>All</button>
+              <button style={segTabStyle('month')} onClick={() => setViewMode('month')}>Month</button>
+              <button style={segTabStyle('year')} onClick={() => setViewMode('year')}>Year</button>
+              <button style={segTabStyle('all')} onClick={() => setViewMode('all')}>All</button>
             </div>
             <div style={{ width: 36 }} />
           </div>
@@ -1239,7 +1263,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
                           onClick={() => onOpenEntry(item.entry)}
                           style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: '#EEF2EA' }}
                         >
-                          <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                          <img src={item.url} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
                         </div>
                       ))}
                     </div>
@@ -1811,7 +1835,7 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCompressPhotos, migrationState }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -1831,6 +1855,9 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   const [addSaving, setAddSaving] = useState(false);
   const [newSex, setNewSex] = useState(null);
   const [cropState, setCropState] = useState(null);
+  const [memberPickerOpen, setMemberPickerOpen] = useState(false);
+  const [pickerStep, setPickerStep] = useState('type');
+  const [pickerRole, setPickerRole] = useState(null);
   const newBirthdate = (newBdMonth && newBdDay && newBdYear && newBdYear.length === 4)
     ? `${newBdYear}-${newBdMonth}-${newBdDay.padStart(2, '0')}` : '';
 
@@ -1868,6 +1895,15 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   }
 
   async function handleInvite() {
+    setInviteLoading(true);
+    const code = await onInvite();
+    setInviteCode(code);
+    setInviteLoading(false);
+  }
+
+  async function handlePickerInvite(role) {
+    setPickerRole(role);
+    setPickerStep('invite-code');
     setInviteLoading(true);
     const code = await onInvite();
     setInviteCode(code);
@@ -1932,16 +1968,14 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
             );
           })}
 
-          {kids.length < 4 && (
-            <button className="btn btn-outline" onClick={() => setAddingKid(true)}>
-              <i className="ti ti-plus" />Add a child
-            </button>
-          )}
+          <button className="btn btn-primary" style={{ background: '#7A9E8C' }} onClick={() => { setMemberPickerOpen(true); setPickerStep('type'); setPickerRole(null); setInviteCode(null); }}>
+            <i className="ti ti-plus" />Add a family member
+          </button>
 
-          {/* Parents section */}
+          {/* Family members section */}
           {familyMembers && familyMembers.length > 0 && (
             <div style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 14, padding: 16 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 14px' }}>Parents</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 14px' }}>Family</p>
               {familyMembers.map(m => (
                 <div key={m.id || m.user_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1969,27 +2003,61 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 </div>
               ))}
               <input ref={familyAvatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFamilyAvatarFile} />
-              {onInvite && familyMembers.length < 2 && (
-                inviteCode ? (
-                  <div style={{ marginTop: 14, padding: '12px 14px', background: '#EEF2EA', borderRadius: 12, textAlign: 'center' }}>
-                    <p style={{ fontSize: 11, color: '#7A8C78', margin: '0 0 6px', fontWeight: 600 }}>Share this code with your partner</p>
-                    <p style={{ fontSize: 26, fontWeight: 700, color: '#4A5E50', letterSpacing: 4, margin: '0 0 10px', fontFamily: "'Inter', sans-serif" }}>{inviteCode}</p>
-                    <button onClick={() => { navigator.clipboard?.writeText(inviteCode); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#9AA89C', fontFamily: "'Inter', sans-serif", fontWeight: 500 }}>
-                      <i className="ti ti-copy" style={{ fontSize: 13, marginRight: 4 }} />Copy code
-                    </button>
-                  </div>
+            </div>
+          )}
+
+          {/* Member type picker */}
+          {memberPickerOpen && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 20 }} onClick={() => setMemberPickerOpen(false)}>
+              <div style={{ background: '#F2F4EC', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px', width: '100%', maxWidth: 480 }} onClick={e => e.stopPropagation()}>
+                {pickerStep === 'type' ? (
+                  <>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: '0 0 18px' }}>Who are you adding?</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {[
+                        { icon: 'ti-heart', label: 'Child', sub: 'Newborn, toddler, or older kid', action: () => { setMemberPickerOpen(false); setAddingKid(true); } },
+                        { icon: 'ti-user', label: 'Parent', sub: 'Mom, Dad, or another caregiver', action: () => handlePickerInvite('parent') },
+                        { icon: 'ti-user-heart', label: 'Grandparent', sub: 'Grandma, Grandpa, Nana, Pop…', action: () => handlePickerInvite('grandparent') },
+                        { icon: 'ti-users', label: 'Other', sub: 'Auntie, uncle, cousin, close friend', action: () => handlePickerInvite('other') },
+                      ].map(opt => (
+                        <button key={opt.label} onClick={opt.action} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: '#fff', border: '1px solid #ECE5D6', borderRadius: 13, cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: "'Inter', sans-serif" }}>
+                          <div style={{ width: 42, height: 42, borderRadius: 11, background: '#EEF2EA', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <i className={`ti ${opt.icon}`} style={{ fontSize: 20, color: '#4A5E50' }} />
+                          </div>
+                          <div>
+                            <p style={{ fontSize: 14, fontWeight: 700, color: '#2C3828', margin: 0 }}>{opt.label}</p>
+                            <p style={{ fontSize: 12, color: '#9AA89C', margin: '2px 0 0' }}>{opt.sub}</p>
+                          </div>
+                          <i className="ti ti-chevron-right" style={{ fontSize: 14, color: '#C4D8C0', marginLeft: 'auto' }} />
+                        </button>
+                      ))}
+                    </div>
+                  </>
                 ) : (
-                  <button
-                    className="btn btn-outline"
-                    style={{ width: '100%', marginTop: 14, fontSize: 13, padding: '10px 14px' }}
-                    onClick={handleInvite}
-                    disabled={inviteLoading}
-                  >
-                    <i className="ti ti-user-plus" />
-                    {inviteLoading ? 'Generating…' : 'Invite your partner'}
-                  </button>
-                )
-              )}
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                      <button onClick={() => setPickerStep('type')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9AA89C', fontSize: 18, padding: 0, display: 'flex' }}><i className="ti ti-arrow-left" /></button>
+                      <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: 0 }}>
+                        Invite a {pickerRole === 'other' ? 'family member' : pickerRole}
+                      </p>
+                    </div>
+                    {inviteLoading ? (
+                      <div style={{ textAlign: 'center', padding: '24px 0', color: '#9AA89C', fontSize: 13 }}>Generating invite code…</div>
+                    ) : inviteCode ? (
+                      <div style={{ padding: '20px 16px', background: '#fff', borderRadius: 14, border: '1px solid #ECE5D6', textAlign: 'center' }}>
+                        <p style={{ fontSize: 12, color: '#7A8C78', margin: '0 0 10px', fontWeight: 600 }}>
+                          {pickerRole === 'grandparent' ? 'Share this code with a grandparent' : pickerRole === 'other' ? 'Share this invite code' : 'Share this code with them'}
+                        </p>
+                        <p style={{ fontSize: 30, fontWeight: 700, color: '#4A5E50', letterSpacing: 5, margin: '0 0 14px', fontFamily: "'Inter', sans-serif" }}>{inviteCode}</p>
+                        <p style={{ fontSize: 11, color: '#B8CCB4', margin: '0 0 14px', lineHeight: 1.5 }}>They'll enter this code during sign-up to join your family journal.</p>
+                        <button onClick={() => { navigator.clipboard?.writeText(inviteCode); }} style={{ background: '#EEF2EA', border: 'none', cursor: 'pointer', fontSize: 13, color: '#4A5E50', fontFamily: "'Inter', sans-serif", padding: '10px 20px', borderRadius: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <i className="ti ti-copy" style={{ fontSize: 14 }} />Copy code
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
+                )}
+              </div>
             </div>
           )}
 
@@ -2085,6 +2153,29 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 />
                 <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleSaveName}>Save</button>
               </div>
+            </div>
+          )}
+
+          {onCompressPhotos && (
+            <div style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 14, padding: 16 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 6px' }}>Storage</p>
+              <p style={{ fontSize: 12, color: '#9AA89C', margin: '0 0 14px', lineHeight: 1.5 }}>Compress your existing photos to save storage space. Only affects photos you uploaded.</p>
+              {migrationState ? (
+                <div>
+                  <div style={{ height: 6, background: '#EEF2EA', borderRadius: 99, overflow: 'hidden', marginBottom: 8 }}>
+                    <div style={{ height: '100%', background: '#7A9E8C', borderRadius: 99, width: migrationState.total > 0 ? `${(migrationState.done / migrationState.total) * 100}%` : '0%', transition: 'width 0.3s' }} />
+                  </div>
+                  <p style={{ fontSize: 12, color: '#9AA89C', margin: 0, textAlign: 'center' }}>
+                    {migrationState.running
+                      ? `Compressing ${migrationState.done} of ${migrationState.total}…`
+                      : `Done — ${migrationState.done} photos compressed${migrationState.errors > 0 ? `, ${migrationState.errors} skipped` : ''}`}
+                  </p>
+                </div>
+              ) : (
+                <button className="btn btn-outline" style={{ width: '100%', fontSize: 13, padding: '10px 14px' }} onClick={onCompressPhotos}>
+                  <i className="ti ti-photo-compress" />Compress existing photos
+                </button>
+              )}
             </div>
           )}
 
@@ -2203,7 +2294,7 @@ function NavBar({ active, onNavigate }) {
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
   ];
   const tabsRight = [
-    { id: 'recap', icon: 'ti-calendar', label: 'Recaps', color: '#7BA99A' },
+    { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', color: '#7BA99A' },
   ];
 
   function tabStyle(tab) {
@@ -2962,10 +3053,11 @@ export default function App() {
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
       const finalMedia = [];
       for (let i = 0; i < media.length; i++) {
-        const fileObj = fileObjects?.[i];
+        let fileObj = fileObjects?.[i];
         let url = media[i].url;
         if (fileObj) {
           try {
+            if (!fileObj.type.startsWith('video')) fileObj = await compressImage(fileObj);
             const ext = fileObj.type.startsWith('video') ? 'mp4' : 'jpg';
             const path = `${session.user.id}/${entryId}-edit${Date.now()}-${i}.${ext}`;
             const { error } = await supabase.storage.from('media').upload(path, fileObj);
@@ -3028,10 +3120,11 @@ export default function App() {
     const savedMedia = [];
     for (let i = 0; i < media.length; i++) {
       const item = media[i];
-      const fileObj = fileObjects?.[i];
+      let fileObj = fileObjects?.[i];
       let url = item.url;
       if (fileObj) {
         try {
+          if (!fileObj.type.startsWith('video')) fileObj = await compressImage(fileObj);
           const ext = fileObj.type.startsWith('video') ? 'mp4' : 'jpg';
           const path = `${session.user.id}/${entry.id}-${i}.${ext}`;
           const { error: uploadError } = await supabase.storage.from('media').upload(path, fileObj);
@@ -3229,6 +3322,36 @@ export default function App() {
     await supabase.from('kids').update({ growth_log: newLog }).eq('id', kidId);
   }
 
+  const [migrationState, setMigrationState] = useState(null);
+
+  async function handleCompressExistingPhotos() {
+    if (!supabase || !session) return;
+    setMigrationState({ running: true, total: 0, done: 0, errors: 0 });
+    const { data: allMedia } = await supabase.from('entry_media').select('url, type');
+    if (!allMedia) { setMigrationState(null); return; }
+    const myPrefix = `/${session.user.id}/`;
+    const images = allMedia.filter(m => m.type !== 'video' && m.url.includes(myPrefix));
+    setMigrationState({ running: true, total: images.length, done: 0, errors: 0 });
+    let done = 0, errors = 0;
+    for (const item of images) {
+      try {
+        const match = item.url.match(/\/object\/(?:public\/)?media\/(.+)/);
+        if (!match) throw new Error('bad url');
+        const path = match[1];
+        const { data: blob, error: dlErr } = await supabase.storage.from('media').download(path);
+        if (dlErr || !blob) throw dlErr;
+        const compressed = await compressImage(new File([blob], path.split('/').pop(), { type: 'image/jpeg' }));
+        if (compressed.size < blob.size * 0.95) {
+          await supabase.storage.from('media').remove([path]);
+          await supabase.storage.from('media').upload(path, compressed, { contentType: 'image/jpeg' });
+        }
+      } catch { errors++; }
+      done++;
+      setMigrationState({ running: true, total: images.length, done, errors });
+    }
+    setMigrationState({ running: false, total: images.length, done, errors });
+  }
+
   async function handleDeleteGrowthEntry(kidId, date) {
     const kid = kids.find(k => k.id === kidId);
     if (!kid) return;
@@ -3395,6 +3518,8 @@ export default function App() {
           onFamilyAvatarUpload={handleFamilyAvatarUpload}
           currentUserId={session?.user?.id}
           onOpenGrowth={kidId => { setGrowthKidId(kidId); setScreen('growth'); }}
+          onCompressPhotos={handleCompressExistingPhotos}
+          migrationState={migrationState}
           onSignOut={() => {
             if (localMode || !supabase) {
               setKids([]);

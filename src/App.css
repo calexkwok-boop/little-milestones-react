@@ -164,12 +164,12 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 }
 .nv-add {
   all: unset;
-  width: 46px; height: 46px; border-radius: 50%;
+  width: 52px; height: 52px; border-radius: 50%;
   background-color: #C8993E; display: flex; align-items: center;
   justify-content: center; cursor: pointer; color: #ffffff;
-  border: 0; box-shadow: none;
+  border: 3px solid #EDE8DE; box-shadow: none;
 }
-.nv-add i { font-size: 22px; color: #ffffff; }
+.nv-add i { font-size: 24px; color: #ffffff; }
 
 /* ── Confetti ────────────────────────────────────────────────────── */
 .celebrate-overlay {
