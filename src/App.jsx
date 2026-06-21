@@ -749,6 +749,7 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry, signedDefault }
   const [media, setMedia] = useState(existingEntry?.media || []);
   const [fileObjects, setFileObjects] = useState(existingEntry?.media?.map(() => null) || []);
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? signedDefault ?? '');
   const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
@@ -807,6 +808,41 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry, signedDefault }
           }
         } catch {}
       }
+    }
+  }
+
+  async function handleGenerate() {
+    setGenerating(true);
+    try {
+      const imagePayloads = [];
+      for (let i = 0; i < media.length; i++) {
+        if (media[i].type !== 'image') continue;
+        const file = fileObjects[i];
+        if (!file) continue;
+        const base64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+        imagePayloads.push({ data: base64, mediaType: file.type || 'image/jpeg' });
+      }
+      const kidNames = selectedKids
+        .map(id => kids.find(k => k.id === id)?.name.split(' ')[0])
+        .filter(Boolean).join(' and ');
+      const primaryKid = kids.find(k => k.id === selectedKids[0]);
+      const ageMonths = primaryKid ? Math.max(0,
+        (new Date(entryDate).getFullYear() - new Date(primaryKid.birthdate).getFullYear()) * 12 +
+        (new Date(entryDate).getMonth() - new Date(primaryKid.birthdate).getMonth())
+      ) : null;
+      const { data, error } = await supabase.functions.invoke('generate-entry', {
+        body: { images: imagePayloads, kidNames, ageMonths },
+      });
+      if (error) throw error;
+      if (data?.text) setText(data.text);
+    } catch {
+      alert('Could not generate — check your connection and try again.');
+    } finally {
+      setGenerating(false);
     }
   }
 
@@ -910,6 +946,18 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry, signedDefault }
             minHeight: 260, padding: 0,
           }}
         />
+
+        {/* AI generate button */}
+        {selectedKids.length > 0 && (
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            style={{ marginTop: 14, background: 'none', border: '1px solid #CCDAC8', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: generating ? '#B8CCB4' : '#4A5E50', fontFamily: "'Inter', sans-serif", fontWeight: 600, cursor: generating ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            <i className="ti ti-sparkles" style={{ fontSize: 14, animation: generating ? 'spin 1s linear infinite' : 'none' }} />
+            {generating ? 'Writing…' : 'Write for me'}
+          </button>
+        )}
 
         {/* Sign-off */}
         {signedDefault && (
