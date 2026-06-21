@@ -718,7 +718,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               </div>
             ))}
           </div>
-          <p style={{ fontSize: 17, color: '#2C3828', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: entry.text ? 'italic' : 'normal' }}>{entry.text}</p>
+          <p style={{ fontSize: 17, color: '#2C3828', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: entry.text ? 'italic' : 'normal', whiteSpace: 'pre-wrap' }}>{entry.text}</p>
           {entry.signedAs && (
             <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#9AA89C', margin: 0, textAlign: 'right' }}>
               — {entry.signedAs}
@@ -2986,9 +2986,10 @@ export default function App() {
     if (localMode || !session || !supabase) return;
     setDataLoading(true);
     async function loadData() {
-      // Check family membership
-      const { data: myMembership } = await supabase
-        .from('family_members').select('*').eq('user_id', session.user.id).maybeSingle();
+      // Check family membership — order by created_at desc so most recent (shared) family wins if duplicates exist
+      const { data: memberships } = await supabase
+        .from('family_members').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
+      const myMembership = memberships?.[0] ?? null;
 
       let currentFamilyId = myMembership?.family_id ?? null;
       if (myMembership) {
@@ -3271,6 +3272,8 @@ export default function App() {
       .from('family_invites').select('*')
       .eq('token', code.toUpperCase().trim()).is('accepted_at', null).maybeSingle();
     if (!invite) return { error: 'Invalid or expired code — check with your partner' };
+    // Leave any existing families before joining the new one
+    await supabase.from('family_members').delete().eq('user_id', session.user.id).neq('family_id', invite.family_id);
     const { error: joinError } = await supabase.from('family_members').insert({
       family_id: invite.family_id, user_id: session.user.id, display_name: displayName,
     });
