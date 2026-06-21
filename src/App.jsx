@@ -3090,10 +3090,26 @@ export default function App() {
     if (localMode || !session || !supabase) return;
     setDataLoading(true);
     async function loadData() {
-      // Check family membership — order by created_at desc so most recent (shared) family wins if duplicates exist
+      // Check family membership — always pick the family with the most members (the shared one)
       const { data: memberships } = await supabase
-        .from('family_members').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
-      const myMembership = memberships?.[0] ?? null;
+        .from('family_members').select('*').eq('user_id', session.user.id);
+
+      let myMembership = memberships?.[0] ?? null;
+      if (memberships?.length > 1) {
+        const counts = await Promise.all(
+          memberships.map(async m => {
+            const { count } = await supabase.from('family_members').select('*', { count: 'exact', head: true }).eq('family_id', m.family_id);
+            return { ...m, count: count ?? 0 };
+          })
+        );
+        counts.sort((a, b) => b.count - a.count);
+        myMembership = counts[0];
+        // Clean up solo memberships that are just noise
+        const toRemove = counts.filter(m => m.family_id !== myMembership.family_id && m.count <= 1).map(m => m.family_id);
+        if (toRemove.length > 0) {
+          await supabase.from('family_members').delete().eq('user_id', session.user.id).in('family_id', toRemove);
+        }
+      }
 
       let currentFamilyId = myMembership?.family_id ?? null;
       if (myMembership) {
@@ -3101,7 +3117,7 @@ export default function App() {
         setMyDisplayName(myMembership.display_name);
       }
 
-      const [{ data: kidsData, error: kidsError }, { data: entriesData }] = await Promise.all([
+      const [{ data: kidsData, error: kidsError }, { data: entriesData, error: entriesError }] = await Promise.all([
         supabase.from('kids').select('*').order('created_at'),
         supabase.from('entries').select('*, entry_media(*)').order('date', { ascending: false }),
       ]);
@@ -3137,7 +3153,7 @@ export default function App() {
         setProfileKidId(kidsData[0]?.id ?? null);
       }
       if (entriesData) {
-        setEntries(entriesData.map(e => ({
+setEntries(entriesData.map(e => ({
           id: e.id, kids: e.kid_ids, date: e.date, text: e.text || '',
           mood: e.mood, milestone: e.milestone, ageMonths: e.age_months,
           palette: e.palette || PALETTES[0],
@@ -3345,6 +3361,9 @@ export default function App() {
       return { success: true };
     }
     const userId = session.user.id;
+    // Don't create a new family if already in one
+    const { data: existingMemberships } = await supabase.from('family_members').select('family_id').eq('user_id', userId);
+    if (existingMemberships?.length > 0) return { success: true };
     const { data: family, error: familyError } = await supabase.from('families').insert({}).select().single();
     if (familyError || !family) {
       return { error: familyError?.message || 'Could not create your family yet.' };
