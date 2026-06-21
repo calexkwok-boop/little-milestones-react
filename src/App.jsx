@@ -3276,6 +3276,10 @@ export default function App() {
     });
     if (joinError) return { error: 'Could not join — you may already be in this family' };
     await supabase.from('family_invites').update({ accepted_at: new Date().toISOString() }).eq('id', invite.id);
+    await Promise.all([
+      supabase.from('entries').update({ family_id: invite.family_id }).eq('user_id', session.user.id),
+      supabase.from('kids').update({ family_id: invite.family_id }).eq('user_id', session.user.id),
+    ]);
     setFamilyId(invite.family_id);
     setMyDisplayName(displayName);
     const [{ data: kidsData }, { data: entriesData }, { data: membersData }] = await Promise.all([
