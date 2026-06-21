@@ -185,14 +185,17 @@ function KidChip({ kid, active, onClick, icon, label }) {
   );
 }
 
-function KidSelector({ kids, selected, onSelect, onManage }) {
+function KidSelector({ kids, selected, onSelect, onManage, showBoth }) {
   return (
     <div className="scrollx">
-      <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-users" label={kids.length > 2 ? 'All' : 'Both'} />
+      <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-layout-list" label="All" />
+      {showBoth && kids.length >= 2 && (
+        <KidChip active={selected === 'both'} onClick={() => onSelect('both')} icon="ti-users" label="Both" />
+      )}
       {kids.map(k => (
         <KidChip key={k.id} kid={k} active={selected === k.id} onClick={() => onSelect(k.id)} />
       ))}
-      <KidChip icon="ti-home-heart" label="Family" onClick={onManage} />
+      {onManage && <KidChip icon="ti-home-heart" label="Family" onClick={onManage} />}
     </div>
   );
 }
@@ -417,7 +420,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   const recent = [...entries]
-    .filter(e => kidFilter === null || e.kids.includes(kidFilter))
+    .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 4);
 
@@ -603,7 +606,7 @@ function JournalEntryRow({ entry, kid, onClick }) {
 
 function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter }) {
   const filtered = entries
-    .filter(e => kidFilter === null || e.kids.includes(kidFilter))
+    .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
   let currentMonth = null;
@@ -632,7 +635,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
             <p style={{ fontSize: 12, color: '#9AA89C', margin: 0 }}>Journal</p>
             <h1 style={{ fontSize: 23, color: '#4A5E50', margin: '4px 0 0', fontWeight: 700 }}>A page for every day</h1>
           </div>
-          <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={() => {}} />
+          <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth />
         </div>
         <div className="scrollpad" style={{ paddingTop: 0 }}>
           {filtered.length === 0 ? (
