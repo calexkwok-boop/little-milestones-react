@@ -739,7 +739,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, onCancel, onSave, existingEntry, signedDefault }) {
+function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signedDefault }) {
   const [selectedKids, setSelectedKids] = useState(
     existingEntry ? existingEntry.kids : (kids.length === 1 ? [kids[0].id] : [])
   );
@@ -896,14 +896,25 @@ function NewEntryScreen({ kids, onCancel, onSave, existingEntry, signedDefault }
             <i className="ti ti-dots" />
           </button>
         </div>
-        <button
-          className="btn btn-primary"
-          style={{ padding: '9px 22px', fontSize: 14, borderRadius: 10, opacity: canSave && !saving ? 1 : 0.4 }}
-          disabled={!canSave || saving}
-          onClick={handleSave}
-        >
-          {saving ? 'Saving…' : existingEntry ? 'Update' : 'Save'}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {existingEntry && onDelete && (
+            <button
+              className="icon-btn"
+              onClick={() => { if (window.confirm('Delete this entry?')) onDelete(existingEntry.id); }}
+              style={{ color: '#D4856A', borderColor: '#F2C4B8' }}
+            >
+              <i className="ti ti-trash" />
+            </button>
+          )}
+          <button
+            className="btn btn-primary"
+            style={{ padding: '9px 22px', fontSize: 14, borderRadius: 10, opacity: canSave && !saving ? 1 : 0.4 }}
+            disabled={!canSave || saving}
+            onClick={handleSave}
+          >
+            {saving ? 'Saving…' : existingEntry ? 'Update' : 'Save'}
+          </button>
+        </div>
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFileChange} />
         <input ref={uploadInputRef} type="file" accept="image/*,video/*" multiple style={{ display: 'none' }} onChange={handleFileChange} />
       </div>
@@ -3110,6 +3121,15 @@ export default function App() {
     await supabase.from('entries').update({ favorited: newFavorited }).eq('id', entryId);
   }
 
+  async function handleDeleteEntry(entryId) {
+    setEntries(prev => prev.filter(e => e.id !== entryId));
+    setScreen('home');
+    setActiveEntry(null);
+    if (localMode || !supabase || !session) return;
+    await supabase.from('entry_media').delete().eq('entry_id', entryId);
+    await supabase.from('entries').delete().eq('id', entryId);
+  }
+
   function editEntry(entry) {
     setActiveEntry(entry);
     setScreen('edit-entry');
@@ -3537,6 +3557,7 @@ export default function App() {
           existingEntry={activeEntry}
           onCancel={() => setScreen('entry-detail')}
           onSave={handleSaveEntry}
+          onDelete={handleDeleteEntry}
           signedDefault={myDisplayName || undefined}
         />
       )}
