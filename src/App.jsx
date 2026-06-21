@@ -2335,6 +2335,7 @@ function JoinFamilyScreen({ onJoin, onBack }) {
     setLoading(true);
     setError('');
     const result = await onJoin(code, displayName.trim());
+    if (result?.cancelled) { setLoading(false); return; }
     if (result?.error) { setError(result.error); setLoading(false); }
   }
 
@@ -3130,7 +3131,8 @@ export default function App() {
       }
 
       // Auto-migrate existing user who has kids but no family yet
-      if (!currentFamilyId && kidsData && kidsData.length > 0) {
+      // Only run if memberships query explicitly returned zero rows — never if it errored (null)
+      if (memberships !== null && memberships.length === 0 && kidsData && kidsData.length > 0) {
         const { data: family } = await supabase.from('families').insert({}).select().single();
         if (family) {
           currentFamilyId = family.id;
@@ -3404,6 +3406,15 @@ setEntries(entriesData.map(e => ({
       .from('family_invites').select('*')
       .eq('token', code.toUpperCase().trim()).is('accepted_at', null).maybeSingle();
     if (!invite) return { error: 'Invalid or expired code — check with your partner' };
+    // Warn if already in a different family
+    const { data: existing } = await supabase.from('family_members').select('family_id').eq('user_id', session.user.id);
+    const inDifferentFamily = existing?.some(m => m.family_id !== invite.family_id);
+    if (inDifferentFamily) {
+      const confirmed = window.confirm(
+        "You're already part of a family journal. Joining this one will switch you to the new family.\n\nIf you need to write for multiple families (e.g. grandchildren and your own children), use a separate account for each.\n\nSwitch to the new family?"
+      );
+      if (!confirmed) return { cancelled: true };
+    }
     // Leave any existing families before joining the new one
     await supabase.from('family_members').delete().eq('user_id', session.user.id).neq('family_id', invite.family_id);
     const { error: joinError } = await supabase.from('family_members').insert({
