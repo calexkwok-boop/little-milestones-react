@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import './App.css';
 import exifr from 'exifr';
 import { supabase, supabaseConfigured } from './supabase.js';
@@ -261,6 +261,86 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
         <button onClick={handleSave} style={{ flex: 1, padding: '13px', background: '#4A5E50', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
           Done
         </button>
+      </div>
+    </div>
+  );
+}
+
+function BookCropModal({ url, cropY, cardHeight, photoWidth, onSave, onClose }) {
+  const scrollRef = useRef(null);
+  const imgRef = useRef(null);
+  const [topPad, setTopPad] = useState(0);
+
+  useLayoutEffect(() => {
+    if (scrollRef.current) {
+      setTopPad(Math.max(0, scrollRef.current.offsetHeight / 2 - cardHeight / 2));
+    }
+  }, [cardHeight]);
+
+  function handleLoad() {
+    const img = imgRef.current;
+    const scroll = scrollRef.current;
+    if (!img || !scroll) return;
+    const scale = scroll.offsetWidth / img.naturalWidth;
+    const scaledH = img.naturalHeight * scale;
+    const extra = scaledH - cardHeight;
+    if (extra > 0) scroll.scrollTop = (cropY / 100) * extra;
+  }
+
+  function handleSave() {
+    const img = imgRef.current;
+    const scroll = scrollRef.current;
+    if (!img || !scroll) return onSave(cropY);
+    const scale = scroll.offsetWidth / img.naturalWidth;
+    const scaledH = img.naturalHeight * scale;
+    const extra = scaledH - cardHeight;
+    const newY = extra > 0 ? Math.round((scroll.scrollTop / extra) * 100) : 50;
+    onSave(Math.min(100, Math.max(0, newY)));
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: '#000', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.55)', cursor: 'pointer', fontSize: 15, fontFamily: 'Inter, sans-serif', padding: 0 }}>Cancel</button>
+        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, margin: 0, fontFamily: 'Inter, sans-serif', fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}>Scroll to reposition</p>
+        <button onClick={handleSave} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 15, fontFamily: 'Inter, sans-serif', fontWeight: 700, padding: 0 }}>Done</button>
+      </div>
+
+      <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
+        {/* Image at exactly the same width as the book's photo container */}
+        <div
+          ref={scrollRef}
+          style={{
+            height: '100%', overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+            width: photoWidth ? `${photoWidth}px` : 'calc(100% - 40px)',
+            margin: '0 auto',
+          }}
+        >
+          <div style={{ paddingTop: topPad, paddingBottom: topPad }}>
+            <img
+              ref={imgRef}
+              src={url}
+              style={{ width: '100%', display: 'block' }}
+              onLoad={handleLoad}
+              alt=""
+            />
+          </div>
+        </div>
+
+        {/* Dim area above crop frame */}
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `calc(50% - ${cardHeight / 2}px)`, background: 'rgba(0,0,0,0.72)', pointerEvents: 'none' }} />
+        {/* Dim area below crop frame */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: `calc(50% - ${cardHeight / 2}px)`, background: 'rgba(0,0,0,0.72)', pointerEvents: 'none' }} />
+        {/* Crop frame border — same width and position as the book photo */}
+        <div style={{
+          position: 'absolute',
+          width: photoWidth ? `${photoWidth}px` : 'calc(100% - 40px)',
+          left: '50%', transform: 'translate(-50%, -50%)',
+          top: '50%',
+          height: cardHeight,
+          border: '2px solid rgba(255,255,255,0.7)',
+          pointerEvents: 'none',
+        }} />
       </div>
     </div>
   );
@@ -2028,7 +2108,7 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -2350,6 +2430,21 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           )}
 
 
+          {onCreateBook && (
+            <button onClick={onCreateBook} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: '#2C3828', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <i className="ti ti-book" style={{ fontSize: 18, color: '#C8993E' }} />
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>Create a book</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>Turn your letters into print</p>
+                </div>
+              </div>
+              <i className="ti ti-arrow-right" style={{ fontSize: 16, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+            </button>
+          )}
+
           <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#9AA89C', fontFamily: "'Inter', sans-serif", padding: '8px 0', fontWeight: 600, alignSelf: 'center' }}>
             Sign out
           </button>
@@ -2459,6 +2554,363 @@ function JoinFamilyScreen({ onJoin, onBack }) {
 }
 
 // ─── Nav bar ────────────────────────────────────────────────────────────
+
+// ─── Cropped photo (book / anywhere needing scroll-accurate crop) ──────────
+
+function CroppedPhoto({ src, cropY = 50, height = 200 }) {
+  const containerRef = useRef(null);
+  const imgRef = useRef(null);
+
+  function applyScroll() {
+    const img = imgRef.current;
+    const container = containerRef.current;
+    if (!img || !container) return;
+    const scale = container.offsetWidth / img.naturalWidth;
+    const scaledH = img.naturalHeight * scale;
+    const extra = scaledH - height;
+    if (extra > 0) container.scrollTop = (cropY / 100) * extra;
+  }
+
+  return (
+    <div ref={containerRef} style={{ height, overflow: 'hidden', flexShrink: 0 }}>
+      <img ref={imgRef} src={src} style={{ width: '100%', display: 'block' }} onLoad={applyScroll} alt="" />
+    </div>
+  );
+}
+
+// ─── Book builder ──────────────────────────────────────────────────────────
+
+function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack, onPreview }) {
+  const currentYear = new Date().getFullYear();
+  const [selectedKids, setSelectedKids] = useState(kids.map(k => k.id));
+  const [dateRange, setDateRange] = useState('all');
+  const [customFrom, setCustomFrom] = useState(String(currentYear - 1));
+  const [customTo, setCustomTo] = useState(String(currentYear));
+  const fromOptions = Array.from(new Set(
+    [
+      kids.length > 1 ? 'Our family' : null,
+      myDisplayName,
+      ...(familyMembers || []).map(m => m.display_name),
+    ].filter(Boolean)
+  ));
+  const [authorLabel, setAuthorLabel] = useState(fromOptions[0] || 'Our family');
+
+  const fromDate = dateRange === 'year' ? `${currentYear}-01-01` : dateRange === 'custom' ? `${customFrom}-01-01` : null;
+  const toDate   = dateRange === 'year' ? `${currentYear}-12-31` : dateRange === 'custom' ? `${customTo}-12-31`   : null;
+
+  // Resolve the chosen author to a user_id so we can filter by who wrote each entry
+  const isAllAuthors = authorLabel.toLowerCase() === 'our family';
+  const authorMember = isAllAuthors ? null : (familyMembers || []).find(m => m.display_name === authorLabel);
+  const authorUserId = authorMember?.user_id || null;
+
+  const filtered = entries.filter(e => {
+    // Recipient: all selected kids must appear in the entry's kid list
+    const kidMatch = selectedKids.length >= kids.length
+      ? true
+      : e.kids.some(id => selectedKids.includes(id));
+    // Author: if a specific author is chosen, only include entries they wrote
+    // Entries with no author_id (written before tracking) are included to avoid hiding old content
+    const authorMatch = !authorUserId || !e.authorId || e.authorId === authorUserId;
+    const afterFrom = !fromDate || e.date >= fromDate;
+    const beforeTo  = !toDate   || e.date <= toDate;
+    return kidMatch && authorMatch && afterFrom && beforeTo;
+  });
+
+  const kidLabel = selectedKids.length === 0 ? 'nobody'
+    : selectedKids.length >= kids.length ? (kids.length > 1 ? 'the family' : kids[0]?.name.split(' ')[0])
+    : selectedKids.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & ');
+
+  const years = Array.from({ length: 11 }, (_, i) => currentYear - i);
+  const allKidNames = kids.map(k => k.name.split(' ')[0]);
+  const recipientSummary = selectedKids.length >= kids.length
+    ? (kids.length > 1
+        ? allKidNames.slice(0, -1).join(', ') + ' and ' + allKidNames[allKidNames.length - 1]
+        : kids[0]?.name.split(' ')[0] || 'Your child')
+    : selectedKids.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & ');
+
+  const allMemberNames = (familyMembers || []).map(m => m.display_name);
+  const authorSummary = isAllAuthors && allMemberNames.length > 1
+    ? allMemberNames.slice(0, -1).join(', ') + ' and ' + allMemberNames[allMemberNames.length - 1]
+    : authorLabel;
+  const dateSummary = dateRange === 'all'
+    ? ''
+    : dateRange === 'year'
+      ? `Just the letters from ${currentYear}`
+      : `${customFrom} through ${customTo}`;
+
+  return (
+    <div className="screen" style={{ background: '#F8FAF6' }}>
+      <div className="scroll-area">
+        <div className="scrollpad">
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button className="icon-btn" onClick={onBack}><i className="ti ti-x" /></button>
+            <p style={{ fontSize: 12, color: '#9AA89C', margin: 0, fontWeight: 600, letterSpacing: 0.3 }}>Create a book</p>
+          </div>
+
+          <div>
+            <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 27, color: '#2C3828', margin: '0 0 8px', lineHeight: 1.25 }}>
+              Let them hold all the little moments you've held.
+            </h1>
+            <p style={{ fontSize: 14, color: '#9AA89C', margin: 0, lineHeight: 1.6 }}>
+              Just a few questions and we'll show you a preview.
+            </p>
+          </div>
+
+          <div style={{ width: '100%', height: 1, background: '#DDE7D9' }} />
+
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#B8CCB4', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Who's it for?</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {kids.length > 1 && (
+                <button className={`chip ${selectedKids.length >= kids.length ? 'selected' : ''}`} onClick={() => setSelectedKids(kids.map(k => k.id))}>
+                  Everyone
+                </button>
+              )}
+              {kids.map(k => (
+                <button key={k.id} className={`chip ${selectedKids.length === 1 && selectedKids[0] === k.id ? 'selected' : ''}`} onClick={() => setSelectedKids([k.id])}>
+                  {k.name.split(' ')[0]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {fromOptions.length > 1 && (
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#B8CCB4', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Who's it from?</p>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {fromOptions.map(name => (
+                  <button key={name} className={`chip ${authorLabel === name ? 'selected' : ''}`} onClick={() => setAuthorLabel(name)}>
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#B8CCB4', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Which years?</p>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[{ id: 'all', label: 'All time' }, { id: 'year', label: String(currentYear) }, { id: 'custom', label: 'Custom' }].map(opt => (
+                <button key={opt.id} className={`chip ${dateRange === opt.id ? 'selected' : ''}`} onClick={() => setDateRange(opt.id)}>{opt.label}</button>
+              ))}
+            </div>
+            {dateRange === 'custom' && (
+              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 11, color: '#9AA89C', margin: '0 0 6px', fontWeight: 600 }}>From</p>
+                  <select value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input-field" style={{ padding: '10px 12px', fontSize: 14 }}>
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 11, color: '#9AA89C', margin: '0 0 6px', fontWeight: 600 }}>To</p>
+                  <select value={customTo} onChange={e => setCustomTo(e.target.value)} className="input-field" style={{ padding: '10px 12px', fontSize: 14 }}>
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ width: '100%', height: 1, background: '#DDE7D9' }} />
+
+          <div style={{ background: '#2C3828', borderRadius: 18, padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {filtered.length === 0 ? (
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.6 }}>
+                No letters match that selection yet.
+              </p>
+            ) : (
+              <div>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#fff', margin: '0 0 5px', lineHeight: 1.55 }}>
+                  {filtered.length} letter{filtered.length !== 1 ? 's' : ''} from {authorSummary} to {recipientSummary}.
+                </p>
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+                  {dateSummary}
+                </p>
+              </div>
+            )}
+            <button
+              className="btn"
+              style={{ width: '100%', background: filtered.length === 0 ? 'rgba(255,255,255,0.08)' : '#C8993E', color: filtered.length === 0 ? 'rgba(255,255,255,0.25)' : '#fff', borderRadius: 14 }}
+              disabled={filtered.length === 0}
+              onClick={() => onPreview({ kidIds: selectedKids, fromDate, toDate, bookEntries: filtered, authorLabel, authorSummary, recipientSummary })}
+            >
+              <i className="ti ti-eye" style={{ fontSize: 16 }} />
+              Preview your book
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Book preview ──────────────────────────────────────────────────────────
+
+function BookPreviewScreen({ kids, bookConfig, onBack }) {
+  const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
+  const sorted = [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1);
+  const totalPages = sorted.length + 2;
+  const [page, setPage] = useState(0);
+  const [cropPositions, setCropPositions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('patina-book-crop-positions') || '{}'); } catch { return {}; }
+  });
+  const [homeCropPositions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('patina-crop-positions') || '{}'); } catch { return {}; }
+  });
+  const [bookCropModal, setBookCropModal] = useState(null);
+
+  function saveBookCrop(y) {
+    const next = { ...cropPositions, [bookCropModal.entryId]: y };
+    setCropPositions(next);
+    try { localStorage.setItem('patina-book-crop-positions', JSON.stringify(next)); } catch {}
+    setBookCropModal(null);
+  }
+
+  const kidNameDisplay = recipientSummary || (kidIds.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & '));
+
+  const dateRangeLabel = (() => {
+    if (!fromDate && !toDate && sorted.length > 0) {
+      const first = new Date(sorted[0].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const last  = new Date(sorted[sorted.length - 1].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      return first === last ? first : `${first} – ${last}`;
+    }
+    if (fromDate && toDate) return `${fromDate.slice(0, 4)} – ${toDate.slice(0, 4)}`;
+    return fromDate?.slice(0, 4) || toDate?.slice(0, 4) || '';
+  })();
+
+  const CoverPage = () => {
+    return (
+      <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
+          <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.22)' }} />
+          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, letterSpacing: 0.5, color: '#C8993E', margin: 0, lineHeight: 1 }}>Patina</p>
+          <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.22)' }} />
+          <h1 style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 30, color: '#F8F4EC', margin: 0, lineHeight: 1.25, textAlign: 'center' }}>
+            Letters to<br />{kidNameDisplay}
+          </h1>
+          {authorSummary && authorSummary.toLowerCase() !== kidNameDisplay.toLowerCase() && (
+            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.7)', margin: 0, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+              From {authorSummary}
+            </p>
+          )}
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.62)', margin: 0, lineHeight: 1.7, textAlign: 'center', maxWidth: 240 }}>
+            For all the moments you may have forgotten, and all the things I never want you to forget
+          </p>
+          {dateRangeLabel && <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: 'rgba(255,255,255,0.48)', margin: 0, letterSpacing: 1 }}>{dateRangeLabel.toUpperCase()}</p>}
+        </div>
+      </div>
+    );
+  };
+
+  const LetterPage = ({ entry, index, onCrop }) => {
+    const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
+    const salutation = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
+    const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const photo = entry.media?.[0]?.type === 'image' ? entry.media[0] : null;
+    const cropY = cropPositions[entry.id] ?? homeCropPositions[entry.id] ?? 50;
+    const photoRef = useRef(null);
+    return (
+      <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {photo && (
+          <div ref={photoRef} style={{ position: 'relative', flexShrink: 0 }} onClick={() => onCrop(entry, 200, photoRef.current?.offsetWidth)}>
+            <CroppedPhoto src={photo.url} cropY={cropY} height={200} />
+            <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.4)', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <i className="ti ti-crop" style={{ fontSize: 12, color: '#fff' }} />
+            </div>
+          </div>
+        )}
+        <div style={{ flex: 1, padding: '20px 28px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 14px' }}>{dateLabel}</p>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#4A5E50', margin: '0 0 10px' }}>Dear {salutation},</p>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#3A3020', lineHeight: 1.85, margin: 0, flex: 1, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
+            {entry.text}
+          </p>
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '10px 0 0', letterSpacing: 0.5 }}>
+            {index + 1} / {sorted.length}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  const BackCover = () => {
+    const weOrI = authorLabel?.toLowerCase() === 'our family' || (authorSummary || '').includes(' and ') ? 'We' : 'I';
+    return (
+      <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%' }}>
+          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: 'rgba(255,255,255,0.85)', margin: 0 }}>Patina</p>
+          <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.9, textAlign: 'center' }}>
+            Patina is the beauty that comes with age. These letters are the mark you left in the small, seemingly unremarkable days that turned out to matter most. {weOrI} love you more than anything.
+          </p>
+          <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
+        </div>
+      </div>
+    );
+  };
+
+  const renderPage = () => {
+    if (page === 0) return <CoverPage />;
+    if (page === totalPages - 1) return <BackCover />;
+    return <LetterPage entry={sorted[page - 1]} index={page - 1} onCrop={(entry, h, w) => setBookCropModal({ entryId: entry.id, url: entry.media[0].url, cardH: h, photoWidth: w })} />;
+  };
+
+  const pageLabel = page === 0 ? 'Cover' : page === totalPages - 1 ? 'Back cover' : `Letter ${page} of ${sorted.length}`;
+
+  return (
+    <div className="screen" style={{ background: '#1E2820' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', flexShrink: 0 }}>
+        <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-x" /></button>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, fontWeight: 600 }}>{pageLabel}</p>
+        <div style={{ width: 36 }} />
+      </div>
+
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px', minHeight: 0 }}>
+        <div style={{ width: '100%', aspectRatio: '3/4', borderRadius: 6, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.6), 4px 0 0 rgba(0,0,0,0.3)', maxHeight: '100%' }}>
+          {renderPage()}
+        </div>
+      </div>
+
+      <div style={{ padding: '16px 20px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+          style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: page === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.14)', color: page === 0 ? 'rgba(255,255,255,0.2)' : '#fff', cursor: page === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
+          <i className="ti ti-chevron-left" />
+        </button>
+        <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
+          <div style={{ height: '100%', background: 'rgba(255,255,255,0.4)', borderRadius: 99, width: `${((page + 1) / totalPages) * 100}%`, transition: 'width 0.2s' }} />
+        </div>
+        <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
+          style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: page === totalPages - 1 ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.14)', color: page === totalPages - 1 ? 'rgba(255,255,255,0.2)' : '#fff', cursor: page === totalPages - 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
+          <i className="ti ti-chevron-right" />
+        </button>
+      </div>
+
+      <div style={{ padding: '8px 20px 28px', flexShrink: 0 }}>
+        <button className="btn" style={{ width: '100%', background: '#C8993E', color: '#fff', borderRadius: 14 }}
+          onClick={() => alert('Print ordering is coming soon. Your book is ready — we\'ll let you know when you can order!')}>
+          <i className="ti ti-shopping-cart" style={{ fontSize: 16 }} />
+          Order this book
+        </button>
+      </div>
+
+      {bookCropModal && (
+        <BookCropModal
+          url={bookCropModal.url}
+          cropY={cropPositions[bookCropModal.entryId] ?? 50}
+          cardHeight={bookCropModal.cardH}
+          photoWidth={bookCropModal.photoWidth}
+          onSave={saveBookCrop}
+          onClose={() => setBookCropModal(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
 
 function NavBar({ active, onNavigate }) {
 
@@ -3109,6 +3561,7 @@ export default function App() {
   const [familyMembers, setFamilyMembers] = useState([]);
   const [myDisplayName, setMyDisplayName] = useState('');
   const [joiningFamily, setJoiningFamily] = useState(false);
+  const [bookConfig, setBookConfig] = useState(null);
 
   // Auth listener
   useEffect(() => {
@@ -3207,6 +3660,7 @@ setEntries(entriesData.map(e => ({
           palette: e.palette || PALETTES[0],
           media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
           signedAs: e.signed_as,
+          authorId: e.author_id || null,
         })));
       }
       setDataLoading(false);
@@ -3703,6 +4157,25 @@ setEntries(entriesData.map(e => ({
         <SearchScreen entries={entries} kids={kids} onBack={() => setScreen('home')} onOpenEntry={openEntry} />
       )}
 
+      {screen === 'book-builder' && (
+        <BookBuilderScreen
+          kids={kids}
+          entries={entries}
+          familyMembers={familyMembers}
+          myDisplayName={myDisplayName}
+          onBack={() => setScreen('profile')}
+          onPreview={config => { setBookConfig(config); setScreen('book-preview'); }}
+        />
+      )}
+
+      {screen === 'book-preview' && bookConfig && (
+        <BookPreviewScreen
+          kids={kids}
+          bookConfig={bookConfig}
+          onBack={() => setScreen('book-builder')}
+        />
+      )}
+
 {screen === 'profile' && (
         <ProfileScreen
           kids={kids}
@@ -3719,6 +4192,7 @@ setEntries(entriesData.map(e => ({
           onFamilyAvatarUpload={handleFamilyAvatarUpload}
           currentUserId={session?.user?.id}
           onOpenGrowth={kidId => { setGrowthKidId(kidId); setScreen('growth'); }}
+          onCreateBook={() => setScreen('book-builder')}
           onSignOut={() => {
             if (localMode || !supabase) {
               setKids([]);
@@ -3747,10 +4221,10 @@ setEntries(entriesData.map(e => ({
         ) : null;
       })()}
 
-      {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'profile' && screen !== 'growth' && (
+      {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'profile' && screen !== 'growth' && screen !== 'book-builder' && screen !== 'book-preview' && (
         <NavBar active={screen} onNavigate={setScreen} />
       )}
-      {(screen === 'profile' || screen === 'growth') && <NavBar active="home" onNavigate={setScreen} />}
+      {(screen === 'profile' || screen === 'growth' || screen === 'book-builder') && <NavBar active="home" onNavigate={setScreen} />}
 
       {celebration && (
         <CelebrationOverlay
