@@ -608,8 +608,12 @@ function JournalEntryRow({ entry, entryKids, onClick }) {
           {entry.media && entry.media.length > 0 && (
             <div className="journal-thumb-strip">
               {entry.media.slice(0, 4).map((mm, i) => (
-                <div key={i} className="journal-thumb">
-                  <img src={mm.url} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
+                <div key={i} className="journal-thumb" style={{ position: 'relative' }}>
+                  {mm.type === 'video'
+                    ? <video src={mm.url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} preload="metadata" muted playsInline />
+                    : <img src={mm.url} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
+                  }
+                  {mm.type === 'video' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-player-play" style={{ fontSize: 12, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} /></div>}
                 </div>
               ))}
             </div>
@@ -696,12 +700,11 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               </div>
               <div className="gallery-stage">
                 {media.map((item, i) => (
-                  <div
-                    key={i}
-                    className="gallery-slide"
-                    style={{ backgroundImage: `url('${item.url}')`, opacity: i === activeSlide ? 1 : 0 }}
-                  >
-                    {item.type === 'video' && <div className="video-play-overlay"><i className="ti ti-player-play" /></div>}
+                  <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${item.url}')` }}>
+                    {item.type === 'video'
+                      ? <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline controls />
+                      : <div className="video-play-overlay" style={{ display: 'none' }} />
+                    }
                   </div>
                 ))}
               </div>
@@ -842,16 +845,22 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
     e.target.value = '';
     if (!dateFromPhoto) {
       for (const file of files) {
-        if (!file.type.startsWith('image')) continue;
-        try {
-          const tags = await exifr.parse(file, ['DateTimeOriginal']);
-          if (tags?.DateTimeOriginal) {
-            const d = new Date(tags.DateTimeOriginal);
-            setEntryDate(d.toISOString().slice(0, 10));
-            setDateFromPhoto(true);
-            break;
-          }
-        } catch {}
+        if (file.type.startsWith('image')) {
+          try {
+            const tags = await exifr.parse(file, ['DateTimeOriginal']);
+            if (tags?.DateTimeOriginal) {
+              const d = new Date(tags.DateTimeOriginal);
+              setEntryDate(d.toISOString().slice(0, 10));
+              setDateFromPhoto(true);
+              break;
+            }
+          } catch {}
+        } else if (file.type.startsWith('video') && file.lastModified) {
+          const d = new Date(file.lastModified);
+          setEntryDate(d.toISOString().slice(0, 10));
+          setDateFromPhoto(true);
+          break;
+        }
       }
     }
   }
@@ -1051,7 +1060,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             {media.map((item, i) => (
               <div key={i} style={{ width: 76, height: 76, borderRadius: 10, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
                 {item.type === 'video'
-                  ? <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                  ? <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
                   : <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                 }
                 <button onClick={() => { setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
