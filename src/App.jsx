@@ -392,7 +392,7 @@ function turningAge(birthdate) {
   return birthdayPassedThisYear ? ty + 1 - by : ty - by;
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare }) {
   const todayMMDD = TODAY.slice(5);
   const todayYear = parseInt(TODAY.slice(0, 4));
   const todayLabel = new Date(TODAY + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -542,6 +542,15 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
             ))}
           </div>
 
+          {kids.length > 1 && onCompare && (
+            <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: '#EBF2E8', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: '#4A5E50' }}>At the same age</span>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#fff' }} />
+              </div>
+            </button>
+          )}
+
         </div>
       </div>
       {cropModal && (
@@ -559,12 +568,13 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
 
 // ─── Journal timeline ────────────────────────────────────────────────────
 
-function JournalEntryRow({ entry, kid, onClick }) {
+function JournalEntryRow({ entry, entryKids, onClick }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
-  const d = new Date(entry.date);
+  const d = new Date(entry.date + 'T12:00:00');
   const dayNum = d.getDate();
   const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
   const text = entry.text.length > 160 ? entry.text.slice(0, 160) + '...' : entry.text;
+  const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
 
   return (
     <div className="journal-entry" onClick={onClick}>
@@ -576,9 +586,15 @@ function JournalEntryRow({ entry, kid, onClick }) {
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-            <KidThumb kid={kid} size={20} />
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4A5E50' }}>{kid.name}</span>
-            <span style={{ fontSize: 11, color: '#9AA89C' }}>· {exactAgeLabel(kid.birthdate, entry.date)}</span>
+            <div style={{ display: 'flex' }}>
+              {entryKids.map((k, i) => (
+                <div key={k.id} style={{ marginLeft: i > 0 ? -6 : 0, zIndex: entryKids.length - i, position: 'relative' }}>
+                  <KidThumb kid={k} size={20} />
+                </div>
+              ))}
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#4A5E50' }}>{nameLabel}</span>
+            {entryKids.length === 1 && <span style={{ fontSize: 11, color: '#9AA89C' }}>· {exactAgeLabel(entryKids[0].birthdate, entry.date)}</span>}
             <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
               {entry.favorited && <i className="ti ti-heart-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
               {m && (
@@ -604,7 +620,7 @@ function JournalEntryRow({ entry, kid, onClick }) {
   );
 }
 
-function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter }) {
+function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount }) {
   const filtered = entries
     .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
     .sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -612,7 +628,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
   let currentMonth = null;
   const rows = [];
   filtered.forEach(entry => {
-    const d = new Date(entry.date);
+    const d = new Date(entry.date + 'T12:00:00');
     const monthLabel = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     if (monthLabel !== currentMonth) {
       currentMonth = monthLabel;
@@ -623,8 +639,8 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         </div>
       );
     }
-    const kid = kids.find(k => k.id === entry.kids[0]);
-    rows.push(<JournalEntryRow key={entry.id} entry={entry} kid={kid} onClick={() => onOpenEntry(entry)} />);
+    const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
+    rows.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onClick={() => onOpenEntry(entry)} />);
   });
 
   return (
@@ -632,8 +648,8 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
       <div className="scroll-area">
         <div className="scrollpad" style={{ paddingBottom: 6 }}>
           <div>
-            <p style={{ fontSize: 12, color: '#9AA89C', margin: 0 }}>Journal</p>
-            <h1 style={{ fontSize: 23, color: '#4A5E50', margin: '4px 0 0', fontWeight: 700 }}>A page for every day</h1>
+            <p style={{ fontSize: 12, color: '#9AA89C', margin: 0 }}>Patina</p>
+            <h1 style={{ fontSize: 23, color: '#4A5E50', margin: '4px 0 0', fontWeight: 700 }}>{memberCount > 1 ? 'From us, with love' : 'From you, with love'}</h1>
           </div>
           <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth />
         </div>
@@ -767,6 +783,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const uploadInputRef = useRef(null);
   const recognitionRef = useRef(null);
   const [listening, setListening] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   function toggleListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -873,8 +890,8 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         .filter(Boolean).join(' and ');
       const primaryKid = kids.find(k => k.id === selectedKids[0]);
       const ageMonths = primaryKid ? Math.max(0,
-        (new Date(entryDate).getFullYear() - new Date(primaryKid.birthdate).getFullYear()) * 12 +
-        (new Date(entryDate).getMonth() - new Date(primaryKid.birthdate).getMonth())
+        (new Date(entryDate + 'T12:00:00').getFullYear() - new Date(primaryKid.birthdate + 'T12:00:00').getFullYear()) * 12 +
+        (new Date(entryDate + 'T12:00:00').getMonth() - new Date(primaryKid.birthdate + 'T12:00:00').getMonth())
       ) : null;
       const { data, error } = await supabase.functions.invoke('generate-entry', {
         body: { images: imagePayloads, kidNames, ageMonths, location },
@@ -945,7 +962,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
           {existingEntry && onDelete && (
             <button
               className="icon-btn"
-              onClick={() => { if (window.confirm('Delete this entry?')) onDelete(existingEntry.id); }}
+              onClick={() => setShowDeleteConfirm(true)}
               style={{ color: '#D4856A', borderColor: '#F2C4B8' }}
             >
               <i className="ti ti-trash" />
@@ -1129,6 +1146,23 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
               <input type="number" placeholder="Year" value={editYear} min={1900} max={2030} onChange={e => setEditYear(e.target.value)} style={{ flex: 1.5, border: '1px solid #CCDAC8', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: '#fff', color: '#2C3828', fontFamily: "'Inter', sans-serif", textAlign: 'center' }} />
             </div>
             <button className="btn btn-primary" style={{ width: '100%' }} onClick={applyDate}>Done</button>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation sheet */}
+      {showDeleteConfirm && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDeleteConfirm(false)}>
+          <div style={{ background: '#F8FAF6', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FEF0ED', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <i className="ti ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
+            </div>
+            <p style={{ fontSize: 17, fontWeight: 700, color: '#2C3828', margin: '0 0 6px', textAlign: 'center' }}>Delete this entry?</p>
+            <p style={{ fontSize: 14, color: '#9AA89C', margin: '0 0 24px', textAlign: 'center' }}>This can't be undone.</p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+              <button className="btn" style={{ flex: 1, background: '#D4856A', color: '#fff' }} onClick={() => { setShowDeleteConfirm(false); onDelete(existingEntry.id); }}>Delete</button>
+            </div>
           </div>
         </div>
       )}
@@ -1441,8 +1475,11 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
             </>
           )}
 
-          <button className="btn btn-outline" onClick={onCompare}>
-            See them at this age <i className="ti ti-arrow-right" />
+          <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: '#EBF2E8', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: '#4A5E50' }}>At the same age</span>
+            <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#fff' }} />
+            </div>
           </button>
         </div>
       </div>
@@ -1573,10 +1610,10 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
             <div style={{ display: 'flex', gap: 12 }}>
               {kids.map(kid => {
                 const matches = isSearching
-                  ? entries.filter(e => e.kids.includes(kid.id) && entryMatchesSearch(e))
+                  ? entries.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && entryMatchesSearch(e))
                   : isMilestoneFiltering
-                    ? entries.filter(e => e.kids.includes(kid.id) && e.milestone === milestoneFilter)
-                    : entries.filter(e => e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths));
+                    ? entries.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && e.milestone === milestoneFilter)
+                    : entries.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths));
                 return (
                   <div key={kid.id} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -3597,6 +3634,7 @@ setEntries(entriesData.map(e => ({
           onManage={() => openProfile(kids[0].id)}
           onAddMoment={() => setScreen('new-entry')}
           onSeeAll={() => setScreen('journal')}
+          onCompare={() => setScreen('compare')}
         />
       )}
 
@@ -3608,6 +3646,7 @@ setEntries(entriesData.map(e => ({
           setKidFilter={setKidFilter}
           onOpenEntry={openEntry}
           onNewEntry={() => setScreen('new-entry')}
+          memberCount={familyMembers.length}
         />
       )}
 
