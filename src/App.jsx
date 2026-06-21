@@ -765,6 +765,31 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [editYear, setEditYear] = useState('');
   const cameraInputRef = useRef(null);
   const uploadInputRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const [listening, setListening] = useState(false);
+
+  function toggleListening() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('Speech recognition is not supported in this browser.'); return; }
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+    const recognition = new SR();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.onresult = (e) => {
+      const transcript = Array.from(e.results).slice(e.resultIndex).map(r => r[0].transcript).join('');
+      setText(prev => prev ? prev + ' ' + transcript : transcript);
+    };
+    recognition.onend = () => setListening(false);
+    recognition.onerror = () => setListening(false);
+    recognitionRef.current = recognition;
+    recognition.start();
+    setListening(true);
+  }
 
   const dateDisplay = new Date(entryDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const salutationName = (() => {
@@ -818,10 +843,24 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
     setGenerating(true);
     try {
       const imagePayloads = [];
+      let location = null;
       for (let i = 0; i < media.length; i++) {
         if (media[i].type !== 'image') continue;
         const file = fileObjects[i];
         if (!file) continue;
+        // Extract GPS from first image
+        if (!location) {
+          try {
+            const tags = await exifr.parse(file, ['GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef']);
+            if (tags?.GPSLatitude && tags?.GPSLongitude) {
+              const lat = tags.GPSLatitude;
+              const lng = tags.GPSLongitude;
+              const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+              const geo = await res.json();
+              location = [geo.city || geo.locality, geo.principalSubdivision, geo.countryName].filter(Boolean).join(', ');
+            }
+          } catch {}
+        }
         const base64 = await new Promise((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target.result.split(',')[1]);
@@ -838,14 +877,12 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         (new Date(entryDate).getMonth() - new Date(primaryKid.birthdate).getMonth())
       ) : null;
       const { data, error } = await supabase.functions.invoke('generate-entry', {
-        body: { images: imagePayloads, kidNames, ageMonths },
+        body: { images: imagePayloads, kidNames, ageMonths, location },
       });
-      console.log('Function response:', { data, error });
       if (error) throw new Error(data?.error || error.message);
       if (data?.text) setText(data.text);
     } catch (err) {
-      console.error('Generate error:', err);
-      alert('Could not generate: ' + (err?.message || JSON.stringify(err)));
+      alert('Could not generate — try again.');
     } finally {
       setGenerating(false);
     }
@@ -897,6 +934,9 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
               <i className="ti ti-camera" />
             </button>
           </div>
+          <button onClick={toggleListening} style={{ background: listening ? '#F0897A' : 'none', border: 'none', cursor: 'pointer', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: listening ? '#fff' : '#9AA89C', fontSize: 20, borderRadius: 10 }}>
+            <i className={`ti ti-${listening ? 'microphone' : 'microphone'}`} />
+          </button>
           <button onClick={() => setShowExtras(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showExtras ? '#4A5E50' : '#9AA89C', fontSize: 20, borderRadius: 10 }}>
             <i className="ti ti-dots" />
           </button>
