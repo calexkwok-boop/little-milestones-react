@@ -840,10 +840,12 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       const { data, error } = await supabase.functions.invoke('generate-entry', {
         body: { images: imagePayloads, kidNames, ageMonths },
       });
-      if (error) throw error;
+      console.log('Function response:', { data, error });
+      if (error) throw new Error(data?.error || error.message);
       if (data?.text) setText(data.text);
-    } catch {
-      alert('Could not generate — check your connection and try again.');
+    } catch (err) {
+      console.error('Generate error:', err);
+      alert('Could not generate: ' + (err?.message || JSON.stringify(err)));
     } finally {
       setGenerating(false);
     }
