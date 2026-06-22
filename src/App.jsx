@@ -2673,7 +2673,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
               Let them hold all the little moments you've held.
             </h1>
             <p style={{ fontSize: 14, color: '#9AA89C', margin: 0, lineHeight: 1.6 }}>
-              Just a few questions and we'll show you a preview.
+              The entries were for you. The book is for them.
             </p>
           </div>
 
