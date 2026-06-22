@@ -47,7 +47,7 @@ async function drawCard(canvasId, photoUrl) {
     ctx.textAlign='right';ctx.fillText('"',W-PAD+10,cardTop+118);ctx.textAlign='left';
   }
 
-  ctx.font='italic 400 38px "Source Serif 4"';ctx.fillStyle='#9AA89C';
+  ctx.font='italic 400 38px "Source Serif 4"';ctx.fillStyle='#4A5E50';
   ctx.fillText('Dear Ellie,',PAD,y);y+=60;
 
   ctx.font='italic 400 42px "Source Serif 4"';ctx.fillStyle='#2C3828';
@@ -57,12 +57,12 @@ async function drawCard(canvasId, photoUrl) {
   if(bodyLines.length>maxLines){ctx.fillStyle='#9AA89C';ctx.fillText('…',PAD,y);y+=64;}
   y+=12;
 
-  ctx.font='italic 400 36px "Source Serif 4"';ctx.fillStyle='#9AA89C';
+  ctx.font='italic 400 36px "Source Serif 4"';ctx.fillStyle='#4A5E50';
   ctx.fillText('— Mom',PAD,y);y+=52;
 
   y+=28;ctx.fillStyle='#CCDAC8';ctx.fillRect(PAD,y,W-PAD*2,1.5);y+=36;
 
-  ctx.font='600 28px Inter';ctx.fillStyle='#9AA89C';ctx.fillText('June 15, 2025',PAD,y);
+  ctx.font='600 28px Inter';ctx.fillStyle='#4A5E50';ctx.fillText('June 15, 2025',PAD,y);
   ctx.fillStyle='#C8993E';ctx.textAlign='right';ctx.fillText('Patina',W-PAD,y);ctx.textAlign='left';
 
   window._done=true;

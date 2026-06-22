@@ -211,7 +211,7 @@ async function generateShareCard(entry, allKids) {
 
   const name = buildSalutation(entry, allKids);
   ctx.font = 'italic 400 38px "Source Serif 4"';
-  ctx.fillStyle = '#9AA89C';
+  ctx.fillStyle = '#4A5E50';
   ctx.fillText(`Dear ${name},`, PAD, y);
   y += 60;
 
@@ -228,7 +228,7 @@ async function generateShareCard(entry, allKids) {
 
   if (entry.signedAs) {
     ctx.font = 'italic 400 36px "Source Serif 4"';
-    ctx.fillStyle = '#9AA89C';
+    ctx.fillStyle = '#4A5E50';
     ctx.fillText(`— ${entry.signedAs}`, PAD, y);
     y += 52;
   }
@@ -240,7 +240,7 @@ async function generateShareCard(entry, allKids) {
 
   const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   ctx.font = '600 28px Inter';
-  ctx.fillStyle = '#9AA89C';
+  ctx.fillStyle = '#4A5E50';
   ctx.fillText(dateStr, PAD, y);
   ctx.fillStyle = '#C8993E';
   ctx.textAlign = 'right';
