@@ -88,6 +88,19 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   background: #F6FAF4; border: 1px solid #C4D8C0; border-radius: 14px;
   padding: 16px 16px; position: relative; cursor: pointer;
 }
+.journal-entry.milestone-entry,
+.milestone-entry {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#F6FAF4, #F6FAF4) padding-box,
+    linear-gradient(90deg, #C8993E, #F5D78E, #E8B84B, #F5D78E, #C8993E) border-box;
+  background-size: 300% 100%;
+  animation: gold-shimmer 3s linear infinite;
+}
+@keyframes gold-shimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 300% center; }
+}
 .journal-thumb-strip { display: flex; gap: 6px; margin-top: 10px; }
 .journal-thumb {
   width: 48px; height: 48px; border-radius: 8px; flex-shrink: 0;

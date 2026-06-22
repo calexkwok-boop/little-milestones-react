@@ -69,7 +69,7 @@ function lerpRef(table, ageMo) {
   return table[i].slice(1).map((v, j) => v + (table[i + 1][j + 1] - v) * t);
 }
 
-function compressImage(file, maxDim = 1920, quality = 0.82) {
+function compressImage(file, maxDim = 1600, quality = 0.78) {
   return new Promise(resolve => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -81,9 +81,12 @@ function compressImage(file, maxDim = 1920, quality = 0.82) {
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      const useWebP = canvas.toDataURL('image/webp').startsWith('data:image/webp');
+      const mime = useWebP ? 'image/webp' : 'image/jpeg';
+      const ext = useWebP ? 'webp' : 'jpg';
       canvas.toBlob(
-        blob => resolve(blob ? new File([blob], file.name || 'photo.jpg', { type: 'image/jpeg' }) : file),
-        'image/jpeg', quality
+        blob => resolve(blob ? new File([blob], (file.name || 'photo').replace(/\.[^.]+$/, '') + '.' + ext, { type: mime }) : file),
+        mime, quality
       );
     };
     img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
@@ -518,6 +521,21 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   const birthdayToday = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 0), [kids]);
   const birthdayNextWeek = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 7), [kids]);
 
+  const onceUponATime = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 180);
+    const onThisDayId = onThisDay[0]?.id;
+    const recentIds = new Set(recent.map(e => e.id));
+    const pool = entries.filter(e =>
+      new Date(e.date + 'T12:00:00') < cutoff &&
+      e.id !== onThisDayId &&
+      !recentIds.has(e.id)
+    );
+    if (pool.length === 0) return null;
+    const seed = parseInt(TODAY.replace(/-/g, '')) % pool.length;
+    return pool[seed];
+  }, [entries, onThisDay, recent]);
+
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <div>
@@ -604,6 +622,21 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
             return <OnThisDayCard entry={entry} kid={kid} allKids={kids} yearsAgo={yearsAgo} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />;
           })()}
 
+          {onceUponATime && (() => {
+            const entry = onceUponATime;
+            const kid = kids.find(k => k.id === entry.kids[0]);
+            return (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                  <div style={{ flex: 1, height: 1, background: '#CCDAC8' }} />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#9AA89C', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Once upon a time</span>
+                  <div style={{ flex: 1, height: 1, background: '#CCDAC8' }} />
+                </div>
+                <LetterCard entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />
+              </div>
+            );
+          })()}
+
           {recent.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <SectionDivider label="Recent letters" />
@@ -668,7 +701,7 @@ function JournalEntryRow({ entry, entryKids, onClick }) {
   const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
 
   return (
-    <div className="journal-entry" onClick={onClick}>
+    <div className={`journal-entry${m ? ' milestone-entry' : ''}`} onClick={onClick}>
       <span className="day-quote-mark">"</span>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{ textAlign: 'center', flexShrink: 0, width: 40 }}>
@@ -688,11 +721,7 @@ function JournalEntryRow({ entry, entryKids, onClick }) {
             {entryKids.length === 1 && <span style={{ fontSize: 11, color: '#9AA89C' }}>· {exactAgeLabel(entryKids[0].birthdate, entry.date)}</span>}
             <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
               {entry.favorited && <i className="ti ti-heart-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
-              {m && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <span style={{ fontSize: 9 }}>✦</span>{m.label}
-                </span>
-              )}
+              {m && <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E' }}>{m.label}</span>}
             </div>
           </div>
           <p style={{ fontSize: 15, color: '#3A3020', lineHeight: 1.65, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: text ? 'italic' : 'normal' }}>{text}</p>
@@ -1395,7 +1424,8 @@ function RecapEntryRow({ entry, kids, onOpenEntry }) {
   return (
     <div
       onClick={() => onOpenEntry(entry)}
-      style={{ cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start', padding: '13px 0', borderBottom: '1px solid #EEF2EA' }}
+      className={m ? 'journal-entry milestone-entry' : undefined}
+      style={m ? { cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' } : { cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start', padding: '13px 0', borderBottom: '1px solid #EEF2EA' }}
     >
       <div style={{ display: 'flex', flexShrink: 0 }}>
         {entryKids.map((kid, i) => (
@@ -1419,7 +1449,7 @@ function RecapEntryRow({ entry, kids, onOpenEntry }) {
         )}
         {m && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 5, fontSize: 10, fontWeight: 700, color: '#C8993E' }}>
-            <span style={{ fontSize: 9 }}>✦</span>{m.label}
+            {m.label}
           </span>
         )}
       </div>
@@ -1646,6 +1676,13 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
   const ages = [12, 18, 24, 36, 48, 60, 72];
   const isSearching = searchQuery.trim().length > 0;
   const isMilestoneFiltering = !isSearching && filterTab === 'milestone' && milestoneFilter !== null;
+  const customMilestoneChips = useMemo(() => {
+    const seen = new Set();
+    return entries
+      .filter(e => e.milestone?.startsWith('custom:'))
+      .map(e => e.milestone)
+      .filter(m => seen.has(m) ? false : seen.add(m));
+  }, [entries]);
 
   function switchTab(tab) {
     setFilterTab(tab);
@@ -1748,6 +1785,20 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
                   </div>
                 );
               })}
+              {customMilestoneChips.map(m => {
+                const active = milestoneFilter === m;
+                return (
+                  <div
+                    key={m}
+                    className="kid-chip"
+                    style={{ padding: '7px 14px', ...(active ? { background: '#C8993E', borderColor: '#C8993E', color: '#fff' } : {}) }}
+                    onClick={() => setMilestoneFilter(active ? null : m)}
+                  >
+                    <i className="ti ti-star" style={{ fontSize: 13 }} />
+                    {m.slice(7)}
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -1778,13 +1829,15 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
                       const ageStr = exactAgeLabel(kid.birthdate, e.date);
                       const dateStr = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                       return (
-                        <div key={e.id} style={{ borderRadius: 12, overflow: 'hidden' }} onClick={() => onOpenEntry(e)}>
-                          <div className="compare-photo" style={entryBgStyle(e)}>
-                            <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
-                            <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
-                              <p style={{ fontSize: 11, color: '#fff', margin: '0 0 2px', fontWeight: 700 }}>{ageStr}</p>
-                              {showMeta && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', margin: '0 0 2px' }}>{dateStr}</p>}
-                              {m && !isMilestoneFiltering && <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 600, opacity: 0.9 }}>{m.label}</p>}
+                        <div key={e.id} className={m ? 'milestone-entry' : undefined} style={{ borderRadius: 12, cursor: 'pointer', padding: m ? 2 : 0 }} onClick={() => onOpenEntry(e)}>
+                          <div style={{ borderRadius: 10, overflow: 'hidden' }}>
+                            <div className="compare-photo" style={entryBgStyle(e)}>
+                              <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
+                              <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
+                                <p style={{ fontSize: 11, color: '#fff', margin: '0 0 2px', fontWeight: 700 }}>{ageStr}</p>
+                                {showMeta && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', margin: '0 0 2px' }}>{dateStr}</p>}
+                                {m && !isMilestoneFiltering && <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 600, opacity: 0.9 }}>{m.label}</p>}
+                              </div>
                             </div>
                           </div>
                           <p style={{ fontSize: 12, color: '#5C6B5E', lineHeight: 1.5, margin: '8px 2px 0' }}>
@@ -2701,7 +2754,16 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
         : kids[0]?.name.split(' ')[0] || 'Your child')
     : selectedKids.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & ');
 
-  const allMemberNames = (familyMembers || []).map(m => m.display_name);
+  const maternalNames = new Set(['mom', 'mama', 'mommy', 'mother', 'mum', 'mummy', 'nana', 'grandma', 'grandmother']);
+  const allMemberNames = (familyMembers || [])
+    .map(m => m.display_name)
+    .sort((a, b) => {
+      const aM = maternalNames.has(a.toLowerCase());
+      const bM = maternalNames.has(b.toLowerCase());
+      if (aM && !bM) return -1;
+      if (!aM && bM) return 1;
+      return 0;
+    });
   const authorSummary = isAllAuthors && allMemberNames.length > 1
     ? allMemberNames.slice(0, -1).join(', ') + ' and ' + allMemberNames[allMemberNames.length - 1]
     : authorLabel;
@@ -3845,7 +3907,7 @@ setEntries(entriesData.map(e => ({
         if (fileObj) {
           try {
             if (!fileObj.type.startsWith('video')) fileObj = await compressImage(fileObj);
-            const ext = fileObj.type.startsWith('video') ? 'mp4' : 'jpg';
+            const ext = fileObj.type.startsWith('video') ? 'mp4' : fileObj.type === 'image/webp' ? 'webp' : 'jpg';
             const path = `${session.user.id}/${entryId}-edit${Date.now()}-${i}.${ext}`;
             const { error } = await supabase.storage.from('media').upload(path, fileObj);
             if (!error) {
@@ -3912,7 +3974,7 @@ setEntries(entriesData.map(e => ({
       if (fileObj) {
         try {
           if (!fileObj.type.startsWith('video')) fileObj = await compressImage(fileObj);
-          const ext = fileObj.type.startsWith('video') ? 'mp4' : 'jpg';
+          const ext = fileObj.type.startsWith('video') ? 'mp4' : fileObj.type === 'image/webp' ? 'webp' : 'jpg';
           const path = `${session.user.id}/${entry.id}-${i}.${ext}`;
           const { error: uploadError } = await supabase.storage.from('media').upload(path, fileObj);
           if (!uploadError) {
