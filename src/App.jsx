@@ -120,16 +120,13 @@ function videoThumbUrl(videoUrl) {
 
 // ─── Share card ──────────────────────────────────────────────────────────────
 
-async function loadImageEl(url) {
-  // Fetch as blob so the canvas doesn't get CORS-tainted on iOS
-  const resp = await fetch(url);
-  const blob = await resp.blob();
-  const blobUrl = URL.createObjectURL(blob);
+function loadImageEl(url) {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.onload = () => { URL.revokeObjectURL(blobUrl); resolve(img); };
-    img.onerror = () => { URL.revokeObjectURL(blobUrl); reject(new Error('img load failed')); };
-    img.src = blobUrl;
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
   });
 }
 
@@ -165,7 +162,7 @@ function ctxWrapText(ctx, text, maxW) {
 async function generateShareCard(entry, allKids) {
   await document.fonts.ready;
   await Promise.allSettled([
-    document.fonts.load('italic 400 42px “Source Serif 4”'),
+    document.fonts.load('italic 400 42px "Source Serif 4"'),
     document.fonts.load('600 28px Inter'),
   ]);
 
@@ -187,9 +184,9 @@ async function generateShareCard(entry, allKids) {
       try {
         const img = await loadImageEl(imgUrl);
         const PHOTO_H = 520;
-        const scale = Math.max(W / img.naturalWidth, PHOTO_H / img.naturalHeight);
+        const scale = Math.max(W / img.width, PHOTO_H / img.height);
         const sw = W / scale, sh = PHOTO_H / scale;
-        const sx = (img.naturalWidth - sw) / 2, sy = (img.naturalHeight - sh) / 2;
+        const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
         ctx.save();
         ctx.beginPath(); ctx.rect(0, 0, W, PHOTO_H); ctx.clip();
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, PHOTO_H);
@@ -205,21 +202,21 @@ async function generateShareCard(entry, allKids) {
   let y = cardTop + 80;
 
   if (!hasPhoto) {
-    ctx.font = '400 140px “Source Serif 4”';
+    ctx.font = '400 140px "Source Serif 4"';
     ctx.fillStyle = '#CCDAC8';
     ctx.textAlign = 'right';
-    ctx.fillText('”', W - PAD + 10, cardTop + 118);
+    ctx.fillText('“', W - PAD + 10, cardTop + 118);
     ctx.textAlign = 'left';
   }
 
   const name = buildSalutation(entry, allKids);
-  ctx.font = 'italic 400 38px “Source Serif 4”';
+  ctx.font = 'italic 400 38px "Source Serif 4"';
   ctx.fillStyle = '#9AA89C';
   ctx.fillText(`Dear ${name},`, PAD, y);
   y += 60;
 
   const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
-  ctx.font = 'italic 400 42px “Source Serif 4”';
+  ctx.font = 'italic 400 42px "Source Serif 4"';
   ctx.fillStyle = '#2C3828';
   const maxLines = hasPhoto ? 7 : 10;
   const bodyLines = ctxWrapText(ctx, cleanText, W - PAD * 2);
@@ -230,7 +227,7 @@ async function generateShareCard(entry, allKids) {
   y += 12;
 
   if (entry.signedAs) {
-    ctx.font = 'italic 400 36px “Source Serif 4”';
+    ctx.font = 'italic 400 36px "Source Serif 4"';
     ctx.fillStyle = '#9AA89C';
     ctx.fillText(`— ${entry.signedAs}`, PAD, y);
     y += 52;
