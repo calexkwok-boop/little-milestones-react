@@ -348,9 +348,10 @@ function BookCropModal({ url, cropY, cardHeight, photoWidth, onSave, onClose }) 
 
 function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCropEdit }) {
   const cardH = featured ? 200 : 150;
-  const preview = entry.text.length > (featured ? 160 : 110)
-    ? entry.text.slice(0, featured ? 160 : 110) + '…'
-    : entry.text;
+  const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
+  const preview = cleanText.length > (featured ? 160 : 110)
+    ? cleanText.slice(0, featured ? 160 : 110) + '…'
+    : cleanText;
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
@@ -653,7 +654,8 @@ function JournalEntryRow({ entry, entryKids, onClick }) {
   const d = new Date(entry.date + 'T12:00:00');
   const dayNum = d.getDate();
   const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
-  const text = entry.text.length > 160 ? entry.text.slice(0, 160) + '...' : entry.text;
+  const rawText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
+  const text = rawText.length > 160 ? rawText.slice(0, 160) + '...' : rawText;
   const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
 
   return (
@@ -823,7 +825,10 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               </div>
             ))}
           </div>
-          <p style={{ fontSize: 17, color: '#2C3828', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: entry.text ? 'italic' : 'normal', whiteSpace: 'pre-wrap' }}>{entry.text}</p>
+          <p style={{ fontSize: 17, color: '#4A5E50', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
+            Dear {buildSalutation(entry, allKids)},
+          </p>
+          <p style={{ fontSize: 17, color: '#2C3828', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: entry.text ? 'italic' : 'normal', whiteSpace: 'pre-wrap' }}>{entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim()}</p>
           {entry.signedAs && (
             <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#9AA89C', margin: 0, textAlign: 'right' }}>
               — {entry.signedAs}
@@ -865,7 +870,13 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   );
   const [text, setText] = useState(existingEntry?.text || '');
   const [mood, setMood] = useState(existingEntry?.mood || null);
-  const [milestoneType, setMilestoneType] = useState(existingEntry?.milestone || null);
+  const existingMilestone = existingEntry?.milestone || null;
+  const [milestoneType, setMilestoneType] = useState(
+    existingMilestone?.startsWith('custom:') ? 'custom' : existingMilestone
+  );
+  const [customMilestoneText, setCustomMilestoneText] = useState(
+    existingMilestone?.startsWith('custom:') ? existingMilestone.slice(7) : ''
+  );
   const [media, setMedia] = useState(existingEntry?.media || []);
   const [fileObjects, setFileObjects] = useState(existingEntry?.media?.map(() => null) || []);
   const [saving, setSaving] = useState(false);
@@ -1018,7 +1029,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       kids: selectedKids,
       text: text.trim(),
       mood: mood || null,
-      milestone: milestoneType || null,
+      milestone: milestoneType === 'custom' ? (customMilestoneText.trim() ? `custom:${customMilestoneText.trim()}` : null) : milestoneType || null,
       media,
       fileObjects,
       date: entryDate,
@@ -1091,22 +1102,18 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       {/* Letter body */}
       <div className="scroll-area" style={{ padding: '4px 24px 20px' }}>
 
-        {/* Salutation + date */}
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'wrap' }}>
-            <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 21, color: '#4A5E50' }}>Dear</span>
-            {kids.length === 1 ? (
-              <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 21, color: '#4A5E50' }}>{salutationName},</span>
-            ) : salutationName ? (
-              <button onClick={() => setShowKidPicker(true)} style={{ background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: 'none', borderLeft: 'none', cursor: 'pointer', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 21, color: '#4A5E50', padding: 0, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 4 }}>
-                {salutationName},
-              </button>
-            ) : (
-              <button onClick={() => setShowKidPicker(true)} style={{ background: 'none', borderTop: 'none', borderRight: 'none', borderBottom: '1.5px dashed #C4D8C0', borderLeft: 'none', cursor: 'pointer', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 21, color: '#C4D8C0', padding: 0 }}>
-                my children
-              </button>
-            )}
-          </div>
+        {/* For + Date row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          {kids.length === 1 ? (
+            <span style={{ fontSize: 15, color: '#9AA89C', fontFamily: "'Inter', sans-serif", fontWeight: 500 }}>
+              For {salutationName}
+            </span>
+          ) : (
+            <button onClick={() => setShowKidPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: salutationName ? '#4A5E50' : '#C4D8C0', fontFamily: "'Inter', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              {salutationName ? `For ${salutationName}` : 'Who is this for?'}
+              <i className="ti ti-chevron-down" style={{ fontSize: 13 }} />
+            </button>
+          )}
           <button onClick={openDateEdit} style={{ background: '#EEF2EA', border: 'none', cursor: 'pointer', fontSize: 12, color: '#5C6B5E', fontFamily: "'Inter', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
             <i className="ti ti-calendar" style={{ fontSize: 13 }} />
             {dateDisplay}
@@ -1208,7 +1215,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             <div>
               <p style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 }}>Mark as milestone?</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {MILESTONE_TYPES.filter(mt => mt.id !== 'custom').map(mt => {
+                {MILESTONE_TYPES.map(mt => {
                   const active = milestoneType === mt.id;
                   return (
                     <div
@@ -1227,6 +1234,29 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                     </div>
                   );
                 })}
+                <div
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 13,
+                    background: milestoneType === 'custom' ? '#4A5E50' : '#fff',
+                    border: `1px solid ${milestoneType === 'custom' ? '#4A5E50' : '#CCDAC8'}`,
+                    borderRadius: 13, padding: '13px 16px', cursor: 'pointer',
+                  }}
+                  onClick={() => setMilestoneType(milestoneType === 'custom' ? null : 'custom')}
+                >
+                  <i className="ti ti-star" style={{ fontSize: 19, color: milestoneType === 'custom' ? '#C8993E' : '#9AA89C', flexShrink: 0 }} />
+                  {milestoneType === 'custom' ? (
+                    <input
+                      autoFocus
+                      value={customMilestoneText}
+                      onChange={e => setCustomMilestoneText(e.target.value)}
+                      onClick={e => e.stopPropagation()}
+                      placeholder="Name this milestone…"
+                      style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, fontWeight: 600, color: '#fff', fontFamily: "'Inter', sans-serif" }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: 14, fontWeight: 600, color: '#2C3828', flex: 1 }}>Something else…</span>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1692,7 +1722,7 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
 
           {filterTab === 'milestone' && (
             <div className="scrollx">
-              {MILESTONE_TYPES.filter(ms => ms.id !== 'custom').map(ms => {
+              {MILESTONE_TYPES.map(ms => {
                 const active = milestoneFilter === ms.id;
                 return (
                   <div

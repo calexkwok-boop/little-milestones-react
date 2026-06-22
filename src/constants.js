@@ -5,10 +5,8 @@ export const MOODS = ['Proud', 'Joyful', 'Surprised', 'Exhausted', 'Grateful', '
 export const MILESTONE_TYPES = [
   { id: 'first_steps', label: 'First steps', icon: 'ti-walk' },
   { id: 'first_words', label: 'First words', icon: 'ti-message-circle' },
-  { id: 'first_tooth', label: 'First tooth', icon: 'ti-emergency-bed' },
   { id: 'first_day_school', label: 'First day of school', icon: 'ti-school' },
   { id: 'recital', label: 'Recital / performance', icon: 'ti-piano' },
-  { id: 'custom', label: 'Custom...', icon: 'ti-edit' },
 ];
 
 export const PALETTES = [
@@ -60,7 +58,9 @@ export function exactAgeLabel(birthdate, entryDate) {
 }
 
 export function milestoneInfo(id) {
-  return MILESTONE_TYPES.find(m => m.id === id);
+  if (!id) return null;
+  if (id.startsWith('custom:')) return { id: 'custom', label: id.slice(7), icon: 'ti-star' };
+  return MILESTONE_TYPES.find(m => m.id === id) ?? null;
 }
 
 export function hexToRgb(hex) {
