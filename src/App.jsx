@@ -75,18 +75,26 @@ function generateVideoThumbnail(file) {
     const video = document.createElement('video');
     video.muted = true;
     video.playsInline = true;
-    video.preload = 'metadata';
-    const cleanup = () => { try { URL.revokeObjectURL(url); } catch {} };
+    video.preload = 'auto';
+    // iOS WebKit won't load/decode video data unless the element is in the DOM
+    video.style.cssText = 'position:fixed;opacity:0;width:1px;height:1px;pointer-events:none;top:-9999px;left:-9999px;';
+    document.body.appendChild(video);
+    const cleanup = () => {
+      try { document.body.removeChild(video); } catch {}
+      try { URL.revokeObjectURL(url); } catch {}
+    };
     const done = (result) => { clearTimeout(timer); cleanup(); resolve(result); };
-    const timer = setTimeout(() => done(null), 6000);
-    video.onloadedmetadata = () => { video.currentTime = Math.min(0.5, video.duration * 0.1); };
-    video.onseeked = () => {
+    const timer = setTimeout(() => done(null), 8000);
+    const capture = () => {
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth || 320;
       canvas.height = video.videoHeight || 240;
       canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      try { video.pause(); } catch {}
       done(canvas.toDataURL('image/jpeg', 0.7));
     };
+    video.onloadedmetadata = () => { video.currentTime = Math.min(0.5, video.duration * 0.1); };
+    video.onseeked = capture;
     video.onerror = () => done(null);
     video.src = url;
     video.load();
@@ -412,9 +420,16 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
           onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH, photoRef.current?.offsetWidth); }}
           style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
         >
-          {entry.media[0].type === 'video'
-            ? <video src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} muted playsInline preload="metadata" />
-            : <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+          {entry.media[0].type === 'video' ? (
+            <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
+              <img src={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
+                </div>
+              </div>
+            </div>
+          ) : <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
           }
         </div>
       )}
@@ -467,9 +482,16 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
             onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH, photoRef.current?.offsetWidth); }}
             style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
           >
-            {entry.media[0].type === 'video'
-              ? <video src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} muted playsInline preload="metadata" />
-              : <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+            {entry.media[0].type === 'video' ? (
+              <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
+                <img src={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
+                  </div>
+                </div>
+              </div>
+            ) : <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
             }
           </div>
         )}
@@ -3964,13 +3986,24 @@ setEntries(entriesData.map(e => ({
         let url = media[i].url;
         if (fileObj) {
           try {
-            if (!fileObj.type.startsWith('video')) fileObj = await compressImage(fileObj);
-            const ext = fileObj.type.startsWith('video') ? 'mp4' : fileObj.type === 'image/webp' ? 'webp' : 'jpg';
-            const path = `${session.user.id}/${entryId}-edit${Date.now()}-${i}.${ext}`;
-            const { error } = await supabase.storage.from('media').upload(path, fileObj);
+            const isVid = fileObj.type.startsWith('video');
+            if (!isVid) fileObj = await compressImage(fileObj);
+            const mimeType = fileObj.type || (isVid ? 'video/mp4' : 'image/jpeg');
+            const ext = isVid
+              ? (mimeType === 'video/quicktime' ? 'mov' : mimeType === 'video/webm' ? 'webm' : 'mp4')
+              : (fileObj.type === 'image/webp' ? 'webp' : 'jpg');
+            const base = `${entryId}-edit${Date.now()}-${i}`;
+            const path = `${session.user.id}/${base}.${ext}`;
+            const { error } = await supabase.storage.from('media').upload(path, fileObj, { contentType: mimeType });
             if (!error) {
               const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
               url = publicUrl;
+              if (isVid && media[i].thumbnail) {
+                try {
+                  const thumbBlob = dataUrlToBlob(media[i].thumbnail);
+                  await supabase.storage.from('media').upload(`${session.user.id}/${base}-thumb.jpg`, thumbBlob, { contentType: 'image/jpeg' });
+                } catch {}
+              }
             }
           } catch {}
         }
