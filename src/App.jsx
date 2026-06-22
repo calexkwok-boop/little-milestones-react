@@ -774,10 +774,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <div>
         <p style={{ fontSize: 12, color: '#9AA89C', margin: '0 0 6px' }}>{todayLabel}</p>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: '#2C3828', margin: 0, fontWeight: 700 }}>Patina</h1>
-          <img src="/quill-no-background.png" style={{ height: 24, width: 'auto', objectFit: 'contain', flexShrink: 0 }} alt="" />
-        </div>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: '#2C3828', margin: 0, fontWeight: 700 }}>Patina</h1>
       </div>
       <button className="icon-btn" onClick={onSearch}><i className="ti ti-search" /></button>
     </div>
