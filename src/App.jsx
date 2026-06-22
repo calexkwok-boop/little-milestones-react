@@ -752,7 +752,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
           <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth />
         </div>
         <div className="scrollpad" style={{ paddingTop: 0 }}>
-          {filtered.length === 0 ? (
+          {rows.length === 0 ? (
             <div className="empty-state">
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#F5EFE3', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <i className="ti ti-notebook" style={{ fontSize: 24, color: '#9AA89C' }} />
@@ -3401,14 +3401,21 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
           )}
 
           {step === 'welcome' && (
-            <div style={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: 76, height: 76, borderRadius: 24, background: '#4A5E50', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 28 }}>
-                <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 54, fontWeight: 700, color: '#C8993E', lineHeight: 1, userSelect: 'none', marginTop: 4 }}>P</span>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: '#4A5E50', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 46, fontWeight: 700, color: '#C8993E', lineHeight: 1, userSelect: 'none', marginTop: 4 }}>P</span>
               </div>
-              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 40, color: '#2C3828', margin: '0 0 14px', lineHeight: 1.1 }}>Patina</h1>
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: '#7A8C78', lineHeight: 1.8, margin: '0 0 52px' }}>
+              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#2C3828', margin: '0 0 8px', lineHeight: 1.1 }}>Patina</h1>
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#7A8C78', lineHeight: 1.8, margin: '0 0 32px' }}>
                 For all the things you wish they knew.
               </p>
+              <div style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#9AA89C', margin: '0 0 10px' }}>Dear Ellie,</p>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#2C3828', lineHeight: 1.75, margin: '0 0 14px' }}>
+                  Patina is the beauty that comes with age. These letters are the mark you left in the small, seemingly unremarkable days that turned out to matter most. We love you more than anything.
+                </p>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: '#9AA89C', margin: 0 }}>— Mom &amp; Dad</p>
+              </div>
               <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('join-or-new')}>
                 Begin
               </button>
@@ -3655,6 +3662,7 @@ export default function App() {
   const [myDisplayName, setMyDisplayName] = useState('');
   const [joiningFamily, setJoiningFamily] = useState(false);
   const [bookConfig, setBookConfig] = useState(null);
+  const [monthlyRecap, setMonthlyRecap] = useState(null);
 
   // Auth listener
   useEffect(() => {
@@ -3677,6 +3685,29 @@ export default function App() {
     if (!localMode || typeof window === 'undefined') return;
     window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ kids, entries }));
   }, [entries, kids, localMode]);
+
+  // Monthly recap check — show once per month on first open
+  useEffect(() => {
+    if (entries.length === 0) return;
+    const lastMonth = (() => {
+      const d = new Date(TODAY + 'T12:00:00');
+      d.setMonth(d.getMonth() - 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    })();
+    const seenKey = 'patina-recap-seen';
+    let seen = {};
+    try { seen = JSON.parse(localStorage.getItem(seenKey) || '{}'); } catch {}
+    if (seen[lastMonth]) return;
+    const lastMonthEntries = entries.filter(e => e.date.startsWith(lastMonth));
+    if (lastMonthEntries.length === 0) return;
+    const milestones = lastMonthEntries.filter(e => e.milestone).length;
+    const photos = lastMonthEntries.reduce((sum, e) => sum + (e.media?.length || 0), 0);
+    const favorites = lastMonthEntries.filter(e => e.favorited).length;
+    const label = new Date(lastMonth + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    setMonthlyRecap({ label, letters: lastMonthEntries.length, milestones, photos, favorites });
+    seen[lastMonth] = true;
+    try { localStorage.setItem(seenKey, JSON.stringify(seen)); } catch {}
+  }, [entries]);
 
   // Load kids and entries after sign-in
   useEffect(() => {
@@ -4331,6 +4362,44 @@ setEntries(entriesData.map(e => ({
           milestoneType={celebration.milestoneType}
           onDone={() => { setCelebration(null); setScreen('journal'); }}
         />
+      )}
+
+      {monthlyRecap && (
+        <div style={{ position: 'absolute', inset: 0, background: '#2C3828', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 32px' }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px' }}>{monthlyRecap.label}</p>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#fff', textAlign: 'center', margin: '0 0 10px', lineHeight: 1.25 }}>
+            The days are long, but the years are short.
+          </h1>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'rgba(255,255,255,0.5)', textAlign: 'center', margin: '0 0 40px', lineHeight: 1.6 }}>
+            They're lucky to have you.
+          </p>
+
+          <div style={{ display: 'flex', gap: 12, width: '100%', marginBottom: 40 }}>
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center' }}>
+              <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{monthlyRecap.letters}</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0, fontWeight: 600 }}>letter{monthlyRecap.letters !== 1 ? 's' : ''}</p>
+            </div>
+            {monthlyRecap.milestones > 0 && (
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center' }}>
+                <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{monthlyRecap.milestones}</p>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0, fontWeight: 600 }}>milestone{monthlyRecap.milestones !== 1 ? 's' : ''}</p>
+              </div>
+            )}
+            {monthlyRecap.photos > 0 && (
+              <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center' }}>
+                <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{monthlyRecap.photos}</p>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0, fontWeight: 600 }}>photo{monthlyRecap.photos !== 1 ? 's' : ''}</p>
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={() => setMonthlyRecap(null)}
+            style={{ background: '#C8993E', color: '#fff', border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}
+          >
+            Keep going
+          </button>
+        </div>
       )}
     </div>
   );
