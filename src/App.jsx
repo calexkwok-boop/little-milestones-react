@@ -162,72 +162,87 @@ function ctxWrapText(ctx, text, maxW) {
 async function generateShareCard(entry, allKids) {
   await document.fonts.ready;
   await Promise.allSettled([
-    document.fonts.load('italic 400 42px "Source Serif 4"'),
+    document.fonts.load('italic 400 42px “Source Serif 4”'),
     document.fonts.load('600 28px Inter'),
   ]);
 
-  const W = 1080, H = 1350, PAD = 72;
+  const W = 1080, PAD = 72, IMG_PAD = 48, CARD_R = 44;
+
+  // Measure text content first to size canvas
+  const measureCanvas = document.createElement('canvas');
+  measureCanvas.width = W;
+  const mctx = measureCanvas.getContext('2d');
+  const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
+  mctx.font = 'italic 400 42px “Source Serif 4”';
+  const bodyLines = ctxWrapText(mctx, cleanText, W - PAD * 2);
+
+  // Text block height: salutation + body + signature + divider + date + padding
+  const textH = 60 + (bodyLines.length * 64) + 12 + (entry.signedAs ? 52 : 0) + 28 + 2 + 36 + 40 + 80;
+
+  // Try loading photo
+  let photoImg = null;
+  const firstMedia = entry.media?.[0];
+  if (firstMedia) {
+    const imgUrl = firstMedia.type === 'video' ? videoThumbUrl(firstMedia.url) : firstMedia.url;
+    if (imgUrl) { try { photoImg = await loadImageEl(imgUrl); } catch {} }
+  }
+
+  // Photo display dimensions: full width minus padding, natural aspect ratio
+  let photoDisplayH = 0;
+  const imgW = W - IMG_PAD * 2;
+  if (photoImg) {
+    photoDisplayH = Math.round(imgW * (photoImg.height / photoImg.width));
+  }
+
+  // Total canvas height
+  const topPad = 60;
+  const photoSection = photoImg ? topPad + photoDisplayH + 32 : 0;
+  const cardTop = photoImg ? photoSection : topPad;
+  const H = cardTop + textH + 60;
+
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
+  // Background
   ctx.fillStyle = '#E8F0E4';
   ctx.fillRect(0, 0, W, H);
 
-  let cardTop = 100;
-  let hasPhoto = false;
-
-  const firstMedia = entry.media?.[0];
-  if (firstMedia) {
-    const imgUrl = firstMedia.type === 'video' ? videoThumbUrl(firstMedia.url) : firstMedia.url;
-    if (imgUrl) {
-      try {
-        const img = await loadImageEl(imgUrl);
-        const PHOTO_H = 520;
-        const scale = Math.max(W / img.width, PHOTO_H / img.height);
-        const sw = W / scale, sh = PHOTO_H / scale;
-        const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
-        ctx.save();
-        ctx.beginPath(); ctx.rect(0, 0, W, PHOTO_H); ctx.clip();
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, PHOTO_H);
-        ctx.restore();
-        cardTop = PHOTO_H - 44;
-        hasPhoto = true;
-      } catch {}
-    }
+  // Full photo, uncropped, with rounded corners
+  if (photoImg) {
+    ctx.save();
+    ctxRoundRect(ctx, IMG_PAD, topPad, imgW, photoDisplayH, 24, '#000');
+    ctx.clip();
+    ctx.drawImage(photoImg, IMG_PAD, topPad, imgW, photoDisplayH);
+    ctx.restore();
   }
 
-  ctxRoundRect(ctx, 0, cardTop, W, H - cardTop + 20, 44, '#F8FAF6');
+  // Card background
+  ctxRoundRect(ctx, 0, cardTop, W, H - cardTop + 20, CARD_R, '#F8FAF6');
 
   let y = cardTop + 80;
 
-  if (!hasPhoto) {
-    ctx.font = '400 140px "Source Serif 4"';
+  if (!photoImg) {
+    ctx.font = '400 160px Georgia, serif';
     ctx.fillStyle = '#CCDAC8';
     ctx.textAlign = 'right';
-    ctx.fillText('“', W - PAD + 10, cardTop + 118);
+    ctx.fillText('“', W - PAD + 24, cardTop + 130);
     ctx.textAlign = 'left';
   }
 
   const name = buildSalutation(entry, allKids);
-  ctx.font = 'italic 400 38px "Source Serif 4"';
+  ctx.font = 'italic 400 38px “Source Serif 4”';
   ctx.fillStyle = '#9AA89C';
   ctx.fillText(`Dear ${name},`, PAD, y);
   y += 60;
 
-  const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
-  ctx.font = 'italic 400 42px "Source Serif 4"';
+  ctx.font = 'italic 400 42px “Source Serif 4”';
   ctx.fillStyle = '#2C3828';
-  const maxLines = hasPhoto ? 7 : 10;
-  const bodyLines = ctxWrapText(ctx, cleanText, W - PAD * 2);
-  bodyLines.slice(0, maxLines).forEach(line => { ctx.fillText(line, PAD, y); y += 64; });
-  if (bodyLines.length > maxLines) {
-    ctx.fillStyle = '#9AA89C'; ctx.fillText('…', PAD, y); y += 64;
-  }
+  bodyLines.forEach(line => { ctx.fillText(line, PAD, y); y += 64; });
   y += 12;
 
   if (entry.signedAs) {
-    ctx.font = 'italic 400 36px "Source Serif 4"';
+    ctx.font = 'italic 400 36px “Source Serif 4”';
     ctx.fillStyle = '#9AA89C';
     ctx.fillText(`— ${entry.signedAs}`, PAD, y);
     y += 52;
