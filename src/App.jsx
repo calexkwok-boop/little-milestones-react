@@ -73,19 +73,22 @@ function generateVideoThumbnail(file) {
   return new Promise(resolve => {
     const url = URL.createObjectURL(file);
     const video = document.createElement('video');
-    video.src = url;
     video.muted = true;
     video.playsInline = true;
-    video.currentTime = 0.5;
-    video.onloadeddata = () => {
+    video.preload = 'metadata';
+    const cleanup = () => { try { URL.revokeObjectURL(url); } catch {} };
+    const done = (result) => { clearTimeout(timer); cleanup(); resolve(result); };
+    const timer = setTimeout(() => done(null), 6000);
+    video.onloadedmetadata = () => { video.currentTime = Math.min(0.5, video.duration * 0.1); };
+    video.onseeked = () => {
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth || 320;
       canvas.height = video.videoHeight || 240;
       canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      resolve(canvas.toDataURL('image/jpeg', 0.7));
+      done(canvas.toDataURL('image/jpeg', 0.7));
     };
-    video.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    video.onerror = () => done(null);
+    video.src = url;
     video.load();
   });
 }
@@ -1190,7 +1193,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             width: '100%', border: 'none', outline: 'none', resize: 'none',
             background: 'transparent', fontFamily: "'Source Serif 4', serif",
             fontStyle: 'italic', fontSize: 17, lineHeight: 1.85, color: '#2C3828',
-            minHeight: 260, padding: 0,
+            minHeight: media.length > 0 ? 120 : 260, padding: 0,
           }}
         />
 
