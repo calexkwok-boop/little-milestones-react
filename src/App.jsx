@@ -333,9 +333,7 @@ function BookCropModal({ url, mediaType, cropY, cardHeight, photoWidth, onSave, 
   function getMediaDimensions() {
     const el = mediaRef.current;
     if (!el) return { w: 0, h: 0 };
-    return isVideo
-      ? { w: el.videoWidth || el.offsetWidth, h: el.videoHeight || el.offsetHeight }
-      : { w: el.naturalWidth, h: el.naturalHeight };
+    return { w: el.naturalWidth || el.offsetWidth, h: el.naturalHeight || el.offsetHeight };
   }
 
   function handleReady() {
@@ -377,10 +375,7 @@ function BookCropModal({ url, mediaType, cropY, cardHeight, photoWidth, onSave, 
           }}
         >
           <div style={{ paddingTop: topPad, paddingBottom: topPad }}>
-            {isVideo
-              ? <video ref={mediaRef} src={url} style={{ width: '100%', display: 'block' }} muted playsInline preload="metadata" onLoadedMetadata={handleReady} />
-              : <img ref={mediaRef} src={url} style={{ width: '100%', display: 'block' }} onLoad={handleReady} alt="" />
-            }
+            <img ref={mediaRef} src={isVideo ? videoThumbUrl(url) : url} style={{ width: '100%', display: 'block' }} onLoad={handleReady} alt="" />
           </div>
         </div>
 
