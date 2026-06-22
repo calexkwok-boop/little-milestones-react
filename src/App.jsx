@@ -109,7 +109,6 @@ function videoThumbUrl(videoUrl) {
     return u.origin + u.pathname.replace(/\.[^/.]+$/, '-thumb.jpg') + u.search;
   } catch { return null; }
 }
-}
 
 function compressImage(file, maxDim = 1600, quality = 0.78) {
   return new Promise(resolve => {
