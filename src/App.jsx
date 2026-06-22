@@ -525,16 +525,13 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 180);
     const onThisDayId = onThisDay[0]?.id;
-    const recentIds = new Set(recent.map(e => e.id));
-    const pool = entries.filter(e =>
-      new Date(e.date + 'T12:00:00') < cutoff &&
-      e.id !== onThisDayId &&
-      !recentIds.has(e.id)
-    );
+    const pool = entries
+      .filter(e => new Date(e.date + 'T12:00:00') < cutoff && e.id !== onThisDayId)
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)));
     if (pool.length === 0) return null;
     const seed = parseInt(TODAY.replace(/-/g, '')) % pool.length;
     return pool[seed];
-  }, [entries, onThisDay, recent]);
+  }, [entries, onThisDay]);
 
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -847,7 +844,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
         </div>
         <div className="scrollpad">
           {m && (
-            <div style={{ background: 'linear-gradient(135deg, #FDF3E0, #FAE8C0)', borderRadius: 16, padding: '18px 20px', textAlign: 'center', border: '1px solid rgba(200,153,62,0.25)', boxShadow: '0 2px 10px rgba(200,153,62,0.12)' }}>
+            <div className="milestone-entry" style={{ borderRadius: 16, padding: '18px 20px', textAlign: 'center' }}>
               <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 8px' }}>Milestone</p>
               <i className={`ti ${m.icon}`} style={{ fontSize: 28, color: '#C8993E', display: 'block', marginBottom: 8 }} />
               <p style={{ fontSize: 15, fontWeight: 700, color: '#7A6030', margin: 0 }}>{m.label}</p>
