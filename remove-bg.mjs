@@ -45,13 +45,18 @@ const result = await page.evaluate(async (src) => {
       }
     }
   }
-  const pad = 16;
-  minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
-  maxX = Math.min(canvas.width, maxX + pad); maxY = Math.min(canvas.height, maxY + pad);
+  const pad = 24;
+  // Use square canvas centred on bounding box so the quill is visually centred
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const half = Math.max(maxX - minX, maxY - minY) / 2 + pad;
+  const sx = Math.max(0, Math.round(cx - half));
+  const sy = Math.max(0, Math.round(cy - half));
+  const size = Math.round(half * 2);
 
   const crop = document.createElement('canvas');
-  crop.width = maxX - minX; crop.height = maxY - minY;
-  crop.getContext('2d').drawImage(canvas, minX, minY, crop.width, crop.height, 0, 0, crop.width, crop.height);
+  crop.width = size; crop.height = size;
+  crop.getContext('2d').drawImage(canvas, sx, sy, size, size, 0, 0, size, size);
   return crop.toDataURL('image/png');
 }, b64);
 

@@ -3303,15 +3303,15 @@ function BookPreviewScreen({ kids, bookConfig, onBack }) {
       </div>
 
       <div style={{ padding: '16px 20px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-          style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: page === 0 ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.14)', color: page === 0 ? 'rgba(255,255,255,0.2)' : '#fff', cursor: page === 0 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
+        <button onClick={() => setPage(p => p === 0 ? totalPages - 1 : p - 1)}
+          style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
           <i className="ti ti-chevron-left" />
         </button>
         <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
           <div style={{ height: '100%', background: 'rgba(255,255,255,0.4)', borderRadius: 99, width: `${((page + 1) / totalPages) * 100}%`, transition: 'width 0.2s' }} />
         </div>
-        <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}
-          style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: page === totalPages - 1 ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.14)', color: page === totalPages - 1 ? 'rgba(255,255,255,0.2)' : '#fff', cursor: page === totalPages - 1 ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
+        <button onClick={() => setPage(p => p === totalPages - 1 ? 0 : p + 1)}
+          style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
           <i className="ti ti-chevron-right" />
         </button>
       </div>

@@ -23,7 +23,7 @@ async function makeIcon(size) {
     ctx.fillRect(0, 0, size, size);
 
     // Scale quill to fill 82% of the icon, centred
-    const padding = size * 0.02;
+    const padding = size * 0.10;
     const maxW = size - padding * 2;
     const maxH = size - padding * 2;
     const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
