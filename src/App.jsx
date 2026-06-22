@@ -93,6 +93,24 @@ function generateVideoThumbnail(file) {
   });
 }
 
+function dataUrlToBlob(dataUrl) {
+  const [header, data] = dataUrl.split(',');
+  const mime = header.match(/:(.*?);/)[1];
+  const bytes = atob(data);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+function videoThumbUrl(videoUrl) {
+  if (!videoUrl || !videoUrl.startsWith('http')) return null;
+  try {
+    const u = new URL(videoUrl);
+    return u.origin + u.pathname.replace(/\.[^/.]+$/, '-thumb.jpg') + u.search;
+  } catch { return null; }
+}
+}
+
 function compressImage(file, maxDim = 1600, quality = 0.78) {
   return new Promise(resolve => {
     const img = new Image();
@@ -396,7 +414,7 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
           style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
         >
           {entry.media[0].type === 'video'
-            ? <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} muted playsInline preload="metadata" />
+            ? <video src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} muted playsInline preload="metadata" />
             : <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
           }
         </div>
@@ -451,7 +469,7 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
             style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
           >
             {entry.media[0].type === 'video'
-              ? <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} muted playsInline preload="metadata" />
+              ? <video src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} muted playsInline preload="metadata" />
               : <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
             }
           </div>
@@ -845,6 +863,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
 
   return (
     <div className="screen">
@@ -852,7 +871,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
         <div style={{ position: 'relative' }}>
           {media.length > 0 ? (
             <>
-              <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
+              <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10, opacity: videoPlaying ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: videoPlaying ? 'none' : 'auto' }}>
                 <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-arrow-left" /></button>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="icon-btn-ghost" onClick={() => onToggleFavorite(entry.id)} style={entry.favorited ? { color: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
@@ -864,7 +883,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 {media.map((item, i) => (
                   <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${item.url}')` }}>
                     {item.type === 'video'
-                      ? <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline controls />
+                      ? <video src={item.url} poster={videoThumbUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" playsInline controls onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />
                       : <div className="video-play-overlay" style={{ display: 'none' }} />
                     }
                   </div>
@@ -4026,6 +4045,13 @@ setEntries(entriesData.map(e => ({
           if (!uploadError) {
             const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
             url = publicUrl;
+            if (mimeType.startsWith('video/') && item.thumbnail) {
+              try {
+                const thumbBlob = dataUrlToBlob(item.thumbnail);
+                const thumbPath = `${session.user.id}/${entry.id}-${i}-thumb.jpg`;
+                await supabase.storage.from('media').upload(thumbPath, thumbBlob, { contentType: 'image/jpeg' });
+              } catch {}
+            }
           } else {
             console.error('Media upload error:', uploadError.message);
           }
