@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 132" fill="none" stroke="#C8993E" stroke-linecap="round" stroke-linejoin="round">
+  <defs>
+    <clipPath id="bottle">
+      <path d="M43 82 Q27 84 25 100 Q23 116 32 124 Q39 130 50 130 Q61 130 68 124 Q77 116 75 100 Q73 84 57 82 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- Ink fill inside bottle (clipped to body shape) -->
+  <rect x="23" y="108" width="54" height="24" clip-path="url(#bottle)" fill="#C8993E" stroke="none"/>
+
+  <!-- Bottle body outline -->
+  <path d="M43 82 Q27 84 25 100 Q23 116 32 124 Q39 130 50 130 Q61 130 68 124 Q77 116 75 100 Q73 84 57 82 Z" stroke-width="2.2"/>
+
+  <!-- Neck (left and right sides) -->
+  <line x1="43" y1="82" x2="44" y2="72" stroke-width="2.2"/>
+  <line x1="57" y1="82" x2="56" y2="72" stroke-width="2.2"/>
+
+  <!-- Collar rim -->
+  <path d="M39 72 Q39 68 50 68 Q61 68 61 72" stroke-width="2.2"/>
+  <line x1="39" y1="72" x2="61" y2="72" stroke-width="2.2"/>
+
+  <!-- Diagonal quill — nib enters collar at (50,68), tip to upper-right -->
+  <g transform="translate(50,68) rotate(-24)">
+    <!-- Wide trailing vane (left) -->
+    <path d="M0 4 C-2 -6 -16 -24 -18 -42 C-19 -55 -11 -64 0 -68" stroke-width="1.8"/>
+    <!-- Narrow leading vane (right) -->
+    <path d="M0 4 C2 -5 11 -20 10 -38 C9 -52 3 -62 0 -68" stroke-width="1.8"/>
+    <!-- Rachis -->
+    <line x1="0" y1="4" x2="0" y2="-68" stroke-width="1.2"/>
+    <!-- Left barbs (toward tip) -->
+    <line x1="-1" y1="-8"  x2="-12" y2="-4"  stroke-width="1.1"/>
+    <line x1="-1" y1="-18" x2="-16" y2="-13" stroke-width="1.1"/>
+    <line x1="-1" y1="-28" x2="-18" y2="-23" stroke-width="1.1"/>
+    <line x1="-1" y1="-38" x2="-17" y2="-33" stroke-width="1.1"/>
+    <line x1="-1" y1="-48" x2="-14" y2="-44" stroke-width="1.1"/>
+    <line x1="-1" y1="-57" x2="-8"  y2="-54" stroke-width="1.1"/>
+    <!-- Right barbs -->
+    <line x1="1" y1="-10" x2="9"  y2="-6"  stroke-width="1.1"/>
+    <line x1="1" y1="-20" x2="10" y2="-16" stroke-width="1.1"/>
+    <line x1="1" y1="-30" x2="10" y2="-26" stroke-width="1.1"/>
+    <line x1="1" y1="-40" x2="9"  y2="-37" stroke-width="1.1"/>
+    <line x1="1" y1="-50" x2="6"  y2="-48" stroke-width="1.1"/>
+    <!-- Calamus wisps -->
+    <line x1="-1" y1="0"  x2="-7" y2="4"  stroke-width="1"/>
+    <line x1="1"  y1="0"  x2="6"  y2="4"  stroke-width="1"/>
+  </g>
+</svg>

@@ -3434,8 +3434,8 @@ function AuthScreen() {
       <div className="scroll-area">
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560, justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <div style={{ width: 76, height: 76, borderRadius: 24, background: '#4A5E50', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-              <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 54, fontWeight: 700, color: '#C8993E', lineHeight: 1, userSelect: 'none', marginTop: 4 }}>P</span>
+            <div style={{ width: 76, height: 76, borderRadius: 24, background: '#4A5E50', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, overflow: 'hidden' }}>
+              <img src="/quill.png" style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
             </div>
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#2C3828', margin: '0 0 10px' }}>Patina</h1>
             <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#7A8C78', margin: 0 }}>
@@ -3734,8 +3734,8 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
 
           {step === 'welcome' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: 64, height: 64, borderRadius: 20, background: '#4A5E50', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-                <span style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 46, fontWeight: 700, color: '#C8993E', lineHeight: 1, userSelect: 'none', marginTop: 4 }}>P</span>
+              <div style={{ width: 64, height: 64, borderRadius: 20, background: '#4A5E50', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, overflow: 'hidden' }}>
+                <img src="/quill.png" style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
               </div>
               <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#2C3828', margin: '0 0 8px', lineHeight: 1.1 }}>Patina</h1>
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#7A8C78', lineHeight: 1.8, margin: '0 0 32px' }}>
