@@ -120,13 +120,16 @@ function videoThumbUrl(videoUrl) {
 
 // ─── Share card ──────────────────────────────────────────────────────────────
 
-function loadImageEl(url) {
+async function loadImageEl(url) {
+  // Fetch as blob so the canvas doesn't get CORS-tainted on iOS
+  const resp = await fetch(url);
+  const blob = await resp.blob();
+  const blobUrl = URL.createObjectURL(blob);
   return new Promise((resolve, reject) => {
     const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
+    img.onload = () => { URL.revokeObjectURL(blobUrl); resolve(img); };
+    img.onerror = () => { URL.revokeObjectURL(blobUrl); reject(new Error('img load failed')); };
+    img.src = blobUrl;
   });
 }
 
@@ -190,8 +193,10 @@ async function generateShareCard(entry, allKids) {
   // Photo display dimensions: full width minus padding, natural aspect ratio
   let photoDisplayH = 0;
   const imgW = W - IMG_PAD * 2;
-  if (photoImg) {
-    photoDisplayH = Math.round(imgW * (photoImg.height / photoImg.width));
+  if (photoImg && photoImg.naturalWidth > 0) {
+    photoDisplayH = Math.round(imgW * (photoImg.naturalHeight / photoImg.naturalWidth));
+  } else {
+    photoImg = null; // treat as no photo if dimensions are missing
   }
 
   // Total canvas height
