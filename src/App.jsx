@@ -242,9 +242,15 @@ async function generateShareCard(entry, allKids) {
   ctx.font = '600 28px Inter';
   ctx.fillStyle = '#4A5E50';
   ctx.fillText(dateStr, PAD, y);
+  const ICON_SIZE = 36, ICON_GAP = 10;
+  ctx.font = '600 28px Inter';
   ctx.fillStyle = '#C8993E';
-  ctx.textAlign = 'right';
-  ctx.fillText('Patina', W - PAD, y);
+  const patinaW = ctx.measureText('Patina').width;
+  ctx.fillText('Patina', W - PAD - patinaW - ICON_GAP - ICON_SIZE, y);
+  try {
+    const quillImg = await loadImageEl('/quill-no-background.png');
+    ctx.drawImage(quillImg, W - PAD - ICON_SIZE, y - 30, ICON_SIZE, ICON_SIZE);
+  } catch {}
   ctx.textAlign = 'left';
 
   return canvas;
@@ -3437,9 +3443,7 @@ function AuthScreen() {
       <div className="scroll-area">
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560, justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <div style={{ width: 76, height: 76, borderRadius: 24, background: '#4A5E50', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, overflow: 'hidden' }}>
-              <img src="/quill.png" style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-            </div>
+            <img src="/icon-192.png" style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#2C3828', margin: '0 0 10px' }}>Patina</h1>
             <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#7A8C78', margin: 0 }}>
               For all the things you wish they knew.
