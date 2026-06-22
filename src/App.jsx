@@ -293,10 +293,11 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
   );
 }
 
-function BookCropModal({ url, cropY, cardHeight, photoWidth, onSave, onClose }) {
+function BookCropModal({ url, mediaType, cropY, cardHeight, photoWidth, onSave, onClose }) {
   const scrollRef = useRef(null);
-  const imgRef = useRef(null);
+  const mediaRef = useRef(null);
   const [topPad, setTopPad] = useState(0);
+  const isVideo = mediaType === 'video';
 
   useLayoutEffect(() => {
     if (scrollRef.current) {
@@ -304,22 +305,30 @@ function BookCropModal({ url, cropY, cardHeight, photoWidth, onSave, onClose }) 
     }
   }, [cardHeight]);
 
-  function handleLoad() {
-    const img = imgRef.current;
+  function getMediaDimensions() {
+    const el = mediaRef.current;
+    if (!el) return { w: 0, h: 0 };
+    return isVideo
+      ? { w: el.videoWidth || el.offsetWidth, h: el.videoHeight || el.offsetHeight }
+      : { w: el.naturalWidth, h: el.naturalHeight };
+  }
+
+  function handleReady() {
+    const { w, h } = getMediaDimensions();
     const scroll = scrollRef.current;
-    if (!img || !scroll) return;
-    const scale = scroll.offsetWidth / img.naturalWidth;
-    const scaledH = img.naturalHeight * scale;
+    if (!scroll || !w) return;
+    const scale = scroll.offsetWidth / w;
+    const scaledH = h * scale;
     const extra = scaledH - cardHeight;
     if (extra > 0) scroll.scrollTop = (cropY / 100) * extra;
   }
 
   function handleSave() {
-    const img = imgRef.current;
+    const { w, h } = getMediaDimensions();
     const scroll = scrollRef.current;
-    if (!img || !scroll) return onSave(cropY);
-    const scale = scroll.offsetWidth / img.naturalWidth;
-    const scaledH = img.naturalHeight * scale;
+    if (!scroll || !w) return onSave(cropY);
+    const scale = scroll.offsetWidth / w;
+    const scaledH = h * scale;
     const extra = scaledH - cardHeight;
     const newY = extra > 0 ? Math.round((scroll.scrollTop / extra) * 100) : 50;
     onSave(Math.min(100, Math.max(0, newY)));
@@ -334,7 +343,6 @@ function BookCropModal({ url, cropY, cardHeight, photoWidth, onSave, onClose }) 
       </div>
 
       <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-        {/* Image at exactly the same width as the book's photo container */}
         <div
           ref={scrollRef}
           style={{
@@ -344,13 +352,10 @@ function BookCropModal({ url, cropY, cardHeight, photoWidth, onSave, onClose }) 
           }}
         >
           <div style={{ paddingTop: topPad, paddingBottom: topPad }}>
-            <img
-              ref={imgRef}
-              src={url}
-              style={{ width: '100%', display: 'block' }}
-              onLoad={handleLoad}
-              alt=""
-            />
+            {isVideo
+              ? <video ref={mediaRef} src={url} style={{ width: '100%', display: 'block' }} muted playsInline preload="metadata" onLoadedMetadata={handleReady} />
+              : <img ref={mediaRef} src={url} style={{ width: '100%', display: 'block' }} onLoad={handleReady} alt="" />
+            }
           </div>
         </div>
 
@@ -390,7 +395,10 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
           onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH, photoRef.current?.offsetWidth); }}
           style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
         >
-          <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+          {entry.media[0].type === 'video'
+            ? <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} muted playsInline preload="metadata" />
+            : <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+          }
         </div>
       )}
       <div style={{ padding: '16px 18px 14px' }}>
@@ -442,7 +450,10 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
             onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH, photoRef.current?.offsetWidth); }}
             style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
           >
-            <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+            {entry.media[0].type === 'video'
+              ? <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} muted playsInline preload="metadata" />
+              : <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+            }
           </div>
         )}
         <div style={{ padding: '20px 20px 18px' }}>
@@ -517,7 +528,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   function openCropModal(entryId, cardH, cardW) {
     const entry = entries.find(e => e.id === entryId);
     if (!entry?.media?.[0]?.url) return;
-    setCropModal({ entryId, url: entry.media[0].url, cardH, cardW });
+    setCropModal({ entryId, url: entry.media[0].url, mediaType: entry.media[0].type, cardH, cardW });
   }
 
   function saveCropY(y) {
@@ -549,12 +560,16 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 180);
     const onThisDayId = onThisDay[0]?.id;
-    const pool = entries
-      .filter(e => new Date(e.date + 'T12:00:00') < cutoff && e.id !== onThisDayId)
-      .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const pool = entries.filter(e => new Date(e.date + 'T12:00:00') < cutoff && e.id !== onThisDayId);
     if (pool.length === 0) return null;
-    const seed = parseInt(TODAY.replace(/-/g, '')) % pool.length;
-    return pool[seed];
+    const daySeed = parseInt(TODAY.replace(/-/g, ''));
+    const score = (id) => {
+      const s = String(id).replace(/-/g, '');
+      let h = daySeed;
+      for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
+      return h;
+    };
+    return pool.reduce((best, e) => score(e.id) > score(best.id) ? e : best);
   }, [entries, onThisDay]);
 
   const Header = () => (
@@ -699,6 +714,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
       {cropModal && (
         <BookCropModal
           url={cropModal.url}
+          mediaType={cropModal.mediaType}
           cropY={cropPositions[cropModal.entryId] ?? 50}
           cardHeight={cropModal.cardH}
           photoWidth={cropModal.cardW}
@@ -3988,7 +4004,10 @@ setEntries(entriesData.map(e => ({
       palette,
     }).select().single();
 
-    if (error || !entry) return;
+    if (error || !entry) {
+      alert('Could not save your entry. Please try again.\n' + (error?.message || ''));
+      return;
+    }
 
     const savedMedia = [];
     for (let i = 0; i < media.length; i++) {
@@ -3998,14 +4017,21 @@ setEntries(entriesData.map(e => ({
       if (fileObj) {
         try {
           if (!fileObj.type.startsWith('video')) fileObj = await compressImage(fileObj);
-          const ext = fileObj.type.startsWith('video') ? 'mp4' : fileObj.type === 'image/webp' ? 'webp' : 'jpg';
+          const mimeType = fileObj.type || 'video/mp4';
+          const ext = mimeType.startsWith('video/')
+            ? (mimeType.includes('quicktime') ? 'mov' : mimeType.includes('webm') ? 'webm' : 'mp4')
+            : fileObj.type === 'image/webp' ? 'webp' : 'jpg';
           const path = `${session.user.id}/${entry.id}-${i}.${ext}`;
-          const { error: uploadError } = await supabase.storage.from('media').upload(path, fileObj);
+          const { error: uploadError } = await supabase.storage.from('media').upload(path, fileObj, { contentType: mimeType });
           if (!uploadError) {
             const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
             url = publicUrl;
+          } else {
+            console.error('Media upload error:', uploadError.message);
           }
-        } catch {}
+        } catch (e) {
+          console.error('Media upload exception:', e);
+        }
       }
       savedMedia.push({ url, type: item.type });
     }
