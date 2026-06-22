@@ -69,6 +69,27 @@ function lerpRef(table, ageMo) {
   return table[i].slice(1).map((v, j) => v + (table[i + 1][j + 1] - v) * t);
 }
 
+function generateVideoThumbnail(file) {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.currentTime = 0.5;
+    video.onloadeddata = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 320;
+      canvas.height = video.videoHeight || 240;
+      canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));
+    };
+    video.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    video.load();
+  });
+}
+
 function compressImage(file, maxDim = 1600, quality = 0.78) {
   return new Promise(resolve => {
     const img = new Image();
@@ -983,9 +1004,10 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
 
   async function handleFileChange(e) {
     const files = Array.from(e.target.files);
-    const newMedia = files.map(file => ({
-      url: URL.createObjectURL(file),
-      type: file.type.startsWith('video') ? 'video' : 'image',
+    const newMedia = await Promise.all(files.map(async file => {
+      const isVideo = file.type.startsWith('video');
+      const thumbnail = isVideo ? await generateVideoThumbnail(file) : null;
+      return { url: URL.createObjectURL(file), type: isVideo ? 'video' : 'image', thumbnail };
     }));
     setMedia(prev => [...prev, ...newMedia]);
     setFileObjects(prev => [...prev, ...files]);
@@ -1203,7 +1225,9 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             {media.map((item, i) => (
               <div key={i} style={{ width: 76, height: 76, borderRadius: 10, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
                 {item.type === 'video'
-                  ? <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
+                  ? item.thumbnail
+                    ? <img src={item.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    : <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
                   : <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                 }
                 <button onClick={() => { setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
