@@ -760,10 +760,11 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   return (
     <div className="screen">
@@ -776,6 +777,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="icon-btn-ghost" onClick={() => onToggleFavorite(entry.id)} style={entry.favorited ? { color: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
                   <button className="icon-btn-ghost" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
+                  <button className="icon-btn-ghost" onClick={() => setShowDeleteConfirm(true)}><i className="ti ti-trash" /></button>
                 </div>
               </div>
               <div className="gallery-stage">
@@ -795,6 +797,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="icon-btn" onClick={() => onToggleFavorite(entry.id)} style={entry.favorited ? { color: '#C8993E', borderColor: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
                 <button className="icon-btn" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
+                <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)}><i className="ti ti-trash" /></button>
               </div>
             </div>
           )}
@@ -835,6 +838,21 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           )}
         </div>
       </div>
+      {showDeleteConfirm && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDeleteConfirm(false)}>
+          <div style={{ background: '#F8FAF6', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FEF0ED', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <i className="ti ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
+            </div>
+            <p style={{ fontSize: 17, fontWeight: 700, color: '#2C3828', margin: '0 0 6px', textAlign: 'center' }}>Delete this entry?</p>
+            <p style={{ fontSize: 14, color: '#9AA89C', margin: '0 0 24px', textAlign: 'center' }}>This can't be undone.</p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+              <button className="btn" style={{ flex: 1, background: '#D4856A', color: '#fff' }} onClick={() => { setShowDeleteConfirm(false); onDelete(entry.id); }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2594,6 +2612,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
     ].filter(Boolean)
   ));
   const [authorLabel, setAuthorLabel] = useState(fromOptions[0] || 'Our family');
+  const [favoritesOnly, setFavoritesOnly] = useState(true);
 
   const fromDate = dateRange === 'year' ? `${currentYear}-01-01` : dateRange === 'custom' ? `${customFrom}-01-01` : null;
   const toDate   = dateRange === 'year' ? `${currentYear}-12-31` : dateRange === 'custom' ? `${customTo}-12-31`   : null;
@@ -2613,7 +2632,8 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
     const authorMatch = !authorUserId || !e.authorId || e.authorId === authorUserId;
     const afterFrom = !fromDate || e.date >= fromDate;
     const beforeTo  = !toDate   || e.date <= toDate;
-    return kidMatch && authorMatch && afterFrom && beforeTo;
+    const favoriteMatch = !favoritesOnly || e.favorited;
+    return kidMatch && authorMatch && afterFrom && beforeTo && favoriteMatch;
   });
 
   const kidLabel = selectedKids.length === 0 ? 'nobody'
@@ -2713,17 +2733,37 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
             )}
           </div>
 
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              onClick={() => setFavoritesOnly(v => !v)}>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#2C3828', margin: 0 }}>Favorites only</p>
+                <p style={{ fontSize: 12, color: '#9AA89C', margin: '3px 0 0' }}>Only include entries you've hearted</p>
+              </div>
+              <div style={{
+                width: 44, height: 26, borderRadius: 13, background: favoritesOnly ? '#4A5E50' : '#DDE7D9',
+                position: 'relative', transition: 'background 0.2s', flexShrink: 0, cursor: 'pointer'
+              }}>
+                <div style={{
+                  position: 'absolute', top: 3, left: favoritesOnly ? 21 : 3, width: 20, height: 20,
+                  borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
+                }} />
+              </div>
+            </div>
+          </div>
+
           <div style={{ width: '100%', height: 1, background: '#DDE7D9' }} />
 
           <div style={{ background: '#2C3828', borderRadius: 18, padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {filtered.length === 0 ? (
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.6 }}>
-                No letters match that selection yet.
+                {favoritesOnly ? 'No favorited letters match that selection yet.' : 'No letters match that selection yet.'}
               </p>
             ) : (
               <div>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#fff', margin: '0 0 5px', lineHeight: 1.55 }}>
-                  {filtered.length} letter{filtered.length !== 1 ? 's' : ''} from {authorSummary} to {recipientSummary}.
+                  {filtered.length} {favoritesOnly ? 'favorite ' : ''}letter{filtered.length !== 1 ? 's' : ''} from {authorSummary} to {recipientSummary}.
                 </p>
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
                   {dateSummary}
@@ -4121,6 +4161,7 @@ setEntries(entriesData.map(e => ({
           onBack={() => setScreen('home')}
           onEdit={editEntry}
           onToggleFavorite={handleToggleFavorite}
+          onDelete={handleDeleteEntry}
         />
       )}
 
