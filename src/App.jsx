@@ -169,9 +169,10 @@ async function generateShareCard(entry, allKids) {
     document.fonts.load('600 26px Inter'),
   ]);
 
-  // 780px wide = 2× iPhone logical width → fonts render at ~50% scale on phone
-  // (vs 1080px which renders at 36%, making text too small)
-  const W = 780, PAD = 56, IMG_PAD = 36, CARD_R = 36;
+  // 600px wide → renders at ~65% on iPhone (390px screen), making text ~30% bigger
+  // than 780px. Trade-off: photo is cover-cropped to a fixed zone showing ~80% of subject.
+  const W = 600, PAD = 44, CARD_R = 32;
+  const PHOTO_H = 340; // fixed photo zone — cover-crops to show centre of image
 
   // Try loading photo
   let photoImg = null;
@@ -182,25 +183,17 @@ async function generateShareCard(entry, allKids) {
     if (photoImg && photoImg.naturalWidth === 0) photoImg = null;
   }
 
-  // Full uncropped photo width = card width minus padding, natural aspect ratio
-  const imgW = W - IMG_PAD * 2;
-  const photoDisplayH = photoImg
-    ? Math.round(imgW * (photoImg.naturalHeight / photoImg.naturalWidth))
-    : 0;
-
-  // Measure body text to size canvas height
+  // Measure body text to size canvas height dynamically
   const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const mc = document.createElement('canvas'); mc.width = W;
   const mctx = mc.getContext('2d');
-  mctx.font = 'italic 400 40px “Source Serif 4”';
+  mctx.font = 'italic 400 46px “Source Serif 4”';
   const bodyLines = ctxWrapText(mctx, cleanText, W - PAD * 2);
-  const LINE_H = 58;
-  const textH = 56 + (bodyLines.length * LINE_H) + 12
-    + (entry.signedAs ? 48 : 0) + 24 + 2 + 32 + 36 + 56;
+  const LINE_H = 66;
+  const textH = 60 + (bodyLines.length * LINE_H) + 16
+    + (entry.signedAs ? 52 : 0) + 28 + 2 + 36 + 40 + 52;
 
-  const topPad = photoImg ? 36 : 56;
-  const photoSection = photoImg ? topPad + photoDisplayH + 24 : 0;
-  const cardTop = photoImg ? photoSection : topPad;
+  const cardTop = photoImg ? PHOTO_H - 32 : 52;
   const H = cardTop + textH;
 
   const canvas = document.createElement('canvas');
@@ -210,53 +203,55 @@ async function generateShareCard(entry, allKids) {
   ctx.fillStyle = '#E8F0E4';
   ctx.fillRect(0, 0, W, H);
 
-  // Full photo, uncropped, with rounded corners
+  // Photo — cover-cropped to fill zone, centred on subject
   if (photoImg) {
+    const scale = Math.max(W / photoImg.naturalWidth, PHOTO_H / photoImg.naturalHeight);
+    const sw = W / scale, sh = PHOTO_H / scale;
+    const sx = (photoImg.naturalWidth - sw) / 2, sy = (photoImg.naturalHeight - sh) / 2;
     ctx.save();
-    ctxRoundRect(ctx, IMG_PAD, topPad, imgW, photoDisplayH, 20, '#000');
-    ctx.clip();
-    ctx.drawImage(photoImg, IMG_PAD, topPad, imgW, photoDisplayH);
+    ctx.beginPath(); ctx.rect(0, 0, W, PHOTO_H); ctx.clip();
+    ctx.drawImage(photoImg, sx, sy, sw, sh, 0, 0, W, PHOTO_H);
     ctx.restore();
   }
 
   // Card background
   ctxRoundRect(ctx, 0, cardTop, W, H - cardTop + 16, CARD_R, '#F8FAF6');
 
-  let y = cardTop + 64;
+  let y = cardTop + 68;
 
   if (!photoImg) {
-    ctx.font = '400 120px Georgia, serif';
+    ctx.font = '400 110px Georgia, serif';
     ctx.fillStyle = '#CCDAC8';
     ctx.textAlign = 'right';
-    ctx.fillText('”', W - PAD + 18, cardTop + 100);
+    ctx.fillText('”', W - PAD + 14, cardTop + 96);
     ctx.textAlign = 'left';
   }
 
   const name = buildSalutation(entry, allKids);
-  ctx.font = 'italic 400 34px “Source Serif 4”';
+  ctx.font = 'italic 400 36px “Source Serif 4”';
   ctx.fillStyle = '#9AA89C';
   ctx.fillText(`Dear ${name},`, PAD, y);
-  y += 52;
+  y += 56;
 
-  ctx.font = 'italic 400 40px “Source Serif 4”';
+  ctx.font = 'italic 400 46px “Source Serif 4”';
   ctx.fillStyle = '#2C3828';
   bodyLines.forEach(line => { ctx.fillText(line, PAD, y); y += LINE_H; });
-  y += 12;
+  y += 16;
 
   if (entry.signedAs) {
-    ctx.font = 'italic 400 32px “Source Serif 4”';
+    ctx.font = 'italic 400 34px “Source Serif 4”';
     ctx.fillStyle = '#9AA89C';
     ctx.fillText(`— ${entry.signedAs}`, PAD, y);
-    y += 48;
+    y += 52;
   }
 
-  y += 24;
+  y += 28;
   ctx.fillStyle = '#CCDAC8';
   ctx.fillRect(PAD, y, W - PAD * 2, 1.5);
-  y += 32;
+  y += 36;
 
   const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  ctx.font = '600 26px Inter';
+  ctx.font = '600 28px Inter';
   ctx.fillStyle = '#9AA89C';
   ctx.fillText(dateStr, PAD, y);
   ctx.fillStyle = '#C8993E';
