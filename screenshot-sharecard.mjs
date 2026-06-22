@@ -10,24 +10,16 @@ function loadImg(url){return new Promise((res,rej)=>{const i=new Image();i.cross
 async function drawCard(canvasId, photoUrl) {
   await document.fonts.ready;
   await Promise.allSettled([
-    document.fonts.load('italic 400 46px "Source Serif 4"'),
+    document.fonts.load('italic 400 42px "Source Serif 4"'),
     document.fonts.load('600 28px Inter'),
   ]);
 
-  const W=600,PAD=44,CARD_R=32,PHOTO_H=340,LINE_H=66;
+  const W=1080,H=1350,PAD=72;
   const text="Today you took your first unassisted steps across the living room. You were so proud of yourself — and honestly, we were beside ourselves. Dad had to leave the room because he was crying. You looked back at us both with the biggest grin, like you knew exactly what you had done. These are the moments I never want to forget.";
 
   let photoImg=null;
   if(photoUrl){try{photoImg=await loadImg(photoUrl);}catch{}}
   if(photoImg&&photoImg.naturalWidth===0)photoImg=null;
-
-  const mc=document.createElement('canvas');mc.width=W;
-  const mctx=mc.getContext('2d');
-  mctx.font='italic 400 46px "Source Serif 4"';
-  const bodyLines=ctxWrapText(mctx,text,W-PAD*2);
-  const textH=60+bodyLines.length*LINE_H+16+52+28+2+36+40+52;
-  const cardTop=photoImg?PHOTO_H-32:52;
-  const H=cardTop+textH;
 
   const canvas=document.getElementById(canvasId);
   canvas.width=W;canvas.height=H;
@@ -35,30 +27,37 @@ async function drawCard(canvasId, photoUrl) {
 
   ctx.fillStyle='#E8F0E4';ctx.fillRect(0,0,W,H);
 
+  let cardTop=100,hasPhoto=false;
   if(photoImg){
+    const PHOTO_H=520;
     const scale=Math.max(W/photoImg.naturalWidth,PHOTO_H/photoImg.naturalHeight);
     const sw=W/scale,sh=PHOTO_H/scale;
     const sx=(photoImg.naturalWidth-sw)/2,sy=(photoImg.naturalHeight-sh)/2;
     ctx.save();ctx.beginPath();ctx.rect(0,0,W,PHOTO_H);ctx.clip();
     ctx.drawImage(photoImg,sx,sy,sw,sh,0,0,W,PHOTO_H);
     ctx.restore();
+    cardTop=PHOTO_H-44;hasPhoto=true;
   }
 
-  ctxRoundRect(ctx,0,cardTop,W,H-cardTop+16,CARD_R,'#F8FAF6');
-  let y=cardTop+68;
+  ctxRoundRect(ctx,0,cardTop,W,H-cardTop+20,44,'#F8FAF6');
+  let y=cardTop+80;
 
-  if(!photoImg){
-    ctx.font='400 110px Georgia, serif';ctx.fillStyle='#CCDAC8';
-    ctx.textAlign='right';ctx.fillText('"',W-PAD+14,cardTop+96);ctx.textAlign='left';
+  if(!hasPhoto){
+    ctx.font='400 140px "Source Serif 4"';ctx.fillStyle='#CCDAC8';
+    ctx.textAlign='right';ctx.fillText('"',W-PAD+10,cardTop+118);ctx.textAlign='left';
   }
+
+  ctx.font='italic 400 38px "Source Serif 4"';ctx.fillStyle='#9AA89C';
+  ctx.fillText('Dear Ellie,',PAD,y);y+=60;
+
+  ctx.font='italic 400 42px "Source Serif 4"';ctx.fillStyle='#2C3828';
+  const maxLines=hasPhoto?7:10;
+  const bodyLines=ctxWrapText(ctx,text,W-PAD*2);
+  bodyLines.slice(0,maxLines).forEach(line=>{ctx.fillText(line,PAD,y);y+=64;});
+  if(bodyLines.length>maxLines){ctx.fillStyle='#9AA89C';ctx.fillText('…',PAD,y);y+=64;}
+  y+=12;
 
   ctx.font='italic 400 36px "Source Serif 4"';ctx.fillStyle='#9AA89C';
-  ctx.fillText('Dear Ellie,',PAD,y);y+=56;
-
-  ctx.font='italic 400 46px "Source Serif 4"';ctx.fillStyle='#2C3828';
-  bodyLines.forEach(line=>{ctx.fillText(line,PAD,y);y+=LINE_H;});y+=16;
-
-  ctx.font='italic 400 34px "Source Serif 4"';ctx.fillStyle='#9AA89C';
   ctx.fillText('— Mom',PAD,y);y+=52;
 
   y+=28;ctx.fillStyle='#CCDAC8';ctx.fillRect(PAD,y,W-PAD*2,1.5);y+=36;
