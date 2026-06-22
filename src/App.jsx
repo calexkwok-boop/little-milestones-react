@@ -348,37 +348,10 @@ function BookCropModal({ url, cropY, cardHeight, photoWidth, onSave, onClose }) 
 
 function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCropEdit }) {
   const cardH = featured ? 200 : 150;
+  const preview = entry.text.length > (featured ? 160 : 110)
+    ? entry.text.slice(0, featured ? 160 : 110) + '…'
+    : entry.text;
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const entryKids = allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid];
-
-  if (entry.entryType === 'quote') {
-    const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
-    const quotePreview = entry.text.length > (featured ? 160 : 110)
-      ? entry.text.slice(0, featured ? 160 : 110) + '…'
-      : entry.text;
-    return (
-      <div onClick={onClick} style={{ background: '#F9F6EE', border: '1px solid #E8DFC8', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
-        {entry.media?.[0]?.type === 'image' && (
-          <img src={entry.media[0].url} style={{ width: '100%', height: cardH, objectFit: 'cover', display: 'block' }} alt="" />
-        )}
-        <div style={{ padding: '14px 18px 14px' }}>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, color: '#C8D9C4', lineHeight: 0.7, margin: '0 0 8px' }}>"</p>
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 16 : 14, color: '#2C3828', margin: '0 0 10px', lineHeight: 1.65 }}>
-            {quotePreview}
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            {entryKids.map((k, i) => <KidThumb key={k.id} kid={k} size={18} />)}
-            <span style={{ fontSize: 11, color: '#9AA89C' }}>— {nameLabel} · {dateLabel}</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const preview = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
-  const previewTrimmed = preview.length > (featured ? 160 : 110)
-    ? preview.slice(0, featured ? 160 : 110) + '…'
-    : preview;
 
   return (
     <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
@@ -394,9 +367,9 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
         <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#9AA89C', margin: '0 0 7px' }}>
           Dear {allKids ? buildSalutation(entry, allKids) : kid.name},
         </p>
-        {previewTrimmed && (
+        {preview && (
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 16 : 14, color: '#2C3828', margin: '0 0 8px', lineHeight: 1.65 }}>
-            {previewTrimmed}
+            {preview}
           </p>
         )}
         {entry.signedAs && (
@@ -405,7 +378,7 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
           </p>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {entryKids.map(k => (
+          {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => (
             <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <KidThumb kid={k} size={18} />
               <span style={{ fontSize: 11, color: '#9AA89C' }}>
@@ -624,7 +597,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
 
           {recent.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <SectionDivider label={recent.some(e => e.entryType === 'quote') ? 'Recent' : 'Recent letters'} />
+              <SectionDivider label="Recent letters" />
               {recent.map(entry => {
                 const kid = kids.find(k => k.id === entry.kids[0]);
                 return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />;
@@ -680,30 +653,8 @@ function JournalEntryRow({ entry, entryKids, onClick }) {
   const d = new Date(entry.date + 'T12:00:00');
   const dayNum = d.getDate();
   const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
-  const rawText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
-  const text = rawText.length > 160 ? rawText.slice(0, 160) + '...' : rawText;
+  const text = entry.text.length > 160 ? entry.text.slice(0, 160) + '...' : entry.text;
   const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
-
-  if (entry.entryType === 'quote') {
-    return (
-      <div onClick={onClick} style={{ background: '#F9F6EE', border: '1px solid #E8DFC8', borderRadius: 14, padding: '14px 16px', cursor: 'pointer', position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{ textAlign: 'center', flexShrink: 0, width: 40 }}>
-            <p style={{ fontSize: 22, fontWeight: 700, color: '#2C3828', margin: 0, lineHeight: 1, fontFamily: "'Playfair Display', serif" }}>{dayNum}</p>
-            <p style={{ fontSize: 10, color: '#9AA89C', margin: '2px 0 0', fontWeight: 600, textTransform: 'uppercase' }}>{weekday}</p>
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: '#C8D9C4', lineHeight: 0.75, margin: '0 0 4px' }}>"</p>
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#3A3020', lineHeight: 1.6, margin: 0 }}>{text}</p>
-            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: '#9AA89C', margin: '8px 0 0', fontWeight: 500 }}>— {nameLabel}</p>
-            {entry.media?.[0]?.type === 'image' && (
-              <img src={entry.media[0].url} alt="" loading="lazy" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, marginTop: 10, display: 'block' }} />
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="journal-entry" onClick={onClick}>
@@ -733,7 +684,7 @@ function JournalEntryRow({ entry, entryKids, onClick }) {
               )}
             </div>
           </div>
-          <p style={{ fontSize: 15, color: '#3A3020', lineHeight: 1.65, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: text ? 'italic' : 'normal', whiteSpace: 'pre-wrap' }}>{text}</p>
+          <p style={{ fontSize: 15, color: '#3A3020', lineHeight: 1.65, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: text ? 'italic' : 'normal' }}>{text}</p>
           {entry.media && entry.media.length > 0 && (
             <div className="journal-thumb-strip">
               {entry.media.slice(0, 4).map((mm, i) => (
@@ -1368,115 +1319,6 @@ function CelebrationOverlay({ kid, milestoneType, onDone }) {
       <button className="btn btn-primary" style={{ marginTop: 10, width: 'auto', padding: '13px 28px' }} onClick={onDone}>
         See it in the journal
       </button>
-    </div>
-  );
-}
-
-// ─── Quote entry form ──────────────────────────────────────────────────────
-
-function NewQuoteScreen({ kids, onCancel, onSave, existingEntry }) {
-  const [selectedKids, setSelectedKids] = useState(
-    existingEntry ? existingEntry.kids : (kids.length === 1 ? [kids[0].id] : [])
-  );
-  const [text, setText] = useState(existingEntry?.text || '');
-  const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
-  const [photo, setPhoto] = useState(existingEntry?.media?.[0] || null);
-  const [fileObject, setFileObject] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const fileInputRef = useRef(null);
-
-  function toggleKid(id) {
-    setSelectedKids(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  }
-
-  function handleFileChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhoto({ url: URL.createObjectURL(file), type: 'image' });
-    setFileObject(file);
-    e.target.value = '';
-  }
-
-  async function handleSave() {
-    if (!text.trim() || selectedKids.length === 0 || saving) return;
-    setSaving(true);
-    await onSave({ kids: selectedKids, text: text.trim(), date: entryDate, entryId: existingEntry?.id, photo, fileObject });
-  }
-
-  const canSave = text.trim().length > 0 && selectedKids.length > 0;
-
-  return (
-    <div className="screen" style={{ background: '#FDFBF6' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', flexShrink: 0 }}>
-        <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 15, color: '#9AA89C', fontFamily: "'Inter', sans-serif" }}>Cancel</button>
-        <p style={{ fontSize: 13, fontWeight: 700, color: '#2C3828', margin: 0, fontFamily: "'Inter', sans-serif" }}>Capture a moment</p>
-        <button onClick={handleSave} disabled={!canSave || saving}
-          style={{ background: 'none', border: 'none', cursor: canSave ? 'pointer' : 'default', fontSize: 15, fontWeight: 700, color: canSave ? '#4A5E50' : '#C4D8C0', fontFamily: "'Inter', sans-serif" }}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
-
-      <div className="scroll-area">
-        <div style={{ padding: '8px 20px 40px' }}>
-          {kids.length > 1 && (
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#9AA89C', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 10px' }}>Who said this?</p>
-              <div style={{ display: 'flex', gap: 14 }}>
-                {kids.map(k => {
-                  const active = selectedKids.includes(k.id);
-                  return (
-                    <div key={k.id} onClick={() => toggleKid(k.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                      <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', border: active ? `3px solid ${k.accent}` : '3px solid transparent', boxSizing: 'border-box', opacity: active ? 1 : 0.4, transition: 'opacity 0.15s, border-color 0.15s' }}>
-                        <KidThumb kid={k} size={56} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 56, color: '#DDE9D9', lineHeight: 0.6, margin: '0 0 14px' }}>"</p>
-          <textarea
-            value={text}
-            onChange={e => setText(e.target.value)}
-            placeholder="What did they say or do?"
-            autoFocus
-            style={{
-              width: '100%', border: 'none', outline: 'none', resize: 'none', background: 'transparent',
-              fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 20, lineHeight: 1.65,
-              color: '#3A3020', minHeight: 130, fontWeight: 400,
-            }}
-          />
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 56, color: '#DDE9D9', lineHeight: 0.6, textAlign: 'right', margin: '4px 0 24px' }}>"</p>
-
-          {photo ? (
-            <div style={{ position: 'relative', borderRadius: 12, overflow: 'hidden', marginBottom: 20 }}>
-              <img src={photo.url} alt="" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', display: 'block' }} />
-              <button onClick={() => { setPhoto(null); setFileObject(null); }}
-                style={{ position: 'absolute', top: 8, right: 8, width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>
-                <i className="ti ti-x" />
-              </button>
-            </div>
-          ) : (
-            <button onClick={() => fileInputRef.current?.click()}
-              style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'none', border: '1px dashed #C4D8C0', borderRadius: 10, padding: '10px 14px', cursor: 'pointer', marginBottom: 20 }}>
-              <i className="ti ti-camera" style={{ fontSize: 16, color: '#9AA89C' }} />
-              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 13, color: '#9AA89C' }}>Add a photo</span>
-            </button>
-          )}
-          <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
-
-          <button onClick={() => {
-            const d = prompt('Date (YYYY-MM-DD):', entryDate);
-            if (d && /^\d{4}-\d{2}-\d{2}$/.test(d)) setEntryDate(d);
-          }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
-            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 12, color: '#9AA89C', margin: 0 }}>
-              {new Date(entryDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            </p>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -2595,8 +2437,8 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   <i className="ti ti-book" style={{ fontSize: 18, color: '#C8993E' }} />
                 </div>
                 <div style={{ textAlign: 'left' }}>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>Create your book</p>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>Every author deserves a cover</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>Create a book</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>Turn your letters into print</p>
                 </div>
               </div>
               <i className="ti ti-arrow-right" style={{ fontSize: 16, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
@@ -2762,14 +2604,15 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
   const authorUserId = authorMember?.user_id || null;
 
   const filtered = entries.filter(e => {
+    // Recipient: all selected kids must appear in the entry's kid list
     const kidMatch = selectedKids.length >= kids.length
       ? true
       : e.kids.some(id => selectedKids.includes(id));
+    // Author: if a specific author is chosen, only include entries they wrote
+    // Entries with no author_id (written before tracking) are included to avoid hiding old content
+    const authorMatch = !authorUserId || !e.authorId || e.authorId === authorUserId;
     const afterFrom = !fromDate || e.date >= fromDate;
     const beforeTo  = !toDate   || e.date <= toDate;
-    // Quoted moments always pass the author filter — they're the kid's words, not the parent's
-    if (e.entryType === 'quote') return kidMatch && afterFrom && beforeTo;
-    const authorMatch = !authorUserId || !e.authorId || e.authorId === authorUserId;
     return kidMatch && authorMatch && afterFrom && beforeTo;
   });
 
@@ -2778,30 +2621,14 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
     : selectedKids.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & ');
 
   const years = Array.from({ length: 11 }, (_, i) => currentYear - i);
-  const FEMALE_ROLE_NAMES = new Set(['mom', 'mama', 'mommy', 'mother', 'mum', 'mummy', 'maman']);
-  const MALE_ROLE_NAMES = new Set(['dad', 'dada', 'daddy', 'father', 'papa', 'pop', 'pops']);
-  function memberGenderOrder(name) {
-    const l = (name || '').toLowerCase().trim();
-    if (FEMALE_ROLE_NAMES.has(l)) return -1;
-    if (MALE_ROLE_NAMES.has(l)) return 1;
-    return 0;
-  }
-  const sortedKids = [...kids].sort((a, b) => (a.sex === 'F' ? -1 : b.sex === 'F' ? 1 : 0));
-  const allKidNames = sortedKids.map(k => k.name.split(' ')[0]);
+  const allKidNames = kids.map(k => k.name.split(' ')[0]);
   const recipientSummary = selectedKids.length >= kids.length
     ? (kids.length > 1
         ? allKidNames.slice(0, -1).join(', ') + ' and ' + allKidNames[allKidNames.length - 1]
         : kids[0]?.name.split(' ')[0] || 'Your child')
-    : selectedKids
-        .map(id => kids.find(k => k.id === id))
-        .filter(Boolean)
-        .sort((a, b) => (a.sex === 'F' ? -1 : b.sex === 'F' ? 1 : 0))
-        .map(k => k.name.split(' ')[0])
-        .join(' & ');
+    : selectedKids.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & ');
 
-  const allMemberNames = [...(familyMembers || [])]
-    .sort((a, b) => memberGenderOrder(a.display_name) - memberGenderOrder(b.display_name))
-    .map(m => m.display_name);
+  const allMemberNames = (familyMembers || []).map(m => m.display_name);
   const authorSummary = isAllAuthors && allMemberNames.length > 1
     ? allMemberNames.slice(0, -1).join(', ') + ' and ' + allMemberNames[allMemberNames.length - 1]
     : authorLabel;
@@ -2818,7 +2645,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-x" /></button>
-            <p style={{ fontSize: 12, color: '#9AA89C', margin: 0, fontWeight: 600, letterSpacing: 0.3 }}>Create your book</p>
+            <p style={{ fontSize: 12, color: '#9AA89C', margin: 0, fontWeight: 600, letterSpacing: 0.3 }}>Create a book</p>
           </div>
 
           <div>
@@ -2925,7 +2752,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
 function BookPreviewScreen({ kids, bookConfig, onBack }) {
   const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
   const sorted = [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1);
-  const letterCount = sorted.filter(e => e.entryType !== 'quote').length;
+  const totalPages = sorted.length + 2;
   const [page, setPage] = useState(0);
   const [cropPositions, setCropPositions] = useState(() => {
     try { return JSON.parse(localStorage.getItem('patina-book-crop-positions') || '{}'); } catch { return {}; }
@@ -2934,78 +2761,6 @@ function BookPreviewScreen({ kids, bookConfig, onBack }) {
     try { return JSON.parse(localStorage.getItem('patina-crop-positions') || '{}'); } catch { return {}; }
   });
   const [bookCropModal, setBookCropModal] = useState(null);
-  const [bookPages, setBookPages] = useState(null);
-  const pageContainerRef = useRef(null);
-
-  // After first render, measure the page container and split long entries across pages
-  useLayoutEffect(() => {
-    const el = pageContainerRef.current;
-    if (!el) return;
-    const W = el.offsetWidth;
-    const H = el.offsetHeight;
-    const textW = W - 56; // 28px horizontal padding each side
-    // Vertical space consumed by non-text elements
-    const withPhotoUsed = 200 + 20 + 28 + 34 + 14 + 16 + 20; // photo + paddings + date + salutation + gaps + counter
-    const noPhotoUsed = 20 + 28 + 34 + 14 + 16 + 20;
-    const continuationUsed = 20 + 16 + 20; // just padding + counter
-
-    function measureSplit(text, availH) {
-      const div = document.createElement('div');
-      div.style.cssText = `position:absolute;visibility:hidden;top:-9999px;left:-9999px;width:${textW}px;overflow:hidden;font-family:'Source Serif 4',serif;font-size:12px;line-height:1.85;white-space:pre-wrap;font-style:italic;word-break:break-word;`;
-      document.body.appendChild(div);
-      let lo = 0, hi = text.length, splitAt = text.length;
-      while (lo <= hi) {
-        const mid = Math.floor((lo + hi) / 2);
-        div.textContent = text.slice(0, mid);
-        if (div.scrollHeight <= availH) { splitAt = mid; lo = mid + 1; }
-        else hi = mid - 1;
-      }
-      document.body.removeChild(div);
-      // Back up to word boundary
-      if (splitAt < text.length) {
-        const boundary = Math.max(text.lastIndexOf(' ', splitAt), text.lastIndexOf('\n', splitAt));
-        if (boundary > splitAt * 0.7) splitAt = boundary;
-      }
-      return splitAt;
-    }
-
-    function buildPages() {
-      const pages = [{ type: 'cover' }];
-      let letterIdx = 0;
-      for (let i = 0; i < sorted.length; i++) {
-        const entry = sorted[i];
-        if (entry.entryType === 'quote') {
-          pages.push({ type: 'quote', entry });
-          continue;
-        }
-        const hasPhoto = entry.media?.[0]?.type === 'image';
-        let remaining = entry.text;
-        let part = 0;
-        const thisLetterIdx = letterIdx++;
-        while (remaining.length > 0) {
-          const availH = part === 0
-            ? Math.max(H - (hasPhoto ? withPhotoUsed : noPhotoUsed), 40)
-            : Math.max(H - continuationUsed, 40);
-          const splitAt = measureSplit(remaining, availH);
-          pages.push({ type: 'letter', entry, entryIndex: thisLetterIdx, text: remaining.slice(0, splitAt || remaining.length), isFirst: part === 0, part });
-          remaining = remaining.slice(splitAt || remaining.length).trimStart();
-          part++;
-          if (!splitAt) break;
-        }
-      }
-      pages.push({ type: 'back' });
-      setBookPages(pages);
-    }
-
-    // Wait for fonts so measurement is accurate
-    if (document.fonts?.ready) {
-      document.fonts.ready.then(buildPages);
-    } else {
-      buildPages();
-    }
-  }, []);
-
-  const totalPages = bookPages ? bookPages.length : sorted.length + 2;
 
   function saveBookCrop(y) {
     const next = { ...cropPositions, [bookCropModal.entryId]: y };
@@ -3050,11 +2805,11 @@ function BookPreviewScreen({ kids, bookConfig, onBack }) {
     );
   };
 
-  const LetterPage = ({ entry, entryIndex, text, isFirst, part, onCrop }) => {
+  const LetterPage = ({ entry, index, onCrop }) => {
     const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
     const salutation = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
     const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    const photo = isFirst && entry.media?.[0]?.type === 'image' ? entry.media[0] : null;
+    const photo = entry.media?.[0]?.type === 'image' ? entry.media[0] : null;
     const cropY = cropPositions[entry.id] ?? homeCropPositions[entry.id] ?? 50;
     const photoRef = useRef(null);
     return (
@@ -3068,36 +2823,13 @@ function BookPreviewScreen({ kids, bookConfig, onBack }) {
           </div>
         )}
         <div style={{ flex: 1, padding: '20px 28px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {isFirst && <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 14px' }}>{dateLabel}</p>}
-          {isFirst && <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#4A5E50', margin: '0 0 10px' }}>Dear {salutation},</p>}
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 14px' }}>{dateLabel}</p>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#4A5E50', margin: '0 0 10px' }}>Dear {salutation},</p>
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#3A3020', lineHeight: 1.85, margin: 0, flex: 1, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
-            {text}
+            {entry.text}
           </p>
           <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '10px 0 0', letterSpacing: 0.5 }}>
-            {entryIndex + 1} / {letterCount}
-          </p>
-        </div>
-      </div>
-    );
-  };
-
-  const QuotePage = ({ entry }) => {
-    const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
-    const attribution = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
-    const kidAge = entryKids[0] ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
-    const photo = entry.media?.[0]?.type === 'image' ? entry.media[0] : null;
-    return (
-      <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {photo && (
-          <img src={photo.url} alt="" style={{ width: '100%', height: 160, objectFit: 'cover', flexShrink: 0, display: 'block' }} />
-        )}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: photo ? '28px 32px 32px' : '48px 32px 32px' }}>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 64, color: '#DDE9D9', lineHeight: 0.6, margin: '0 0 16px', alignSelf: 'flex-start' }}>"</p>
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#3A3020', lineHeight: 1.8, textAlign: 'center', margin: 0, flex: 1, display: 'flex', alignItems: 'center' }}>{entry.text}</p>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 64, color: '#DDE9D9', lineHeight: 0.6, margin: '16px 0 0', alignSelf: 'flex-end' }}>"</p>
-          <div style={{ width: 28, height: 1, background: '#C4D8C0', margin: '24px 0 10px' }} />
-          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#9AA89C', letterSpacing: 1.4, textTransform: 'uppercase', margin: 0 }}>
-            — {attribution}{kidAge ? `, ${kidAge}` : ''}
+            {index + 1} / {sorted.length}
           </p>
         </div>
       </div>
@@ -3121,30 +2853,12 @@ function BookPreviewScreen({ kids, bookConfig, onBack }) {
   };
 
   const renderPage = () => {
-    if (!bookPages) return <div style={{ background: '#FDFBF6', width: '100%', height: '100%' }} />;
-    const p = bookPages[page];
-    if (!p) return null;
-    if (p.type === 'cover') return <CoverPage />;
-    if (p.type === 'back') return <BackCover />;
-    if (p.type === 'quote') return <QuotePage entry={p.entry} />;
-    return (
-      <LetterPage
-        entry={p.entry}
-        entryIndex={p.entryIndex}
-        text={p.text}
-        isFirst={p.isFirst}
-        part={p.part}
-        onCrop={(entry, h, w) => setBookCropModal({ entryId: entry.id, url: entry.media[0].url, cardH: h, photoWidth: w })}
-      />
-    );
+    if (page === 0) return <CoverPage />;
+    if (page === totalPages - 1) return <BackCover />;
+    return <LetterPage entry={sorted[page - 1]} index={page - 1} onCrop={(entry, h, w) => setBookCropModal({ entryId: entry.id, url: entry.media[0].url, cardH: h, photoWidth: w })} />;
   };
 
-  const currentBookPage = bookPages?.[page];
-  const pageLabel = !bookPages ? '…'
-    : page === 0 ? 'Cover'
-    : currentBookPage?.type === 'back' ? 'Back cover'
-    : currentBookPage?.type === 'quote' ? 'A moment'
-    : `Letter ${(currentBookPage?.entryIndex ?? 0) + 1} of ${letterCount}${(currentBookPage?.part ?? 0) > 0 ? ' (cont.)' : ''}`;
+  const pageLabel = page === 0 ? 'Cover' : page === totalPages - 1 ? 'Back cover' : `Letter ${page} of ${sorted.length}`;
 
   return (
     <div className="screen" style={{ background: '#1E2820' }}>
@@ -3155,7 +2869,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack }) {
       </div>
 
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px', minHeight: 0 }}>
-        <div ref={pageContainerRef} style={{ width: '100%', aspectRatio: '3/4', borderRadius: 6, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.6), 4px 0 0 rgba(0,0,0,0.3)', maxHeight: '100%' }}>
+        <div style={{ width: '100%', aspectRatio: '3/4', borderRadius: 6, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.6), 4px 0 0 rgba(0,0,0,0.3)', maxHeight: '100%' }}>
           {renderPage()}
         </div>
       </div>
@@ -3178,7 +2892,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack }) {
         <button className="btn" style={{ width: '100%', background: '#C8993E', color: '#fff', borderRadius: 14 }}
           onClick={() => alert('Print ordering is coming soon. Your book is ready — we\'ll let you know when you can order!')}>
           <i className="ti ti-shopping-cart" style={{ fontSize: 16 }} />
-          Order your book
+          Order this book
         </button>
       </div>
 
@@ -3198,7 +2912,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack }) {
 
 // ──────────────────────────────────────────────────────────────────────────
 
-function NavBar({ active, onNavigate, onAdd }) {
+function NavBar({ active, onNavigate }) {
 
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
@@ -3223,7 +2937,7 @@ function NavBar({ active, onNavigate, onAdd }) {
             </button>
           ))}
           <div className="nv-add-wrap">
-            <button className="nv-add" onClick={onAdd}><i className="ti ti-plus" /></button>
+            <button className="nv-add" onClick={() => onNavigate('new-entry')}><i className="ti ti-plus" /></button>
           </div>
           {tabsRight.map(tab => (
             <button key={tab.id} className="nv-tab" style={tabStyle(tab)} onClick={() => onNavigate(tab.id)}>
@@ -3848,7 +3562,6 @@ export default function App() {
   const [myDisplayName, setMyDisplayName] = useState('');
   const [joiningFamily, setJoiningFamily] = useState(false);
   const [bookConfig, setBookConfig] = useState(null);
-  const [showAddSheet, setShowAddSheet] = useState(false);
 
   // Auth listener
   useEffect(() => {
@@ -3948,7 +3661,6 @@ setEntries(entriesData.map(e => ({
           media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
           signedAs: e.signed_as,
           authorId: e.author_id || null,
-          entryType: e.entry_type || 'letter',
         })));
       }
       setDataLoading(false);
@@ -3983,7 +3695,7 @@ setEntries(entriesData.map(e => ({
 
   function editEntry(entry) {
     setActiveEntry(entry);
-    setScreen(entry.entryType === 'quote' ? 'edit-quote' : 'edit-entry');
+    setScreen('edit-entry');
   }
 
   async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs }) {
@@ -4092,7 +3804,7 @@ setEntries(entriesData.map(e => ({
       await supabase.from('entry_media').insert(savedMedia.map(m => ({ entry_id: entry.id, url: m.url, type: m.type })));
     }
 
-    const newEntry = { id: entry.id, kids: kidIds, date, text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null, entryType: 'letter' };
+    const newEntry = { id: entry.id, kids: kidIds, date, text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null };
     setEntries(prev => [newEntry, ...prev]);
 
     if (milestone) {
@@ -4100,78 +3812,6 @@ setEntries(entriesData.map(e => ({
     } else {
       setScreen('home');
     }
-  }
-
-  async function handleSaveQuote({ kids: kidIds, text, date, entryId, photo, fileObject }) {
-    const palette = PALETTES[Math.floor(Math.random() * PALETTES.length)];
-    const mediaArr = photo ? [{ url: photo.url, type: 'image' }] : [];
-
-    if (entryId) {
-      if (localMode || !supabase || !session) {
-        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text, date, media: mediaArr } : e));
-        setScreen('home');
-        return;
-      }
-      await supabase.from('entries').update({ kid_ids: kidIds, text, date }).eq('id', entryId);
-      if (photo) {
-        await supabase.from('entry_media').delete().eq('entry_id', entryId);
-        let url = photo.url;
-        if (fileObject) {
-          try {
-            const compressed = await compressImage(fileObject);
-            const path = `${session.user.id}/${entryId}-quote-edit.jpg`;
-            const { error } = await supabase.storage.from('media').upload(path, compressed, { upsert: true });
-            if (!error) ({ data: { publicUrl: url } } = supabase.storage.from('media').getPublicUrl(path));
-          } catch {}
-        }
-        await supabase.from('entry_media').insert({ entry_id: entryId, url, type: 'image' });
-        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text, date, media: [{ url, type: 'image' }] } : e));
-      } else {
-        await supabase.from('entry_media').delete().eq('entry_id', entryId);
-        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text, date, media: [] } : e));
-      }
-      setScreen('home');
-      return;
-    }
-
-    if (localMode || !supabase || !session) {
-      const newEntry = { id: Date.now(), kids: kidIds, date, text, mood: null, milestone: null, ageMonths: null, palette, media: mediaArr, entryType: 'quote' };
-      setEntries(prev => [newEntry, ...prev]);
-      setScreen('home');
-      return;
-    }
-
-    const { data: entry, error } = await supabase.from('entries').insert({
-      user_id: session.user.id,
-      family_id: familyId,
-      kid_ids: kidIds,
-      text,
-      date,
-      palette,
-      entry_type: 'quote',
-    }).select().single();
-
-    if (error || !entry) return;
-
-    let savedMedia = [];
-    if (photo && fileObject) {
-      try {
-        const compressed = await compressImage(fileObject);
-        const path = `${session.user.id}/${entry.id}-quote.jpg`;
-        const { error: uploadError } = await supabase.storage.from('media').upload(path, compressed);
-        if (!uploadError) {
-          const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
-          await supabase.from('entry_media').insert({ entry_id: entry.id, url: publicUrl, type: 'image' });
-          savedMedia = [{ url: publicUrl, type: 'image' }];
-        }
-      } catch {}
-    } else if (photo) {
-      savedMedia = mediaArr;
-    }
-
-    const newEntry = { id: entry.id, kids: kidIds, date, text, mood: null, milestone: null, ageMonths: null, palette, media: savedMedia, entryType: 'quote' };
-    setEntries(prev => [newEntry, ...prev]);
-    setScreen('home');
   }
 
   async function handleAvatarUpload(kidId, file) {
@@ -4304,8 +3944,6 @@ setEntries(entriesData.map(e => ({
         palette: e.palette || PALETTES[0],
         media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
         signedAs: e.signed_as,
-        authorId: e.author_id || null,
-        entryType: e.entry_type || 'letter',
       })));
     }
     if (membersData) setFamilyMembers(membersData);
@@ -4490,14 +4128,6 @@ setEntries(entriesData.map(e => ({
         <NewEntryScreen kids={kids} onCancel={() => setScreen('home')} onSave={handleSaveEntry} signedDefault={myDisplayName || undefined} />
       )}
 
-      {screen === 'new-quote' && (
-        <NewQuoteScreen kids={kids} onCancel={() => setScreen('home')} onSave={handleSaveQuote} />
-      )}
-
-      {screen === 'edit-quote' && activeEntry && (
-        <NewQuoteScreen kids={kids} existingEntry={activeEntry} onCancel={() => setScreen('entry-detail')} onSave={handleSaveQuote} />
-      )}
-
       {screen === 'edit-entry' && activeEntry && (
         <NewEntryScreen
           kids={kids}
@@ -4591,39 +4221,8 @@ setEntries(entriesData.map(e => ({
         ) : null;
       })()}
 
-      {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'new-quote' && screen !== 'edit-entry' && screen !== 'edit-quote' && screen !== 'profile' && screen !== 'growth' && screen !== 'book-builder' && screen !== 'book-preview' && (
-        <NavBar active={screen} onNavigate={setScreen} onAdd={() => setShowAddSheet(true)} />
-      )}
-
-      {showAddSheet && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end' }}
-          onClick={() => setShowAddSheet(false)}>
-          <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', padding: '20px 20px 40px', width: '100%' }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ width: 36, height: 4, background: '#E0DDD8', borderRadius: 99, margin: '0 auto 24px' }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <button onClick={() => { setShowAddSheet(false); setScreen('new-entry'); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', background: '#F6FAF4', border: '1px solid #C4D8C0', borderRadius: 14, cursor: 'pointer', textAlign: 'left' }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <i className="ti ti-pencil" style={{ color: '#fff', fontSize: 18 }} />
-                </div>
-                <div>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: 0, fontFamily: "'Inter', sans-serif" }}>Write a letter</p>
-                </div>
-              </button>
-              <button onClick={() => { setShowAddSheet(false); setScreen('new-quote'); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', background: '#F9F6EE', border: '1px solid #E8DFC8', borderRadius: 14, cursor: 'pointer', textAlign: 'left' }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: '#C8993E', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <i className="ti ti-quote" style={{ color: '#fff', fontSize: 18 }} />
-                </div>
-                <div>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: '0 0 2px', fontFamily: "'Inter', sans-serif" }}>Capture a moment</p>
-                  <p style={{ fontSize: 12, color: '#9AA89C', margin: 0, fontFamily: "'Inter', sans-serif" }}>A quote, a laugh, a memory</p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
+      {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'profile' && screen !== 'growth' && screen !== 'book-builder' && screen !== 'book-preview' && (
+        <NavBar active={screen} onNavigate={setScreen} />
       )}
       {(screen === 'profile' || screen === 'growth' || screen === 'book-builder') && <NavBar active="home" onNavigate={setScreen} />}
 
