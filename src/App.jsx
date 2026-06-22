@@ -118,6 +118,152 @@ function videoThumbUrl(videoUrl) {
   } catch { return null; }
 }
 
+// ─── Share card ──────────────────────────────────────────────────────────────
+
+function loadImageEl(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+
+function ctxRoundRect(ctx, x, y, w, h, r, fill) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+}
+
+function ctxWrapText(ctx, text, maxW) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? line + ' ' + word : word;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = word; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+async function generateShareCard(entry, allKids) {
+  await document.fonts.ready;
+  await Promise.allSettled([
+    document.fonts.load('italic 400 42px "Source Serif 4"'),
+    document.fonts.load('600 28px Inter'),
+  ]);
+
+  const W = 1080, H = 1350, PAD = 72;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#E8F0E4';
+  ctx.fillRect(0, 0, W, H);
+
+  let cardTop = 100;
+  let hasPhoto = false;
+
+  const firstMedia = entry.media?.[0];
+  if (firstMedia) {
+    const imgUrl = firstMedia.type === 'video' ? videoThumbUrl(firstMedia.url) : firstMedia.url;
+    if (imgUrl) {
+      try {
+        const img = await loadImageEl(imgUrl);
+        const PHOTO_H = 520;
+        const scale = Math.max(W / img.width, PHOTO_H / img.height);
+        const sw = W / scale, sh = PHOTO_H / scale;
+        const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+        ctx.save();
+        ctx.beginPath(); ctx.rect(0, 0, W, PHOTO_H); ctx.clip();
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, PHOTO_H);
+        ctx.restore();
+        cardTop = PHOTO_H - 44;
+        hasPhoto = true;
+      } catch {}
+    }
+  }
+
+  ctxRoundRect(ctx, 0, cardTop, W, H - cardTop + 20, 44, '#F8FAF6');
+
+  let y = cardTop + 80;
+
+  if (!hasPhoto) {
+    ctx.font = '400 140px "Source Serif 4"';
+    ctx.fillStyle = '#CCDAC8';
+    ctx.textAlign = 'right';
+    ctx.fillText('“', W - PAD + 10, cardTop + 118);
+    ctx.textAlign = 'left';
+  }
+
+  const name = buildSalutation(entry, allKids);
+  ctx.font = 'italic 400 38px "Source Serif 4"';
+  ctx.fillStyle = '#9AA89C';
+  ctx.fillText(`Dear ${name},`, PAD, y);
+  y += 60;
+
+  const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
+  ctx.font = 'italic 400 42px "Source Serif 4"';
+  ctx.fillStyle = '#2C3828';
+  const maxLines = hasPhoto ? 7 : 10;
+  const bodyLines = ctxWrapText(ctx, cleanText, W - PAD * 2);
+  bodyLines.slice(0, maxLines).forEach(line => { ctx.fillText(line, PAD, y); y += 64; });
+  if (bodyLines.length > maxLines) {
+    ctx.fillStyle = '#9AA89C'; ctx.fillText('…', PAD, y); y += 64;
+  }
+  y += 12;
+
+  if (entry.signedAs) {
+    ctx.font = 'italic 400 36px "Source Serif 4"';
+    ctx.fillStyle = '#9AA89C';
+    ctx.fillText(`— ${entry.signedAs}`, PAD, y);
+    y += 52;
+  }
+
+  y += 28;
+  ctx.fillStyle = '#CCDAC8';
+  ctx.fillRect(PAD, y, W - PAD * 2, 1.5);
+  y += 36;
+
+  const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  ctx.font = '600 28px Inter';
+  ctx.fillStyle = '#9AA89C';
+  ctx.fillText(dateStr, PAD, y);
+  ctx.fillStyle = '#C8993E';
+  ctx.textAlign = 'right';
+  ctx.fillText('Patina', W - PAD, y);
+  ctx.textAlign = 'left';
+
+  return canvas;
+}
+
+async function shareEntry(entry, allKids) {
+  const canvas = await generateShareCard(entry, allKids);
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+  const file = new File([blob], 'patina-letter.jpg', { type: 'image/jpeg' });
+  if (navigator.share && navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title: 'A letter from Patina' });
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'patina-letter.jpg'; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+}
+
 function compressImage(file, maxDim = 1600, quality = 0.78) {
   return new Promise(resolve => {
     const img = new Image();
@@ -892,6 +1038,13 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [activeSlide, setActiveSlide] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  const [sharing, setSharing] = useState(false);
+
+  async function handleShare() {
+    setSharing(true);
+    try { await shareEntry(entry, allKids); } catch (e) { if (e?.name !== 'AbortError') console.error(e); }
+    setSharing(false);
+  }
 
   return (
     <div className="screen">
@@ -903,6 +1056,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-arrow-left" /></button>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="icon-btn-ghost" onClick={() => onToggleFavorite(entry.id)} style={entry.favorited ? { color: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
+                  <button className="icon-btn-ghost" onClick={handleShare} disabled={sharing}><i className={`ti ${sharing ? 'ti-loader-2' : 'ti-share'}`} style={sharing ? { animation: 'spin 1s linear infinite' } : {}} /></button>
                   <button className="icon-btn-ghost" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
                   <button className="icon-btn-ghost" onClick={() => setShowDeleteConfirm(true)}><i className="ti ti-trash" /></button>
                 </div>
@@ -923,6 +1077,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="icon-btn" onClick={() => onToggleFavorite(entry.id)} style={entry.favorited ? { color: '#C8993E', borderColor: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
+                <button className="icon-btn" onClick={handleShare} disabled={sharing}><i className={`ti ${sharing ? 'ti-loader-2' : 'ti-share'}`} style={sharing ? { animation: 'spin 1s linear infinite' } : {}} /></button>
                 <button className="icon-btn" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
                 <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)}><i className="ti ti-trash" /></button>
               </div>
