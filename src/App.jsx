@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import './App.css';
 import exifr from 'exifr';
 import { supabase, supabaseConfigured } from './supabase.js';
@@ -348,6 +348,7 @@ function BookCropModal({ url, cropY, cardHeight, photoWidth, onSave, onClose }) 
 
 function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCropEdit }) {
   const cardH = featured ? 200 : 150;
+  const photoRef = useRef(null);
   const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const preview = cleanText.length > (featured ? 160 : 110)
     ? cleanText.slice(0, featured ? 160 : 110) + '…'
@@ -358,7 +359,8 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
     <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
       {entry.media && entry.media.length > 0 && (
         <div
-          onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH); }}
+          ref={photoRef}
+          onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH, photoRef.current?.offsetWidth); }}
           style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
         >
           <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
@@ -395,6 +397,7 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
 
 function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onCropEdit }) {
   const cardH = 250;
+  const photoRef = useRef(null);
   const preview = entry.text.length > 200 ? entry.text.slice(0, 200) + '…' : entry.text;
   const yearLabel = yearsAgo === 1 ? 'One year ago today' : `${yearsAgo} years ago today`;
 
@@ -408,7 +411,8 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
       <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
         {entry.media && entry.media.length > 0 && (
           <div
-            onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH); }}
+            ref={photoRef}
+            onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH, photoRef.current?.offsetWidth); }}
             style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
           >
             <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
@@ -483,10 +487,10 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   });
   const [cropModal, setCropModal] = useState(null); // { entryId, url, cardH }
 
-  function openCropModal(entryId, cardH) {
+  function openCropModal(entryId, cardH, cardW) {
     const entry = entries.find(e => e.id === entryId);
     if (!entry?.media?.[0]?.url) return;
-    setCropModal({ entryId, url: entry.media[0].url, cardH });
+    setCropModal({ entryId, url: entry.media[0].url, cardH, cardW });
   }
 
   function saveCropY(y) {
@@ -496,19 +500,23 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     setCropModal(null);
   }
 
-  const onThisDay = entries
+  const onThisDay = useMemo(() => entries
     .filter(e => e.date.slice(5) === todayMMDD && parseInt(e.date.slice(0, 4)) < todayYear)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+    .sort((a, b) => new Date(b.date) - new Date(a.date)),
+  [entries, todayMMDD, todayYear]);
 
-  const recent = [...entries]
+  const recent = useMemo(() => entries
     .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 4);
+    .slice(0, 4),
+  [entries, kidFilter]);
 
-  const letterCounts = kids.map(k => ({ kid: k, count: entries.filter(e => e.kids.includes(k.id)).length }));
+  const letterCounts = useMemo(() =>
+    kids.map(k => ({ kid: k, count: entries.filter(e => e.kids.includes(k.id)).length })),
+  [kids, entries]);
 
-  const birthdayToday = kids.filter(k => daysUntilBirthday(k.birthdate) === 0);
-  const birthdayNextWeek = kids.filter(k => daysUntilBirthday(k.birthdate) === 7);
+  const birthdayToday = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 0), [kids]);
+  const birthdayNextWeek = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 7), [kids]);
 
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -635,10 +643,11 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         </div>
       </div>
       {cropModal && (
-        <CropModal
+        <BookCropModal
           url={cropModal.url}
           cropY={cropPositions[cropModal.entryId] ?? 50}
           cardHeight={cropModal.cardH}
+          photoWidth={cropModal.cardW}
           onSave={saveCropY}
           onClose={() => setCropModal(null)}
         />
@@ -707,27 +716,30 @@ function JournalEntryRow({ entry, entryKids, onClick }) {
 }
 
 function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount }) {
-  const filtered = entries
-    .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+  const rows = useMemo(() => {
+    const filtered = entries
+      .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
+      .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  let currentMonth = null;
-  const rows = [];
-  filtered.forEach(entry => {
-    const d = new Date(entry.date + 'T12:00:00');
-    const monthLabel = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    if (monthLabel !== currentMonth) {
-      currentMonth = monthLabel;
-      rows.push(
-        <div className="month-divider" key={'divider-' + monthLabel}>
-          <span style={{ fontSize: 12, fontWeight: 700, color: '#9AA89C', letterSpacing: 0.3 }}>{monthLabel.toUpperCase()}</span>
-          <div className="month-divider-line" />
-        </div>
-      );
-    }
-    const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
-    rows.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onClick={() => onOpenEntry(entry)} />);
-  });
+    let currentMonth = null;
+    const result = [];
+    filtered.forEach(entry => {
+      const d = new Date(entry.date + 'T12:00:00');
+      const monthLabel = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      if (monthLabel !== currentMonth) {
+        currentMonth = monthLabel;
+        result.push(
+          <div className="month-divider" key={'divider-' + monthLabel}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#9AA89C', letterSpacing: 0.3 }}>{monthLabel.toUpperCase()}</span>
+            <div className="month-divider-line" />
+          </div>
+        );
+      }
+      const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
+      result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onClick={() => onOpenEntry(entry)} />);
+    });
+    return result;
+  }, [entries, kids, kidFilter, onOpenEntry]);
 
   return (
     <div className="screen">
@@ -1796,13 +1808,19 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
 
 function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
 
-  const matches = query.trim() ? entries.filter(e => {
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 250);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const matches = useMemo(() => debouncedQuery.trim() ? entries.filter(e => {
     const m = e.milestone ? milestoneInfo(e.milestone) : null;
     const kid = kids.find(k => k.id === e.kids[0]);
-    const q = query.toLowerCase();
-    return e.text.toLowerCase().includes(q) || (m && m.label.toLowerCase().includes(q)) || kid.name.toLowerCase().includes(q);
-  }) : [];
+    const q = debouncedQuery.toLowerCase();
+    return e.text.toLowerCase().includes(q) || (m && m.label.toLowerCase().includes(q)) || kid?.name.toLowerCase().includes(q);
+  }) : [], [debouncedQuery, entries, kids]);
 
   return (
     <div className="screen">
@@ -2156,7 +2174,7 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -2255,11 +2273,16 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
               <div key={k.id} style={{ background: '#fff', border: '1px solid #ECE5D6', borderRadius: 14, padding: '20px 16px 16px', textAlign: 'center' }}>
                 <div
                   className="avatar-upload-zone"
-                  style={{ width: 84, height: 84, margin: '0 auto 12px' }}
+                  style={{ width: 84, height: 84, margin: '0 auto 12px', position: 'relative' }}
                   onClick={() => { setUploadKidId(k.id); fileInputRef.current?.click(); }}
                   title="Tap to change photo"
                 >
                   <AvatarImg src={k.avatar} alt={k.name} fallback={<i className="ti ti-camera" />} />
+                  {avatarUploading && uploadKidId === k.id && (
+                    <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <i className="ti ti-loader-2" style={{ fontSize: 22, color: '#fff', animation: 'spin 1s linear infinite' }} />
+                    </div>
+                  )}
                 </div>
                 <p
                   style={{ fontSize: 15, fontWeight: 700, color: '#4A5E50', margin: '0 0 2px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
@@ -4090,11 +4113,14 @@ setEntries(entriesData.map(e => ({
       .eq('family_id', familyId).eq('user_id', session.user.id);
   }
 
+  const [avatarUploading, setAvatarUploading] = useState(false);
+
   async function handleFamilyAvatarUpload(memberId, file) {
     const previousAvatar = familyMembers.find(m => m.id === memberId || m.user_id === memberId)?.avatar_url ?? null;
     const localUrl = URL.createObjectURL(file);
     setFamilyMembers(prev => prev.map(m => (m.id === memberId || m.user_id === memberId) ? { ...m, avatar_url: localUrl } : m));
     if (localMode || !supabase || !session || !familyId) return;
+    setAvatarUploading(true);
     const { data: { session: activeSession } } = await supabase.auth.getSession();
     const activeUserId = activeSession?.user?.id;
     if (!activeUserId) {
@@ -4125,6 +4151,7 @@ setEntries(entriesData.map(e => ({
         alert('Photo saved locally but failed to sync: ' + dbError.message);
       }
     }
+    setAvatarUploading(false);
   }
 
   if (authLoading || dataLoading) {
@@ -4261,6 +4288,7 @@ setEntries(entriesData.map(e => ({
           onRenameKid={handleRenameKid}
           onUpdateKidSex={handleUpdateKidSex}
           onFamilyAvatarUpload={handleFamilyAvatarUpload}
+          avatarUploading={avatarUploading}
           currentUserId={session?.user?.id}
           onOpenGrowth={kidId => { setGrowthKidId(kidId); setScreen('growth'); }}
           onCreateBook={() => setScreen('book-builder')}
