@@ -165,12 +165,13 @@ function ctxWrapText(ctx, text, maxW) {
 async function generateShareCard(entry, allKids) {
   await document.fonts.ready;
   await Promise.allSettled([
-    document.fonts.load('italic 400 44px “Source Serif 4”'),
-    document.fonts.load('600 30px Inter'),
+    document.fonts.load('italic 400 40px “Source Serif 4”'),
+    document.fonts.load('600 26px Inter'),
   ]);
 
-  // Fixed 4:5 canvas — same ratio as Instagram portrait, always readable on phones
-  const W = 1080, H = 1350, PAD = 80, CARD_R = 48;
+  // 780px wide = 2× iPhone logical width → fonts render at ~50% scale on phone
+  // (vs 1080px which renders at 36%, making text too small)
+  const W = 780, PAD = 56, IMG_PAD = 36, CARD_R = 36;
 
   // Try loading photo
   let photoImg = null;
@@ -181,86 +182,81 @@ async function generateShareCard(entry, allKids) {
     if (photoImg && photoImg.naturalWidth === 0) photoImg = null;
   }
 
-  const PHOTO_H = 560;   // fixed photo zone height
-  const cardTop = photoImg ? PHOTO_H - 48 : 80;  // card overlaps photo
+  // Full uncropped photo width = card width minus padding, natural aspect ratio
+  const imgW = W - IMG_PAD * 2;
+  const photoDisplayH = photoImg
+    ? Math.round(imgW * (photoImg.naturalHeight / photoImg.naturalWidth))
+    : 0;
+
+  // Measure body text to size canvas height
+  const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
+  const mc = document.createElement('canvas'); mc.width = W;
+  const mctx = mc.getContext('2d');
+  mctx.font = 'italic 400 40px “Source Serif 4”';
+  const bodyLines = ctxWrapText(mctx, cleanText, W - PAD * 2);
+  const LINE_H = 58;
+  const textH = 56 + (bodyLines.length * LINE_H) + 12
+    + (entry.signedAs ? 48 : 0) + 24 + 2 + 32 + 36 + 56;
+
+  const topPad = photoImg ? 36 : 56;
+  const photoSection = photoImg ? topPad + photoDisplayH + 24 : 0;
+  const cardTop = photoImg ? photoSection : topPad;
+  const H = cardTop + textH;
 
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  // Background
   ctx.fillStyle = '#E8F0E4';
   ctx.fillRect(0, 0, W, H);
 
-  // Photo — cover-cropped to fill the photo zone edge-to-edge
+  // Full photo, uncropped, with rounded corners
   if (photoImg) {
-    const scale = Math.max(W / photoImg.naturalWidth, PHOTO_H / photoImg.naturalHeight);
-    const sw = W / scale, sh = PHOTO_H / scale;
-    const sx = (photoImg.naturalWidth - sw) / 2, sy = (photoImg.naturalHeight - sh) / 2;
     ctx.save();
-    ctx.beginPath(); ctx.rect(0, 0, W, PHOTO_H); ctx.clip();
-    ctx.drawImage(photoImg, sx, sy, sw, sh, 0, 0, W, PHOTO_H);
+    ctxRoundRect(ctx, IMG_PAD, topPad, imgW, photoDisplayH, 20, '#000');
+    ctx.clip();
+    ctx.drawImage(photoImg, IMG_PAD, topPad, imgW, photoDisplayH);
     ctx.restore();
   }
 
   // Card background
-  ctxRoundRect(ctx, 0, cardTop, W, H - cardTop + 20, CARD_R, '#F8FAF6');
+  ctxRoundRect(ctx, 0, cardTop, W, H - cardTop + 16, CARD_R, '#F8FAF6');
 
-  let y = cardTop + 88;
+  let y = cardTop + 64;
 
-  // Decorative quote mark (text-only)
   if (!photoImg) {
-    ctx.font = '400 160px Georgia, serif';
+    ctx.font = '400 120px Georgia, serif';
     ctx.fillStyle = '#CCDAC8';
     ctx.textAlign = 'right';
-    ctx.fillText('”', W - PAD + 24, cardTop + 138);
+    ctx.fillText('”', W - PAD + 18, cardTop + 100);
     ctx.textAlign = 'left';
   }
 
-  // Salutation
   const name = buildSalutation(entry, allKids);
-  ctx.font = 'italic 400 40px “Source Serif 4”';
+  ctx.font = 'italic 400 34px “Source Serif 4”';
   ctx.fillStyle = '#9AA89C';
   ctx.fillText(`Dear ${name},`, PAD, y);
-  y += 64;
+  y += 52;
 
-  // Body — fit as many lines as available space allows, then “…”
-  const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
-  ctx.font = 'italic 400 44px “Source Serif 4”';
+  ctx.font = 'italic 400 40px “Source Serif 4”';
   ctx.fillStyle = '#2C3828';
-  const allLines = ctxWrapText(ctx, cleanText, W - PAD * 2);
-  const LINE_H = 68;
-  const sigH = entry.signedAs ? 56 : 0;
-  const footerH = 28 + 2 + 40 + 60; // divider + date row + bottom pad
-  const availH = H - y - sigH - footerH;
-  const maxLines = Math.floor(availH / LINE_H);
-  const truncated = allLines.length > maxLines;
-  const visibleLines = truncated ? allLines.slice(0, maxLines - 1) : allLines;
-  visibleLines.forEach(line => { ctx.fillText(line, PAD, y); y += LINE_H; });
-  if (truncated) {
-    ctx.fillStyle = '#9AA89C';
-    ctx.fillText(allLines[maxLines - 1].replace(/\s+\S+$/, '') + ' …', PAD, y);
-    y += LINE_H;
-  }
-  y += 16;
+  bodyLines.forEach(line => { ctx.fillText(line, PAD, y); y += LINE_H; });
+  y += 12;
 
-  // Signature
   if (entry.signedAs) {
-    ctx.font = 'italic 400 38px “Source Serif 4”';
+    ctx.font = 'italic 400 32px “Source Serif 4”';
     ctx.fillStyle = '#9AA89C';
     ctx.fillText(`— ${entry.signedAs}`, PAD, y);
-    y += sigH;
+    y += 48;
   }
 
-  // Divider
-  y += 28;
+  y += 24;
   ctx.fillStyle = '#CCDAC8';
   ctx.fillRect(PAD, y, W - PAD * 2, 1.5);
-  y += 40;
+  y += 32;
 
-  // Date + branding
   const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  ctx.font = '600 30px Inter';
+  ctx.font = '600 26px Inter';
   ctx.fillStyle = '#9AA89C';
   ctx.fillText(dateStr, PAD, y);
   ctx.fillStyle = '#C8993E';
