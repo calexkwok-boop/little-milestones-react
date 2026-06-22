@@ -583,9 +583,13 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     .slice(0, 4),
   [entries, kidFilter]);
 
-  const letterCounts = useMemo(() =>
-    kids.map(k => ({ kid: k, count: entries.filter(e => e.kids.includes(k.id)).length })),
-  [kids, entries]);
+  const kidMap = useMemo(() => new Map(kids.map(k => [k.id, k])), [kids]);
+
+  const letterCounts = useMemo(() => {
+    const countMap = new Map(kids.map(k => [k.id, 0]));
+    for (const e of entries) for (const id of e.kids) if (countMap.has(id)) countMap.set(id, countMap.get(id) + 1);
+    return kids.map(k => ({ kid: k, count: countMap.get(k.id) ?? 0 }));
+  }, [kids, entries]);
 
   const birthdayToday = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 0), [kids]);
   const birthdayNextWeek = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 7), [kids]);
@@ -695,14 +699,14 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
 
           {onThisDay.length > 0 && (() => {
             const entry = onThisDay[0];
-            const kid = kids.find(k => k.id === entry.kids[0]);
+            const kid = kidMap.get(entry.kids[0]);
             const yearsAgo = todayYear - parseInt(entry.date.slice(0, 4));
             return <OnThisDayCard entry={entry} kid={kid} allKids={kids} yearsAgo={yearsAgo} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />;
           })()}
 
           {onceUponATime && (() => {
             const entry = onceUponATime;
-            const kid = kids.find(k => k.id === entry.kids[0]);
+            const kid = kidMap.get(entry.kids[0]);
             return (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -719,7 +723,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <SectionDivider label="Recent letters" />
               {recent.map(entry => {
-                const kid = kids.find(k => k.id === entry.kids[0]);
+                const kid = kidMap.get(entry.kids[0]);
                 return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />;
               })}
               {entries.length > 4 && (
@@ -1015,8 +1019,20 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const cameraInputRef = useRef(null);
   const uploadInputRef = useRef(null);
   const recognitionRef = useRef(null);
+  const mountedRef = useRef(true);
   const [listening, setListening] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      media.forEach(item => {
+        if (item.url?.startsWith('blob:')) URL.revokeObjectURL(item.url);
+      });
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function toggleListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1071,6 +1087,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       const thumbnail = isVideo ? await generateVideoThumbnail(file) : null;
       return { url: URL.createObjectURL(file), type: isVideo ? 'video' : 'image', thumbnail };
     }));
+    if (!mountedRef.current) { newMedia.forEach(m => { if (m.url?.startsWith('blob:')) URL.revokeObjectURL(m.url); }); return; }
     setMedia(prev => [...prev, ...newMedia]);
     setFileObjects(prev => [...prev, ...files]);
     e.target.value = '';
@@ -1292,7 +1309,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                     : <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
                   : <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                 }
-                <button onClick={() => { setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={() => { const item = media[i]; if (item.url?.startsWith('blob:')) URL.revokeObjectURL(item.url); setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-x" />
                 </button>
               </div>
@@ -1555,11 +1572,9 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
     boxShadow: viewMode === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
   });
 
-  const filterByKid = (arr) => kidFilter ? arr.filter(e => (e.kids || []).includes(kidFilter)) : arr;
-
-  const monthEntries = filterByKid([...entries.filter(e => e.date.startsWith(selectedMonth))].sort((a, b) => new Date(b.date) - new Date(a.date)));
   const monthLabel = new Date(selectedMonth + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const canGoNextMonth = selectedMonth < TODAY.slice(0, 7);
+  const canGoNextYear = selectedYear < TODAY.slice(0, 4);
 
   function prevMonth() {
     const [y, m] = selectedMonth.split('-').map(Number);
@@ -1573,31 +1588,48 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
     if (next <= TODAY.slice(0, 7)) setSelectedMonth(next);
   }
 
-  const yearEntries = filterByKid([...entries.filter(e => e.date.startsWith(selectedYear))].sort((a, b) => new Date(b.date) - new Date(a.date)));
-  const canGoNextYear = selectedYear < TODAY.slice(0, 4);
+  const monthEntries = useMemo(() => {
+    const filtered = kidFilter ? entries.filter(e => e.date.startsWith(selectedMonth) && e.kids.includes(kidFilter)) : entries.filter(e => e.date.startsWith(selectedMonth));
+    return [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [entries, selectedMonth, kidFilter]);
 
-  const yearGroups = [];
-  let curMonthLabel = null;
-  yearEntries.forEach(e => {
-    const label = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long' });
-    if (label !== curMonthLabel) { curMonthLabel = label; yearGroups.push({ label, entries: [] }); }
-    yearGroups[yearGroups.length - 1].entries.push(e);
-  });
+  const { yearEntries, yearGroups } = useMemo(() => {
+    const filtered = kidFilter ? entries.filter(e => e.date.startsWith(selectedYear) && e.kids.includes(kidFilter)) : entries.filter(e => e.date.startsWith(selectedYear));
+    const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const groups = [];
+    let cur = null;
+    for (const e of sorted) {
+      const label = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long' });
+      if (label !== cur) { cur = label; groups.push({ label, entries: [] }); }
+      groups[groups.length - 1].entries.push(e);
+    }
+    return { yearEntries: sorted, yearGroups: groups };
+  }, [entries, selectedYear, kidFilter]);
 
-  const allEntries = filterByKid([...entries].sort((a, b) => new Date(b.date) - new Date(a.date)));
-  const allGroups = [];
-  let curAllLabel = null;
-  allEntries.forEach(e => {
-    const label = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    if (label !== curAllLabel) { curAllLabel = label; allGroups.push({ label, entries: [] }); }
-    allGroups[allGroups.length - 1].entries.push(e);
-  });
+  const { allEntries, allGroups } = useMemo(() => {
+    const sorted = kidFilter ? [...entries].filter(e => e.kids.includes(kidFilter)) : [...entries];
+    sorted.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const groups = [];
+    let cur = null;
+    for (const e of sorted) {
+      const label = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      if (label !== cur) { cur = label; groups.push({ label, entries: [] }); }
+      groups[groups.length - 1].entries.push(e);
+    }
+    return { allEntries: sorted, allGroups: groups };
+  }, [entries, kidFilter]);
 
   const periodEntries = viewMode === 'month' ? monthEntries : viewMode === 'year' ? yearEntries : allEntries;
-  const momentCount = periodEntries.length;
-  const milestoneCount = periodEntries.filter(e => e.milestone).length;
-  const photoCount = periodEntries.reduce((sum, e) => sum + (e.media?.length || 0), 0);
-  const favoriteCount = periodEntries.filter(e => e.favorited).length;
+
+  const { momentCount, milestoneCount, photoCount, favoriteCount } = useMemo(() => {
+    let milestoneCount = 0, photoCount = 0, favoriteCount = 0;
+    for (const e of periodEntries) {
+      if (e.milestone) milestoneCount++;
+      if (e.favorited) favoriteCount++;
+      photoCount += e.media?.length || 0;
+    }
+    return { momentCount: periodEntries.length, milestoneCount, photoCount, favoriteCount };
+  }, [periodEntries]);
   const periodEmpty = viewMode === 'month' ? `No moments logged in ${monthLabel}.` : viewMode === 'year' ? `No moments logged in ${selectedYear}.` : 'No moments logged yet.';
 
   return (
