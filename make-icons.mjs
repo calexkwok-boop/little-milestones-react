@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import { readFileSync, writeFileSync } from 'fs';
 
-const imgData = readFileSync('./public/quill.png');
+const imgData = readFileSync('./public/quill-no-background.png');
 const b64 = `data:image/png;base64,${imgData.toString('base64')}`;
 
 const browser = await chromium.launch();
@@ -22,8 +22,11 @@ async function makeIcon(size) {
     ctx.fillStyle = '#4A5E50';
     ctx.fillRect(0, 0, size, size);
 
-    // Draw quill centred and scaled — use cover crop since image is landscape
-    const scale = Math.max(size / img.naturalWidth, size / img.naturalHeight);
+    // Scale quill to fill 82% of the icon, centred
+    const padding = size * 0.02;
+    const maxW = size - padding * 2;
+    const maxH = size - padding * 2;
+    const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
     const w = img.naturalWidth * scale;
     const h = img.naturalHeight * scale;
     const x = (size - w) / 2;
