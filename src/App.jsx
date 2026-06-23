@@ -350,10 +350,12 @@ function loadLocalData() {
 // ─── Shared bits ─────────────────────────────────────────────────────────
 
 function KidThumb({ kid, size = 24 }) {
-  if (kid.avatar) {
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setBroken(false); }, [kid.avatar]);
+  if (kid.avatar && !broken) {
     return (
       <span className="thumb" style={{ width: size, height: size }}>
-        <img src={kid.avatar} alt={kid.name} onError={e => { e.currentTarget.style.display = 'none'; }} />
+        <img src={kid.avatar} alt={kid.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} />
       </span>
     );
   }
