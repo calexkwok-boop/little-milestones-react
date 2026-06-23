@@ -1376,6 +1376,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [fileObjects, setFileObjects] = useState(existingEntry?.media?.map(() => null) || []);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [polishing, setPolishing] = useState(false);
   const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? signedDefault ?? '');
   const [location, setLocation] = useState(existingEntry?.location || '');
   const [locationFromPhoto, setLocationFromPhoto] = useState(false);
@@ -1560,6 +1561,22 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
     }
   }
 
+  async function handlePolish() {
+    if (!text.trim()) return;
+    setPolishing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-entry', {
+        body: { mode: 'polish', draftText: text.trim() },
+      });
+      if (error) throw new Error(data?.error || error.message);
+      if (data?.text) setText(data.text);
+    } catch {
+      alert('Could not fix grammar — try again.');
+    } finally {
+      setPolishing(false);
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     await onSave({
@@ -1672,17 +1689,29 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
           }}
         />
 
-        {/* AI generate button */}
-        {selectedKids.length > 0 && (
-          <button
-            onClick={handleGenerate}
-            disabled={generating}
-            style={{ marginTop: 14, background: 'none', border: '1px solid #CCDAC8', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: generating ? '#B8CCB4' : '#4A5E50', fontFamily: "'Inter', sans-serif", fontWeight: 600, cursor: generating ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            <i className="ti ti-sparkles" style={{ fontSize: 14, animation: generating ? 'spin 1s linear infinite' : 'none' }} />
-            {generating ? 'Writing…' : 'Write for me'}
-          </button>
-        )}
+        {/* AI buttons */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
+          {selectedKids.length > 0 && (
+            <button
+              onClick={handleGenerate}
+              disabled={generating || polishing}
+              style={{ background: 'none', border: '1px solid #CCDAC8', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: generating ? '#B8CCB4' : '#4A5E50', fontFamily: "'Inter', sans-serif", fontWeight: 600, cursor: generating ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <i className="ti ti-sparkles" style={{ fontSize: 14, animation: generating ? 'spin 1s linear infinite' : 'none' }} />
+              {generating ? 'Writing…' : 'Write for me'}
+            </button>
+          )}
+          {text.trim().length > 0 && (
+            <button
+              onClick={handlePolish}
+              disabled={polishing || generating}
+              style={{ background: 'none', border: '1px solid #CCDAC8', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: polishing ? '#B8CCB4' : '#4A5E50', fontFamily: "'Inter', sans-serif", fontWeight: 600, cursor: polishing ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              <i className="ti ti-writing" style={{ fontSize: 14, animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
+              {polishing ? 'Fixing…' : 'Fix grammar'}
+            </button>
+          )}
+        </div>
 
         {/* Sign-off */}
         {signedDefault && (
