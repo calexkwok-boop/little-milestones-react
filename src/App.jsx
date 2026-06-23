@@ -320,7 +320,23 @@ function fmtWeight(lbs) {
   if (lbs < 25 && oz > 0) return `${lb} lb ${oz} oz`;
   return `${lbs % 1 === 0 ? lb : lbs.toFixed(1)} lb`;
 }
-const PROD_APP_URL = 'https://little-milestones-react.vercel.app';
+const PROD_APP_URL = 'https://patina-react.vercel.app';
+
+let googleMapsPromise = null;
+function loadGoogleMaps() {
+  if (window.google?.maps?.places) return Promise.resolve();
+  if (!googleMapsPromise) {
+    googleMapsPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_KEY}&libraries=places`;
+      script.async = true;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+  return googleMapsPromise;
+}
 
 function getAuthRedirectUrl() {
   if (typeof window === 'undefined') return PROD_APP_URL;
@@ -419,6 +435,65 @@ function buildSalutation(entry, allKids) {
 }
 
 // ─── Crop modal ──────────────────────────────────────────────────────────────
+
+function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, California', autoFocus }) {
+  const [suggestions, setSuggestions] = useState([]);
+  const debounceRef = useRef(null);
+  const blurRef = useRef(null);
+
+  function handleChange(e) {
+    const q = e.target.value;
+    onChange(q);
+    clearTimeout(debounceRef.current);
+    if (q.trim().length < 2) { setSuggestions([]); return; }
+    debounceRef.current = setTimeout(async () => {
+      try {
+        await loadGoogleMaps();
+        const service = new window.google.maps.places.AutocompleteService();
+        const results = await new Promise(resolve =>
+          service.getPlacePredictions({ input: q }, (preds, status) =>
+            resolve(status === 'OK' ? preds : [])
+          )
+        );
+        setSuggestions((results || []).map(p => ({ label: p.description })));
+      } catch {}
+    }, 350);
+  }
+
+  function pick(label) {
+    onChange(label);
+    setSuggestions([]);
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #CCDAC8', borderRadius: 10, padding: '11px 14px' }}>
+        <i className="ti ti-map-pin" style={{ color: '#9AA89C', fontSize: 15, flexShrink: 0 }} />
+        <input
+          autoFocus={autoFocus}
+          value={value}
+          onChange={handleChange}
+          placeholder={placeholder}
+          style={{ border: 'none', outline: 'none', flex: 1, fontSize: 15, background: 'transparent', color: '#2C3828', fontFamily: 'Inter, sans-serif' }}
+          onKeyDown={e => { if (e.key === 'Escape' || e.key === 'Enter') setSuggestions([]); }}
+          onBlur={() => { blurRef.current = setTimeout(() => setSuggestions([]), 150); }}
+          onFocus={() => clearTimeout(blurRef.current)}
+        />
+        {value ? <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); }} style={{ background: 'none', border: 'none', color: '#9AA89C', cursor: 'pointer', padding: 0 }}><i className="ti ti-x" style={{ fontSize: 14 }} /></button> : null}
+      </div>
+      {suggestions.length > 0 && (
+        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #CCDAC8', borderRadius: 10, overflow: 'hidden', zIndex: 50, boxShadow: '0 4px 16px rgba(44,56,40,0.12)', maxHeight: 200, overflowY: 'auto' }}>
+          {suggestions.map((s, i) => (
+            <div key={i} onMouseDown={e => { e.preventDefault(); pick(s.label); }} style={{ padding: '11px 14px', fontSize: 13, color: '#2C3828', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #F0F4EE' : 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <i className="ti ti-map-pin" style={{ fontSize: 12, color: '#9AA89C', flexShrink: 0 }} />
+              {s.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
   const scrollRef = useRef(null);
@@ -1079,7 +1154,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
@@ -1088,6 +1163,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [sharing, setSharing] = useState(false);
   const [cropY, setCropY] = useState(entry.cropY ?? 50);
   const [showCrop, setShowCrop] = useState(false);
+  const [location, setLocation] = useState(entry.location || '');
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [locationDraft, setLocationDraft] = useState('');
 
   async function handleShare() {
     setSharing(true);
@@ -1172,6 +1250,15 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             </p>
           )}
           <div style={{ height: 1, background: '#CCDAC8' }} />
+          <div
+            onClick={() => { setLocationDraft(location); setEditingLocation(true); }}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
+          >
+            <i className="ti ti-map-pin" style={{ fontSize: 13, color: location ? '#9AA89C' : '#C4D4C0' }} />
+            <span style={{ fontSize: 13, color: location ? '#9AA89C' : '#C4D4C0' }}>
+              {location || 'Add location'}
+            </span>
+          </div>
           {entry.mood && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
               <span style={{ fontSize: 12, color: '#9AA89C' }}>Feeling</span>
@@ -1204,6 +1291,23 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           onClose={() => setShowCrop(false)}
         />
       )}
+      {editingLocation && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => setEditingLocation(false)}>
+          <div style={{ background: '#F8FAF6', borderRadius: '24px 24px 0 0', padding: '24px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: '0 0 14px' }}>Location</p>
+            <div style={{ marginBottom: 16 }}>
+              <LocationInput value={locationDraft} onChange={setLocationDraft} autoFocus />
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setEditingLocation(false)}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => {
+                const val = locationDraft.trim();
+                setLocation(val); onUpdateLocation?.(entry.id, val || null); setEditingLocation(false);
+              }}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1228,6 +1332,8 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? signedDefault ?? '');
+  const [location, setLocation] = useState(existingEntry?.location || '');
+  const [locationFromPhoto, setLocationFromPhoto] = useState(false);
   const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
   const [showExtras, setShowExtras] = useState(true);
@@ -1338,6 +1444,23 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         }
       }
     }
+    if (!locationFromPhoto) {
+      for (const file of files) {
+        if (!file.type.startsWith('image')) continue;
+        try {
+          const tags = await exifr.parse(file, ['GPSLatitude', 'GPSLongitude']);
+          if (tags?.GPSLatitude && tags?.GPSLongitude) {
+            const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${tags.GPSLatitude},${tags.GPSLongitude}&key=${import.meta.env.VITE_GOOGLE_PLACES_KEY}`);
+            const geo = await res.json();
+            const components = geo.results?.[0]?.address_components || [];
+            const get = type => components.find(c => c.types.includes(type))?.long_name;
+            const loc = [get('locality') || get('sublocality'), get('administrative_area_level_1')].filter(Boolean).join(', ');
+            if (loc && mountedRef.current) { setLocation(loc); setLocationFromPhoto(true); }
+            break;
+          }
+        } catch {}
+      }
+    }
   }
 
   async function handleGenerate() {
@@ -1356,9 +1479,11 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             if (tags?.GPSLatitude && tags?.GPSLongitude) {
               const lat = tags.GPSLatitude;
               const lng = tags.GPSLongitude;
-              const res = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
+              const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${import.meta.env.VITE_GOOGLE_PLACES_KEY}`);
               const geo = await res.json();
-              location = [geo.city || geo.locality, geo.principalSubdivision, geo.countryName].filter(Boolean).join(', ');
+              const comps = geo.results?.[0]?.address_components || [];
+              const getC = type => comps.find(c => c.types.includes(type))?.long_name;
+              location = [getC('locality') || getC('sublocality'), getC('administrative_area_level_1')].filter(Boolean).join(', ');
             }
           } catch {}
         }
@@ -1401,6 +1526,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       date: entryDate,
       entryId: existingEntry?.id,
       signedAs: signedAs.trim() || null,
+      location: location.trim() || null,
     });
     setSaving(false);
   }
@@ -1485,6 +1611,9 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             {dateDisplay}
             {dateFromPhoto && <span style={{ fontSize: 10, color: '#9AA89C' }}>· photo</span>}
           </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <LocationInput value={location} onChange={setLocation} placeholder="Location" />
+          </div>
         </div>
 
         {/* Writing area */}
@@ -2214,7 +2343,7 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
     const m = e.milestone ? milestoneInfo(e.milestone) : null;
     const kid = kids.find(k => k.id === e.kids[0]);
     const q = debouncedQuery.toLowerCase();
-    return e.text.toLowerCase().includes(q) || (m && m.label.toLowerCase().includes(q)) || kid?.name.toLowerCase().includes(q);
+    return e.text.toLowerCase().includes(q) || (m && m.label.toLowerCase().includes(q)) || kid?.name.toLowerCase().includes(q) || e.location?.toLowerCase().includes(q);
   }) : [], [debouncedQuery, entries, kids]);
 
   return (
@@ -4240,6 +4369,7 @@ setEntries(entriesData.map(e => ({
           signedAs: e.signed_as,
           authorId: e.author_id || null,
           cropY: e.crop_y ?? null,
+          location: e.location || null,
         })));
       }
       setDataLoading(false);
@@ -4289,7 +4419,7 @@ setEntries(entriesData.map(e => ({
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs, location }) {
     const primaryKid = kids.find(k => k.id === kidIds[0]);
     const { years, months } = exactAge(primaryKid.birthdate, date);
     const ageMonths = years * 12 + months;
@@ -4301,7 +4431,7 @@ setEntries(entriesData.map(e => ({
         setScreen('home');
         return;
       }
-      await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null }).eq('id', entryId);
+      await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null }).eq('id', entryId);
 
       // Delete existing media rows, then re-insert (handles removals + new uploads)
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
@@ -4337,7 +4467,7 @@ setEntries(entriesData.map(e => ({
       if (finalMedia.length > 0) {
         await supabase.from('entry_media').insert(finalMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type })));
       }
-      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null } : e));
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null, location: location || null } : e));
       setScreen('home');
       return;
     }
@@ -4378,6 +4508,7 @@ setEntries(entriesData.map(e => ({
       date,
       age_months: ageMonths,
       palette,
+      location: location || null,
     }).select().single();
 
     if (error || !entry) {
@@ -4423,7 +4554,7 @@ setEntries(entriesData.map(e => ({
       await supabase.from('entry_media').insert(savedMedia.map(m => ({ entry_id: entry.id, url: m.url, type: m.type })));
     }
 
-    const newEntry = { id: entry.id, kids: kidIds, date, text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null };
+    const newEntry = { id: entry.id, kids: kidIds, date, text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null, location: location || null };
     setEntries(prev => [newEntry, ...prev]);
 
     if (milestone) {
@@ -4462,6 +4593,13 @@ setEntries(entriesData.map(e => ({
     if (dbError) {
       setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: previousAvatar } : k));
       alert('Photo saved locally but failed to sync: ' + dbError.message);
+    }
+  }
+
+  async function handleUpdateLocation(entryId, location) {
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, location: location || null } : e));
+    if (!localMode && supabase && session) {
+      await supabase.from('entries').update({ location: location || null }).eq('id', entryId);
     }
   }
 
@@ -4590,6 +4728,7 @@ setEntries(entriesData.map(e => ({
         palette: e.palette || PALETTES[0],
         media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
         signedAs: e.signed_as,
+        location: e.location || null,
       })));
     }
     if (membersData) setFamilyMembers(membersData);
@@ -4775,6 +4914,7 @@ setEntries(entriesData.map(e => ({
           onToggleFavorite={handleToggleFavorite}
           onDelete={handleDeleteEntry}
           onUpdateCrop={handleUpdateCrop}
+          onUpdateLocation={handleUpdateLocation}
         />
       )}
 
