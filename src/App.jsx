@@ -701,7 +701,7 @@ function turningAge(birthdate) {
   return birthdayPassedThisYear ? ty + 1 - by : ty - by;
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop }) {
   const todayMMDD = TODAY.slice(5);
   const todayYear = parseInt(TODAY.slice(0, 4));
   const todayLabel = new Date(TODAY + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -721,6 +721,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     const next = { ...cropPositions, [cropModal.entryId]: y };
     setCropPositions(next);
     try { localStorage.setItem('patina-crop-positions', JSON.stringify(next)); } catch {}
+    onUpdateCrop?.(cropModal.entryId, y);
     setCropModal(null);
   }
 
@@ -1180,6 +1181,12 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const cameraInputRef = useRef(null);
   const uploadInputRef = useRef(null);
   const recognitionRef = useRef(null);
+
+  useEffect(() => {
+    const onVisibility = () => { if (document.hidden) document.activeElement?.blur(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
   const mountedRef = useRef(true);
   const [listening, setListening] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -3180,13 +3187,19 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
 
 // ─── Book preview ──────────────────────────────────────────────────────────
 
-function BookPreviewScreen({ kids, bookConfig, onBack }) {
+function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
   const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
   const sorted = [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1);
   const totalPages = sorted.length + 2;
   const [page, setPage] = useState(0);
   const [cropPositions, setCropPositions] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('patina-book-crop-positions') || '{}'); } catch { return {}; }
+    try {
+      const stored = JSON.parse(localStorage.getItem('patina-book-crop-positions') || '{}');
+      const fromEntries = Object.fromEntries(
+        bookConfig.bookEntries.filter(e => e.cropY != null).map(e => [e.id, e.cropY])
+      );
+      return { ...stored, ...fromEntries };
+    } catch { return {}; }
   });
   const [homeCropPositions] = useState(() => {
     try { return JSON.parse(localStorage.getItem('patina-crop-positions') || '{}'); } catch { return {}; }
@@ -3197,6 +3210,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack }) {
     const next = { ...cropPositions, [bookCropModal.entryId]: y };
     setCropPositions(next);
     try { localStorage.setItem('patina-book-crop-positions', JSON.stringify(next)); } catch {}
+    onUpdateCrop?.(bookCropModal.entryId, y);
     setBookCropModal(null);
   }
 
@@ -3995,6 +4009,7 @@ export default function App() {
   const [screen, setScreen] = useState('home');
   const [kidFilter, setKidFilter] = useState(null);
   const [activeEntry, setActiveEntry] = useState(null);
+  const [entrySource, setEntrySource] = useState('home');
   const [profileKidId, setProfileKidId] = useState(() => localMode ? (loadLocalData().kids[0]?.id ?? null) : null);
   const [growthKidId, setGrowthKidId] = useState(null);
   const [celebration, setCelebration] = useState(null);
@@ -4126,6 +4141,7 @@ setEntries(entriesData.map(e => ({
           media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
           signedAs: e.signed_as,
           authorId: e.author_id || null,
+          cropY: e.crop_y ?? null,
         })));
       }
       setDataLoading(false);
@@ -4135,8 +4151,20 @@ setEntries(entriesData.map(e => ({
   }, [session?.user?.id]);
 
   function openEntry(entry) {
+    setEntrySource(screen);
     setActiveEntry(entry);
     setScreen('entry-detail');
+  }
+
+  async function handleUpdateCrop(entryId, y) {
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, cropY: y } : e));
+    try {
+      const stored = JSON.parse(localStorage.getItem('patina-crop-positions') || '{}');
+      localStorage.setItem('patina-crop-positions', JSON.stringify({ ...stored, [entryId]: y }));
+    } catch {}
+    if (!localMode && supabase && session) {
+      await supabase.from('entries').update({ crop_y: y }).eq('id', entryId);
+    }
   }
 
   async function handleToggleFavorite(entryId) {
@@ -4595,6 +4623,7 @@ setEntries(entriesData.map(e => ({
           onAddMoment={() => setScreen('new-entry')}
           onSeeAll={() => setScreen('journal')}
           onCompare={() => setScreen('compare')}
+          onUpdateCrop={handleUpdateCrop}
         />
       )}
 
@@ -4615,7 +4644,7 @@ setEntries(entriesData.map(e => ({
           entry={activeEntry}
           kid={kids.find(k => k.id === activeEntry.kids[0])}
           allKids={kids}
-          onBack={() => setScreen('home')}
+          onBack={() => setScreen(entrySource)}
           onEdit={editEntry}
           onToggleFavorite={handleToggleFavorite}
           onDelete={handleDeleteEntry}
@@ -4671,6 +4700,7 @@ setEntries(entriesData.map(e => ({
           kids={kids}
           bookConfig={bookConfig}
           onBack={() => setScreen('book-builder')}
+          onUpdateCrop={handleUpdateCrop}
         />
       )}
 
