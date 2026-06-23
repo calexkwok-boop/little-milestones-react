@@ -3757,9 +3757,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
 
           {step === 'welcome' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: 64, height: 64, borderRadius: 20, background: '#4A5E50', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, overflow: 'hidden' }}>
-                <img src="/quill.png" style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-              </div>
+              <img src="/icon-192.png" style={{ width: 64, height: 64, borderRadius: 14, display: 'block', marginBottom: 20 }} alt="" />
               <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#2C3828', margin: '0 0 8px', lineHeight: 1.1 }}>Patina</h1>
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#7A8C78', lineHeight: 1.8, margin: '0 0 32px' }}>
                 For all the things you wish they knew.

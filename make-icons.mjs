@@ -18,11 +18,34 @@ async function makeIcon(size) {
     canvas.height = size;
     const ctx = canvas.getContext('2d');
 
-    // Green background
-    ctx.fillStyle = '#4A5E50';
+    // Gradient background: lighter at top-left, darker at bottom-right
+    const bg = ctx.createLinearGradient(0, 0, size * 0.6, size);
+    bg.addColorStop(0, '#5C7263');
+    bg.addColorStop(1, '#364840');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, size, size);
 
-    // Scale quill to fill 82% of the icon, centred
+    // Subtle radial vignette: darken edges
+    const vignette = ctx.createRadialGradient(size / 2, size / 2, size * 0.25, size / 2, size / 2, size * 0.85);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)');
+    vignette.addColorStop(1, 'rgba(0,0,0,0.28)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, size, size);
+
+    // Subtle top highlight: soft white glow at top to simulate light source
+    const shine = ctx.createRadialGradient(size * 0.5, 0, 0, size * 0.5, 0, size * 0.7);
+    shine.addColorStop(0, 'rgba(255,255,255,0.13)');
+    shine.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = shine;
+    ctx.fillRect(0, 0, size, size);
+
+    // Drop shadow on the quill
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = size * 0.06;
+    ctx.shadowOffsetX = size * 0.02;
+    ctx.shadowOffsetY = size * 0.03;
+
+    // Draw quill centred with 18% padding
     const padding = size * 0.18;
     const maxW = size - padding * 2;
     const maxH = size - padding * 2;
