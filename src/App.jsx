@@ -703,10 +703,28 @@ function turningAge(birthdate) {
   return birthdayPassedThisYear ? ty + 1 - by : ty - by;
 }
 
+function todayString() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop }) {
-  const todayMMDD = TODAY.slice(5);
-  const todayYear = parseInt(TODAY.slice(0, 4));
-  const todayLabel = new Date(TODAY + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const [currentDate, setCurrentDate] = useState(todayString);
+
+  useEffect(() => {
+    function scheduleRefresh() {
+      const now = new Date();
+      const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      const ms = midnight - now;
+      return setTimeout(() => { setCurrentDate(todayString()); scheduleRefresh(); }, ms);
+    }
+    const t = scheduleRefresh();
+    return () => clearTimeout(t);
+  }, []);
+
+  const todayMMDD = currentDate.slice(5);
+  const todayYear = parseInt(currentDate.slice(0, 4));
+  const todayLabel = new Date(currentDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
   const [cropPositions, setCropPositions] = useState(() => {
     try { return JSON.parse(localStorage.getItem('patina-crop-positions') || '{}'); } catch { return {}; }
@@ -755,13 +773,13 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     const onThisDayId = onThisDay[0]?.id;
     const pool = entries.filter(e => new Date(e.date + 'T12:00:00') < cutoff && e.id !== onThisDayId);
     if (pool.length === 0) return null;
-    const storageKey = `once-upon-${TODAY}`;
+    const storageKey = `once-upon-${currentDate}`;
     const cached = localStorage.getItem(storageKey);
     if (cached) {
       const hit = pool.find(e => String(e.id) === cached);
       if (hit) return hit;
     }
-    const daySeed = parseInt(TODAY.replace(/-/g, ''));
+    const daySeed = parseInt(currentDate.replace(/-/g, ''));
     const score = (id) => {
       const s = String(id).replace(/-/g, '');
       let h = daySeed;
@@ -771,7 +789,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     const winner = pool.reduce((best, e) => score(e.id) > score(best.id) ? e : best);
     localStorage.setItem(storageKey, String(winner.id));
     return winner;
-  }, [entries, onThisDay]);
+  }, [entries, onThisDay, currentDate]);
 
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
