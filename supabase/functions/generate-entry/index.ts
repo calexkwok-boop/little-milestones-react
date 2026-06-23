@@ -23,7 +23,7 @@ Deno.serve(async (req) => {
         max_tokens: 1200,
         messages: [{
           role: 'user',
-          content: `Fix the grammar, spelling, and punctuation in this parent's journal entry. Preserve the author's voice, word choices, and meaning exactly — only correct clear errors. Do not add sentences, change the tone, or rewrite anything that isn't broken. Return only the corrected text, nothing else.\n\n${draftText}`,
+          content: `Fix the grammar, spelling, punctuation, and capitalization in this parent's journal entry. This includes: capitalizing the word "I" wherever it appears, capitalizing the first letter of every sentence, and fixing any other clear errors. Preserve the author's voice, word choices, and meaning exactly — do not add sentences, change the tone, or rewrite anything that isn't broken. Return only the corrected text, nothing else.\n\n${draftText}`,
         }],
       });
       text = (message.content[0] as Anthropic.TextBlock).text;
