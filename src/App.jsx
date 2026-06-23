@@ -1668,7 +1668,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             width: '100%', border: 'none', outline: 'none', resize: 'none',
             background: 'transparent', fontFamily: "'Source Serif 4', serif",
             fontStyle: 'italic', fontSize: 17, lineHeight: 1.85, color: '#2C3828',
-            minHeight: media.length > 0 ? 120 : 260, padding: 0,
+            minHeight: 'calc(60vh - 80px)', padding: 0,
           }}
         />
 
