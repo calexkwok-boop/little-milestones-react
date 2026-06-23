@@ -1379,6 +1379,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? signedDefault ?? '');
   const [location, setLocation] = useState(existingEntry?.location || '');
   const [locationFromPhoto, setLocationFromPhoto] = useState(false);
+  const [previewMedia, setPreviewMedia] = useState(null);
   const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
   const [showExtras, setShowExtras] = useState(true);
@@ -1705,18 +1706,31 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         {media.length > 0 && (
           <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
             {media.map((item, i) => (
-              <div key={i} style={{ width: 76, height: 76, borderRadius: 10, overflow: 'hidden', position: 'relative', flexShrink: 0 }}>
+              <div key={i} style={{ width: 76, height: 76, borderRadius: 10, overflow: 'hidden', position: 'relative', flexShrink: 0, cursor: 'pointer' }} onClick={() => setPreviewMedia(item)}>
                 {item.type === 'video'
                   ? item.thumbnail
                     ? <img src={item.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                     : <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
                   : <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
                 }
-                <button onClick={() => { const item = media[i]; if (item.url?.startsWith('blob:')) URL.revokeObjectURL(item.url); setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={e => { e.stopPropagation(); const it = media[i]; if (it.url?.startsWith('blob:')) URL.revokeObjectURL(it.url); setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-x" />
                 </button>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Fullscreen photo preview */}
+        {previewMedia && (
+          <div onClick={() => setPreviewMedia(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {previewMedia.type === 'video'
+              ? <video src={previewMedia.url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} controls autoPlay playsInline onClick={e => e.stopPropagation()} />
+              : <img src={previewMedia.url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="" />
+            }
+            <button onClick={() => setPreviewMedia(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18 }}>
+              <i className="ti ti-x" />
+            </button>
           </div>
         )}
 
