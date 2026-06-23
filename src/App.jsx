@@ -3393,7 +3393,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
           <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: 'rgba(255,255,255,0.85)', margin: 0 }}>Patina</p>
           <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.9, textAlign: 'center' }}>
-            Patina is the beauty that comes with age. These letters are the mark you left in the small, seemingly unremarkable days that turned out to matter most. {weOrI} love you more than anything.
+            Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days, that turned out to matter most. Being your parent is the greatest joy of our lives, and we love you with a devotion that gives life its meaning.
           </p>
           <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
         </div>
@@ -3862,9 +3862,9 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                 For all the things you wish they knew.
               </p>
               <div style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
-                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#9AA89C', margin: '0 0 10px' }}>Dear Ellie,</p>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#9AA89C', margin: '0 0 10px' }}>Dear Ellie & Miles,</p>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#2C3828', lineHeight: 1.75, margin: '0 0 14px' }}>
-                  Patina is the beauty that comes with age. These letters are the mark you left in the small, seemingly unremarkable days that turned out to matter most. We love you more than anything.
+                  Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days, that turned out to matter most. Being your parents is the greatest joy of our lives, and we love you with a devotion that gives life its meaning.
                 </p>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: '#9AA89C', margin: 0 }}>— Mom &amp; Dad</p>
               </div>
@@ -3881,11 +3881,11 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
 
           {step === 'join-or-new' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: '#2C3828', lineHeight: 1.25, margin: '0 0 10px' }}>
-                Is this a new<br />Patina journal?
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 23, color: '#2C3828', lineHeight: 1.25, margin: '0 0 14px', whiteSpace: 'nowrap' }}>
+                You love them, let them know.
               </h2>
-              <p style={{ fontSize: 14, color: '#9AA89C', lineHeight: 1.6, margin: '0 0 36px' }}>
-                If your partner already set one up, you can join theirs instead.
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#7A8C78', margin: '0 0 28px' }}>
+                Is this a new journal?
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('name')}>
