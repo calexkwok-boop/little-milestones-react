@@ -980,7 +980,18 @@ function JournalEntryRow({ entry, entryKids, onClick }) {
   );
 }
 
-function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount }) {
+function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos }) {
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = scrollPos?.current ?? 0;
+    const onScroll = () => { if (scrollPos) scrollPos.current = el.scrollTop; };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
   const rows = useMemo(() => {
     const filtered = entries
       .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
@@ -1008,7 +1019,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
 
   return (
     <div className="screen">
-      <div className="scroll-area">
+      <div className="scroll-area" ref={scrollRef}>
         <div className="scrollpad" style={{ paddingBottom: 6 }}>
           <div>
             <p style={{ fontSize: 12, color: '#9AA89C', margin: 0 }}>Patina</p>
@@ -1039,13 +1050,15 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [cropY, setCropY] = useState(entry.cropY ?? 50);
+  const [showCrop, setShowCrop] = useState(false);
 
   async function handleShare() {
     setSharing(true);
@@ -1070,13 +1083,21 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               </div>
               <div className="gallery-stage">
                 {media.map((item, i) => (
-                  <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${item.url}')` }}>
+                  <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${item.url}')`, backgroundPosition: `center ${cropY}%` }}>
                     {item.type === 'video'
                       ? <video src={item.url} poster={videoThumbUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" playsInline controls onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />
                       : <div className="video-play-overlay" style={{ display: 'none' }} />
                     }
                   </div>
                 ))}
+                {onUpdateCrop && media[activeSlide]?.type !== 'video' && (
+                  <button
+                    onClick={() => setShowCrop(true)}
+                    style={{ position: 'absolute', bottom: 12, right: 12, width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
+                  >
+                    <i className="ti ti-crop" style={{ fontSize: 16 }} />
+                  </button>
+                )}
               </div>
             </>
           ) : (
@@ -1144,6 +1165,15 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             </div>
           </div>
         </div>
+      )}
+      {showCrop && media[activeSlide] && (
+        <CropModal
+          url={media[activeSlide].url}
+          cropY={cropY}
+          cardHeight={260}
+          onSave={newY => { setCropY(newY); onUpdateCrop?.(entry.id, newY); setShowCrop(false); }}
+          onClose={() => setShowCrop(false)}
+        />
       )}
     </div>
   );
@@ -4006,6 +4036,7 @@ export default function App() {
   const [kids, setKids] = useState(() => localMode ? loadLocalData().kids : []);
   const [entries, setEntries] = useState(() => localMode ? loadLocalData().entries : []);
   const [screen, setScreen] = useState('home');
+  const journalScrollPos = useRef(0);
   const [kidFilter, setKidFilter] = useState(null);
   const [activeEntry, setActiveEntry] = useState(null);
   const [entrySource, setEntrySource] = useState('home');
@@ -4635,6 +4666,7 @@ setEntries(entriesData.map(e => ({
           onOpenEntry={openEntry}
           onNewEntry={() => setScreen('new-entry')}
           memberCount={familyMembers.length}
+          scrollPos={journalScrollPos}
         />
       )}
 
@@ -4647,6 +4679,7 @@ setEntries(entriesData.map(e => ({
           onEdit={editEntry}
           onToggleFavorite={handleToggleFavorite}
           onDelete={handleDeleteEntry}
+          onUpdateCrop={handleUpdateCrop}
         />
       )}
 
