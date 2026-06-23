@@ -560,7 +560,7 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
+    <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
       {entry.media && entry.media.length > 0 && (
         <div
           ref={photoRef}
@@ -622,7 +622,7 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
         <span style={{ fontSize: 10, fontWeight: 700, color: '#9AA89C', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{yearLabel}</span>
         <div style={{ flex: 1, height: 1, background: '#CCDAC8' }} />
       </div>
-      <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer' }}>
+      <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
         {entry.media && entry.media.length > 0 && (
           <div
             ref={photoRef}
@@ -3170,7 +3170,8 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
             )}
             <button
               className="btn"
-              style={{ width: '100%', background: filtered.length === 0 ? 'rgba(255,255,255,0.08)' : '#C8993E', color: filtered.length === 0 ? 'rgba(255,255,255,0.25)' : '#fff', borderRadius: 14 }}
+              className={filtered.length === 0 ? 'btn' : 'btn btn-gold'}
+              style={{ width: '100%', background: filtered.length === 0 ? 'rgba(255,255,255,0.08)' : undefined, color: filtered.length === 0 ? 'rgba(255,255,255,0.25)' : undefined, borderRadius: 14 }}
               disabled={filtered.length === 0}
               onClick={() => onPreview({ kidIds: selectedKids, fromDate, toDate, bookEntries: filtered, authorLabel, authorSummary, recipientSummary })}
             >
@@ -3339,7 +3340,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
       </div>
 
       <div style={{ padding: '8px 20px 28px', flexShrink: 0 }}>
-        <button className="btn" style={{ width: '100%', background: '#C8993E', color: '#fff', borderRadius: 14 }}
+        <button className="btn btn-gold" style={{ width: '100%', borderRadius: 14 }}
           onClick={() => alert('Print ordering is coming soon. Your book is ready — we\'ll let you know when you can order!')}>
           <i className="ti ti-shopping-cart" style={{ fontSize: 16 }} />
           Order this book
@@ -4792,7 +4793,8 @@ setEntries(entriesData.map(e => ({
 
           <button
             onClick={() => setMonthlyRecap(null)}
-            style={{ background: '#C8993E', color: '#fff', border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}
+            className="btn btn-gold"
+            style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}
           >
             Keep going
           </button>
