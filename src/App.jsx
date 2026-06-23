@@ -2569,10 +2569,12 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [activeFamilyAvatarId, setActiveFamilyAvatarId] = useState(null);
   const [inviteCode, setInviteCode] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -2914,6 +2916,11 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#9AA89C', fontFamily: "'Inter', sans-serif", padding: '8px 0', fontWeight: 600, alignSelf: 'center' }}>
             Sign out
           </button>
+          {onDeleteAccount && (
+            <button onClick={() => setShowDeleteConfirm(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#C4A09C', fontFamily: "'Inter', sans-serif", padding: '4px 0', fontWeight: 500, alignSelf: 'center' }}>
+              Delete account
+            </button>
+          )}
         </div>
       </div>
 
@@ -2923,6 +2930,38 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           onConfirm={blob => { cropState.onConfirm(blob); setCropState(null); }}
           onCancel={() => setCropState(null)}
         />
+      )}
+
+      {showDeleteConfirm && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !deleting && setShowDeleteConfirm(false)}>
+          <div style={{ background: '#F8FAF6', borderRadius: '24px 24px 0 0', padding: '28px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#FEF0ED', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <i className="ti ti-trash" style={{ fontSize: 20, color: '#D4856A' }} />
+            </div>
+            <p style={{ fontSize: 18, fontWeight: 700, color: '#2C3828', margin: '0 0 8px', textAlign: 'center' }}>Delete your account?</p>
+            <p style={{ fontSize: 14, color: '#9AA89C', margin: '0 0 24px', textAlign: 'center', lineHeight: 1.55 }}>
+              {hasPartner
+                ? "You'll be removed from the family, but all your posts and photos will stay — your partner won't lose anything."
+                : "This permanently deletes all your entries, photos, and kids' profiles. This cannot be undone."}
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>Cancel</button>
+              <button
+                className="btn"
+                style={{ flex: 1, background: '#D4856A', color: '#fff', opacity: deleting ? 0.6 : 1 }}
+                disabled={deleting}
+                onClick={async () => {
+                  setDeleting(true);
+                  await onDeleteAccount();
+                  setDeleting(false);
+                  setShowDeleteConfirm(false);
+                }}
+              >
+                {deleting ? <><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Deleting…</> : 'Delete everything'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -4426,6 +4465,33 @@ setEntries(entriesData.map(e => ({
     }
   }
 
+  async function handleDeleteAccount() {
+    if (!supabase || !session) return;
+    const userId = session.user.id;
+    const hasPartner = familyId && familyMembers.filter(m => m.user_id !== userId).length > 0;
+    try {
+      if (hasPartner) {
+        // Leave family — keep all entries/kids so partner still sees them
+        await supabase.from('family_members').delete().eq('family_id', familyId).eq('user_id', userId);
+      } else {
+        // Solo account — full wipe
+        const { data: files } = await supabase.storage.from('media').list(userId);
+        if (files && files.length > 0) {
+          await supabase.storage.from('media').remove(files.map(f => `${userId}/${f.name}`));
+        }
+        await supabase.from('entries').delete().eq('user_id', userId);
+        await supabase.from('kids').delete().eq('user_id', userId);
+        if (familyId) {
+          await supabase.from('family_members').delete().eq('family_id', familyId).eq('user_id', userId);
+        }
+      }
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('Delete account error:', e);
+      alert('Something went wrong. Please try again.');
+    }
+  }
+
   function openProfile(kidId) {
     setProfileKidId(kidId);
     setScreen('profile');
@@ -4783,6 +4849,8 @@ setEntries(entriesData.map(e => ({
           currentUserId={session?.user?.id}
           onOpenGrowth={kidId => { setGrowthKidId(kidId); setScreen('growth'); }}
           onCreateBook={() => setScreen('book-builder')}
+          onDeleteAccount={localMode ? undefined : handleDeleteAccount}
+          hasPartner={familyMembers.filter(m => m.user_id !== session?.user?.id).length > 0}
           onSignOut={() => {
             if (localMode || !supabase) {
               setKids([]);
