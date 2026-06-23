@@ -436,7 +436,7 @@ function buildSalutation(entry, allKids) {
 
 // ─── Crop modal ──────────────────────────────────────────────────────────────
 
-function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, California', autoFocus }) {
+function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, California', autoFocus, inline, compact }) {
   const [suggestions, setSuggestions] = useState([]);
   const debounceRef = useRef(null);
   const blurRef = useRef(null);
@@ -457,7 +457,6 @@ function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, Califo
           body: JSON.stringify({ input: q }),
         });
         const data = await res.json();
-        console.log('Places response:', data);
         setSuggestions((data.suggestions || []).map(s => {
           const p = s.placePrediction;
           const main = p?.structuredFormat?.mainText?.text;
@@ -473,9 +472,42 @@ function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, Califo
     setSuggestions([]);
   }
 
+  const hasSuggestions = suggestions.length > 0;
+
+  if (compact) {
+    return (
+      <div style={{ position: 'relative', display: 'inline-block' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: '#EEF2EA', borderRadius: hasSuggestions ? '8px 8px 0 0' : 8, padding: '5px 10px' }}>
+          <i className="ti ti-map-pin" style={{ fontSize: 12, color: '#5C6B5E', flexShrink: 0 }} />
+          <input
+            autoFocus={autoFocus}
+            value={value}
+            onChange={handleChange}
+            placeholder={placeholder}
+            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 12, color: '#5C6B5E', fontFamily: "'Inter', sans-serif", fontWeight: 500, width: value ? Math.max(80, Math.min(value.length * 7.5, 200)) : 90 }}
+            onKeyDown={e => { if (e.key === 'Escape' || e.key === 'Enter') setSuggestions([]); }}
+            onBlur={() => { blurRef.current = setTimeout(() => setSuggestions([]), 150); }}
+            onFocus={() => clearTimeout(blurRef.current)}
+          />
+          {value && <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); }} style={{ background: 'none', border: 'none', color: '#9AA89C', cursor: 'pointer', padding: 0, display: 'flex' }}><i className="ti ti-x" style={{ fontSize: 11 }} /></button>}
+        </div>
+        {hasSuggestions && (
+          <div style={{ position: 'absolute', top: '100%', left: 0, background: '#fff', border: '1px solid #CCDAC8', borderRadius: '0 8px 8px 8px', overflow: 'hidden', zIndex: 50, boxShadow: '0 4px 16px rgba(44,56,40,0.12)', minWidth: 220 }}>
+            {suggestions.map((s, i) => (
+              <div key={i} onMouseDown={e => { e.preventDefault(); pick(s.label); }} style={{ padding: '10px 12px', fontSize: 13, color: '#2C3828', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #F0F4EE' : 'none', display: 'flex', alignItems: 'center', gap: 7 }}>
+                <i className="ti ti-map-pin" style={{ fontSize: 12, color: '#9AA89C', flexShrink: 0 }} />
+                {s.label}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div style={{ position: 'relative' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #CCDAC8', borderRadius: 10, padding: '11px 14px' }}>
+    <div style={{ position: inline ? undefined : 'relative' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #CCDAC8', borderRadius: hasSuggestions && inline ? '10px 10px 0 0' : 10, padding: '11px 14px' }}>
         <i className="ti ti-map-pin" style={{ color: '#9AA89C', fontSize: 15, flexShrink: 0 }} />
         <input
           autoFocus={autoFocus}
@@ -489,11 +521,15 @@ function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, Califo
         />
         {value ? <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); }} style={{ background: 'none', border: 'none', color: '#9AA89C', cursor: 'pointer', padding: 0 }}><i className="ti ti-x" style={{ fontSize: 14 }} /></button> : null}
       </div>
-      {suggestions.length > 0 && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #CCDAC8', borderRadius: 10, overflow: 'hidden', zIndex: 50, boxShadow: '0 4px 16px rgba(44,56,40,0.12)', maxHeight: 200, overflowY: 'auto' }}>
+      {hasSuggestions && (
+        <div style={inline ? {
+          border: '1px solid #CCDAC8', borderTop: 'none', borderRadius: '0 0 10px 10px', overflow: 'hidden', background: '#fff',
+        } : {
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #CCDAC8', borderRadius: 10, overflow: 'hidden', zIndex: 50, boxShadow: '0 4px 16px rgba(44,56,40,0.12)', maxHeight: 200, overflowY: 'auto',
+        }}>
           {suggestions.map((s, i) => (
-            <div key={i} onMouseDown={e => { e.preventDefault(); pick(s.label); }} style={{ padding: '11px 14px', fontSize: 13, color: '#2C3828', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #F0F4EE' : 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <i className="ti ti-map-pin" style={{ fontSize: 12, color: '#9AA89C', flexShrink: 0 }} />
+            <div key={i} onMouseDown={e => { e.preventDefault(); pick(s.label); }} style={{ padding: '12px 14px', fontSize: 14, color: '#2C3828', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #F0F4EE' : 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <i className="ti ti-map-pin" style={{ fontSize: 13, color: '#9AA89C', flexShrink: 0 }} />
               {s.label}
             </div>
           ))}
@@ -966,7 +1002,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
             const entry = onThisDay[0];
             const kid = kidMap.get(entry.kids[0]);
             const yearsAgo = todayYear - parseInt(entry.date.slice(0, 4));
-            return <OnThisDayCard entry={entry} kid={kid} allKids={kids} yearsAgo={yearsAgo} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />;
+            return <OnThisDayCard entry={entry} kid={kid} allKids={kids} yearsAgo={yearsAgo} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} />;
           })()}
 
           {onceUponATime && (() => {
@@ -979,7 +1015,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                   <span style={{ fontSize: 10, fontWeight: 700, color: '#9AA89C', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Once upon a time</span>
                   <div style={{ flex: 1, height: 1, background: '#CCDAC8' }} />
                 </div>
-                <LetterCard entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />
+                <LetterCard entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} />
               </div>
             );
           })()}
@@ -989,7 +1025,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               <SectionDivider label="Recent letters" />
               {recent.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
-                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? 50} onCropEdit={openCropModal} />;
+                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} />;
               })}
               {entries.length > 4 && (
                 <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#7A8C78', fontFamily: "'Inter', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
@@ -1301,12 +1337,13 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
       )}
       {editingLocation && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => setEditingLocation(false)}>
-          <div style={{ background: '#F8FAF6', borderRadius: '24px 24px 0 0', padding: '24px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: '0 0 14px' }}>Location</p>
-            <div style={{ marginBottom: 16 }}>
-              <LocationInput value={locationDraft} onChange={setLocationDraft} autoFocus />
+          <div style={{ background: '#F8FAF6', borderRadius: '24px 24px 0 0', padding: '24px 20px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: 0 }}>Location</p>
+              <button onClick={() => setEditingLocation(false)} style={{ background: 'none', border: 'none', color: '#9AA89C', cursor: 'pointer', padding: 4 }}><i className="ti ti-x" style={{ fontSize: 18 }} /></button>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
+            <LocationInput value={locationDraft} onChange={setLocationDraft} autoFocus inline />
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setEditingLocation(false)}>Cancel</button>
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => {
                 const val = locationDraft.trim();
@@ -1619,9 +1656,6 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             {dateDisplay}
             {dateFromPhoto && <span style={{ fontSize: 10, color: '#9AA89C' }}>· photo</span>}
           </button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <LocationInput value={location} onChange={setLocation} placeholder="Location" />
-          </div>
         </div>
 
         {/* Writing area */}
@@ -1661,6 +1695,11 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             />
           </div>
         )}
+
+        {/* Location row */}
+        <div style={{ marginTop: 10 }}>
+          <LocationInput value={location} onChange={setLocation} placeholder="Add location" compact />
+        </div>
 
         {/* Photo strip */}
         {media.length > 0 && (
@@ -2180,7 +2219,9 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
   function entryMatchesSearch(e) {
     const q = searchQuery.toLowerCase();
     const m = e.milestone ? milestoneInfo(e.milestone) : null;
-    return e.text.toLowerCase().includes(q) || (m && m.label.toLowerCase().includes(q));
+    return (e.text || '').toLowerCase().includes(q)
+      || (m && m.label.toLowerCase().includes(q))
+      || e.location?.toLowerCase().includes(q);
   }
 
   const showMeta = isSearching || isMilestoneFiltering;
@@ -2289,7 +2330,7 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
             <div style={{ display: 'flex', gap: 12 }}>
               {kids.map(kid => {
                 const matches = isSearching
-                  ? entries.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && entryMatchesSearch(e))
+                  ? entries.filter(e => e.kids.includes(kid.id) && entryMatchesSearch(e))
                   : isMilestoneFiltering
                     ? entries.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && e.milestone === milestoneFilter)
                     : entries.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths));
@@ -2378,8 +2419,8 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: matches.length > 0 ? 14 : 0 }}>
             {matches.map(e => {
-              const kid = kids.find(k => k.id === e.kids[0]);
-              return <JournalEntryRow key={e.id} entry={e} kid={kid} onClick={() => onOpenEntry(e)} />;
+              const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
+              return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onClick={() => onOpenEntry(e)} />;
             })}
           </div>
         </div>
