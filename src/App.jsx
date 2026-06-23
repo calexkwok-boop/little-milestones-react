@@ -2838,7 +2838,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
 
 
           {onCreateBook && (
-            <button onClick={onCreateBook} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: '#2C3828', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
+            <button onClick={onCreateBook} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'linear-gradient(180deg, #3A4D40 0%, #1E2E24 100%)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Inter', sans-serif", boxShadow: '0 3px 10px rgba(20,35,25,0.38), inset 0 1px 0 rgba(255,255,255,0.08)', transition: 'transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease' }} onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.opacity = '0.88'; }} onMouseUp={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }} onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }} onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.opacity = '0.88'; }} onTouchEnd={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <i className="ti ti-book" style={{ fontSize: 18, color: '#C8993E' }} />
