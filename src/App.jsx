@@ -328,7 +328,7 @@ function loadGoogleMaps() {
   if (!googleMapsPromise) {
     googleMapsPromise = new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_KEY}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_PLACES_KEY}&libraries=places&v=beta`;
       script.async = true;
       script.onload = resolve;
       script.onerror = reject;
@@ -448,14 +448,22 @@ function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, Califo
     if (q.trim().length < 2) { setSuggestions([]); return; }
     debounceRef.current = setTimeout(async () => {
       try {
-        await loadGoogleMaps();
-        const service = new window.google.maps.places.AutocompleteService();
-        const results = await new Promise(resolve =>
-          service.getPlacePredictions({ input: q }, (preds, status) =>
-            resolve(status === 'OK' ? preds : [])
-          )
-        );
-        setSuggestions((results || []).map(p => ({ label: p.description })));
+        const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': import.meta.env.VITE_GOOGLE_PLACES_KEY,
+          },
+          body: JSON.stringify({ input: q }),
+        });
+        const data = await res.json();
+        console.log('Places response:', data);
+        setSuggestions((data.suggestions || []).map(s => {
+          const p = s.placePrediction;
+          const main = p?.structuredFormat?.mainText?.text;
+          const secondary = p?.structuredFormat?.secondaryText?.text;
+          return { label: [main, secondary].filter(Boolean).join(', ') || p?.text?.text || '' };
+        }).filter(s => s.label));
       } catch {}
     }, 350);
   }
