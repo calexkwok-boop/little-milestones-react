@@ -4765,25 +4765,45 @@ setEntries(entriesData.map(e => ({
   // ── Partner activity: unseen badge (option 1) ─────────────────────────────
   useEffect(() => {
     if (!session?.user?.id || entries.length === 0) return;
-    const key = `patina-last-seen-${session.user.id}`;
-    const lastSeen = localStorage.getItem(key);
+    const lastSeen = localStorage.getItem(`patina-last-seen-${session.user.id}`);
     if (!lastSeen) return;
-    const unseen = entries.filter(e => e.authorId && e.authorId !== session.user.id && e.createdAt && e.createdAt > lastSeen);
+    const seenIds = new Set(JSON.parse(localStorage.getItem(`patina-seen-partner-${session.user.id}`) || '[]'));
+    const unseen = entries.filter(e =>
+      e.authorId && e.authorId !== session.user.id &&
+      e.createdAt && e.createdAt > lastSeen &&
+      !seenIds.has(e.id)
+    );
     setUnseenPartnerIds(unseen.map(e => e.id));
   }, [entries, session?.user?.id]);
 
   function markAllSeen() {
     if (!session?.user?.id) return;
     localStorage.setItem(`patina-last-seen-${session.user.id}`, new Date().toISOString());
+    localStorage.removeItem(`patina-seen-partner-${session.user.id}`);
     setUnseenPartnerIds([]);
   }
 
-  // Record last-seen timestamp whenever the user views the home screen
+  function markPartnerEntrySeen(entryId) {
+    if (!session?.user?.id) return;
+    setUnseenPartnerIds(prev => {
+      const next = prev.filter(id => id !== entryId);
+      if (next.length === 0) {
+        markAllSeen();
+      } else {
+        try {
+          const key = `patina-seen-partner-${session.user.id}`;
+          const seen = new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+          seen.add(entryId);
+          localStorage.setItem(key, JSON.stringify([...seen]));
+        } catch {}
+      }
+      return next;
+    });
+  }
+
   const prevScreenRef = useRef(null);
   useEffect(() => {
-    if (screen === 'home' && prevScreenRef.current !== 'home') markAllSeen();
     prevScreenRef.current = screen;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen]);
 
   // ── Partner activity: real-time toast (option 2) ───────────────────────────
@@ -5378,8 +5398,8 @@ setEntries(entriesData.map(e => ({
           kids={kids}
           unseenIds={unseenPartnerIds}
           authorName={familyMembers.find(m => m.user_id !== session?.user?.id)?.display_name || ''}
-          onBack={() => { markAllSeen(); setScreen('home'); }}
-          onOpenEntry={openEntry}
+          onBack={() => setScreen('home')}
+          onOpenEntry={(entry) => { markPartnerEntrySeen(entry.id); openEntry(entry); }}
         />
       )}
 
