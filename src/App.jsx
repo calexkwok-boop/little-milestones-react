@@ -901,12 +901,6 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     const onThisDayId = onThisDay[0]?.id;
     const pool = entries.filter(e => new Date(e.date + 'T12:00:00') < cutoff && e.id !== onThisDayId);
     if (pool.length === 0) return null;
-    const storageKey = `once-upon-${currentSlot}`;
-    const cached = localStorage.getItem(storageKey);
-    if (cached) {
-      const hit = pool.find(e => String(e.id) === cached);
-      if (hit) return hit;
-    }
     const daySeed = parseInt(currentSlot.replace(/-/g, ''));
     const score = (id) => {
       const s = String(id).replace(/-/g, '');
@@ -914,9 +908,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
       for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
       return h;
     };
-    const winner = pool.reduce((best, e) => score(e.id) > score(best.id) ? e : best);
-    localStorage.setItem(storageKey, String(winner.id));
-    return winner;
+    return pool.reduce((best, e) => score(e.id) > score(best.id) ? e : best);
   }, [entries, onThisDay, currentSlot]);
 
   const Header = () => (
