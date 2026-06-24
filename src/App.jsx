@@ -849,7 +849,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
 
@@ -984,6 +984,26 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           {kids.length > 1 && (
             <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} />
           )}
+
+          {unseenPartnerIds.length > 0 && (() => {
+            const partner = familyMembers.find(m => m.user_id !== currentUserId);
+            const name = partner?.display_name || 'Your partner';
+            const count = unseenPartnerIds.length;
+            return (
+              <div style={{ background: '#EEF5EB', border: '1px solid #C4D8C0', borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <i className="ti ti-sparkles" style={{ color: '#C8993E', fontSize: 17, flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: 13, color: '#4A5E50', fontWeight: 500 }}>
+                  {name} added {count === 1 ? 'a new letter' : `${count} new letters`}
+                </span>
+                <button
+                  onClick={() => onSeePartnerLetters?.()}
+                  style={{ background: '#4A5E50', border: 'none', borderRadius: 8, padding: '5px 10px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}
+                >
+                  See all
+                </button>
+              </div>
+            );
+          })()}
 
           {birthdayToday.map(k => (
             <div key={k.id} style={{ background: '#4A5E50', borderRadius: 16, padding: '22px 20px', textAlign: 'center' }}>
@@ -2459,6 +2479,67 @@ function haversine(lat1, lng1, lat2, lng2) {
   const dLng = (lng2 - lng1) * Math.PI / 180;
   const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function PartnerToast({ toast, onView, onDismiss }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 5000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div style={{
+      position: 'absolute', top: 12, left: 12, right: 12, zIndex: 50,
+      background: '#2C3828', borderRadius: 14, padding: '12px 14px',
+      display: 'flex', alignItems: 'center', gap: 10,
+      boxShadow: '0 4px 20px rgba(0,0,0,0.22)',
+      animation: 'screenIn 0.2s ease-out',
+    }}>
+      <i className="ti ti-sparkles" style={{ color: '#C8993E', fontSize: 18, flexShrink: 0 }} />
+      <span style={{ flex: 1, fontSize: 13, color: '#fff', fontWeight: 500 }}>
+        {toast.authorName} added a new letter
+      </span>
+      <button onClick={onView} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 8, padding: '5px 10px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
+        View
+      </button>
+      <button onClick={onDismiss} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 16, padding: 2, display: 'flex', flexShrink: 0 }}>
+        <i className="ti ti-x" />
+      </button>
+    </div>
+  );
+}
+
+function PartnerLettersScreen({ entries, kids, unseenIds, authorName, onBack, onOpenEntry }) {
+  const unseenEntries = useMemo(
+    () => entries.filter(e => unseenIds.includes(e.id)),
+    [entries, unseenIds]
+  );
+
+  return (
+    <div className="screen">
+      <div className="scroll-area">
+        <div className="scrollpad">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+            <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>
+              {authorName ? `${authorName}'s letters` : 'New letters'}
+            </h2>
+            <div style={{ width: 36 }} />
+          </div>
+          {unseenEntries.length === 0 ? (
+            <p style={{ fontSize: 13, color: '#9AA89C', textAlign: 'center', padding: '40px 0' }}>All caught up</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {unseenEntries.map(e => {
+                const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
+                return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onOpen={onOpenEntry} />;
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
@@ -4506,6 +4587,8 @@ export default function App() {
   const [joiningFamily, setJoiningFamily] = useState(false);
   const [bookConfig, setBookConfig] = useState(null);
   const [monthlyRecap, setMonthlyRecap] = useState(null);
+  const [partnerToast, setPartnerToast] = useState(null); // { entry, authorName }
+  const [unseenPartnerIds, setUnseenPartnerIds] = useState([]);
 
   // Auth listener
   useEffect(() => {
@@ -4635,6 +4718,10 @@ setEntries(entriesData.map(e => ({
           locationLng: e.location_lng ?? null,
         })));
       }
+      // Seed last-seen so the badge doesn't fire for all pre-existing entries on first load
+      const lsKey = `patina-last-seen-${session.user.id}`;
+      if (!localStorage.getItem(lsKey)) localStorage.setItem(lsKey, new Date().toISOString());
+
       setDataLoading(false);
     }
     loadData();
@@ -4675,6 +4762,61 @@ setEntries(entriesData.map(e => ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries.length]);
 
+  // ── Partner activity: unseen badge (option 1) ─────────────────────────────
+  useEffect(() => {
+    if (!session?.user?.id || entries.length === 0) return;
+    const key = `patina-last-seen-${session.user.id}`;
+    const lastSeen = localStorage.getItem(key);
+    if (!lastSeen) return;
+    const unseen = entries.filter(e => e.authorId && e.authorId !== session.user.id && e.createdAt && e.createdAt > lastSeen);
+    setUnseenPartnerIds(unseen.map(e => e.id));
+  }, [entries, session?.user?.id]);
+
+  function markAllSeen() {
+    if (!session?.user?.id) return;
+    localStorage.setItem(`patina-last-seen-${session.user.id}`, new Date().toISOString());
+    setUnseenPartnerIds([]);
+  }
+
+  // Record last-seen timestamp whenever the user views the home screen
+  const prevScreenRef = useRef(null);
+  useEffect(() => {
+    if (screen === 'home' && prevScreenRef.current !== 'home') markAllSeen();
+    prevScreenRef.current = screen;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen]);
+
+  // ── Partner activity: real-time toast (option 2) ───────────────────────────
+  const familyMembersRef = useRef(familyMembers);
+  useEffect(() => { familyMembersRef.current = familyMembers; }, [familyMembers]);
+
+  useEffect(() => {
+    if (localMode || !supabase || !session?.user?.id || !familyId) return;
+    const channel = supabase
+      .channel(`family-entries-${familyId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entries', filter: `family_id=eq.${familyId}` }, payload => {
+        const row = payload.new;
+        if (!row || row.author_id === session.user.id) return;
+        const author = familyMembersRef.current.find(m => m.user_id === row.author_id);
+        const authorName = author?.display_name || 'Your partner';
+        const newEntry = {
+          id: row.id, kids: row.kid_ids, date: row.date, text: row.text || '',
+          mood: row.mood, milestone: row.milestone, ageMonths: row.age_months,
+          palette: row.palette || PALETTES[0],
+          media: [], // entry_media not included in the change event; will load on next full refresh
+          createdAt: row.created_at || null,
+          signedAs: row.signed_as, authorId: row.author_id,
+          cropY: null, location: row.location || null, locationLat: null, locationLng: null,
+        };
+        setEntries(prev => [newEntry, ...prev.filter(e => e.id !== newEntry.id)]);
+        setPartnerToast({ entry: newEntry, authorName });
+        setUnseenPartnerIds(prev => [...prev, newEntry.id]);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user?.id, familyId]);
+
   const screenRef = useRef(screen);
   useEffect(() => { screenRef.current = screen; }, [screen]);
 
@@ -4705,11 +4847,28 @@ setEntries(entriesData.map(e => ({
     await supabase.from('entries').update({ favorited: newFavorited }).eq('id', entryId);
   }
 
+  function storagePathsFromMedia(mediaItems) {
+    const paths = [];
+    const marker = '/object/public/media/';
+    for (const item of (mediaItems || [])) {
+      if (!item.url) continue;
+      const idx = item.url.indexOf(marker);
+      if (idx === -1) continue;
+      const path = item.url.slice(idx + marker.length);
+      paths.push(path);
+      if (item.type === 'video') paths.push(path.replace(/\.[^.]+$/, '') + '-thumb.jpg');
+    }
+    return paths;
+  }
+
   async function handleDeleteEntry(entryId) {
+    const entry = entries.find(e => e.id === entryId);
     setEntries(prev => prev.filter(e => e.id !== entryId));
     setScreen('home');
     setActiveEntry(null);
     if (localMode || !supabase || !session) return;
+    const paths = storagePathsFromMedia(entry?.media);
+    if (paths.length > 0) supabase.storage.from('media').remove(paths).then(() => {});
     await supabase.from('entry_media').delete().eq('entry_id', entryId);
     await supabase.from('entries').delete().eq('id', entryId);
   }
@@ -4733,7 +4892,8 @@ setEntries(entriesData.map(e => ({
       }
       await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null }).eq('id', entryId);
 
-      // Delete existing media rows, then re-insert (handles removals + new uploads)
+      // Fetch old URLs before wiping rows so we can clean up storage after
+      const { data: oldMediaRows } = await supabase.from('entry_media').select('url, type').eq('entry_id', entryId);
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
       const finalMedia = [];
       for (let i = 0; i < media.length; i++) {
@@ -4767,6 +4927,10 @@ setEntries(entriesData.map(e => ({
       if (finalMedia.length > 0) {
         await supabase.from('entry_media').insert(finalMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type })));
       }
+      // Remove old storage files that are no longer referenced
+      const newUrls = new Set(finalMedia.map(m => m.url));
+      const oldPaths = storagePathsFromMedia((oldMediaRows || []).filter(m => !newUrls.has(m.url)));
+      if (oldPaths.length > 0) supabase.storage.from('media').remove(oldPaths).then(() => {});
       setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null } : e));
       setScreen('home');
       return;
@@ -5181,6 +5345,13 @@ setEntries(entriesData.map(e => ({
 
   return (
     <div className="app-root">
+      {partnerToast && (
+        <PartnerToast
+          toast={partnerToast}
+          onView={() => { openEntry(partnerToast.entry); setPartnerToast(null); }}
+          onDismiss={() => setPartnerToast(null)}
+        />
+      )}
       {screen === 'home' && (
         <HomeScreen
           entries={entries}
@@ -5194,6 +5365,21 @@ setEntries(entriesData.map(e => ({
           onSeeAll={() => setScreen('journal')}
           onCompare={() => setScreen('compare')}
           onUpdateCrop={handleUpdateCrop}
+          unseenPartnerIds={unseenPartnerIds}
+          familyMembers={familyMembers}
+          currentUserId={session?.user?.id}
+          onSeePartnerLetters={() => setScreen('partner-letters')}
+        />
+      )}
+
+      {screen === 'partner-letters' && (
+        <PartnerLettersScreen
+          entries={entries}
+          kids={kids}
+          unseenIds={unseenPartnerIds}
+          authorName={familyMembers.find(m => m.user_id !== session?.user?.id)?.display_name || ''}
+          onBack={() => { markAllSeen(); setScreen('home'); }}
+          onOpenEntry={openEntry}
         />
       )}
 
