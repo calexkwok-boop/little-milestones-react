@@ -229,7 +229,7 @@ async function generateShareCard(entry, allKids) {
   if (entry.signedAs) {
     ctx.font = 'italic 400 36px "Source Serif 4"';
     ctx.fillStyle = '#4A5E50';
-    ctx.fillText(`— ${entry.signedAs}`, PAD, y);
+    ctx.fillText(`Love, ${entry.signedAs}`, PAD, y);
     y += 52;
   }
 
@@ -712,7 +712,7 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
         )}
         {entry.signedAs && (
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#9AA89C', margin: '0 0 10px' }}>
-            — {entry.signedAs}
+            Love, {entry.signedAs}
           </p>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1282,7 +1282,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           <p style={{ fontSize: 17, color: '#2C3828', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: entry.text ? 'italic' : 'normal', whiteSpace: 'pre-wrap' }}>{entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim()}</p>
           {entry.signedAs && (
             <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#9AA89C', margin: 0, textAlign: 'right' }}>
-              — {entry.signedAs}
+              Love, {entry.signedAs}
             </p>
           )}
           <div style={{ height: 1, background: '#CCDAC8' }} />
@@ -1708,7 +1708,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         {/* Sign-off */}
         {signedDefault && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 16 }}>
-            <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#9AA89C' }}>—</span>
+            <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#9AA89C' }}>Love,</span>
             <input
               value={signedAs}
               onChange={e => setSignedAs(e.target.value)}
@@ -3502,7 +3502,27 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
 function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
   const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
   const sorted = [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1);
-  const totalPages = sorted.length + 2;
+
+  // Build pages array with chapter dividers inserted at year boundaries
+  const { contentPages, yearTOC } = useMemo(() => {
+    const pages = [];
+    const toc = []; // [{ year, pageIndex }]  pageIndex = index within contentPages
+    let currentYear = null;
+    let letterNum = 0;
+    sorted.forEach(entry => {
+      const year = entry.date.slice(0, 4);
+      if (year !== currentYear) {
+        currentYear = year;
+        toc.push({ year, pageIndex: pages.length });
+        pages.push({ type: 'chapter', year });
+      }
+      pages.push({ type: 'letter', entry, letterNum: letterNum++ });
+    });
+    return { contentPages: pages, yearTOC: toc };
+  }, [sorted]);
+
+  // page 0 = cover, page 1 = TOC, pages 2..N = content, last = back cover
+  const totalPages = contentPages.length + 3;
   const [page, setPage] = useState(0);
   const [cropPositions, setCropPositions] = useState(() => {
     try {
@@ -3553,7 +3573,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
           </h1>
           {authorSummary && authorSummary.toLowerCase() !== kidNameDisplay.toLowerCase() && (
             <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.7)', margin: 0, letterSpacing: 1.2, textTransform: 'uppercase' }}>
-              From {authorSummary}
+              Love, {authorSummary}
             </p>
           )}
           <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.62)', margin: 0, lineHeight: 1.7, textAlign: 'center', maxWidth: 240 }}>
@@ -3564,6 +3584,43 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
       </div>
     );
   };
+
+  const TOCPage = () => (
+    <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '40px 36px 32px' }}>
+      <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.8, textTransform: 'uppercase', margin: '0 0 28px' }}>Contents</p>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {yearTOC.map(({ year, pageIndex }) => {
+          const displayPage = pageIndex + 2 + 1; // +2 for cover+TOC, +1 for 1-based
+          return (
+            <div
+              key={year}
+              onClick={() => setPage(pageIndex + 2)}
+              style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '10px 0', borderBottom: '1px solid #EEF2EE', cursor: 'pointer' }}
+            >
+              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: '#2C3828', fontWeight: 700 }}>{year}</span>
+              <span style={{ flex: 1, borderBottom: '1px dotted #C4D8C0', margin: '0 8px 4px' }} />
+              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: '#9AA89C', fontWeight: 600 }}>{displayPage}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#C4D8C0', margin: '20px 0 0', textAlign: 'center' }}>Patina</p>
+    </div>
+  );
+
+  const ChapterPage = ({ year }) => (
+    <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+        <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,0.3)', margin: '0 auto 20px' }} />
+        <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 52, color: '#F8F4EC', margin: 0, lineHeight: 1, letterSpacing: -1 }}>{year}</p>
+        <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,0.3)', margin: '20px auto 0' }} />
+      </div>
+      <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+        <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" />
+      </div>
+    </div>
+  );
 
   const LetterPage = ({ entry, index, onCrop }) => {
     const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
@@ -3591,6 +3648,12 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
           <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '10px 0 0', letterSpacing: 0.5 }}>
             {index + 1} / {sorted.length}
           </p>
+          {entry.signedAs && (
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 11, color: '#9AA89C', margin: '6px 0 0', textAlign: 'right' }}>
+              Love, {entry.signedAs}
+            </p>
+          )}
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#C4D8C0', margin: '12px 0 0', textAlign: 'center' }}>Patina</p>
         </div>
       </div>
     );
@@ -3610,17 +3673,32 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
           </p>
           <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
         </div>
+        <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
+          <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" />
+        </div>
       </div>
     );
   };
 
   const renderPage = () => {
     if (page === 0) return <CoverPage />;
+    if (page === 1) return <TOCPage />;
     if (page === totalPages - 1) return <BackCover />;
-    return <LetterPage entry={sorted[page - 1]} index={page - 1} onCrop={(entry, h, w) => setBookCropModal({ entryId: entry.id, url: entry.media[0].url, cardH: h, photoWidth: w })} />;
+    const content = contentPages[page - 2];
+    if (!content) return null;
+    if (content.type === 'chapter') return <ChapterPage year={content.year} />;
+    return <LetterPage entry={content.entry} index={content.letterNum} onCrop={(entry, h, w) => setBookCropModal({ entryId: entry.id, url: entry.media[0].url, cardH: h, photoWidth: w })} />;
   };
 
-  const pageLabel = page === 0 ? 'Cover' : page === totalPages - 1 ? 'Back cover' : `Letter ${page} of ${sorted.length}`;
+  const pageLabel = (() => {
+    if (page === 0) return 'Cover';
+    if (page === 1) return 'Contents';
+    if (page === totalPages - 1) return 'Back cover';
+    const content = contentPages[page - 2];
+    if (!content) return '';
+    if (content.type === 'chapter') return content.year;
+    return `Letter ${content.letterNum + 1} of ${sorted.length}`;
+  })();
 
   return (
     <div className="screen" style={{ background: '#1E2820' }}>
@@ -3648,6 +3726,26 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
           style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
           <i className="ti ti-chevron-right" />
         </button>
+      </div>
+
+      <div style={{ padding: '0 20px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: "'Inter', sans-serif" }}>Page</span>
+        <input
+          type="number"
+          min={1}
+          max={totalPages}
+          placeholder={page + 1}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              const val = parseInt(e.target.value);
+              if (!isNaN(val) && val >= 1 && val <= totalPages) setPage(val - 1);
+              e.target.value = '';
+              e.target.blur();
+            }
+          }}
+          style={{ width: 52, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '5px 8px', fontSize: 12, color: '#fff', fontFamily: "'Inter', sans-serif", textAlign: 'center', outline: 'none' }}
+        />
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: "'Inter', sans-serif" }}>of {totalPages}</span>
       </div>
 
       <div style={{ padding: '8px 20px 28px', flexShrink: 0 }}>
@@ -3773,7 +3871,7 @@ function AuthScreen() {
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <img src="/icon-192.png" style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#2C3828', margin: '0 0 10px' }}>Patina</h1>
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#7A8C78', margin: 0 }}>
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#7A8C78', margin: 0, textAlign: 'center' }}>
               For all the things you wish they knew.
             </p>
           </div>
@@ -4071,7 +4169,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <img src="/icon-192.png" style={{ width: 64, height: 64, borderRadius: 14, display: 'block', marginBottom: 20 }} alt="" />
               <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#2C3828', margin: '0 0 8px', lineHeight: 1.1 }}>Patina</h1>
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#7A8C78', lineHeight: 1.8, margin: '0 0 32px' }}>
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#7A8C78', lineHeight: 1.8, margin: '0 0 32px', textAlign: 'center' }}>
                 For all the things you wish they knew.
               </p>
               <div style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
@@ -4079,7 +4177,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#2C3828', lineHeight: 1.75, margin: '0 0 14px' }}>
                   Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days, that turned out to matter most. Being your parents is the greatest joy of our lives, and we love you with a devotion that gives life its meaning.
                 </p>
-                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: '#9AA89C', margin: 0 }}>— Mom &amp; Dad</p>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: '#9AA89C', margin: 0 }}>Love, Mom &amp; Dad</p>
               </div>
               <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('join-or-new')}>
                 Begin
@@ -4094,8 +4192,8 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
 
           {step === 'join-or-new' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 23, color: '#2C3828', lineHeight: 1.25, margin: '0 0 14px', whiteSpace: 'nowrap' }}>
-                You love them, let them know.
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: '#2C3828', lineHeight: 1.25, margin: '0 0 14px' }}>
+                Ordinary days, extraordinary memories.
               </h2>
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#7A8C78', margin: '0 0 28px' }}>
                 Is this a new journal?
