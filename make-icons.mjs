@@ -46,7 +46,7 @@ async function makeIcon(size) {
     ctx.shadowOffsetY = size * 0.03;
 
     // Draw quill centred with 18% padding
-    const padding = size * 0.18;
+    const padding = size * 0.10;
     const maxW = size - padding * 2;
     const maxH = size - padding * 2;
     const scale = Math.min(maxW / img.naturalWidth, maxH / img.naturalHeight);
