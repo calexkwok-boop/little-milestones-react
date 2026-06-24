@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
+﻿import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo } from 'react';
 import './App.css';
 import exifr from 'exifr';
 import { supabase, supabaseConfigured } from './supabase.js';
@@ -436,7 +436,7 @@ function buildSalutation(entry, allKids) {
 
 // ─── Crop modal ──────────────────────────────────────────────────────────────
 
-function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, California', autoFocus, inline, compact }) {
+function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Disneyland, California', autoFocus, inline, compact }) {
   const [suggestions, setSuggestions] = useState([]);
   const debounceRef = useRef(null);
   const blurRef = useRef(null);
@@ -444,6 +444,7 @@ function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, Califo
   function handleChange(e) {
     const q = e.target.value;
     onChange(q);
+    onChangeCoords?.(null, null);
     clearTimeout(debounceRef.current);
     if (q.trim().length < 2) { setSuggestions([]); return; }
     debounceRef.current = setTimeout(async () => {
@@ -461,15 +462,23 @@ function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, Califo
           const p = s.placePrediction;
           const main = p?.structuredFormat?.mainText?.text;
           const secondary = p?.structuredFormat?.secondaryText?.text;
-          return { label: [main, secondary].filter(Boolean).join(', ') || p?.text?.text || '' };
+          return { label: [main, secondary].filter(Boolean).join(', ') || p?.text?.text || '', placeId: p?.placeId };
         }).filter(s => s.label));
       } catch {}
     }, 350);
   }
 
-  function pick(label) {
-    onChange(label);
+  async function pick(s) {
+    onChange(s.label);
     setSuggestions([]);
+    if (!s.placeId || !onChangeCoords) return;
+    try {
+      const res = await fetch(`https://places.googleapis.com/v1/places/${s.placeId}?fields=location`, {
+        headers: { 'X-Goog-Api-Key': import.meta.env.VITE_GOOGLE_PLACES_KEY },
+      });
+      const data = await res.json();
+      if (data.location) onChangeCoords(data.location.latitude, data.location.longitude);
+    } catch {}
   }
 
   const hasSuggestions = suggestions.length > 0;
@@ -489,12 +498,12 @@ function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, Califo
             onBlur={() => { blurRef.current = setTimeout(() => setSuggestions([]), 150); }}
             onFocus={() => clearTimeout(blurRef.current)}
           />
-          {value && <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); }} style={{ background: 'none', border: 'none', color: '#9AA89C', cursor: 'pointer', padding: 0, display: 'flex' }}><i className="ti ti-x" style={{ fontSize: 11 }} /></button>}
+          {value && <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); onChangeCoords?.(null, null); }} style={{ background: 'none', border: 'none', color: '#9AA89C', cursor: 'pointer', padding: 0, display: 'flex' }}><i className="ti ti-x" style={{ fontSize: 11 }} /></button>}
         </div>
         {hasSuggestions && (
           <div style={{ position: 'absolute', top: '100%', left: 0, background: '#fff', border: '1px solid #CCDAC8', borderRadius: '0 8px 8px 8px', overflow: 'hidden', zIndex: 50, boxShadow: '0 4px 16px rgba(44,56,40,0.12)', minWidth: 220 }}>
             {suggestions.map((s, i) => (
-              <div key={i} onMouseDown={e => { e.preventDefault(); pick(s.label); }} style={{ padding: '10px 12px', fontSize: 13, color: '#2C3828', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #F0F4EE' : 'none', display: 'flex', alignItems: 'center', gap: 7 }}>
+              <div key={i} onMouseDown={e => { e.preventDefault(); pick(s); }} style={{ padding: '10px 12px', fontSize: 13, color: '#2C3828', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #F0F4EE' : 'none', display: 'flex', alignItems: 'center', gap: 7 }}>
                 <i className="ti ti-map-pin" style={{ fontSize: 12, color: '#9AA89C', flexShrink: 0 }} />
                 {s.label}
               </div>
@@ -519,7 +528,7 @@ function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, Califo
           onBlur={() => { blurRef.current = setTimeout(() => setSuggestions([]), 150); }}
           onFocus={() => clearTimeout(blurRef.current)}
         />
-        {value ? <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); }} style={{ background: 'none', border: 'none', color: '#9AA89C', cursor: 'pointer', padding: 0 }}><i className="ti ti-x" style={{ fontSize: 14 }} /></button> : null}
+        {value ? <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); onChangeCoords?.(null, null); }} style={{ background: 'none', border: 'none', color: '#9AA89C', cursor: 'pointer', padding: 0 }}><i className="ti ti-x" style={{ fontSize: 14 }} /></button> : null}
       </div>
       {hasSuggestions && (
         <div style={inline ? {
@@ -528,7 +537,7 @@ function LocationInput({ value, onChange, placeholder = 'e.g. Disneyland, Califo
           position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #CCDAC8', borderRadius: 10, overflow: 'hidden', zIndex: 50, boxShadow: '0 4px 16px rgba(44,56,40,0.12)', maxHeight: 200, overflowY: 'auto',
         }}>
           {suggestions.map((s, i) => (
-            <div key={i} onMouseDown={e => { e.preventDefault(); pick(s.label); }} style={{ padding: '12px 14px', fontSize: 14, color: '#2C3828', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #F0F4EE' : 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div key={i} onMouseDown={e => { e.preventDefault(); pick(s); }} style={{ padding: '12px 14px', fontSize: 14, color: '#2C3828', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #F0F4EE' : 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
               <i className="ti ti-map-pin" style={{ fontSize: 13, color: '#9AA89C', flexShrink: 0 }} />
               {s.label}
             </div>
@@ -834,6 +843,12 @@ function todayString() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function entryAddedTime(entry) {
+  const created = entry?.createdAt ? new Date(entry.createdAt).getTime() : NaN;
+  if (!Number.isNaN(created)) return created;
+  return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
+}
+
 function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
@@ -881,7 +896,17 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   const recent = useMemo(() => entries
     .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 4),
+    .slice(0, 3),
+  [entries, kidFilter]);
+
+  const recentlyAdded = useMemo(() => entries
+    .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
+    .sort((a, b) => {
+      const aTime = entryAddedTime(a);
+      const bTime = entryAddedTime(b);
+      return bTime - aTime;
+    })
+    .slice(0, 2),
   [entries, kidFilter]);
 
   const kidMap = useMemo(() => new Map(kids.map(k => [k.id, k])), [kids]);
@@ -896,10 +921,10 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   const birthdayNextWeek = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 7), [kids]);
 
   const onceUponATime = useMemo(() => {
+    if (onThisDay.length > 0) return null;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 180);
-    const onThisDayId = onThisDay[0]?.id;
-    const pool = entries.filter(e => new Date(e.date + 'T12:00:00') < cutoff && e.id !== onThisDayId);
+    const pool = entries.filter(e => new Date(e.date + 'T12:00:00') < cutoff);
     if (pool.length === 0) return null;
     const daySeed = parseInt(currentSlot.replace(/-/g, ''));
     const score = (id) => {
@@ -928,7 +953,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
       <div className="screen">
         <div className="scroll-area" style={{ overflowY: 'hidden' }}>
           <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 28 }}>
-            <Header />
+            {Header()}
             <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} />
             <div
               onClick={onAddMoment}
@@ -1019,11 +1044,21 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                 const kid = kidMap.get(entry.kids[0]);
                 return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} />;
               })}
-              {entries.length > 4 && (
+              {entries.length > 3 && (
                 <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#7A8C78', fontFamily: "'Inter', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                   See all letters <i className="ti ti-arrow-right" style={{ fontSize: 13 }} />
                 </button>
               )}
+            </div>
+          )}
+
+          {recentlyAdded.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <SectionDivider label="Recently added" />
+              {recentlyAdded.map(entry => {
+                const kid = kidMap.get(entry.kids[0]);
+                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} />;
+              })}
             </div>
           )}
 
@@ -1067,7 +1102,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
 
 // ─── Journal timeline ────────────────────────────────────────────────────
 
-function JournalEntryRow({ entry, entryKids, onClick }) {
+const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const d = new Date(entry.date + 'T12:00:00');
   const dayNum = d.getDate();
@@ -1077,7 +1112,7 @@ function JournalEntryRow({ entry, entryKids, onClick }) {
   const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
 
   return (
-    <div className={`journal-entry${m ? ' milestone-entry' : ''}`} onClick={onClick}>
+    <div className={`journal-entry${m ? ' milestone-entry' : ''}`} onClick={() => onOpen(entry)}>
       <span className="day-quote-mark">"</span>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{ textAlign: 'center', flexShrink: 0, width: 40 }}>
@@ -1118,7 +1153,7 @@ function JournalEntryRow({ entry, entryKids, onClick }) {
       </div>
     </div>
   );
-}
+});
 
 function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos }) {
   const scrollRef = useRef(null);
@@ -1152,7 +1187,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         );
       }
       const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
-      result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onClick={() => onOpenEntry(entry)} />);
+      result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onOpen={onOpenEntry} />);
     });
     return result;
   }, [entries, kids, kidFilter, onOpenEntry]);
@@ -1202,6 +1237,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [location, setLocation] = useState(entry.location || '');
   const [editingLocation, setEditingLocation] = useState(false);
   const [locationDraft, setLocationDraft] = useState('');
+  const [locationDraftCoords, setLocationDraftCoords] = useState(null);
 
   async function handleShare() {
     setSharing(true);
@@ -1287,7 +1323,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           )}
           <div style={{ height: 1, background: '#CCDAC8' }} />
           <div
-            onClick={() => { setLocationDraft(location); setEditingLocation(true); }}
+            onClick={() => { setLocationDraft(location); setLocationDraftCoords(null); setEditingLocation(true); }}
             style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
           >
             <i className="ti ti-map-pin" style={{ fontSize: 13, color: location ? '#9AA89C' : '#C4D4C0' }} />
@@ -1334,12 +1370,12 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <p style={{ fontSize: 15, fontWeight: 700, color: '#2C3828', margin: 0 }}>Location</p>
               <button onClick={() => setEditingLocation(false)} style={{ background: 'none', border: 'none', color: '#9AA89C', cursor: 'pointer', padding: 4 }}><i className="ti ti-x" style={{ fontSize: 18 }} /></button>
             </div>
-            <LocationInput value={locationDraft} onChange={setLocationDraft} autoFocus inline />
+            <LocationInput value={locationDraft} onChange={setLocationDraft} onChangeCoords={(lat, lng) => setLocationDraftCoords(lat != null ? { lat, lng } : null)} autoFocus inline />
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setEditingLocation(false)}>Cancel</button>
               <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => {
                 const val = locationDraft.trim();
-                setLocation(val); onUpdateLocation?.(entry.id, val || null); setEditingLocation(false);
+                setLocation(val); onUpdateLocation?.(entry.id, val || null, locationDraftCoords?.lat ?? null, locationDraftCoords?.lng ?? null); setEditingLocation(false);
               }}>Save</button>
             </div>
           </div>
@@ -1371,6 +1407,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [polishing, setPolishing] = useState(false);
   const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? signedDefault ?? '');
   const [location, setLocation] = useState(existingEntry?.location || '');
+  const [locationCoords, setLocationCoords] = useState(existingEntry?.locationLat != null ? { lat: existingEntry.locationLat, lng: existingEntry.locationLng } : null);
   const [locationFromPhoto, setLocationFromPhoto] = useState(false);
   const [previewMedia, setPreviewMedia] = useState(null);
   const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
@@ -1582,6 +1619,8 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       entryId: existingEntry?.id,
       signedAs: signedAs.trim() || null,
       location: location.trim() || null,
+      locationLat: locationCoords?.lat ?? null,
+      locationLng: locationCoords?.lng ?? null,
     });
     setSaving(false);
   }
@@ -1720,7 +1759,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
 
         {/* Location row */}
         <div style={{ marginTop: 10 }}>
-          <LocationInput value={location} onChange={setLocation} placeholder="Add location" compact />
+          <LocationInput value={location} onChange={v => { setLocation(v); if (!v) setLocationCoords(null); }} onChangeCoords={(lat, lng) => setLocationCoords(lat != null ? { lat, lng } : null)} placeholder="Add location" compact />
         </div>
 
         {/* Photo strip */}
@@ -2299,7 +2338,7 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
                 placeholder="Search moments..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                style={{ border: 'none', outline: 'none', flex: 1, fontSize: 14, background: 'transparent', color: '#4A5E50', fontFamily: 'Inter, sans-serif' }}
+                style={{ border: 'none', outline: 'none', flex: 1, fontSize: 16, background: 'transparent', color: '#4A5E50', fontFamily: 'Inter, sans-serif' }}
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9AA89C', padding: 0, display: 'flex', alignItems: 'center' }}>
@@ -2414,6 +2453,14 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
 
 // ─── Search screen ─────────────────────────────────────────────────────────
 
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
 function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -2423,12 +2470,27 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
     return () => clearTimeout(t);
   }, [query]);
 
+  // Coordinate-based home detection: the cluster center with the most neighbors within 25 miles
+  const homePt = useMemo(() => {
+    const pts = entries.filter(e => e.locationLat != null && e.locationLng != null);
+    if (pts.length < 2) return null;
+    let best = null, bestCount = 0;
+    pts.forEach(p => {
+      const count = pts.filter(q => haversine(p.locationLat, p.locationLng, q.locationLat, q.locationLng) <= 25).length;
+      if (count > bestCount) { bestCount = count; best = p; }
+    });
+    if (!best || bestCount < 2) return null;
+    return { lat: best.locationLat, lng: best.locationLng };
+  }, [entries]);
+
   const matches = useMemo(() => debouncedQuery.trim() ? entries.filter(e => {
     const m = e.milestone ? milestoneInfo(e.milestone) : null;
     const kid = kids.find(k => k.id === e.kids[0]);
     const q = debouncedQuery.toLowerCase();
-    return e.text.toLowerCase().includes(q) || (m && m.label.toLowerCase().includes(q)) || kid?.name.toLowerCase().includes(q) || e.location?.toLowerCase().includes(q);
-  }) : [], [debouncedQuery, entries, kids]);
+    const hasVideo = e.media?.some(m => m.type === 'video' || /\.(mp4|mov|webm|avi|mkv)(\?|$)/i.test(m.url || ''));
+    const isTrip = e.locationLat != null && homePt != null && haversine(homePt.lat, homePt.lng, e.locationLat, e.locationLng) > 25;
+    return (e.text || '').toLowerCase().includes(q) || (m && m.label.toLowerCase().includes(q)) || kid?.name.toLowerCase().includes(q) || e.location?.toLowerCase().includes(q) || (hasVideo && 'video'.includes(q)) || (e.milestone && 'milestone'.includes(q)) || (e.favorited && 'favorites'.includes(q)) || (isTrip && 'trips'.includes(q));
+  }) : [], [debouncedQuery, entries, kids, homePt]);
 
   return (
     <div className="screen">
@@ -2443,19 +2505,34 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
             <i className="ti ti-search" style={{ color: '#9AA89C' }} />
             <input
               type="text"
-              placeholder="Search moments, milestones, trips..."
+              placeholder="Search moments, people, places..."
               value={query}
               onChange={e => setQuery(e.target.value)}
-              style={{ border: 'none', outline: 'none', flex: 1, fontSize: 14, background: 'transparent', color: '#4A5E50', fontFamily: 'Inter, sans-serif' }}
+              style={{ border: 'none', outline: 'none', flex: 1, fontSize: 16, background: 'transparent', color: '#4A5E50', fontFamily: 'Inter, sans-serif' }}
             />
           </div>
+          {!query.trim() && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[
+                { label: 'video', icon: 'ti-video' },
+                { label: 'trips', icon: 'ti-map-pin' },
+                { label: 'milestone', icon: 'ti-star' },
+                { label: 'favorites', icon: 'ti-heart' },
+              ].map(({ label, icon }) => (
+                <button key={label} onClick={() => setQuery(label)} className="chip">
+                  <i className={`ti ${icon}`} style={{ fontSize: 12 }} />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           {query.trim() && matches.length === 0 && (
             <p style={{ fontSize: 13, color: '#9AA89C', textAlign: 'center', padding: '24px 0' }}>No moments found</p>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: matches.length > 0 ? 14 : 0 }}>
             {matches.map(e => {
               const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
-              return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onClick={() => onOpenEntry(e)} />;
+              return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onOpen={onOpenEntry} />;
             })}
           </div>
         </div>
@@ -3497,6 +3574,43 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
   );
 }
 
+
+function LetterPage({ entry, index, sortedLength, kids, cropPositions, homeCropPositions, onCrop }) {
+  const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
+  const salutation = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
+  const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const photo = entry.media?.[0]?.type === 'image' ? entry.media[0] : null;
+  const cropY = cropPositions[entry.id] ?? homeCropPositions[entry.id] ?? 50;
+  const photoRef = useRef(null);
+  return (
+    <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {photo && (
+        <div ref={photoRef} style={{ position: 'relative', flexShrink: 0 }} onClick={() => onCrop(entry, 200, photoRef.current?.offsetWidth)}>
+          <CroppedPhoto src={photo.url} cropY={cropY} height={200} />
+          <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.4)', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <i className="ti ti-crop" style={{ fontSize: 12, color: '#fff' }} />
+          </div>
+        </div>
+      )}
+      <div style={{ flex: 1, padding: '20px 28px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 14px' }}>{dateLabel}</p>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#4A5E50', margin: '0 0 10px' }}>Dear {salutation},</p>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#3A3020', lineHeight: 1.85, margin: 0, flex: 1, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
+          {entry.text}
+        </p>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '10px 0 0', letterSpacing: 0.5 }}>
+          {index + 1} / {sortedLength}
+        </p>
+        {entry.signedAs && (
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 11, color: '#9AA89C', margin: '6px 0 0', textAlign: 'right' }}>
+            Love, {entry.signedAs}
+          </p>
+        )}
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#C4D8C0', margin: '12px 0 0', textAlign: 'center' }}>Patina</p>
+      </div>
+    </div>
+  );
+}
 // ─── Book preview ──────────────────────────────────────────────────────────
 
 function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
@@ -3559,7 +3673,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
   })();
 
 
-  const CoverPage = () => {
+  const renderCoverPage = () => {
     return (
       <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
@@ -3585,7 +3699,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
     );
   };
 
-  const TOCPage = () => (
+  const renderTOCPage = () => (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '40px 36px 32px' }}>
       <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.8, textTransform: 'uppercase', margin: '0 0 28px' }}>Contents</p>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
@@ -3608,7 +3722,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
     </div>
   );
 
-  const ChapterPage = ({ year }) => (
+  const renderChapterPage = (year) => (
     <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
       <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
@@ -3622,44 +3736,8 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
     </div>
   );
 
-  const LetterPage = ({ entry, index, onCrop }) => {
-    const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
-    const salutation = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
-    const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    const photo = entry.media?.[0]?.type === 'image' ? entry.media[0] : null;
-    const cropY = cropPositions[entry.id] ?? homeCropPositions[entry.id] ?? 50;
-    const photoRef = useRef(null);
-    return (
-      <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        {photo && (
-          <div ref={photoRef} style={{ position: 'relative', flexShrink: 0 }} onClick={() => onCrop(entry, 200, photoRef.current?.offsetWidth)}>
-            <CroppedPhoto src={photo.url} cropY={cropY} height={200} />
-            <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.4)', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <i className="ti ti-crop" style={{ fontSize: 12, color: '#fff' }} />
-            </div>
-          </div>
-        )}
-        <div style={{ flex: 1, padding: '20px 28px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 14px' }}>{dateLabel}</p>
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#4A5E50', margin: '0 0 10px' }}>Dear {salutation},</p>
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#3A3020', lineHeight: 1.85, margin: 0, flex: 1, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
-            {entry.text}
-          </p>
-          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '10px 0 0', letterSpacing: 0.5 }}>
-            {index + 1} / {sorted.length}
-          </p>
-          {entry.signedAs && (
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 11, color: '#9AA89C', margin: '6px 0 0', textAlign: 'right' }}>
-              Love, {entry.signedAs}
-            </p>
-          )}
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#C4D8C0', margin: '12px 0 0', textAlign: 'center' }}>Patina</p>
-        </div>
-      </div>
-    );
-  };
 
-  const BackCover = () => {
+  const renderBackCover = () => {
     const weOrI = authorLabel?.toLowerCase() === 'our family' || (authorSummary || '').includes(' and ') ? 'We' : 'I';
     return (
       <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
@@ -3681,13 +3759,13 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
   };
 
   const renderPage = () => {
-    if (page === 0) return <CoverPage />;
-    if (page === 1) return <TOCPage />;
-    if (page === totalPages - 1) return <BackCover />;
+    if (page === 0) return renderCoverPage();
+    if (page === 1) return renderTOCPage();
+    if (page === totalPages - 1) return renderBackCover();
     const content = contentPages[page - 2];
     if (!content) return null;
-    if (content.type === 'chapter') return <ChapterPage year={content.year} />;
-    return <LetterPage entry={content.entry} index={content.letterNum} onCrop={(entry, h, w) => setBookCropModal({ entryId: entry.id, url: entry.media[0].url, cardH: h, photoWidth: w })} />;
+    if (content.type === 'chapter') return renderChapterPage(content.year);
+    return <LetterPage entry={content.entry} index={content.letterNum} sortedLength={sorted.length} kids={kids} cropPositions={cropPositions} homeCropPositions={homeCropPositions} onCrop={(entry, h, w) => setBookCropModal({ entryId: entry.id, url: entry.media[0].url, cardH: h, photoWidth: w })} />;
   };
 
   const pageLabel = (() => {
@@ -4548,10 +4626,13 @@ setEntries(entriesData.map(e => ({
           mood: e.mood, milestone: e.milestone, ageMonths: e.age_months,
           palette: e.palette || PALETTES[0],
           media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
+          createdAt: e.created_at || null,
           signedAs: e.signed_as,
           authorId: e.author_id || null,
           cropY: e.crop_y ?? null,
           location: e.location || null,
+          locationLat: e.location_lat ?? null,
+          locationLng: e.location_lng ?? null,
         })));
       }
       setDataLoading(false);
@@ -4560,11 +4641,48 @@ setEntries(entriesData.map(e => ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]);
 
-  function openEntry(entry) {
-    setEntrySource(screen);
+  // Background geocode entries that have a location text but no coordinates yet
+  const geocodedIdsRef = useRef(new Set());
+  useEffect(() => {
+    if (localMode || !supabase || !session) return;
+    const toGeocode = entries.filter(e => e.location && e.locationLat == null && !geocodedIdsRef.current.has(e.id));
+    if (toGeocode.length === 0) return;
+    toGeocode.forEach(e => geocodedIdsRef.current.add(e.id));
+    const results = {};
+    Promise.all(toGeocode.map(async e => {
+      try {
+        const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': import.meta.env.VITE_GOOGLE_PLACES_KEY,
+            'X-Goog-FieldMask': 'places.location',
+          },
+          body: JSON.stringify({ textQuery: e.location, maxResultCount: 1 }),
+        });
+        const data = await res.json();
+        const loc = data.places?.[0]?.location;
+        if (loc) {
+          results[e.id] = { lat: loc.latitude, lng: loc.longitude };
+          supabase.from('entries').update({ location_lat: loc.latitude, location_lng: loc.longitude }).eq('id', e.id).then(() => {});
+        }
+      } catch {}
+    })).then(() => {
+      if (Object.keys(results).length > 0) {
+        setEntries(prev => prev.map(en => results[en.id] ? { ...en, locationLat: results[en.id].lat, locationLng: results[en.id].lng } : en));
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entries.length]);
+
+  const screenRef = useRef(screen);
+  useEffect(() => { screenRef.current = screen; }, [screen]);
+
+  const openEntry = useCallback((entry) => {
+    setEntrySource(screenRef.current);
     setActiveEntry(entry);
     setScreen('entry-detail');
-  }
+  }, []);
 
   async function handleUpdateCrop(entryId, y) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, cropY: y } : e));
@@ -4601,7 +4719,7 @@ setEntries(entriesData.map(e => ({
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs, location }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs, location, locationLat, locationLng }) {
     const primaryKid = kids.find(k => k.id === kidIds[0]);
     const { years, months } = exactAge(primaryKid.birthdate, date);
     const ageMonths = years * 12 + months;
@@ -4613,7 +4731,7 @@ setEntries(entriesData.map(e => ({
         setScreen('home');
         return;
       }
-      await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null }).eq('id', entryId);
+      await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null }).eq('id', entryId);
 
       // Delete existing media rows, then re-insert (handles removals + new uploads)
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
@@ -4649,7 +4767,7 @@ setEntries(entriesData.map(e => ({
       if (finalMedia.length > 0) {
         await supabase.from('entry_media').insert(finalMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type })));
       }
-      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null, location: location || null } : e));
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null } : e));
       setScreen('home');
       return;
     }
@@ -4662,6 +4780,7 @@ setEntries(entriesData.map(e => ({
         id: Date.now(),
         kids: kidIds,
         date,
+        createdAt: new Date().toISOString(),
         text: text || '',
         mood,
         milestone,
@@ -4691,6 +4810,8 @@ setEntries(entriesData.map(e => ({
       age_months: ageMonths,
       palette,
       location: location || null,
+      location_lat: locationLat ?? null,
+      location_lng: locationLng ?? null,
     }).select().single();
 
     if (error || !entry) {
@@ -4736,7 +4857,7 @@ setEntries(entriesData.map(e => ({
       await supabase.from('entry_media').insert(savedMedia.map(m => ({ entry_id: entry.id, url: m.url, type: m.type })));
     }
 
-    const newEntry = { id: entry.id, kids: kidIds, date, text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null, location: location || null };
+    const newEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null };
     setEntries(prev => [newEntry, ...prev]);
 
     if (milestone) {
@@ -4778,10 +4899,10 @@ setEntries(entriesData.map(e => ({
     }
   }
 
-  async function handleUpdateLocation(entryId, location) {
-    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, location: location || null } : e));
+  async function handleUpdateLocation(entryId, location, lat, lng) {
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, location: location || null, locationLat: lat ?? null, locationLng: lng ?? null } : e));
     if (!localMode && supabase && session) {
-      await supabase.from('entries').update({ location: location || null }).eq('id', entryId);
+      await supabase.from('entries').update({ location: location || null, location_lat: lat ?? null, location_lng: lng ?? null }).eq('id', entryId);
     }
   }
 
@@ -4909,8 +5030,11 @@ setEntries(entriesData.map(e => ({
         mood: e.mood, milestone: e.milestone, ageMonths: e.age_months,
         palette: e.palette || PALETTES[0],
         media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
+        createdAt: e.created_at || null,
         signedAs: e.signed_as,
         location: e.location || null,
+        locationLat: e.location_lat ?? null,
+        locationLng: e.location_lng ?? null,
       })));
     }
     if (membersData) setFamilyMembers(membersData);
