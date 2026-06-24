@@ -4246,6 +4246,8 @@ function AvatarCropModal({ imageSrc, onConfirm, onCancel }) {
 
 // ─── Onboarding ────────────────────────────────────────────────────────────
 
+const ONBOARDING_LETTER = "Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days, that turned out to matter most. Being your parents is the greatest joy of our lives, and we love you with a devotion that gives life its meaning.";
+
 function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
   const [step, setStep] = useState('welcome');
   const [doneKids, setDoneKids] = useState([]);
@@ -4262,6 +4264,15 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState('');
   const fileInputRef = useRef(null);
+
+  const [typed, setTyped] = useState(0);
+  const [letterDone, setLetterDone] = useState(false);
+
+  useEffect(() => {
+    if (letterDone || typed >= ONBOARDING_LETTER.length) { setLetterDone(true); return; }
+    const t = setTimeout(() => setTyped(p => p + 1), 22);
+    return () => clearTimeout(t);
+  }, [typed, letterDone]);
 
   const kidIndex = doneKids.length;
   const accent = KID_ACCENTS[kidIndex % KID_ACCENTS.length];
@@ -4319,10 +4330,35 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560 }}>
 
           {step !== 'welcome' && (
-            <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 36px', display: 'flex', alignItems: 'center', gap: 6, color: '#9AA89C', fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", alignSelf: 'flex-start' }}>
+            <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 24px', display: 'flex', alignItems: 'center', gap: 6, color: '#9AA89C', fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif", alignSelf: 'flex-start' }}>
               <i className="ti ti-arrow-left" style={{ fontSize: 16 }} /> Back
             </button>
           )}
+
+          {!['welcome', 'join-or-new'].includes(step) && (() => {
+            const kidFirstNames = [
+              ...doneKids.map(k => k.name.split(' ')[0]),
+              ...(name.trim() ? [name.trim().split(' ')[0]] : []),
+            ];
+            const salutation = kidFirstNames.length > 0 ? kidFirstNames.join(' & ') : null;
+            return (
+              <div style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 12, padding: '14px 16px 12px', marginBottom: 16 }}>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 11, color: '#9AA89C', margin: '0 0 6px' }}>
+                  Dear {salutation
+                    ? <span style={{ color: '#2C3828' }}>{salutation},</span>
+                    : '___,'}
+                </p>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#2C3828', lineHeight: 1.65, margin: '0 0 8px' }}>
+                  {ONBOARDING_LETTER}
+                </p>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 11, color: '#9AA89C', margin: 0 }}>
+                  Love, {displayName.trim()
+                    ? <span style={{ color: '#2C3828' }}>{displayName.trim()}</span>
+                    : '___'}
+                </p>
+              </div>
+            );
+          })()}
 
           {step === 'welcome' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -4332,13 +4368,14 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                 For all the things you wish they knew.
               </p>
               <div style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
-                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#9AA89C', margin: '0 0 10px' }}>Dear Ellie & Miles,</p>
-                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#2C3828', lineHeight: 1.75, margin: '0 0 14px' }}>
-                  Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days, that turned out to matter most. Being your parents is the greatest joy of our lives, and we love you with a devotion that gives life its meaning.
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#9AA89C', margin: '0 0 10px' }}>Dear Ellie &amp; Miles,</p>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#2C3828', lineHeight: 1.75, margin: '0 0 14px', minHeight: 120 }}>
+                  {ONBOARDING_LETTER.slice(0, typed)}
+                  {!letterDone && <span style={{ display: 'inline-block', width: 2, height: 15, background: '#4A5E50', marginLeft: 1, verticalAlign: 'middle', animation: 'blink-cursor 0.8s step-end infinite' }} />}
                 </p>
-                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: '#9AA89C', margin: 0 }}>Love, Mom &amp; Dad</p>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: '#9AA89C', margin: 0 }}>Love, your family</p>
               </div>
-              <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('join-or-new')}>
+              <button className="btn btn-primary" style={{ width: '100%', opacity: letterDone ? 1 : 0.35 }} disabled={!letterDone} onClick={() => setStep('join-or-new')}>
                 Begin
               </button>
               {onSignOut && (
@@ -4377,9 +4414,10 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                   {doneKids.map(k => k.name).join(' & ')} {doneKids.length === 1 ? 'is' : 'are'} added. One more?
                 </p>
               )}
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: '#2C3828', lineHeight: 1.25, margin: '0 0 36px' }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: '#2C3828', lineHeight: 1.25, margin: '0 0 10px' }}>
                 What's your<br />child's name?
               </h2>
+              <p style={{ fontSize: 13, color: '#9AA89C', margin: '0 0 28px' }}>Add one at a time — you can add more after.</p>
               <input
                 className="input-field"
                 placeholder="Name"
@@ -4566,6 +4604,28 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
 
 // ─── Root App ──────────────────────────────────────────────────────────────
 
+function normalizeEntry(e) {
+  return {
+    id: e.id,
+    kids: e.kid_ids,
+    date: e.date,
+    text: e.text || '',
+    mood: e.mood,
+    milestone: e.milestone,
+    ageMonths: e.age_months,
+    palette: e.palette || PALETTES[0],
+    media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
+    createdAt: e.created_at || null,
+    signedAs: e.signed_as,
+    authorId: e.author_id || null,
+    favorited: e.favorited || false,
+    cropY: e.crop_y ?? null,
+    location: e.location || null,
+    locationLat: e.location_lat ?? null,
+    locationLng: e.location_lng ?? null,
+  };
+}
+
 export default function App() {
   const localMode = !supabaseConfigured;
   const [session, setSession] = useState(null);
@@ -4704,19 +4764,7 @@ export default function App() {
         setProfileKidId(kidsData[0]?.id ?? null);
       }
       if (entriesData) {
-setEntries(entriesData.map(e => ({
-          id: e.id, kids: e.kid_ids, date: e.date, text: e.text || '',
-          mood: e.mood, milestone: e.milestone, ageMonths: e.age_months,
-          palette: e.palette || PALETTES[0],
-          media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
-          createdAt: e.created_at || null,
-          signedAs: e.signed_as,
-          authorId: e.author_id || null,
-          cropY: e.crop_y ?? null,
-          location: e.location || null,
-          locationLat: e.location_lat ?? null,
-          locationLng: e.location_lng ?? null,
-        })));
+        setEntries(entriesData.map(normalizeEntry));
       }
       // Seed last-seen so the badge doesn't fire for all pre-existing entries on first load
       const lsKey = `patina-last-seen-${session.user.id}`;
@@ -5209,17 +5257,7 @@ setEntries(entriesData.map(e => ({
       setProfileKidId(kidsData[0]?.id ?? null);
     }
     if (entriesData) {
-      setEntries(entriesData.map(e => ({
-        id: e.id, kids: e.kid_ids, date: e.date, text: e.text || '',
-        mood: e.mood, milestone: e.milestone, ageMonths: e.age_months,
-        palette: e.palette || PALETTES[0],
-        media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
-        createdAt: e.created_at || null,
-        signedAs: e.signed_as,
-        location: e.location || null,
-        locationLat: e.location_lat ?? null,
-        locationLng: e.location_lng ?? null,
-      })));
+      setEntries(entriesData.map(normalizeEntry));
     }
     if (membersData) setFamilyMembers(membersData);
     setScreen('home');
