@@ -2512,14 +2512,14 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
             />
           </div>
           {!query.trim() && (
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8 }}>
               {[
                 { label: 'video', icon: 'ti-video' },
                 { label: 'trips', icon: 'ti-map-pin' },
                 { label: 'milestone', icon: 'ti-star' },
                 { label: 'favorites', icon: 'ti-heart' },
               ].map(({ label, icon }) => (
-                <button key={label} onClick={() => setQuery(label)} className="chip">
+                <button key={label} onClick={() => setQuery(label)} className="chip" style={{ flex: 1, justifyContent: 'center', padding: '7px 6px', fontSize: 12 }}>
                   <i className={`ti ${icon}`} style={{ fontSize: 12 }} />
                   {label}
                 </button>
