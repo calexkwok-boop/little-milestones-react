@@ -4246,7 +4246,7 @@ function AvatarCropModal({ imageSrc, onConfirm, onCancel }) {
 
 // ─── Onboarding ────────────────────────────────────────────────────────────
 
-const ONBOARDING_LETTER = "Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days, that turned out to matter most. Being your parents is the greatest joy of our lives, and we love you with a devotion that gives life its meaning.";
+const ONBOARDING_LETTER = "Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet attempt to slow down time—a gift for you to one day hold, and an anchor for us to inhabit today.";
 
 function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
   const [step, setStep] = useState('welcome');
