@@ -3760,19 +3760,28 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
 
 
 function letterFontSize(charCount, hasPhoto) {
-  if (hasPhoto) return charCount < 250 ? 11.5 : charCount < 420 ? 10.5 : 9;
-  return charCount < 420 ? 11.5 : charCount < 700 ? 10.5 : charCount < 1050 ? 9.5 : 9;
+  if (hasPhoto) return charCount < 300 ? 11.5 : charCount < 500 ? 10.5 : 9;
+  return charCount < 600 ? 11.5 : charCount < 950 ? 10.5 : charCount < 1250 ? 9.5 : 9;
 }
 
 function charsPerPage(fontSize, hasPhoto) {
-  return Math.round((hasPhoto ? 380 : 920) * (9 / fontSize));
+  return Math.round((hasPhoto ? 700 : 1900) * (9 / fontSize));
 }
 
 function breakAt(text, max) {
   if (text.length <= max) return text;
   let i = max;
   while (i > 0 && !/\s/.test(text[i])) i--;
-  return i === 0 ? text.slice(0, max) : text.slice(0, i);
+  if (i === 0) return text.slice(0, max);
+  // Only avoid orphan if the last newline is within 40 chars of the split point
+  const lastNl = text.lastIndexOf('\n', i - 1);
+  if (lastNl > 0 && i - lastNl <= 40) {
+    const lastLine = text.slice(lastNl + 1, i).trim();
+    if (lastLine.split(/\s+/).filter(Boolean).length <= 2) {
+      return text.slice(0, lastNl).trimEnd();
+    }
+  }
+  return text.slice(0, i);
 }
 
 function splitLetterText(text, fontSize, hasPhoto) {
@@ -3818,24 +3827,24 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, cropPositions,
         {!isContinued && (
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: '#4A5E50', margin: '0 0 8px' }}>Dear {salutation},</p>
         )}
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: fontSize, color: '#3A3020', lineHeight: 1.72, margin: 0, flex: 1, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: fontSize, color: '#3A3020', lineHeight: 1.72, margin: 0, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
           {pageText}
         </p>
-        {hasMore ? (
-          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#C4D8C0', textAlign: 'right', margin: '8px 0 0', letterSpacing: 0.5 }}>continued →</p>
-        ) : (
-          <>
-            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '8px 0 0', letterSpacing: 0.5 }}>
+        {!hasMore && entry.signedAs && (
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10.5, color: '#9AA89C', margin: '10px 0 0', textAlign: 'right' }}>
+            Love, {entry.signedAs}
+          </p>
+        )}
+        <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+          {hasMore ? (
+            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#C4D8C0', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>continued →</p>
+          ) : (
+            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>
               {index + 1} / {sortedLength}
             </p>
-            {entry.signedAs && (
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10.5, color: '#9AA89C', margin: '4px 0 0', textAlign: 'right' }}>
-                Love, {entry.signedAs}
-              </p>
-            )}
-          </>
-        )}
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#C4D8C0', margin: '8px 0 0', textAlign: 'center' }}>Patina</p>
+          )}
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#C4D8C0', margin: 0, textAlign: 'center' }}>Patina</p>
+        </div>
       </div>
     </div>
   );
@@ -5625,7 +5634,7 @@ export default function App() {
 
       {screen === 'entry-detail' && activeEntry && (
         <EntryDetailScreen
-          entry={activeEntry}
+          entry={entries.find(e => e.id === activeEntry.id) || activeEntry}
           kid={kids.find(k => k.id === activeEntry.kids[0])}
           allKids={kids}
           onBack={() => setScreen(entrySource)}
