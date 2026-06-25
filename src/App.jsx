@@ -407,7 +407,7 @@ function KidChip({ kid, active, onClick, icon, label }) {
   );
 }
 
-function KidSelector({ kids, selected, onSelect, onManage, showBoth }) {
+function KidSelector({ kids, selected, onSelect, onManage, showBoth, partner, onPartner }) {
   return (
     <div className="scrollx">
       <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-layout-list" label="All" />
@@ -417,6 +417,16 @@ function KidSelector({ kids, selected, onSelect, onManage, showBoth }) {
       {kids.map(k => (
         <KidChip key={k.id} kid={k} active={selected === k.id} onClick={() => onSelect(k.id)} />
       ))}
+      {partner && (
+        <div className="kid-chip" onClick={onPartner} style={{ borderColor: '#C8993E', color: '#8B6914', cursor: 'pointer' }}>
+          <span className="thumb" style={partner.avatar_url ? {} : { background: '#FDF3E0', color: '#C8993E', fontSize: 10, fontWeight: 700 }}>
+            {partner.avatar_url
+              ? <img src={partner.avatar_url} alt="" />
+              : partner.display_name?.charAt(0)?.toUpperCase() || '?'}
+          </span>
+          {partner.display_name?.split(' ')[0] || 'Partner'}
+        </div>
+      )}
       {onManage && <KidChip icon="ti-home-heart" label="Family" onClick={onManage} />}
     </div>
   );
@@ -849,7 +859,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
 
@@ -954,7 +964,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         <div className="scroll-area" style={{ overflowY: 'hidden' }}>
           <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 28 }}>
             {Header()}
-            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} />
+            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} partner={partner} onPartner={onSeePartnerLetters} />
             <div
               onClick={onAddMoment}
               style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, padding: '24px 22px 28px', cursor: 'pointer' }}
@@ -981,8 +991,8 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           <Header />
 
-          {kids.length > 1 && (
-            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} />
+          {(kids.length > 1 || partner) && (
+            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} partner={partner} onPartner={onSeePartnerLetters} />
           )}
 
           {unseenPartnerIds.length > 0 && (() => {
@@ -1407,7 +1417,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signedDefault }) {
+function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey }) {
   const [selectedKids, setSelectedKids] = useState(
     existingEntry ? existingEntry.kids : (kids.length === 1 ? [kids[0].id] : [])
   );
@@ -1439,6 +1449,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [editMonth, setEditMonth] = useState('');
   const [editDay, setEditDay] = useState('');
   const [editYear, setEditYear] = useState('');
+  const [draftRestored, setDraftRestored] = useState(false);
   const cameraInputRef = useRef(null);
   const uploadInputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -1462,6 +1473,40 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Restore draft on mount (new entries only)
+  useEffect(() => {
+    if (existingEntry || !draftKey) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(draftKey) || 'null');
+      if (!saved) return;
+      if (saved.text) setText(saved.text);
+      if (saved.selectedKids?.length) setSelectedKids(saved.selectedKids);
+      if (saved.mood) setMood(saved.mood);
+      if (saved.milestoneType) setMilestoneType(saved.milestoneType);
+      if (saved.customMilestoneText) setCustomMilestoneText(saved.customMilestoneText);
+      if (saved.signedAs) setSignedAs(saved.signedAs);
+      if (saved.location) setLocation(saved.location);
+      if (saved.entryDate) setEntryDate(saved.entryDate);
+      setDraftRestored(true);
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Auto-save draft (new entries only)
+  useEffect(() => {
+    if (existingEntry || !draftKey) return;
+    const t = setTimeout(() => {
+      try {
+        if (!text.trim() && selectedKids.length === 0) {
+          localStorage.removeItem(draftKey);
+        } else {
+          localStorage.setItem(draftKey, JSON.stringify({ text, selectedKids, mood, milestoneType, customMilestoneText, signedAs, location, entryDate }));
+        }
+      } catch {}
+    }, 800);
+    return () => clearTimeout(t);
+  }, [text, selectedKids, mood, milestoneType, customMilestoneText, signedAs, location, entryDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2509,11 +2554,16 @@ function PartnerToast({ toast, onView, onDismiss }) {
   );
 }
 
-function PartnerLettersScreen({ entries, kids, unseenIds, authorName, onBack, onOpenEntry }) {
+function PartnerLettersScreen({ entries, kids, unseenIds, authorName, partnerId, onBack, onOpenEntry, onMarkAllRead }) {
   const unseenEntries = useMemo(
-    () => entries.filter(e => unseenIds.includes(e.id)),
+    () => entries.filter(e => unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
     [entries, unseenIds]
   );
+  const earlierEntries = useMemo(
+    () => entries.filter(e => partnerId && e.authorId === partnerId && !unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [entries, partnerId, unseenIds]
+  );
+  const hasAny = unseenEntries.length > 0 || earlierEntries.length > 0;
 
   return (
     <div className="screen">
@@ -2522,19 +2572,44 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, onBack, on
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
             <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>
-              {authorName ? `${authorName}'s letters` : 'New letters'}
+              {authorName ? `${authorName}'s letters` : "Partner's letters"}
             </h2>
             <div style={{ width: 36 }} />
           </div>
-          {unseenEntries.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#9AA89C', textAlign: 'center', padding: '40px 0' }}>All caught up</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {unseenEntries.map(e => {
-                const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
-                return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onOpen={onOpenEntry} />;
-              })}
-            </div>
+
+          {!hasAny && (
+            <p style={{ fontSize: 13, color: '#9AA89C', textAlign: 'center', padding: '40px 0' }}>No letters yet</p>
+          )}
+
+          {unseenEntries.length > 0 && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <p style={{ fontSize: 11, color: '#9AA89C', fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', margin: 0 }}>New</p>
+                <button onClick={onMarkAllRead} style={{ background: 'none', border: 'none', color: '#9AA89C', fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 500, padding: 0 }}>
+                  Mark all as read
+                </button>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {unseenEntries.map(e => {
+                  const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
+                  return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onOpen={onOpenEntry} />;
+                })}
+              </div>
+            </>
+          )}
+
+          {earlierEntries.length > 0 && (
+            <>
+              <p style={{ fontSize: 11, color: '#9AA89C', fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', margin: 0 }}>
+                {unseenEntries.length > 0 ? 'Earlier' : 'All letters'}
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {earlierEntries.map(e => {
+                  const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
+                  return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onOpen={onOpenEntry} />;
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>
@@ -5427,6 +5502,7 @@ export default function App() {
           familyMembers={familyMembers}
           currentUserId={session?.user?.id}
           onSeePartnerLetters={() => setScreen('partner-letters')}
+          partner={familyMembers.find(m => m.user_id !== session?.user?.id) || null}
         />
       )}
 
@@ -5436,8 +5512,10 @@ export default function App() {
           kids={kids}
           unseenIds={unseenPartnerIds}
           authorName={familyMembers.find(m => m.user_id !== session?.user?.id)?.display_name || ''}
+          partnerId={familyMembers.find(m => m.user_id !== session?.user?.id)?.user_id || null}
           onBack={() => setScreen('home')}
           onOpenEntry={(entry) => { markPartnerEntrySeen(entry.id); openEntry(entry); }}
+          onMarkAllRead={markAllSeen}
         />
       )}
 
