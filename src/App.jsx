@@ -407,7 +407,20 @@ function KidChip({ kid, active, onClick, icon, label }) {
   );
 }
 
-function KidSelector({ kids, selected, onSelect, onManage, showBoth, partner, onPartner }) {
+function AuthorChip({ member, onClick }) {
+  return (
+    <div className="kid-chip" onClick={onClick} style={{ cursor: 'pointer' }}>
+      <span className="thumb" style={member.avatar_url ? {} : { background: '#EBF2E8', color: '#4A5E50', fontSize: 10, fontWeight: 700 }}>
+        {member.avatar_url
+          ? <img src={member.avatar_url} alt="" />
+          : member.display_name?.charAt(0)?.toUpperCase() || '?'}
+      </span>
+      {member.display_name?.split(' ')[0] || 'Me'}
+    </div>
+  );
+}
+
+function KidSelector({ kids, selected, onSelect, onManage, showBoth, partner, onPartner, self, onSelf }) {
   return (
     <div className="scrollx">
       <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-layout-list" label="All" />
@@ -417,16 +430,8 @@ function KidSelector({ kids, selected, onSelect, onManage, showBoth, partner, on
       {kids.map(k => (
         <KidChip key={k.id} kid={k} active={selected === k.id} onClick={() => onSelect(k.id)} />
       ))}
-      {partner && (
-        <div className="kid-chip" onClick={onPartner} style={{ borderColor: '#C8993E', color: '#8B6914', cursor: 'pointer' }}>
-          <span className="thumb" style={partner.avatar_url ? {} : { background: '#FDF3E0', color: '#C8993E', fontSize: 10, fontWeight: 700 }}>
-            {partner.avatar_url
-              ? <img src={partner.avatar_url} alt="" />
-              : partner.display_name?.charAt(0)?.toUpperCase() || '?'}
-          </span>
-          {partner.display_name?.split(' ')[0] || 'Partner'}
-        </div>
-      )}
+      {self && <AuthorChip member={self} onClick={onSelf} />}
+      {partner && <AuthorChip member={partner} onClick={onPartner} />}
       {onManage && <KidChip icon="ti-home-heart" label="Family" onClick={onManage} />}
     </div>
   );
@@ -859,7 +864,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
 
@@ -964,7 +969,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         <div className="scroll-area" style={{ overflowY: 'hidden' }}>
           <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 28 }}>
             {Header()}
-            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} partner={partner} onPartner={onSeePartnerLetters} />
+            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} self={self} onSelf={onSeeMyLetters} partner={partner} onPartner={onSeePartnerLetters} />
             <div
               onClick={onAddMoment}
               style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, padding: '24px 22px 28px', cursor: 'pointer' }}
@@ -991,8 +996,8 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           <Header />
 
-          {(kids.length > 1 || partner) && (
-            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} partner={partner} onPartner={onSeePartnerLetters} />
+          {(kids.length > 1 || partner || self) && (
+            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} self={self} onSelf={onSeeMyLetters} partner={partner} onPartner={onSeePartnerLetters} />
           )}
 
           {unseenPartnerIds.length > 0 && (() => {
@@ -1672,6 +1677,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   }
 
   async function handleSave() {
+    if (draftKey) { try { localStorage.removeItem(draftKey); } catch {} }
     setSaving(true);
     await onSave({
       kids: selectedKids,
@@ -1752,6 +1758,26 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
 
       {/* Letter body */}
       <div className="scroll-area" style={{ padding: '4px 24px 20px' }}>
+
+        {draftRestored && (
+          <div style={{ background: '#EEF5EB', border: '1px solid #C4D8C0', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <i className="ti ti-pencil" style={{ color: '#4A5E50', fontSize: 14, flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 13, color: '#4A5E50', fontWeight: 500 }}>Draft restored</span>
+            <button
+              onClick={() => {
+                try { if (draftKey) localStorage.removeItem(draftKey); } catch {}
+                setText('');
+                setSelectedKids(kids.length === 1 ? [kids[0].id] : []);
+                setMood(null); setMilestoneType(null); setCustomMilestoneText('');
+                setSignedAs(signedDefault ?? ''); setLocation(''); setEntryDate(TODAY);
+                setDraftRestored(false);
+              }}
+              style={{ background: 'none', border: 'none', color: '#9AA89C', fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 500, padding: 0, flexShrink: 0 }}
+            >
+              Discard
+            </button>
+          </div>
+        )}
 
         {/* For + Date row */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
@@ -2554,16 +2580,20 @@ function PartnerToast({ toast, onView, onDismiss }) {
   );
 }
 
-function PartnerLettersScreen({ entries, kids, unseenIds, authorName, partnerId, onBack, onOpenEntry, onMarkAllRead }) {
+function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, currentUserId, onBack, onOpenEntry, onMarkAllRead }) {
+  const isSelf = authorId && currentUserId && authorId === currentUserId;
   const unseenEntries = useMemo(
-    () => entries.filter(e => unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [entries, unseenIds]
+    () => isSelf ? [] : entries.filter(e => unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [entries, unseenIds, isSelf]
   );
   const earlierEntries = useMemo(
-    () => entries.filter(e => partnerId && e.authorId === partnerId && !unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [entries, partnerId, unseenIds]
+    () => entries
+      .filter(e => authorId && e.authorId === authorId && (isSelf || !unseenIds.includes(e.id)))
+      .sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [entries, authorId, unseenIds, isSelf]
   );
   const hasAny = unseenEntries.length > 0 || earlierEntries.length > 0;
+  const title = isSelf ? 'My letters' : (authorName ? `${authorName}'s letters` : "Partner's letters");
 
   return (
     <div className="screen">
@@ -2571,9 +2601,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, partnerId,
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>
-              {authorName ? `${authorName}'s letters` : "Partner's letters"}
-            </h2>
+            <h2 style={{ fontSize: 16, color: '#4A5E50', margin: 0, fontWeight: 700 }}>{title}</h2>
             <div style={{ width: 36 }} />
           </div>
 
@@ -3738,31 +3766,36 @@ function LetterPage({ entry, index, sortedLength, kids, cropPositions, homeCropP
   const photo = entry.media?.[0]?.type === 'image' ? entry.media[0] : null;
   const cropY = cropPositions[entry.id] ?? homeCropPositions[entry.id] ?? 50;
   const photoRef = useRef(null);
+  const photoHeight = 176;
+  const charCount = entry.text.length;
+  const textFontSize = photo
+    ? (charCount < 250 ? 11.5 : charCount < 420 ? 10.5 : charCount < 620 ? 9.5 : charCount < 850 ? 8.5 : 7.5)
+    : (charCount < 420 ? 11.5 : charCount < 700 ? 10.5 : charCount < 1050 ? 9.5 : charCount < 1400 ? 8.5 : 7.5);
   return (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {photo && (
-        <div ref={photoRef} style={{ position: 'relative', flexShrink: 0 }} onClick={() => onCrop(entry, 200, photoRef.current?.offsetWidth)}>
-          <CroppedPhoto src={photo.url} cropY={cropY} height={200} />
+        <div ref={photoRef} style={{ position: 'relative', flexShrink: 0 }} onClick={() => onCrop(entry, photoHeight, photoRef.current?.offsetWidth)}>
+          <CroppedPhoto src={photo.url} cropY={cropY} height={photoHeight} />
           <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.4)', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <i className="ti ti-crop" style={{ fontSize: 12, color: '#fff' }} />
           </div>
         </div>
       )}
-      <div style={{ flex: 1, padding: '20px 28px 16px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 14px' }}>{dateLabel}</p>
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#4A5E50', margin: '0 0 10px' }}>Dear {salutation},</p>
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: '#3A3020', lineHeight: 1.85, margin: 0, flex: 1, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
+      <div style={{ flex: 1, padding: '18px 24px 12px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>{dateLabel}</p>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: '#4A5E50', margin: '0 0 8px' }}>Dear {salutation},</p>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: textFontSize, color: '#3A3020', lineHeight: 1.72, margin: 0, flex: 1, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
           {entry.text}
         </p>
-        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '10px 0 0', letterSpacing: 0.5 }}>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '8px 0 0', letterSpacing: 0.5 }}>
           {index + 1} / {sortedLength}
         </p>
         {entry.signedAs && (
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 11, color: '#9AA89C', margin: '6px 0 0', textAlign: 'right' }}>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10.5, color: '#9AA89C', margin: '4px 0 0', textAlign: 'right' }}>
             Love, {entry.signedAs}
           </p>
         )}
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#C4D8C0', margin: '12px 0 0', textAlign: 'center' }}>Patina</p>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#C4D8C0', margin: '8px 0 0', textAlign: 'center' }}>Patina</p>
       </div>
     </div>
   );
@@ -3903,7 +3936,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
           <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: 'rgba(255,255,255,0.85)', margin: 0 }}>Patina</p>
           <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.9, textAlign: 'center' }}>
-            Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days, that turned out to matter most. Being your parent is the greatest joy of our lives, and we love you with a devotion that gives life its meaning.
+            Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet attempt to slow down time—a gift for you to one day hold, and an anchor for us to inhabit today.
           </p>
           <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
         </div>
@@ -4723,6 +4756,7 @@ export default function App() {
   const [bookConfig, setBookConfig] = useState(null);
   const [monthlyRecap, setMonthlyRecap] = useState(null);
   const [partnerToast, setPartnerToast] = useState(null); // { entry, authorName }
+  const [letterAuthorId, setLetterAuthorId] = useState(null);
   const [unseenPartnerIds, setUnseenPartnerIds] = useState([]);
 
   // Auth listener
@@ -5481,43 +5515,54 @@ export default function App() {
       {partnerToast && (
         <PartnerToast
           toast={partnerToast}
-          onView={() => { openEntry(partnerToast.entry); setPartnerToast(null); }}
+          onView={() => { setLetterAuthorId(partnerToast.entry.authorId); setScreen('partner-letters'); setPartnerToast(null); }}
           onDismiss={() => setPartnerToast(null)}
         />
       )}
-      {screen === 'home' && (
-        <HomeScreen
-          entries={entries}
-          kids={kids}
-          kidFilter={kidFilter}
-          setKidFilter={setKidFilter}
-          onOpenEntry={openEntry}
-          onSearch={() => setScreen('search')}
-          onManage={() => openProfile(kids[0].id)}
-          onAddMoment={() => setScreen('new-entry')}
-          onSeeAll={() => setScreen('journal')}
-          onCompare={() => setScreen('compare')}
-          onUpdateCrop={handleUpdateCrop}
-          unseenPartnerIds={unseenPartnerIds}
-          familyMembers={familyMembers}
-          currentUserId={session?.user?.id}
-          onSeePartnerLetters={() => setScreen('partner-letters')}
-          partner={familyMembers.find(m => m.user_id !== session?.user?.id) || null}
-        />
-      )}
+      {screen === 'home' && (() => {
+        const partnerMember = familyMembers.find(m => m.user_id !== session?.user?.id) || null;
+        const selfMember = familyMembers.find(m => m.user_id === session?.user?.id) || null;
+        return (
+          <HomeScreen
+            entries={entries}
+            kids={kids}
+            kidFilter={kidFilter}
+            setKidFilter={setKidFilter}
+            onOpenEntry={openEntry}
+            onSearch={() => setScreen('search')}
+            onManage={() => openProfile(kids[0].id)}
+            onAddMoment={() => setScreen('new-entry')}
+            onSeeAll={() => setScreen('journal')}
+            onCompare={() => setScreen('compare')}
+            onUpdateCrop={handleUpdateCrop}
+            unseenPartnerIds={unseenPartnerIds}
+            familyMembers={familyMembers}
+            currentUserId={session?.user?.id}
+            onSeePartnerLetters={() => { setLetterAuthorId(partnerMember?.user_id || null); setScreen('partner-letters'); }}
+            onSeeMyLetters={() => { setLetterAuthorId(session?.user?.id || null); setScreen('partner-letters'); }}
+            partner={partnerMember}
+            self={selfMember}
+          />
+        );
+      })()}
 
-      {screen === 'partner-letters' && (
-        <PartnerLettersScreen
-          entries={entries}
-          kids={kids}
-          unseenIds={unseenPartnerIds}
-          authorName={familyMembers.find(m => m.user_id !== session?.user?.id)?.display_name || ''}
-          partnerId={familyMembers.find(m => m.user_id !== session?.user?.id)?.user_id || null}
-          onBack={() => setScreen('home')}
-          onOpenEntry={(entry) => { markPartnerEntrySeen(entry.id); openEntry(entry); }}
-          onMarkAllRead={markAllSeen}
-        />
-      )}
+      {screen === 'partner-letters' && (() => {
+        const authorMember = familyMembers.find(m => m.user_id === letterAuthorId);
+        const partnerMember = familyMembers.find(m => m.user_id !== session?.user?.id);
+        return (
+          <PartnerLettersScreen
+            entries={entries}
+            kids={kids}
+            unseenIds={unseenPartnerIds}
+            authorName={authorMember?.display_name || partnerMember?.display_name || ''}
+            authorId={letterAuthorId}
+            currentUserId={session?.user?.id}
+            onBack={() => setScreen('home')}
+            onOpenEntry={(entry) => { markPartnerEntrySeen(entry.id); openEntry(entry); }}
+            onMarkAllRead={markAllSeen}
+          />
+        );
+      })()}
 
       {screen === 'journal' && (
         <JournalScreen
@@ -5547,7 +5592,7 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} onCancel={() => setScreen('home')} onSave={handleSaveEntry} signedDefault={myDisplayName || undefined} />
+        <NewEntryScreen kids={kids} onCancel={() => setScreen('home')} onSave={handleSaveEntry} signedDefault={myDisplayName || undefined} draftKey={session?.user?.id ? `patina-new-draft-${session.user.id}` : 'patina-new-draft'} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
