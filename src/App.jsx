@@ -3759,18 +3759,48 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
 }
 
 
-function LetterPage({ entry, index, sortedLength, kids, cropPositions, homeCropPositions, onCrop }) {
+function letterFontSize(charCount, hasPhoto) {
+  if (hasPhoto) return charCount < 250 ? 11.5 : charCount < 420 ? 10.5 : 9;
+  return charCount < 420 ? 11.5 : charCount < 700 ? 10.5 : charCount < 1050 ? 9.5 : 9;
+}
+
+function charsPerPage(fontSize, hasPhoto) {
+  return Math.round((hasPhoto ? 380 : 920) * (9 / fontSize));
+}
+
+function breakAt(text, max) {
+  if (text.length <= max) return text;
+  let i = max;
+  while (i > 0 && !/\s/.test(text[i])) i--;
+  return i === 0 ? text.slice(0, max) : text.slice(0, i);
+}
+
+function splitLetterText(text, fontSize, hasPhoto) {
+  if (!text) return [''];
+  const firstCap = charsPerPage(fontSize, hasPhoto);
+  const contCap = charsPerPage(fontSize, false);
+  if (text.length <= firstCap) return [text];
+  const chunks = [];
+  const first = breakAt(text, firstCap);
+  chunks.push(first);
+  let rest = text.slice(first.length).trimStart();
+  while (rest.length > 0) {
+    if (rest.length <= contCap) { chunks.push(rest); break; }
+    const chunk = breakAt(rest, contCap);
+    chunks.push(chunk);
+    rest = rest.slice(chunk.length).trimStart();
+  }
+  return chunks;
+}
+
+function LetterPage({ entry, pageText, index, sortedLength, kids, cropPositions, homeCropPositions, onCrop, isContinued, hasMore, fontSize }) {
   const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
   const salutation = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const photo = entry.media?.[0]?.type === 'image' ? entry.media[0] : null;
+  const photo = !isContinued && entry.media?.[0]?.type === 'image' ? entry.media[0] : null;
   const cropY = cropPositions[entry.id] ?? homeCropPositions[entry.id] ?? 50;
   const photoRef = useRef(null);
   const photoHeight = 176;
-  const charCount = entry.text.length;
-  const textFontSize = photo
-    ? (charCount < 250 ? 11.5 : charCount < 420 ? 10.5 : charCount < 620 ? 9.5 : charCount < 850 ? 8.5 : 7.5)
-    : (charCount < 420 ? 11.5 : charCount < 700 ? 10.5 : charCount < 1050 ? 9.5 : charCount < 1400 ? 8.5 : 7.5);
   return (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {photo && (
@@ -3782,18 +3812,28 @@ function LetterPage({ entry, index, sortedLength, kids, cropPositions, homeCropP
         </div>
       )}
       <div style={{ flex: 1, padding: '18px 24px 12px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>{dateLabel}</p>
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: '#4A5E50', margin: '0 0 8px' }}>Dear {salutation},</p>
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: textFontSize, color: '#3A3020', lineHeight: 1.72, margin: 0, flex: 1, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
-          {entry.text}
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#C4D8C0', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>
+          {dateLabel}{isContinued ? ' — cont\'d' : ''}
         </p>
-        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '8px 0 0', letterSpacing: 0.5 }}>
-          {index + 1} / {sortedLength}
+        {!isContinued && (
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: '#4A5E50', margin: '0 0 8px' }}>Dear {salutation},</p>
+        )}
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: fontSize, color: '#3A3020', lineHeight: 1.72, margin: 0, flex: 1, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
+          {pageText}
         </p>
-        {entry.signedAs && (
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10.5, color: '#9AA89C', margin: '4px 0 0', textAlign: 'right' }}>
-            Love, {entry.signedAs}
-          </p>
+        {hasMore ? (
+          <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#C4D8C0', textAlign: 'right', margin: '8px 0 0', letterSpacing: 0.5 }}>continued →</p>
+        ) : (
+          <>
+            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '8px 0 0', letterSpacing: 0.5 }}>
+              {index + 1} / {sortedLength}
+            </p>
+            {entry.signedAs && (
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10.5, color: '#9AA89C', margin: '4px 0 0', textAlign: 'right' }}>
+                Love, {entry.signedAs}
+              </p>
+            )}
+          </>
         )}
         <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#C4D8C0', margin: '8px 0 0', textAlign: 'center' }}>Patina</p>
       </div>
@@ -3819,7 +3859,13 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
         toc.push({ year, pageIndex: pages.length });
         pages.push({ type: 'chapter', year });
       }
-      pages.push({ type: 'letter', entry, letterNum: letterNum++ });
+      const hasPhoto = entry.media?.[0]?.type === 'image';
+      const fs = letterFontSize((entry.text || '').length, hasPhoto);
+      const chunks = splitLetterText(entry.text || '', fs, hasPhoto);
+      const thisNum = letterNum++;
+      chunks.forEach((chunk, i) => {
+        pages.push({ type: 'letter', entry, pageText: chunk, letterNum: thisNum, isContinued: i > 0, hasMore: i < chunks.length - 1, fontSize: fs });
+      });
     });
     return { contentPages: pages, yearTOC: toc };
   }, [sorted]);
@@ -3954,7 +4000,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
     const content = contentPages[page - 2];
     if (!content) return null;
     if (content.type === 'chapter') return renderChapterPage(content.year);
-    return <LetterPage entry={content.entry} index={content.letterNum} sortedLength={sorted.length} kids={kids} cropPositions={cropPositions} homeCropPositions={homeCropPositions} onCrop={(entry, h, w) => setBookCropModal({ entryId: entry.id, url: entry.media[0].url, cardH: h, photoWidth: w })} />;
+    return <LetterPage entry={content.entry} pageText={content.pageText} index={content.letterNum} sortedLength={sorted.length} kids={kids} cropPositions={cropPositions} homeCropPositions={homeCropPositions} onCrop={(entry, h, w) => setBookCropModal({ entryId: entry.id, url: entry.media[0].url, cardH: h, photoWidth: w })} isContinued={content.isContinued} hasMore={content.hasMore} fontSize={content.fontSize} />;
   };
 
   const pageLabel = (() => {
