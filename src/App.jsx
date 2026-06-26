@@ -466,6 +466,7 @@ function buildSalutation(entry, allKids) {
 
 function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Disneyland, California', autoFocus, inline, compact }) {
   const [suggestions, setSuggestions] = useState([]);
+  const [placesUnavailable, setPlacesUnavailable] = useState(false);
   const debounceRef = useRef(null);
   const blurRef = useRef(null);
 
@@ -474,7 +475,7 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
     onChange(q);
     onChangeCoords?.(null, null);
     clearTimeout(debounceRef.current);
-    if (q.trim().length < 2) { setSuggestions([]); return; }
+    if (placesUnavailable || q.trim().length < 2) { setSuggestions([]); return; }
     debounceRef.current = setTimeout(async () => {
       try {
         const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
@@ -482,9 +483,19 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
           headers: {
             'Content-Type': 'application/json',
             'X-Goog-Api-Key': import.meta.env.VITE_GOOGLE_PLACES_KEY,
+            'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.text.text,suggestions.placePrediction.structuredFormat.mainText.text,suggestions.placePrediction.structuredFormat.secondaryText.text',
           },
           body: JSON.stringify({ input: q }),
         });
+        if (!res.ok) {
+          if (res.status === 403) {
+            setPlacesUnavailable(true);
+            setSuggestions([]);
+            console.warn('Google Places autocomplete is unavailable. Check that the Places API (New) is enabled, billing is active, and this origin is allowed for your API key.');
+            return;
+          }
+          throw new Error(`Places autocomplete failed with ${res.status}`);
+        }
         const data = await res.json();
         setSuggestions((data.suggestions || []).map(s => {
           const p = s.placePrediction;
@@ -499,11 +510,15 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
   async function pick(s) {
     onChange(s.label);
     setSuggestions([]);
-    if (!s.placeId || !onChangeCoords) return;
+    if (placesUnavailable || !s.placeId || !onChangeCoords) return;
     try {
-      const res = await fetch(`https://places.googleapis.com/v1/places/${s.placeId}?fields=location`, {
-        headers: { 'X-Goog-Api-Key': import.meta.env.VITE_GOOGLE_PLACES_KEY },
+      const res = await fetch(`https://places.googleapis.com/v1/places/${s.placeId}`, {
+        headers: {
+          'X-Goog-Api-Key': import.meta.env.VITE_GOOGLE_PLACES_KEY,
+          'X-Goog-FieldMask': 'location',
+        },
       });
+      if (!res.ok) throw new Error(`Place details failed with ${res.status}`);
       const data = await res.json();
       if (data.location) onChangeCoords(data.location.latitude, data.location.longitude);
     } catch {}
@@ -708,9 +723,116 @@ function BookCropModal({ url, mediaType, cropY, cardHeight, photoWidth, onSave, 
   );
 }
 
-function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCropEdit }) {
+function useLongPress(callback, ms = 500) {
+  const timer = useRef(null);
+  const didFire = useRef(false);
+  const startPos = useRef(null);
+
+  function onTouchStart(e) {
+    if (!callback) return;
+    didFire.current = false;
+    startPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    timer.current = setTimeout(() => { didFire.current = true; callback(); }, ms);
+  }
+  function onTouchMove(e) {
+    if (!startPos.current) return;
+    if (Math.abs(e.touches[0].clientX - startPos.current.x) > 8 ||
+        Math.abs(e.touches[0].clientY - startPos.current.y) > 8) {
+      clearTimeout(timer.current);
+    }
+  }
+  function onTouchEnd() { clearTimeout(timer.current); startPos.current = null; }
+  function wrapClick(handler) {
+    return (e) => { if (didFire.current) { didFire.current = false; return; } handler?.(e); };
+  }
+  return { onTouchStart, onTouchMove, onTouchEnd, wrapClick, didFire };
+}
+
+function usePullToRefresh(scrollRef, onRefresh) {
+  const startY = useRef(null);
+  const [pullY, setPullY] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const isRefreshing = useRef(false);
+
+  const handlers = {
+    onTouchStart(e) {
+      if (isRefreshing.current || (scrollRef.current?.scrollTop ?? 1) > 0) return;
+      startY.current = e.touches[0].clientY;
+    },
+    onTouchMove(e) {
+      if (startY.current === null || isRefreshing.current) return;
+      const dy = e.touches[0].clientY - startY.current;
+      if (dy <= 0) { startY.current = null; setPullY(0); return; }
+      setPullY(Math.min(dy * 0.45, 64));
+    },
+    onTouchEnd() {
+      if (isRefreshing.current) return;
+      const py = pullY;
+      startY.current = null;
+      setPullY(0);
+      if (py >= 52) {
+        isRefreshing.current = true;
+        setRefreshing(true);
+        Promise.resolve(onRefresh?.()).finally(() => { isRefreshing.current = false; setRefreshing(false); });
+      }
+    },
+  };
+
+  const indicator = (pullY > 0 || refreshing) ? (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: refreshing ? 52 : pullY, flexShrink: 0, overflow: 'hidden', transition: pullY > 0 ? 'none' : 'height 0.25s ease' }}>
+      <i className={`ti ${refreshing ? 'ti-loader-2' : 'ti-refresh'}`} style={{ fontSize: 20, color: '#4A5E50', animation: refreshing ? 'spin 1s linear infinite' : 'none', transform: !refreshing ? `rotate(${(pullY / 64) * 360}deg)` : 'none', opacity: refreshing ? 1 : Math.min(pullY / 30, 1) }} />
+    </div>
+  ) : null;
+
+  return { handlers, indicator };
+}
+
+function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDelete }) {
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const preview = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
+  const actions = [
+    { icon: entry.favorited ? 'ti-heart-filled' : 'ti-heart', label: entry.favorited ? 'Remove from favorites' : 'Add to favorites', color: entry.favorited ? '#C8993E' : '#2C3828', fn: onFavorite },
+    { icon: 'ti-share', label: 'Share', color: '#2C3828', fn: onShare },
+    { icon: 'ti-trash', label: 'Delete', color: '#D4856A', fn: () => setConfirmingDelete(true) },
+  ];
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
+      <div className="quick-sheet" onClick={e => e.stopPropagation()} style={{ background: '#FBF8F2', borderRadius: '20px 20px 0 0', width: '100%', padding: '12px 0 28px' }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: '#D4D0C8', margin: '0 auto 14px' }} />
+        <div style={{ padding: '0 20px 14px', borderBottom: '1px solid #E8E4DC' }}>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: '#6B7F6D', margin: 0, lineHeight: 1.5 }}>
+            {preview.length > 100 ? preview.slice(0, 100) + '…' : preview}
+          </p>
+        </div>
+        {confirmingDelete ? (
+          <div style={{ padding: '20px 20px 8px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <p style={{ fontSize: 15, fontWeight: 600, color: '#2C3828', margin: 0, textAlign: 'center' }}>Delete this entry?</p>
+            <p style={{ fontSize: 13, color: '#9AA89C', margin: 0, textAlign: 'center' }}>This can't be undone.</p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setConfirmingDelete(false)}>Cancel</button>
+              <button className="btn" style={{ flex: 1, background: '#D4856A', color: '#fff' }} onClick={onDelete}>Delete</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: '4px 12px 8px' }}>
+            {actions.map(({ icon, label, color, fn }) => (
+              <button key={label} onClick={fn} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 10px', borderRadius: 12, fontFamily: 'Inter, sans-serif' }}>
+                <i className={`ti ${icon}`} style={{ fontSize: 20, color, width: 24, textAlign: 'center' }} />
+                <span style={{ fontSize: 15, fontWeight: 500, color }}>{label}</span>
+              </button>
+            ))}
+            <button className="btn btn-outline" style={{ width: '100%', marginTop: 4 }} onClick={onClose}>Cancel</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCropEdit, onLongPress }) {
   const cardH = featured ? 200 : 150;
   const photoRef = useRef(null);
+  const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const preview = cleanText.length > (featured ? 160 : 110)
     ? cleanText.slice(0, featured ? 160 : 110) + '…'
@@ -718,11 +840,11 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <div onClick={onClick} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
+    <div onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd} style={{ background: '#F8FAF6', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
       {entry.media && entry.media.length > 0 && (
         <div
           ref={photoRef}
-          onClick={e => { e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH, photoRef.current?.offsetWidth); }}
+          onClick={e => { if (lp.didFire.current) { lp.didFire.current = false; return; } e.stopPropagation(); onCropEdit && onCropEdit(entry.id, cardH, photoRef.current?.offsetWidth); }}
           style={{ position: 'relative', height: cardH, overflow: 'hidden', cursor: onCropEdit ? 'move' : 'pointer' }}
         >
           {entry.media[0].type === 'video' ? (
@@ -877,9 +999,13 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
+  const [longPressEntry, setLongPressEntry] = useState(null);
+  const handleLongPress = useCallback((entry) => setLongPressEntry(entry), []);
+  const scrollRef = useRef(null);
+  const ptr = usePullToRefresh(scrollRef, onRefresh);
 
   useEffect(() => {
     function scheduleRefresh() {
@@ -1004,8 +1130,9 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   }
 
   return (
-    <div className="screen">
-      <div className="scroll-area">
+    <div className="screen" style={{ position: 'relative' }}>
+      <div className="scroll-area" ref={scrollRef} style={{ overscrollBehaviorY: 'contain' }} {...ptr.handlers}>
+        {ptr.indicator}
         <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           <Header />
 
@@ -1080,7 +1207,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                   <span style={{ fontSize: 10, fontWeight: 700, color: '#9AA89C', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Once upon a time</span>
                   <div style={{ flex: 1, height: 1, background: '#CCDAC8' }} />
                 </div>
-                <LetterCard entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} />
+                <LetterCard entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
               </div>
             );
           })()}
@@ -1090,7 +1217,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               <SectionDivider label="Recent letters" />
               {recent.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
-                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} />;
+                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />;
               })}
               {entries.length > 3 && (
                 <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: '#7A8C78', fontFamily: "'Inter', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
@@ -1105,7 +1232,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               <SectionDivider label="Recently added" />
               {recentlyAdded.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
-                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} />;
+                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />;
               })}
             </div>
           )}
@@ -1144,13 +1271,23 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           onClose={() => setCropModal(null)}
         />
       )}
+      {longPressEntry && (
+        <QuickActionSheet
+          entry={longPressEntry}
+          allKids={kids}
+          onClose={() => setLongPressEntry(null)}
+          onFavorite={() => { onToggleFavorite?.(longPressEntry.id); setLongPressEntry(null); }}
+          onShare={() => { shareEntry(longPressEntry, kids).catch(() => {}); setLongPressEntry(null); }}
+          onDelete={() => { setLongPressEntry(null); onDeleteEntry?.(longPressEntry.id); }}
+        />
+      )}
     </div>
   );
 }
 
 // ─── Journal timeline ────────────────────────────────────────────────────
 
-const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen }) {
+const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen, onLongPress }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const d = new Date(entry.date + 'T12:00:00');
   const dayNum = d.getDate();
@@ -1158,9 +1295,10 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
   const rawText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const text = rawText.length > 160 ? rawText.slice(0, 160) + '...' : rawText;
   const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
+  const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
 
   return (
-    <div className={`journal-entry${m ? ' milestone-entry' : ''}`} onClick={() => onOpen(entry)}>
+    <div className={`journal-entry${m ? ' milestone-entry' : ''}`} onClick={lp.wrapClick(() => onOpen(entry))} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd}>
       <span className="day-quote-mark">"</span>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{ textAlign: 'center', flexShrink: 0, width: 40 }}>
@@ -1203,8 +1341,11 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
   );
 });
 
-function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos }) {
+function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos, onRefresh, onToggleFavorite, onDeleteEntry }) {
   const scrollRef = useRef(null);
+  const [longPressEntry, setLongPressEntry] = useState(null);
+  const handleLongPress = useCallback((entry) => setLongPressEntry(entry), []);
+  const ptr = usePullToRefresh(scrollRef, onRefresh);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1235,14 +1376,15 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         );
       }
       const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
-      result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onOpen={onOpenEntry} />);
+      result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onOpen={onOpenEntry} onLongPress={handleLongPress} />);
     });
     return result;
-  }, [entries, kids, kidFilter, onOpenEntry]);
+  }, [entries, kids, kidFilter, onOpenEntry, handleLongPress]);
 
   return (
-    <div className="screen">
-      <div className="scroll-area" ref={scrollRef}>
+    <div className="screen" style={{ position: 'relative' }}>
+      <div className="scroll-area" ref={scrollRef} style={{ overscrollBehaviorY: 'contain' }} {...ptr.handlers}>
+        {ptr.indicator}
         <div className="scrollpad" style={{ paddingBottom: 6 }}>
           <div>
             <p style={{ fontSize: 12, color: '#9AA89C', margin: 0 }}>Patina</p>
@@ -1267,6 +1409,16 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
           ) : rows}
         </div>
       </div>
+      {longPressEntry && (
+        <QuickActionSheet
+          entry={longPressEntry}
+          allKids={kids}
+          onClose={() => setLongPressEntry(null)}
+          onFavorite={() => { onToggleFavorite?.(longPressEntry.id); setLongPressEntry(null); }}
+          onShare={() => { shareEntry(longPressEntry, kids).catch(() => {}); setLongPressEntry(null); }}
+          onDelete={() => { setLongPressEntry(null); onDeleteEntry?.(longPressEntry.id); }}
+        />
+      )}
     </div>
   );
 }
@@ -3405,7 +3557,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 </div>
                 <div style={{ textAlign: 'left' }}>
                   <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>Create a book</p>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>Every author deserves a book</p>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>The entries were for you. The book is for them.</p>
                 </div>
               </div>
               <i className="ti ti-arrow-right" style={{ fontSize: 16, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
@@ -3664,14 +3816,6 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
             <p style={{ fontSize: 12, color: '#9AA89C', margin: 0, fontWeight: 600, letterSpacing: 0.3 }}>Create a book</p>
           </div>
 
-          <div>
-            <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 27, color: '#2C3828', margin: '0 0 8px', lineHeight: 1.25 }}>
-              Let them hold all the little moments you've held.
-            </h1>
-            <p style={{ fontSize: 14, color: '#9AA89C', margin: 0, lineHeight: 1.6 }}>
-              The entries were for you. The book is for them.
-            </p>
-          </div>
 
           <div style={{ width: '100%', height: 1, background: '#DDE7D9' }} />
 
@@ -5167,13 +5311,25 @@ export default function App() {
   }
 
   async function handleDeleteEntry(entryId) {
-    const entry = entries.find(e => e.id === entryId);
     setEntries(prev => prev.filter(e => e.id !== entryId));
     setScreen('home');
     setActiveEntry(null);
     if (localMode || !supabase || !session) return;
     await supabase.from('entry_media').delete().eq('entry_id', entryId);
     await supabase.from('entries').delete().eq('id', entryId);
+  }
+
+  async function handleQuickDelete(entryId) {
+    setEntries(prev => prev.filter(e => e.id !== entryId));
+    if (localMode || !supabase || !session) return;
+    await supabase.from('entry_media').delete().eq('entry_id', entryId);
+    await supabase.from('entries').delete().eq('id', entryId);
+  }
+
+  async function handleRefresh() {
+    if (localMode || !supabase || !session) return;
+    const { data } = await supabase.from('entries').select('*, entry_media(*)').order('date', { ascending: false });
+    if (data) setEntries(data.map(normalizeEntry));
   }
 
   function editEntry(entry) {
@@ -5638,6 +5794,9 @@ export default function App() {
             onSeeMyLetters={() => { setLetterAuthorId(session?.user?.id || null); setScreen('partner-letters'); }}
             partner={partnerMember}
             self={selfMember}
+            onRefresh={handleRefresh}
+            onToggleFavorite={handleToggleFavorite}
+            onDeleteEntry={handleQuickDelete}
           />
         );
       })()}
@@ -5670,6 +5829,9 @@ export default function App() {
           onNewEntry={() => setScreen('new-entry')}
           memberCount={familyMembers.length}
           scrollPos={journalScrollPos}
+          onRefresh={handleRefresh}
+          onToggleFavorite={handleToggleFavorite}
+          onDeleteEntry={handleQuickDelete}
         />
       )}
 

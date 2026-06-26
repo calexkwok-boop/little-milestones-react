@@ -15,6 +15,11 @@
 }
 .page-enter-right { animation: pageFromRight 0.28s ease; }
 .page-enter-left  { animation: pageFromLeft  0.28s ease; }
+@keyframes sheetIn {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.quick-sheet { animation: sheetIn 0.22s ease; }
 
 .app-root {
   font-family: 'Inter', sans-serif;
