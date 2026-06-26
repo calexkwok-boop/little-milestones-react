@@ -390,6 +390,14 @@ function KidThumb({ kid, size = 24 }) {
   );
 }
 
+function FadeImg({ src, style, ...props }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <img src={src} style={{ ...style, opacity: loaded ? 1 : 0, transition: 'opacity 0.35s ease' }}
+      onLoad={() => setLoaded(true)} {...props} />
+  );
+}
+
 function AvatarImg({ src, alt, fallback }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => {
@@ -726,7 +734,7 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
                 </div>
               </div>
             </div>
-          ) : <img src={cloudinaryTransform(entry.media[0].url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+          ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
           }
         </div>
       )}
@@ -788,7 +796,7 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
                   </div>
                 </div>
               </div>
-            ) : <img src={cloudinaryTransform(entry.media[0].url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+            ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
             }
           </div>
         )}
@@ -1182,7 +1190,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
                 <div key={i} className="journal-thumb" style={{ position: 'relative' }}>
                   {mm.type === 'video'
                     ? <video src={mm.url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} preload="metadata" muted playsInline />
-                    : <img src={cloudinaryTransform(mm.url, 'w_200,h_200,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
+                    : <FadeImg src={cloudinaryTransform(mm.url, 'w_200,h_200,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
                   }
                   {mm.type === 'video' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-player-play" style={{ fontSize: 12, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} /></div>}
                 </div>
@@ -1273,6 +1281,18 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [cropY, setCropY] = useState(entry.cropY ?? 50);
+  const detailSwipeStart = useRef(null);
+
+  function handleDetailTouchStart(e) {
+    detailSwipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  function handleDetailTouchEnd(e) {
+    if (!detailSwipeStart.current) return;
+    const dx = e.changedTouches[0].clientX - detailSwipeStart.current.x;
+    const dy = e.changedTouches[0].clientY - detailSwipeStart.current.y;
+    detailSwipeStart.current = null;
+    if (dx > 60 && Math.abs(dx) > Math.abs(dy)) onBack();
+  }
   const [showCrop, setShowCrop] = useState(false);
   const [location, setLocation] = useState(entry.location || '');
   const [editingLocation, setEditingLocation] = useState(false);
@@ -1286,7 +1306,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   }
 
   return (
-    <div className="screen">
+    <div className="screen" onTouchStart={handleDetailTouchStart} onTouchEnd={handleDetailTouchEnd}>
       <div className="scroll-area">
         <div style={{ position: 'relative' }}>
           {media.length > 0 ? (
@@ -3557,7 +3577,8 @@ function CroppedPhoto({ src, cropY = 50, height = 200 }) {
 
   return (
     <div ref={containerRef} style={{ height, overflow: 'hidden', flexShrink: 0 }}>
-      <img ref={imgRef} src={src} style={{ width: '100%', display: 'block' }} onLoad={applyScroll} alt="" />
+      <img ref={imgRef} src={src} style={{ width: '100%', display: 'block', opacity: 0, transition: 'opacity 0.35s ease' }}
+        onLoad={e => { applyScroll(); e.target.style.opacity = 1; }} alt="" />
     </div>
   );
 }
@@ -3887,6 +3908,38 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
   // page 0 = cover, page 1 = TOC, pages 2..N = content, last = back cover
   const totalPages = contentPages.length + 3;
   const [page, setPage] = useState(0);
+  const swipeStart = useRef(null);
+  const pageDir = useRef(1);
+
+  function goNext() { pageDir.current = 1;  setPage(p => Math.min(p + 1, totalPages - 1)); }
+  function goPrev() { pageDir.current = -1; setPage(p => Math.max(p - 1, 0)); }
+
+  function handleSwipeStart(e) {
+    const t = e.touches[0];
+    swipeStart.current = { x: t.clientX, y: t.clientY };
+  }
+
+  function handleSwipeEnd(e) {
+    if (!swipeStart.current) return;
+    const dx = e.changedTouches[0].clientX - swipeStart.current.x;
+    const dy = e.changedTouches[0].clientY - swipeStart.current.y;
+    swipeStart.current = null;
+    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
+    if (dx < 0) goNext(); else goPrev();
+  }
+
+  useEffect(() => {
+    [-1, 1].forEach(offset => {
+      const content = contentPages[page - 2 + offset];
+      if (content?.type !== 'letter' || content.isContinued) return;
+      const photo = content.entry.media?.[0];
+      if (photo?.type === 'image') {
+        const img = new Image();
+        img.src = cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto');
+      }
+    });
+  }, [page, contentPages]);
+
   const [cropPositions, setCropPositions] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem('patina-book-crop-positions') || '{}');
@@ -4035,21 +4088,24 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
         <div style={{ width: 36 }} />
       </div>
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px', minHeight: 0 }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px', minHeight: 0 }}
+        onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd}>
         <div style={{ width: '100%', aspectRatio: '3/4', borderRadius: 6, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.6), 4px 0 0 rgba(0,0,0,0.3)', maxHeight: '100%' }}>
-          {renderPage()}
+          <div key={page} className={pageDir.current > 0 ? 'page-enter-right' : 'page-enter-left'} style={{ width: '100%', height: '100%' }}>
+            {renderPage()}
+          </div>
         </div>
       </div>
 
       <div style={{ padding: '16px 20px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={() => setPage(p => p === 0 ? totalPages - 1 : p - 1)}
+        <button onClick={goPrev}
           style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
           <i className="ti ti-chevron-left" />
         </button>
         <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
           <div style={{ height: '100%', background: 'rgba(255,255,255,0.4)', borderRadius: 99, width: `${((page + 1) / totalPages) * 100}%`, transition: 'width 0.2s' }} />
         </div>
-        <button onClick={() => setPage(p => p === totalPages - 1 ? 0 : p + 1)}
+        <button onClick={goNext}
           style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
           <i className="ti ti-chevron-right" />
         </button>
@@ -5240,6 +5296,17 @@ export default function App() {
 
     const newEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null };
     setEntries(prev => [newEntry, ...prev]);
+
+    // Notify partner by email (fire and forget)
+    const partnerMember = familyMembers.find(m => m.user_id !== session.user.id);
+    if (partnerMember?.user_id && text?.trim()) {
+      const myMember = familyMembers.find(m => m.user_id === session.user.id);
+      const authorName = myMember?.display_name || 'Your partner';
+      const kidNames = kidIds.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & ');
+      supabase.functions.invoke('notify-partner', {
+        body: { authorName, partnerUserId: partnerMember.user_id, kidNames, entryDate: date, entryText: text },
+      }).catch(() => {});
+    }
 
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone });
