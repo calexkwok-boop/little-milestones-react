@@ -68,9 +68,15 @@ export function hexToRgb(hex) {
   return `${parseInt(v.substring(0, 2), 16)},${parseInt(v.substring(2, 4), 16)},${parseInt(v.substring(4, 6), 16)}`;
 }
 
+export function cloudinaryTransform(url, transforms) {
+  if (!url || !url.includes('res.cloudinary.com')) return url;
+  return url.replace('/upload/', `/upload/${transforms}/`);
+}
+
 export function entryBgStyle(entry) {
   if (entry.media && entry.media.length > 0) {
-    return { backgroundImage: `url('${entry.media[0].url}')`, backgroundSize: 'cover', backgroundPosition: 'center' };
+    const url = cloudinaryTransform(entry.media[0].url, 'w_400,q_auto,f_auto');
+    return { backgroundImage: `url('${url}')`, backgroundSize: 'cover', backgroundPosition: 'center' };
   }
   return { background: entry.palette.bg };
 }

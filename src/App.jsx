@@ -5,7 +5,7 @@ import { supabase, supabaseConfigured } from './supabase.js';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY,
-  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle,
+  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, cloudinaryTransform,
 } from './constants.js';
 
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
@@ -112,6 +112,11 @@ function dataUrlToBlob(dataUrl) {
 
 function videoThumbUrl(videoUrl) {
   if (!videoUrl || !videoUrl.startsWith('http')) return null;
+  if (videoUrl.includes('res.cloudinary.com')) {
+    return videoUrl
+      .replace('/video/upload/', '/video/upload/so_0,q_auto,f_auto/')
+      .replace(/\.[^/.]+$/, '.jpg');
+  }
   try {
     const u = new URL(videoUrl);
     return u.origin + u.pathname.replace(/\.[^/.]+$/, '-thumb.jpg') + u.search;
@@ -371,7 +376,7 @@ function KidThumb({ kid, size = 24 }) {
   if (kid.avatar && !broken) {
     return (
       <span className="thumb" style={{ width: size, height: size }}>
-        <img src={kid.avatar} alt={kid.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} />
+        <img src={cloudinaryTransform(kid.avatar, 'w_100,h_100,c_fill,q_auto,f_auto')} alt={kid.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} />
       </span>
     );
   }
@@ -412,7 +417,7 @@ function AuthorChip({ member, onClick }) {
     <div className="kid-chip" onClick={onClick} style={{ cursor: 'pointer' }}>
       <span className="thumb" style={member.avatar_url ? {} : { background: '#EBF2E8', color: '#4A5E50', fontSize: 10, fontWeight: 700 }}>
         {member.avatar_url
-          ? <img src={member.avatar_url} alt="" />
+          ? <img src={cloudinaryTransform(member.avatar_url, 'w_100,h_100,c_fill,q_auto,f_auto')} alt="" />
           : member.display_name?.charAt(0)?.toUpperCase() || '?'}
       </span>
       {member.display_name?.split(' ')[0] || 'Me'}
@@ -714,14 +719,14 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
         >
           {entry.media[0].type === 'video' ? (
             <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
-              <img src={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
+              <img src={cloudinaryTransform(videoThumbUrl(entry.media[0].url), 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
                 </div>
               </div>
             </div>
-          ) : <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+          ) : <img src={cloudinaryTransform(entry.media[0].url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
           }
         </div>
       )}
@@ -776,14 +781,14 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
           >
             {entry.media[0].type === 'video' ? (
               <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
-                <img src={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
+                <img src={cloudinaryTransform(videoThumbUrl(entry.media[0].url), 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
                   </div>
                 </div>
               </div>
-            ) : <img src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+            ) : <img src={cloudinaryTransform(entry.media[0].url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
             }
           </div>
         )}
@@ -1177,7 +1182,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
                 <div key={i} className="journal-thumb" style={{ position: 'relative' }}>
                   {mm.type === 'video'
                     ? <video src={mm.url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} preload="metadata" muted playsInline />
-                    : <img src={mm.url} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
+                    : <img src={cloudinaryTransform(mm.url, 'w_200,h_200,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
                   }
                   {mm.type === 'video' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-player-play" style={{ fontSize: 12, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} /></div>}
                 </div>
@@ -1297,7 +1302,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               </div>
               <div className="gallery-stage">
                 {media.map((item, i) => (
-                  <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${item.url}')`, backgroundPosition: `center ${cropY}%` }}>
+                  <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${cloudinaryTransform(item.url, 'w_800,q_auto,f_auto')}')`, backgroundPosition: `center ${cropY}%` }}>
                     {item.type === 'video'
                       ? <video src={item.url} poster={videoThumbUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" playsInline controls onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />
                       : <div className="video-play-overlay" style={{ display: 'none' }} />
@@ -3148,7 +3153,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   onClick={() => { setUploadKidId(k.id); fileInputRef.current?.click(); }}
                   title="Tap to change photo"
                 >
-                  <AvatarImg src={k.avatar} alt={k.name} fallback={<i className="ti ti-camera" />} />
+                  <AvatarImg src={cloudinaryTransform(k.avatar, 'w_200,h_200,c_fill,q_auto,f_auto')} alt={k.name} fallback={<i className="ti ti-camera" />} />
                   {avatarUploading && uploadKidId === k.id && (
                     <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <i className="ti ti-loader-2" style={{ fontSize: 22, color: '#fff', animation: 'spin 1s linear infinite' }} />
@@ -3202,7 +3207,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                       }}
                       style={{ width: 34, height: 34, borderRadius: '50%', background: '#EEF2EA', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: m.user_id === currentUserId ? 'pointer' : 'default' }}
                     >
-                      <AvatarImg src={m.avatar_url} alt={m.display_name} fallback={<i className="ti ti-user" style={{ fontSize: 16, color: '#4A5E50' }} />} />
+                      <AvatarImg src={cloudinaryTransform(m.avatar_url, 'w_200,h_200,c_fill,q_auto,f_auto')} alt={m.display_name} fallback={<i className="ti ti-user" style={{ fontSize: 16, color: '#4A5E50' }} />} />
                     </div>
                     {m.user_id === currentUserId ? (
                       <span
@@ -3814,7 +3819,7 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, cropPositions,
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {photo && (
         <div ref={photoRef} style={{ position: 'relative', flexShrink: 0 }} onClick={() => onCrop(entry, photoHeight, photoRef.current?.offsetWidth)}>
-          <CroppedPhoto src={photo.url} cropY={cropY} height={photoHeight} />
+          <CroppedPhoto src={cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto')} cropY={cropY} height={photoHeight} />
           <div style={{ position: 'absolute', bottom: 6, right: 6, background: 'rgba(0,0,0,0.4)', borderRadius: '50%', width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <i className="ti ti-crop" style={{ fontSize: 12, color: '#fff' }} />
           </div>
@@ -5079,6 +5084,18 @@ export default function App() {
     await supabase.from('entries').update({ favorited: newFavorited }).eq('id', entryId);
   }
 
+  async function uploadToCloudinary(fileOrBlob, resourceType = 'image') {
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    const fd = new FormData();
+    fd.append('file', fileOrBlob);
+    fd.append('upload_preset', preset);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, { method: 'POST', body: fd });
+    if (!res.ok) throw new Error('Cloudinary upload failed');
+    const json = await res.json();
+    return json.secure_url;
+  }
+
   function storagePathsFromMedia(mediaItems) {
     const paths = [];
     const marker = '/object/public/media/';
@@ -5099,8 +5116,6 @@ export default function App() {
     setScreen('home');
     setActiveEntry(null);
     if (localMode || !supabase || !session) return;
-    const paths = storagePathsFromMedia(entry?.media);
-    if (paths.length > 0) supabase.storage.from('media').remove(paths).then(() => {});
     await supabase.from('entry_media').delete().eq('entry_id', entryId);
     await supabase.from('entries').delete().eq('id', entryId);
   }
@@ -5139,19 +5154,7 @@ export default function App() {
             const ext = isVid
               ? (mimeType === 'video/quicktime' ? 'mov' : mimeType === 'video/webm' ? 'webm' : 'mp4')
               : (fileObj.type === 'image/webp' ? 'webp' : 'jpg');
-            const base = `${entryId}-edit${Date.now()}-${i}`;
-            const path = `${session.user.id}/${base}.${ext}`;
-            const { error } = await supabase.storage.from('media').upload(path, fileObj, { contentType: mimeType });
-            if (!error) {
-              const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
-              url = publicUrl;
-              if (isVid && media[i].thumbnail) {
-                try {
-                  const thumbBlob = dataUrlToBlob(media[i].thumbnail);
-                  await supabase.storage.from('media').upload(`${session.user.id}/${base}-thumb.jpg`, thumbBlob, { contentType: 'image/jpeg' });
-                } catch {}
-              }
-            }
+            url = await uploadToCloudinary(fileObj, isVid ? 'video' : 'image');
           } catch {}
         }
         finalMedia.push({ url, type: media[i].type });
@@ -5159,10 +5162,6 @@ export default function App() {
       if (finalMedia.length > 0) {
         await supabase.from('entry_media').insert(finalMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type })));
       }
-      // Remove old storage files that are no longer referenced
-      const newUrls = new Set(finalMedia.map(m => m.url));
-      const oldPaths = storagePathsFromMedia((oldMediaRows || []).filter(m => !newUrls.has(m.url)));
-      if (oldPaths.length > 0) supabase.storage.from('media').remove(oldPaths).then(() => {});
       setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null } : e));
       setScreen('home');
       return;
@@ -5227,21 +5226,7 @@ export default function App() {
           const ext = mimeType.startsWith('video/')
             ? (mimeType.includes('quicktime') ? 'mov' : mimeType.includes('webm') ? 'webm' : 'mp4')
             : fileObj.type === 'image/webp' ? 'webp' : 'jpg';
-          const path = `${session.user.id}/${entry.id}-${i}.${ext}`;
-          const { error: uploadError } = await supabase.storage.from('media').upload(path, fileObj, { contentType: mimeType });
-          if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
-            url = publicUrl;
-            if (mimeType.startsWith('video/') && item.thumbnail) {
-              try {
-                const thumbBlob = dataUrlToBlob(item.thumbnail);
-                const thumbPath = `${session.user.id}/${entry.id}-${i}-thumb.jpg`;
-                await supabase.storage.from('media').upload(thumbPath, thumbBlob, { contentType: 'image/jpeg' });
-              } catch {}
-            }
-          } else {
-            console.error('Media upload error:', uploadError.message);
-          }
+          url = await uploadToCloudinary(fileObj, mimeType.startsWith('video/') ? 'video' : 'image');
         } catch (e) {
           console.error('Media upload exception:', e);
         }
@@ -5275,18 +5260,14 @@ export default function App() {
       alert('Upload failed because your session expired. Please sign out and sign back in, then try again.');
       return;
     }
-    const ext = file.name?.split('.').pop()?.toLowerCase() || 'jpg';
-    const path = `${activeUserId}/avatar-${kidId}-${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from('media').upload(path, file);
-    if (uploadError) {
+    let publicUrl;
+    try {
+      publicUrl = await uploadToCloudinary(file, 'image');
+    } catch (e) {
       setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: previousAvatar } : k));
-      const hint = uploadError.message?.includes('row-level security')
-        ? ' Your account may not be fully signed in on this device yet. Try signing out and back in, then retry.'
-        : '';
-      alert('Photo upload failed: ' + uploadError.message + hint);
+      alert('Photo upload failed: ' + e.message);
       return;
     }
-    const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
     setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: publicUrl } : k));
     const { error: dbError } = await supabase.from('kids').update({ avatar_url: publicUrl }).eq('id', kidId);
     if (dbError) {
@@ -5312,10 +5293,6 @@ export default function App() {
         await supabase.from('family_members').delete().eq('family_id', familyId).eq('user_id', userId);
       } else {
         // Solo account — full wipe
-        const { data: files } = await supabase.storage.from('media').list(userId);
-        if (files && files.length > 0) {
-          await supabase.storage.from('media').remove(files.map(f => `${userId}/${f.name}`));
-        }
         await supabase.from('entries').delete().eq('user_id', userId);
         await supabase.from('kids').delete().eq('user_id', userId);
         if (familyId) {
@@ -5512,18 +5489,15 @@ export default function App() {
       alert('Upload failed because your session expired. Please sign out and sign back in, then try again.');
       return;
     }
-    const ext = file.name?.split('.').pop()?.toLowerCase() || 'jpg';
-    const path = `${activeUserId}/family-avatar-${memberId}-${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from('media').upload(path, file);
-    if (uploadError) {
+    let publicUrl;
+    try {
+      publicUrl = await uploadToCloudinary(file, 'image');
+    } catch (e) {
       setFamilyMembers(prev => prev.map(m => (m.id === memberId || m.user_id === memberId) ? { ...m, avatar_url: previousAvatar } : m));
-      const hint = uploadError.message?.includes('row-level security')
-        ? ' Your account may not be fully signed in on this device yet. Try signing out and back in, then retry.'
-        : '';
-      alert('Photo upload failed: ' + uploadError.message + hint);
+      alert('Photo upload failed: ' + e.message);
+      setAvatarUploading(false);
       return;
     }
-    const { data: { publicUrl } } = supabase.storage.from('media').getPublicUrl(path);
     setFamilyMembers(prev => prev.map(m => (m.id === memberId || m.user_id === memberId) ? { ...m, avatar_url: publicUrl } : m));
     const { error: dbError } = await supabase.from('family_members').update({ avatar_url: publicUrl })
       .eq('family_id', familyId).eq('user_id', session.user.id);
