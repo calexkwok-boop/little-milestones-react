@@ -1011,7 +1011,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, darkMode, onToggleDarkMode }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
   const [longPressEntry, setLongPressEntry] = useState(null);
@@ -1107,10 +1107,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--text)', margin: 0, fontWeight: 700 }}>Patina</h1>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="icon-btn" onClick={onToggleDarkMode}><i className={`ti ti-${darkMode === 'dark' ? 'moon' : darkMode === 'auto' ? 'clock' : 'sun'}`} /></button>
-        <button className="icon-btn" onClick={onSearch}><i className="ti ti-search" /></button>
-      </div>
+      <button className="icon-btn" onClick={onSearch}><i className="ti ti-search" /></button>
     </div>
   );
 
@@ -5875,8 +5872,6 @@ export default function App() {
             onRefresh={handleRefresh}
             onToggleFavorite={handleToggleFavorite}
             onDeleteEntry={handleQuickDelete}
-            darkMode={darkMode}
-            onToggleDarkMode={toggleDarkMode}
           />
         );
       })()}
