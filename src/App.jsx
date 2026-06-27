@@ -1615,6 +1615,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [media, setMedia] = useState(existingEntry?.media || []);
   const [fileObjects, setFileObjects] = useState(existingEntry?.media?.map(() => null) || []);
   const [saving, setSaving] = useState(false);
+  const [savingLabel, setSavingLabel] = useState('Saving…');
   const [generating, setGenerating] = useState(false);
   const [polishing, setPolishing] = useState(false);
   const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? signedDefault ?? '');
@@ -1855,6 +1856,8 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
 
   async function handleSave() {
     if (draftKey) { try { localStorage.removeItem(draftKey); } catch {} }
+    const hasVideoUpload = fileObjects.some((f, i) => f && media[i]?.type === 'video');
+    setSavingLabel(hasVideoUpload ? 'Uploading video…' : 'Saving…');
     setSaving(true);
     try {
       await onSave({
@@ -1873,6 +1876,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       });
     } finally {
       setSaving(false);
+      setSavingLabel('Saving…');
     }
   }
 
@@ -1929,7 +1933,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             disabled={!canSave || saving}
             onClick={handleSave}
           >
-            {saving ? 'Saving…' : existingEntry ? 'Update' : 'Save'}
+            {saving ? savingLabel : existingEntry ? 'Update' : 'Save'}
           </button>
         </div>
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFileChange} />
@@ -5294,7 +5298,7 @@ export default function App() {
     fd.append('file', fileOrBlob);
     fd.append('upload_preset', preset);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), resourceType === 'video' ? 300_000 : 30_000);
+    const timer = setTimeout(() => controller.abort(), resourceType === 'video' ? 180_000 : 30_000);
     try {
       const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, { method: 'POST', body: fd, signal: controller.signal });
       if (!res.ok) throw new Error('Cloudinary upload failed');
@@ -5364,6 +5368,7 @@ export default function App() {
       const { data: oldMediaRows } = await supabase.from('entry_media').select('url, type').eq('entry_id', entryId);
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
       const finalMedia = [];
+      let uploadFailed = false;
       for (let i = 0; i < media.length; i++) {
         let fileObj = fileObjects?.[i];
         let url = media[i].url;
@@ -5378,6 +5383,7 @@ export default function App() {
             url = await uploadToCloudinary(fileObj, isVid ? 'video' : 'image');
           } catch (e) {
             console.error('Media upload failed, skipping item:', e);
+            uploadFailed = true;
             continue;
           }
         }
@@ -5388,6 +5394,7 @@ export default function App() {
         await supabase.from('entry_media').insert(finalMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type })));
       }
       setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null } : e));
+      if (uploadFailed) alert('Video upload failed — your text was saved but the video couldn\'t be added. Please try again on a stronger connection.');
       setScreen('home');
       return;
     }
@@ -5440,6 +5447,7 @@ export default function App() {
     }
 
     const savedMedia = [];
+    let savedUploadFailed = false;
     for (let i = 0; i < media.length; i++) {
       const item = media[i];
       let fileObj = fileObjects?.[i];
@@ -5451,6 +5459,7 @@ export default function App() {
           url = await uploadToCloudinary(fileObj, mimeType.startsWith('video/') ? 'video' : 'image');
         } catch (e) {
           console.error('Media upload failed, skipping item:', e);
+          savedUploadFailed = true;
           continue;
         }
       }
@@ -5476,6 +5485,7 @@ export default function App() {
       }).catch(() => {});
     }
 
+    if (savedUploadFailed) alert('Video upload failed — your entry was saved but the video couldn\'t be added. Please try again on a stronger connection.');
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone });
     } else {
