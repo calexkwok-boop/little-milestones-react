@@ -76,7 +76,14 @@ export function cloudinaryTransform(url, transforms) {
 export function entryBgStyle(entry) {
   if (entry.media && entry.media.length > 0) {
     const m = entry.media[0];
-    if (m.type === 'video' || !m.url?.startsWith('http')) return { background: entry.palette.bg };
+    if (!m.url?.startsWith('http')) return { background: entry.palette.bg };
+    if (m.type === 'video') {
+      if (!m.url.includes('res.cloudinary.com')) return { background: entry.palette.bg };
+      const thumbUrl = m.url
+        .replace('/video/upload/', '/video/upload/so_0,w_400,q_auto,f_auto/')
+        .replace(/\.[^/.]+$/, '.jpg');
+      return { backgroundImage: `url('${thumbUrl}')`, backgroundSize: 'cover', backgroundPosition: 'center' };
+    }
     const url = cloudinaryTransform(m.url, 'w_400,q_auto,f_auto');
     return { backgroundImage: `url('${url}')`, backgroundSize: 'cover', backgroundPosition: 'center' };
   }
