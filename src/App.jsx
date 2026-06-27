@@ -5293,10 +5293,16 @@ export default function App() {
     const fd = new FormData();
     fd.append('file', fileOrBlob);
     fd.append('upload_preset', preset);
-    const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, { method: 'POST', body: fd });
-    if (!res.ok) throw new Error('Cloudinary upload failed');
-    const json = await res.json();
-    return json.secure_url;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), resourceType === 'video' ? 300_000 : 30_000);
+    try {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, { method: 'POST', body: fd, signal: controller.signal });
+      if (!res.ok) throw new Error('Cloudinary upload failed');
+      const json = await res.json();
+      return json.secure_url;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   function storagePathsFromMedia(mediaItems) {
