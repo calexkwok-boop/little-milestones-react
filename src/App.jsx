@@ -110,11 +110,11 @@ function dataUrlToBlob(dataUrl) {
   return new Blob([arr], { type: mime });
 }
 
-function videoThumbUrl(videoUrl) {
+function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
   if (!videoUrl || !videoUrl.startsWith('http')) return null;
   if (videoUrl.includes('res.cloudinary.com')) {
     return videoUrl
-      .replace('/video/upload/', '/video/upload/so_0,q_auto,f_auto/')
+      .replace('/video/upload/', `/video/upload/${transforms}/`)
       .replace(/\.[^/.]+$/, '.jpg');
   }
   try {
@@ -849,7 +849,7 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
         >
           {entry.media[0].type === 'video' ? (
             <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
-              <img src={cloudinaryTransform(videoThumbUrl(entry.media[0].url), 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
+              <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
@@ -911,7 +911,7 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
           >
             {entry.media[0].type === 'video' ? (
               <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
-                <img src={cloudinaryTransform(videoThumbUrl(entry.media[0].url), 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
+                <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
@@ -1327,7 +1327,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
               {entry.media.slice(0, 4).map((mm, i) => (
                 <div key={i} className="journal-thumb" style={{ position: 'relative' }}>
                   {mm.type === 'video'
-                    ? <video src={mm.url} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} preload="metadata" muted playsInline />
+                    ? <img src={videoThumbUrl(mm.url, 'so_0,w_200,h_200,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} alt="" />
                     : <FadeImg src={cloudinaryTransform(mm.url, 'w_200,h_200,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
                   }
                   {mm.type === 'video' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-player-play" style={{ fontSize: 12, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} /></div>}
@@ -4982,7 +4982,7 @@ function normalizeEntry(e) {
     milestone: e.milestone,
     ageMonths: e.age_months,
     palette: e.palette || PALETTES[0],
-    media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
+    media: (e.entry_media || []).filter(m => m.url?.startsWith('http')).map(m => ({ url: m.url, type: m.type })),
     createdAt: e.created_at || null,
     signedAs: e.signed_as,
     authorId: e.author_id || null,
@@ -5435,14 +5435,13 @@ export default function App() {
         try {
           if (!fileObj.type.startsWith('video')) fileObj = await compressImage(fileObj);
           const mimeType = fileObj.type || 'video/mp4';
-          const ext = mimeType.startsWith('video/')
-            ? (mimeType.includes('quicktime') ? 'mov' : mimeType.includes('webm') ? 'webm' : 'mp4')
-            : fileObj.type === 'image/webp' ? 'webp' : 'jpg';
           url = await uploadToCloudinary(fileObj, mimeType.startsWith('video/') ? 'video' : 'image');
         } catch (e) {
-          console.error('Media upload exception:', e);
+          console.error('Media upload failed, skipping item:', e);
+          continue;
         }
       }
+      if (!url || url.startsWith('blob:') || url.startsWith('data:')) continue;
       savedMedia.push({ url, type: item.type });
     }
 

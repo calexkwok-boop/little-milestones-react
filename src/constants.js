@@ -75,7 +75,9 @@ export function cloudinaryTransform(url, transforms) {
 
 export function entryBgStyle(entry) {
   if (entry.media && entry.media.length > 0) {
-    const url = cloudinaryTransform(entry.media[0].url, 'w_400,q_auto,f_auto');
+    const m = entry.media[0];
+    if (m.type === 'video' || !m.url?.startsWith('http')) return { background: entry.palette.bg };
+    const url = cloudinaryTransform(m.url, 'w_400,q_auto,f_auto');
     return { backgroundImage: `url('${url}')`, backgroundSize: 'cover', backgroundPosition: 'center' };
   }
   return { background: entry.palette.bg };
