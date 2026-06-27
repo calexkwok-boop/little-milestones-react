@@ -11,6 +11,8 @@ import {
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
 const LOCAL_STORAGE_KEY = 'patina-local-data';
 
+function isDarkTime() { const h = new Date().getHours(); return h < 6 || h >= 18; }
+
 // ─── Growth chart reference data (CDC 2000) ───────────────────────────────
 // [ageMonths, p5, p25, p50, p75, p95]  height = inches, weight = lbs
 const GROWTH_REF = {
@@ -1009,7 +1011,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, darkMode, onToggleDarkMode }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
   const [longPressEntry, setLongPressEntry] = useState(null);
@@ -1105,7 +1107,10 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--text)', margin: 0, fontWeight: 700 }}>Patina</h1>
       </div>
-      <button className="icon-btn" onClick={onSearch}><i className="ti ti-search" /></button>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="icon-btn" onClick={onToggleDarkMode}><i className={`ti ti-${darkMode === 'dark' ? 'moon' : darkMode === 'auto' ? 'clock' : 'sun'}`} /></button>
+        <button className="icon-btn" onClick={onSearch}><i className="ti ti-search" /></button>
+      </div>
     </div>
   );
 
@@ -3232,7 +3237,7 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -3576,13 +3581,22 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
             </button>
           )}
 
-          <div onClick={onToggleDarkMode} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, cursor: 'pointer', userSelect: 'none' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <i className={`ti ti-${darkMode ? 'moon' : 'sun'}`} style={{ fontSize: 18, color: 'var(--accent)' }} />
-              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>Dark mode</span>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <i className={`ti ti-${darkMode === 'dark' ? 'moon' : darkMode === 'auto' ? 'clock' : 'sun'}`} style={{ fontSize: 18, color: 'var(--accent)' }} />
+              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>Appearance</span>
             </div>
-            <div style={{ width: 44, height: 26, borderRadius: 13, background: darkMode ? 'var(--accent)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-              <div style={{ position: 'absolute', top: 3, left: darkMode ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+            <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: 10, padding: 3 }}>
+              {[['light', 'sun', 'Light'], ['auto', 'clock', 'Auto'], ['dark', 'moon', 'Dark']].map(([mode, icon, label]) => (
+                <button
+                  key={mode}
+                  onClick={() => onSetDarkMode(mode)}
+                  style={{ flex: 1, padding: '8px 4px', border: 'none', borderRadius: 8, background: darkMode === mode ? 'var(--bg-input)' : 'transparent', color: darkMode === mode ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, fontFamily: "'Inter', sans-serif", transition: 'background 0.15s' }}
+                >
+                  <i className={`ti ti-${icon}`} style={{ fontSize: 17 }} />
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -5042,15 +5056,29 @@ export default function App() {
   const [unseenPartnerIds, setUnseenPartnerIds] = useState([]);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('patina_dark_mode');
-    if (saved !== null) return saved === 'true';
-    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+    if (saved === 'light' || saved === 'dark' || saved === 'auto') return saved;
+    if (saved === 'true') return 'dark';
+    if (saved === 'false') return 'light';
+    return 'auto';
   });
 
-  const toggleDarkMode = () => setDarkMode(prev => {
-    const next = !prev;
-    localStorage.setItem('patina_dark_mode', String(next));
-    return next;
-  });
+  const setDarkModeValue = useCallback((val) => {
+    setDarkMode(val);
+    localStorage.setItem('patina_dark_mode', val);
+  }, []);
+
+  const toggleDarkMode = useCallback(() => {
+    setDarkModeValue(darkMode === 'light' ? 'dark' : darkMode === 'dark' ? 'auto' : 'light');
+  }, [darkMode, setDarkModeValue]);
+
+  const [, setAutoTick] = useState(0);
+  useEffect(() => {
+    if (darkMode !== 'auto') return;
+    const id = setInterval(() => setAutoTick(t => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, [darkMode]);
+
+  const effectiveDark = darkMode === 'dark' || (darkMode === 'auto' && isDarkTime());
 
   // Auth listener
   useEffect(() => {
@@ -5787,7 +5815,7 @@ export default function App() {
 
   if (authLoading || dataLoading) {
     return (
-      <div className="app-root" data-theme={darkMode ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }}>
+      <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }}>
         <i className="ti ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
       </div>
     );
@@ -5795,7 +5823,7 @@ export default function App() {
 
   if (!session && !localMode) {
     return (
-      <div className="app-root" data-theme={darkMode ? 'dark' : undefined}>
+      <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined}>
         <AuthScreen />
       </div>
     );
@@ -5803,7 +5831,7 @@ export default function App() {
 
   if (kids.length === 0) {
     return (
-      <div className="app-root" data-theme={darkMode ? 'dark' : undefined}>
+      <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined}>
         {joiningFamily
           ? <JoinFamilyScreen onJoin={handleJoinFamily} onBack={() => setJoiningFamily(false)} />
           : <OnboardingScreen onDone={handleOnboardingDone} onJoinFamily={() => setJoiningFamily(true)} onSignOut={() => supabase ? supabase.auth.signOut() : undefined} />
@@ -5813,7 +5841,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-root" data-theme={darkMode ? 'dark' : undefined}>
+    <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined}>
       {partnerToast && (
         <PartnerToast
           toast={partnerToast}
@@ -5847,6 +5875,8 @@ export default function App() {
             onRefresh={handleRefresh}
             onToggleFavorite={handleToggleFavorite}
             onDeleteEntry={handleQuickDelete}
+            darkMode={darkMode}
+            onToggleDarkMode={toggleDarkMode}
           />
         );
       })()}
@@ -5974,6 +6004,7 @@ export default function App() {
           hasPartner={familyMembers.filter(m => m.user_id !== session?.user?.id).length > 0}
           darkMode={darkMode}
           onToggleDarkMode={toggleDarkMode}
+          onSetDarkMode={setDarkModeValue}
           onSignOut={() => {
             if (localMode || !supabase) {
               setKids([]);

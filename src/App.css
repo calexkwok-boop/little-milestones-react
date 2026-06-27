@@ -67,6 +67,10 @@
   background: var(--bg-elevated);
   border-color: var(--text-3);
 }
+.app-root[data-theme="dark"] .icon-btn-ghost {
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+}
 @media (max-width: 480px) {
   .app-root { border-radius: 0; box-shadow: none; min-height: unset; }
 }
