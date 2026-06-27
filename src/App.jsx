@@ -1856,21 +1856,24 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   async function handleSave() {
     if (draftKey) { try { localStorage.removeItem(draftKey); } catch {} }
     setSaving(true);
-    await onSave({
-      kids: selectedKids,
-      text: text.trim(),
-      mood: mood || null,
-      milestone: milestoneType === 'custom' ? (customMilestoneText.trim() ? `custom:${customMilestoneText.trim()}` : null) : milestoneType || null,
-      media,
-      fileObjects,
-      date: entryDate,
-      entryId: existingEntry?.id,
-      signedAs: signedAs.trim() || null,
-      location: location.trim() || null,
-      locationLat: locationCoords?.lat ?? null,
-      locationLng: locationCoords?.lng ?? null,
-    });
-    setSaving(false);
+    try {
+      await onSave({
+        kids: selectedKids,
+        text: text.trim(),
+        mood: mood || null,
+        milestone: milestoneType === 'custom' ? (customMilestoneText.trim() ? `custom:${customMilestoneText.trim()}` : null) : milestoneType || null,
+        media,
+        fileObjects,
+        date: entryDate,
+        entryId: existingEntry?.id,
+        signedAs: signedAs.trim() || null,
+        location: location.trim() || null,
+        locationLat: locationCoords?.lat ?? null,
+        locationLng: locationCoords?.lng ?? null,
+      });
+    } finally {
+      setSaving(false);
+    }
   }
 
   const canSave = selectedKids.length > 0 && (text.trim().length > 0 || media.length > 0);
@@ -5367,8 +5370,12 @@ export default function App() {
               ? (mimeType === 'video/quicktime' ? 'mov' : mimeType === 'video/webm' ? 'webm' : 'mp4')
               : (fileObj.type === 'image/webp' ? 'webp' : 'jpg');
             url = await uploadToCloudinary(fileObj, isVid ? 'video' : 'image');
-          } catch {}
+          } catch (e) {
+            console.error('Media upload failed, skipping item:', e);
+            continue;
+          }
         }
+        if (!url || url.startsWith('blob:') || url.startsWith('data:')) continue;
         finalMedia.push({ url, type: media[i].type });
       }
       if (finalMedia.length > 0) {
