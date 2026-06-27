@@ -1856,8 +1856,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
 
   async function handleSave() {
     if (draftKey) { try { localStorage.removeItem(draftKey); } catch {} }
-    const hasVideoUpload = fileObjects.some((f, i) => f && media[i]?.type === 'video');
-    setSavingLabel(hasVideoUpload ? 'Uploading video…' : 'Saving…');
+    setSavingLabel('Saving…');
     setSaving(true);
     try {
       await onSave({
@@ -1873,6 +1872,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         location: location.trim() || null,
         locationLat: locationCoords?.lat ?? null,
         locationLng: locationCoords?.lng ?? null,
+        onProgress: (label) => setSavingLabel(label),
       });
     } finally {
       setSaving(false);
@@ -5350,7 +5350,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs, location, locationLat, locationLng }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs, location, locationLat, locationLng, onProgress }) {
     const primaryKid = kids.find(k => k.id === kidIds[0]);
     const { years, months } = exactAge(primaryKid.birthdate, date);
     const ageMonths = years * 12 + months;
@@ -5362,9 +5362,11 @@ export default function App() {
         setScreen('home');
         return;
       }
+      onProgress?.('Saving entry…');
       await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null }).eq('id', entryId);
 
       // Fetch old URLs before wiping rows so we can clean up storage after
+      onProgress?.('Preparing media…');
       const { data: oldMediaRows } = await supabase.from('entry_media').select('url, type').eq('entry_id', entryId);
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
       const finalMedia = [];
@@ -5376,10 +5378,7 @@ export default function App() {
           try {
             const isVid = fileObj.type.startsWith('video');
             if (!isVid) fileObj = await compressImage(fileObj);
-            const mimeType = fileObj.type || (isVid ? 'video/mp4' : 'image/jpeg');
-            const ext = isVid
-              ? (mimeType === 'video/quicktime' ? 'mov' : mimeType === 'video/webm' ? 'webm' : 'mp4')
-              : (fileObj.type === 'image/webp' ? 'webp' : 'jpg');
+            onProgress?.(isVid ? 'Uploading video…' : 'Uploading photo…');
             url = await uploadToCloudinary(fileObj, isVid ? 'video' : 'image');
           } catch (e) {
             console.error('Media upload failed, skipping item:', e);
@@ -5390,6 +5389,7 @@ export default function App() {
         if (!url || url.startsWith('blob:') || url.startsWith('data:')) continue;
         finalMedia.push({ url, type: media[i].type });
       }
+      onProgress?.('Finalizing…');
       if (finalMedia.length > 0) {
         await supabase.from('entry_media').insert(finalMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type })));
       }
