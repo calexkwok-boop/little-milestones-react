@@ -80,11 +80,11 @@ export function entryBgStyle(entry) {
     if (m.type === 'video') {
       if (!m.url.includes('res.cloudinary.com')) return { background: entry.palette.bg };
       const thumbUrl = m.url
-        .replace('/video/upload/', '/video/upload/so_0,w_400,q_auto,f_auto/')
+        .replace('/video/upload/', '/video/upload/so_0,w_800,q_auto,f_auto/')
         .replace(/\.[^/.]+$/, '.jpg');
       return { backgroundImage: `url('${thumbUrl}')`, backgroundSize: 'cover', backgroundPosition: 'center' };
     }
-    const url = cloudinaryTransform(m.url, 'w_400,q_auto,f_auto');
+    const url = cloudinaryTransform(m.url, 'w_800,q_auto,f_auto');
     return { backgroundImage: `url('${url}')`, backgroundSize: 'cover', backgroundPosition: 'center' };
   }
   return { background: entry.palette.bg };
