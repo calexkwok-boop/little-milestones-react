@@ -63,6 +63,10 @@
   --accent: #8AB898;
   --nav-frame-bg: rgba(22,28,22,0.88);
 }
+.app-root[data-theme="dark"] .icon-btn {
+  background: var(--bg-elevated);
+  border-color: var(--text-3);
+}
 @media (max-width: 480px) {
   .app-root { border-radius: 0; box-shadow: none; min-height: unset; }
 }
