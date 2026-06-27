@@ -5320,11 +5320,12 @@ export default function App() {
   async function uploadToCloudinary(fileOrBlob, resourceType = 'image') {
     const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
     const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
+    if (!cloudName || !preset) throw new Error('Cloudinary not configured (missing env vars)');
     const fd = new FormData();
     fd.append('file', fileOrBlob);
     fd.append('upload_preset', preset);
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30_000);
+    const timer = setTimeout(() => controller.abort(), resourceType === 'video' ? 300_000 : 30_000);
     try {
       const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, { method: 'POST', body: fd, signal: controller.signal });
       if (!res.ok) {
