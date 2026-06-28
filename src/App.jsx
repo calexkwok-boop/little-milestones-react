@@ -1434,6 +1434,43 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
   );
 }
 
+// ─── Song player ─────────────────────────────────────────────────────────
+
+function SongPlayer({ song }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  function toggle() {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) { a.pause(); setPlaying(false); }
+    else { a.play().catch(() => {}); setPlaying(true); }
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-elevated)', borderRadius: 14, padding: '10px 12px' }}>
+      <audio
+        ref={audioRef}
+        src={song.previewUrl}
+        onEnded={() => { setPlaying(false); setProgress(0); }}
+        onTimeUpdate={() => { const a = audioRef.current; if (a && a.duration) setProgress(a.currentTime / a.duration); }}
+      />
+      <img src={song.artworkUrl} style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.artist}</p>
+        <div style={{ marginTop: 6, height: 2, background: 'var(--border)', borderRadius: 1 }}>
+          <div style={{ height: '100%', width: `${progress * 100}%`, background: 'var(--accent)', borderRadius: 1, transition: 'width 0.5s linear' }} />
+        </div>
+      </div>
+      <button onClick={toggle} style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 15 }}>
+        <i className={`ti ti-player-${playing ? 'pause' : 'play'}-filled`} />
+      </button>
+    </div>
+  );
+}
+
 // ─── Entry detail ────────────────────────────────────────────────────────
 
 function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation }) {
@@ -1544,6 +1581,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               Love, {entry.signedAs}
             </p>
           )}
+          {entry.song && <SongPlayer song={entry.song} />}
           <div style={{ height: 1, background: 'var(--border)' }} />
           <div
             onClick={() => { setLocationDraft(location); setLocationDraftCoords(null); setEditingLocation(true); }}
@@ -1632,6 +1670,10 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [location, setLocation] = useState(existingEntry?.location || '');
   const [locationCoords, setLocationCoords] = useState(existingEntry?.locationLat != null ? { lat: existingEntry.locationLat, lng: existingEntry.locationLng } : null);
   const [locationFromPhoto, setLocationFromPhoto] = useState(false);
+  const [song, setSong] = useState(existingEntry?.song || null);
+  const [songQuery, setSongQuery] = useState('');
+  const [songResults, setSongResults] = useState([]);
+  const [songSearching, setSongSearching] = useState(false);
   const [previewMedia, setPreviewMedia] = useState(null);
   const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
@@ -1681,6 +1723,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       if (saved.signedAs) setSignedAs(saved.signedAs);
       if (saved.location) setLocation(saved.location);
       if (saved.entryDate) setEntryDate(saved.entryDate);
+      if (saved.song) setSong(saved.song);
       setDraftRestored(true);
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1694,12 +1737,27 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         if (!text.trim() && selectedKids.length === 0) {
           localStorage.removeItem(draftKey);
         } else {
-          localStorage.setItem(draftKey, JSON.stringify({ text, selectedKids, mood, milestoneType, customMilestoneText, signedAs, location, entryDate }));
+          localStorage.setItem(draftKey, JSON.stringify({ text, selectedKids, mood, milestoneType, customMilestoneText, signedAs, location, entryDate, song }));
         }
       } catch {}
     }, 800);
     return () => clearTimeout(t);
   }, [text, selectedKids, mood, milestoneType, customMilestoneText, signedAs, location, entryDate]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const q = songQuery.trim();
+    if (q.length < 2) { setSongResults([]); return; }
+    const t = setTimeout(async () => {
+      setSongSearching(true);
+      try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=8`);
+        const data = await res.json();
+        setSongResults((data.results || []).filter(r => r.previewUrl));
+      } catch {}
+      setSongSearching(false);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [songQuery]);
 
   function toggleListening() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -1881,6 +1939,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         location: location.trim() || null,
         locationLat: locationCoords?.lat ?? null,
         locationLng: locationCoords?.lng ?? null,
+        song: song || null,
       });
     } finally {
       setSaving(false);
@@ -2158,6 +2217,55 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                   )}
                 </div>
               </div>
+            </div>
+
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 }}>Soundtrack</p>
+              {song ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 12px' }}>
+                  <img src={song.artworkUrl} style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{song.artist}</p>
+                  </div>
+                  <button onClick={() => setSong(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex', alignItems: 'center' }}>
+                    <i className="ti ti-x" />
+                  </button>
+                </div>
+              ) : (
+                <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      value={songQuery}
+                      onChange={e => setSongQuery(e.target.value)}
+                      placeholder="Search for a song…"
+                      className="input-field"
+                      style={{ paddingRight: 40 }}
+                    />
+                    {songSearching && (
+                      <i className="ti ti-loader-2" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite', color: 'var(--text-muted)', fontSize: 16 }} />
+                    )}
+                  </div>
+                  {songResults.length > 0 && (
+                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.14)', zIndex: 20 }}>
+                      {songResults.map((r, i) => (
+                        <button
+                          key={r.trackId}
+                          onClick={() => { setSong({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100.replace('100x100bb', '300x300bb'), previewUrl: r.previewUrl }); setSongQuery(''); setSongResults([]); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', border: 'none', borderBottom: i < songResults.length - 1 ? '1px solid var(--border)' : 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: "'Inter', sans-serif" }}
+                        >
+                          <img src={r.artworkUrl100} style={{ width: 36, height: 36, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} alt="" />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.trackName}</p>
+                            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.artistName}</p>
+                          </div>
+                          <i className="ti ti-music" style={{ fontSize: 13, color: 'var(--border-light)', flexShrink: 0 }} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
           </div>
@@ -5024,6 +5132,7 @@ function normalizeEntry(e) {
     location: e.location || null,
     locationLat: e.location_lat ?? null,
     locationLng: e.location_lng ?? null,
+    song: e.song || null,
   };
 }
 
@@ -5417,7 +5526,7 @@ export default function App() {
         setScreen('home');
         return;
       }
-      await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null }).eq('id', entryId);
+      await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null }).eq('id', entryId);
 
       // Fetch old URLs before wiping rows so we can clean up storage after
       const { data: oldMediaRows } = await supabase.from('entry_media').select('url, type').eq('entry_id', entryId);
@@ -5445,7 +5554,7 @@ export default function App() {
       if (finalMedia.length > 0) {
         await supabase.from('entry_media').insert(finalMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type })));
       }
-      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null } : e));
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null } : e));
       if (uploadFailed) alert(`Video upload failed (${uploadFailed}) — your text was saved. Please try again.`);
       setScreen('home');
       return;
@@ -5491,6 +5600,7 @@ export default function App() {
       location: location || null,
       location_lat: locationLat ?? null,
       location_lng: locationLng ?? null,
+      song: song || null,
     }).select().single();
 
     if (error || !entry) {
@@ -5524,7 +5634,7 @@ export default function App() {
       await supabase.from('entry_media').insert(savedMedia.map(m => ({ entry_id: entry.id, url: m.url, type: m.type })));
     }
 
-    const newEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null };
+    const newEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null };
     setEntries(prev => [newEntry, ...prev]);
 
     // Notify partner by email (fire and forget)
