@@ -1947,6 +1947,8 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         locationLng: locationCoords?.lng ?? null,
         song: song || null,
       });
+    } catch (err) {
+      alert('Something went wrong saving your entry: ' + (err?.message || String(err)));
     } finally {
       setSaving(false);
     }
@@ -5522,6 +5524,7 @@ export default function App() {
 
   async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs, location, locationLat, locationLng, song }) {
     const primaryKid = kids.find(k => k.id === kidIds[0]);
+    if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
     const { years, months } = exactAge(primaryKid.birthdate, date);
     const ageMonths = years * 12 + months;
 
