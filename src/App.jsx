@@ -287,7 +287,7 @@ async function shareEntry(entry, allKids) {
   }
 }
 
-function compressImage(file, maxDim = 1600, quality = 0.78) {
+function compressImage(file, maxDim = 1200, quality = 0.78) {
   return new Promise(resolve => {
     const img = new Image();
     const url = URL.createObjectURL(file);
@@ -402,11 +402,11 @@ function KidThumb({ kid, size = 24 }) {
   );
 }
 
-function FadeImg({ src, style, ...props }) {
+function FadeImg({ src, style, loading = 'lazy', ...props }) {
   const [loaded, setLoaded] = useState(false);
   return (
     <img src={src} style={{ ...style, opacity: loaded ? 1 : 0, transition: 'opacity 0.35s ease' }}
-      onLoad={() => setLoaded(true)} {...props} />
+      onLoad={() => setLoaded(true)} loading={loading} {...props} />
   );
 }
 
@@ -1807,14 +1807,20 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
 
   async function handleFileChange(e) {
     const files = Array.from(e.target.files);
-    const newMedia = await Promise.all(files.map(async file => {
+    const results = await Promise.all(files.map(async file => {
       const isVideo = file.type.startsWith('video');
-      const thumbnail = isVideo ? await generateVideoThumbnail(file) : null;
-      return { url: URL.createObjectURL(file), type: isVideo ? 'video' : 'image', thumbnail };
+      const [thumbnail, compressed] = await Promise.all([
+        isVideo ? generateVideoThumbnail(file) : null,
+        isVideo ? file : compressImage(file),
+      ]);
+      return {
+        media: { url: URL.createObjectURL(file), type: isVideo ? 'video' : 'image', thumbnail },
+        fileObj: compressed,
+      };
     }));
-    if (!mountedRef.current) { newMedia.forEach(m => { if (m.url?.startsWith('blob:')) URL.revokeObjectURL(m.url); }); return; }
-    setMedia(prev => [...prev, ...newMedia]);
-    setFileObjects(prev => [...prev, ...files]);
+    if (!mountedRef.current) { results.forEach(r => { if (r.media.url?.startsWith('blob:')) URL.revokeObjectURL(r.media.url); }); return; }
+    setMedia(prev => [...prev, ...results.map(r => r.media)]);
+    setFileObjects(prev => [...prev, ...results.map(r => r.fileObj)]);
     e.target.value = '';
     if (!dateFromPhoto) {
       for (const file of files) {
@@ -5521,24 +5527,18 @@ export default function App() {
 
     // Compress all new image files in parallel (shared by create + update paths)
     async function prepareAndUpload(mediaItems, fileObjs, entryRowId) {
-      const prepared = await Promise.all(mediaItems.map(async (item, i) => {
-        let fileObj = fileObjs?.[i];
-        if (!fileObj) return { url: item.url, type: item.type, fileObj: null };
-        const isVid = fileObj.type.startsWith('video');
-        if (isVid && fileObj.size > 100 * 1024 * 1024) return { url: null, type: item.type, fileObj: null, err: `Video is ${Math.round(fileObj.size / 1024 / 1024)}MB — please trim it to under 100MB` };
-        const compressed = isVid ? fileObj : await compressImage(fileObj);
-        return { url: item.url, type: item.type, fileObj: compressed, isVid };
-      }));
-
-      const results = await Promise.all(prepared.map(async ({ url, type, fileObj, isVid, err }) => {
-        if (err) { console.error(err); return { url: null, type, err }; }
-        if (!fileObj) return { url, type };
+      // Files are already compressed at selection time — just upload in parallel
+      const results = await Promise.all(mediaItems.map(async (item, i) => {
+        const fileObj = fileObjs?.[i];
+        if (!fileObj) return { url: item.url, type: item.type };
+        const isVid = item.type === 'video';
+        if (isVid && fileObj.size > 100 * 1024 * 1024) return { url: null, type: item.type, err: `Video is ${Math.round(fileObj.size / 1024 / 1024)}MB — please trim it to under 100MB` };
         try {
           const uploaded = await uploadToCloudinary(fileObj, isVid ? 'video' : 'image');
-          return { url: uploaded, type };
+          return { url: uploaded, type: item.type };
         } catch (e) {
           console.error('Media upload failed:', e);
-          return { url: null, type, err: e?.message || 'Unknown error' };
+          return { url: null, type: item.type, err: e?.message || 'Unknown error' };
         }
       }));
 
@@ -5557,7 +5557,11 @@ export default function App() {
         setScreen('home');
         return;
       }
-      await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null }).eq('id', entryId);
+      const { error: updateError } = await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null }).eq('id', entryId);
+      if (updateError) {
+        alert('Could not save your changes. Please try again.\n' + updateError.message);
+        return;
+      }
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
       setScreen('home');
       const { saved, failed } = await prepareAndUpload(media, fileObjects, entryId);
