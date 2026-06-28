@@ -5514,10 +5514,41 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs, location, locationLat, locationLng }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs, location, locationLat, locationLng, song }) {
     const primaryKid = kids.find(k => k.id === kidIds[0]);
     const { years, months } = exactAge(primaryKid.birthdate, date);
     const ageMonths = years * 12 + months;
+
+    // Compress all new image files in parallel (shared by create + update paths)
+    async function prepareAndUpload(mediaItems, fileObjs, entryRowId) {
+      const prepared = await Promise.all(mediaItems.map(async (item, i) => {
+        let fileObj = fileObjs?.[i];
+        if (!fileObj) return { url: item.url, type: item.type, fileObj: null };
+        const isVid = fileObj.type.startsWith('video');
+        if (isVid && fileObj.size > 100 * 1024 * 1024) return { url: null, type: item.type, fileObj: null, err: `Video is ${Math.round(fileObj.size / 1024 / 1024)}MB — please trim it to under 100MB` };
+        const compressed = isVid ? fileObj : await compressImage(fileObj);
+        return { url: item.url, type: item.type, fileObj: compressed, isVid };
+      }));
+
+      const results = await Promise.all(prepared.map(async ({ url, type, fileObj, isVid, err }) => {
+        if (err) { console.error(err); return { url: null, type, err }; }
+        if (!fileObj) return { url, type };
+        try {
+          const uploaded = await uploadToCloudinary(fileObj, isVid ? 'video' : 'image');
+          return { url: uploaded, type };
+        } catch (e) {
+          console.error('Media upload failed:', e);
+          return { url: null, type, err: e?.message || 'Unknown error' };
+        }
+      }));
+
+      const saved = results.filter(r => r.url && !r.url.startsWith('blob:') && !r.url.startsWith('data:'));
+      const failed = results.find(r => r.err);
+      if (saved.length > 0) {
+        await supabase.from('entry_media').insert(saved.map(m => ({ entry_id: entryRowId, url: m.url, type: m.type })));
+      }
+      return { saved, failed };
+    }
 
     // ── UPDATE existing entry ──
     if (entryId) {
@@ -5527,36 +5558,11 @@ export default function App() {
         return;
       }
       await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null }).eq('id', entryId);
-
-      // Fetch old URLs before wiping rows so we can clean up storage after
-      const { data: oldMediaRows } = await supabase.from('entry_media').select('url, type').eq('entry_id', entryId);
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
-      const finalMedia = [];
-      let uploadFailed = false;
-      for (let i = 0; i < media.length; i++) {
-        let fileObj = fileObjects?.[i];
-        let url = media[i].url;
-        if (fileObj) {
-          try {
-            const isVid = fileObj.type.startsWith('video');
-            if (!isVid) fileObj = await compressImage(fileObj);
-            if (isVid && fileObj.size > 100 * 1024 * 1024) throw new Error(`Video is ${Math.round(fileObj.size / 1024 / 1024)}MB — please trim it to under 100MB`);
-            url = await uploadToCloudinary(fileObj, isVid ? 'video' : 'image');
-          } catch (e) {
-            console.error('Media upload failed, skipping item:', e);
-            uploadFailed = e?.message || 'Unknown error';
-            continue;
-          }
-        }
-        if (!url || url.startsWith('blob:') || url.startsWith('data:')) continue;
-        finalMedia.push({ url, type: media[i].type });
-      }
-      if (finalMedia.length > 0) {
-        await supabase.from('entry_media').insert(finalMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type })));
-      }
-      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: finalMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null } : e));
-      if (uploadFailed) alert(`Video upload failed (${uploadFailed}) — your text was saved. Please try again.`);
       setScreen('home');
+      const { saved, failed } = await prepareAndUpload(media, fileObjects, entryId);
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: saved, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null } : e));
+      if (failed) alert(`Media upload failed (${failed.err}) — your text was saved. Please try again.`);
       return;
     }
 
@@ -5575,6 +5581,7 @@ export default function App() {
         ageMonths,
         palette,
         media: media.map(item => ({ url: item.url, type: item.type })),
+        song: song || null,
       };
       setEntries(prev => [newEntry, ...prev]);
       if (milestone) {
@@ -5608,36 +5615,16 @@ export default function App() {
       return;
     }
 
-    const savedMedia = [];
-    let savedUploadFailed = false;
-    for (let i = 0; i < media.length; i++) {
-      const item = media[i];
-      let fileObj = fileObjects?.[i];
-      let url = item.url;
-      if (fileObj) {
-        try {
-          const isVid = fileObj.type.startsWith('video');
-          if (!isVid) fileObj = await compressImage(fileObj);
-          if (isVid && fileObj.size > 100 * 1024 * 1024) throw new Error(`Video is ${Math.round(fileObj.size / 1024 / 1024)}MB — please trim it to under 100MB`);
-          url = await uploadToCloudinary(fileObj, isVid ? 'video' : 'image');
-        } catch (e) {
-          console.error('Media upload failed, skipping item:', e);
-          savedUploadFailed = e?.message || 'Unknown error';
-          continue;
-        }
-      }
-      if (!url || url.startsWith('blob:') || url.startsWith('data:')) continue;
-      savedMedia.push({ url, type: item.type });
+    // Optimistically show entry and navigate away immediately
+    const optimisticEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null };
+    setEntries(prev => [optimisticEntry, ...prev]);
+    if (milestone) {
+      setCelebration({ kid: primaryKid, milestoneType: milestone });
+    } else {
+      setScreen('home');
     }
 
-    if (savedMedia.length > 0) {
-      await supabase.from('entry_media').insert(savedMedia.map(m => ({ entry_id: entry.id, url: m.url, type: m.type })));
-    }
-
-    const newEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: savedMedia, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null };
-    setEntries(prev => [newEntry, ...prev]);
-
-    // Notify partner by email (fire and forget)
+    // Notify partner (fire and forget)
     const partnerMember = familyMembers.find(m => m.user_id !== session.user.id);
     if (partnerMember?.user_id && text?.trim()) {
       const myMember = familyMembers.find(m => m.user_id === session.user.id);
@@ -5648,11 +5635,11 @@ export default function App() {
       }).catch(() => {});
     }
 
-    if (savedUploadFailed) alert(`Video upload failed (${savedUploadFailed}) — your entry was saved. Please try again.`);
-    if (milestone) {
-      setCelebration({ kid: primaryKid, milestoneType: milestone });
-    } else {
-      setScreen('home');
+    // Upload media in background, then update entry with real URLs
+    if (media.length > 0) {
+      const { saved, failed } = await prepareAndUpload(media, fileObjects, entry.id);
+      setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, media: saved } : e));
+      if (failed) alert(`Media upload failed (${failed.err}) — your entry was saved. Please try again.`);
     }
   }
 
