@@ -1696,6 +1696,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
   const mountedRef = useRef(true);
+  const compressedFilesRef = useRef(new Map()); // blobUrl → Promise<File>
   const [listening, setListening] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
@@ -1808,21 +1809,30 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
 
   async function handleFileChange(e) {
     const files = Array.from(e.target.files);
-    const results = await Promise.all(files.map(async file => {
-      const isVideo = file.type.startsWith('video');
-      const [thumbnail, compressed] = await Promise.all([
-        isVideo ? generateVideoThumbnail(file) : null,
-        isVideo ? file : compressImage(file),
-      ]);
-      return {
-        media: { url: URL.createObjectURL(file), type: isVideo ? 'video' : 'image', thumbnail },
-        fileObj: compressed,
-      };
-    }));
-    if (!mountedRef.current) { results.forEach(r => { if (r.media.url?.startsWith('blob:')) URL.revokeObjectURL(r.media.url); }); return; }
-    setMedia(prev => [...prev, ...results.map(r => r.media)]);
-    setFileObjects(prev => [...prev, ...results.map(r => r.fileObj)]);
     e.target.value = '';
+
+    // Show previews immediately — don't wait for compression
+    const fileEntries = files.map(file => ({
+      url: URL.createObjectURL(file),
+      isVideo: file.type.startsWith('video'),
+      file,
+    }));
+    setMedia(prev => [...prev, ...fileEntries.map(({ url, isVideo }) => ({
+      url, type: isVideo ? 'video' : 'image', thumbnail: null,
+    }))]);
+    setFileObjects(prev => [...prev, ...fileEntries.map(e => e.file)]);
+
+    // Compress images + generate video thumbnails in background
+    fileEntries.forEach(({ url, isVideo, file }) => {
+      if (!isVideo) {
+        compressedFilesRef.current.set(url, compressImage(file));
+      } else {
+        generateVideoThumbnail(file).then(thumbnail => {
+          if (!mountedRef.current || !thumbnail) return;
+          setMedia(prev => prev.map(m => m.url === url ? { ...m, thumbnail } : m));
+        });
+      }
+    });
     if (!dateFromPhoto) {
       for (const file of files) {
         if (file.type.startsWith('image')) {
@@ -1940,6 +1950,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         milestone: milestoneType === 'custom' ? (customMilestoneText.trim() ? `custom:${customMilestoneText.trim()}` : null) : milestoneType || null,
         media,
         fileObjects,
+        compressedFiles: compressedFilesRef.current,
         date: entryDate,
         entryId: existingEntry?.id,
         signedAs: signedAs.trim() || null,
@@ -5547,7 +5558,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, date, entryId, signedAs, location, locationLat, locationLng, song }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song }) {
     const primaryKid = kids.find(k => k.id === kidIds[0]);
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
     const { years, months } = exactAge(primaryKid.birthdate, date);
@@ -5555,9 +5566,11 @@ export default function App() {
 
     // Compress all new image files in parallel (shared by create + update paths)
     async function prepareAndUpload(mediaItems, fileObjs, entryRowId) {
-      // Files are already compressed at selection time — just upload in parallel
       const results = await Promise.all(mediaItems.map(async (item, i) => {
-        const fileObj = fileObjs?.[i];
+        // Await background compression if still in progress; fall back to raw file
+        let fileObj = item.type === 'image' && compressedFiles?.has(item.url)
+          ? await compressedFiles.get(item.url)
+          : fileObjs?.[i];
         if (!fileObj) return { url: item.url, type: item.type };
         const isVid = item.type === 'video';
         if (isVid && fileObj.size > 100 * 1024 * 1024) return { url: null, type: item.type, err: `Video is ${Math.round(fileObj.size / 1024 / 1024)}MB — please trim it to under 100MB` };
