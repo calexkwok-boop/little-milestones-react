@@ -382,7 +382,7 @@ function loadLocalData() {
 
 // ─── Shared bits ─────────────────────────────────────────────────────────
 
-function KidThumb({ kid, size = 24 }) {
+const KidThumb = memo(function KidThumb({ kid, size = 24 }) {
   const [broken, setBroken] = useState(false);
   useEffect(() => { setBroken(false); }, [kid.avatar]);
   if (kid.avatar && !broken) {
@@ -400,7 +400,7 @@ function KidThumb({ kid, size = 24 }) {
       {kid.name[0]}
     </span>
   );
-}
+});
 
 function FadeImg({ src, style, loading = 'lazy', ...props }) {
   const [loaded, setLoaded] = useState(false);
@@ -841,7 +841,7 @@ function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDele
   );
 }
 
-function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCropEdit, onLongPress }) {
+const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCropEdit, onLongPress }) {
   const cardH = featured ? 200 : 150;
   const photoRef = useRef(null);
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
@@ -899,9 +899,9 @@ function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onCrop
       </div>
     </div>
   );
-}
+});
 
-function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onCropEdit }) {
+const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onCropEdit }) {
   const cardH = 250;
   const photoRef = useRef(null);
   const preview = entry.text.length > 200 ? entry.text.slice(0, 200) + '…' : entry.text;
@@ -959,7 +959,7 @@ function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50, onC
       </div>
     </div>
   );
-}
+});
 
 function SectionDivider({ label }) {
   return (
@@ -1436,7 +1436,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
 
 // ─── Song player ─────────────────────────────────────────────────────────
 
-function SongPlayer({ song }) {
+const SongPlayer = memo(function SongPlayer({ song }) {
   const audioRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -1469,7 +1469,7 @@ function SongPlayer({ song }) {
       </button>
     </div>
   );
-}
+});
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
@@ -2038,6 +2038,18 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             >
               Discard
             </button>
+          </div>
+        )}
+
+        {/* Song chip */}
+        {song && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-elevated)', borderRadius: 10, padding: '7px 10px', marginBottom: 12 }}>
+            <img src={song.artworkUrl} style={{ width: 32, height: 32, borderRadius: 5, objectFit: 'cover', flexShrink: 0 }} alt="" />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
+              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.artist}</p>
+            </div>
+            <i className="ti ti-music" style={{ fontSize: 13, color: '#F45B54', flexShrink: 0 }} />
           </div>
         )}
 
