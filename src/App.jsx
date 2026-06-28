@@ -1572,6 +1572,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               </div>
             ))}
           </div>
+          {entry.song && <SongPlayer song={entry.song} />}
           <p style={{ fontSize: 17, color: 'var(--accent)', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
             Dear {buildSalutation(entry, allKids)},
           </p>
@@ -1581,7 +1582,6 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               Love, {entry.signedAs}
             </p>
           )}
-          {entry.song && <SongPlayer song={entry.song} />}
           <div style={{ height: 1, background: 'var(--border)' }} />
           <div
             onClick={() => { setLocationDraft(location); setLocationDraftCoords(null); setEditingLocation(true); }}
