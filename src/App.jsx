@@ -1101,31 +1101,45 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     return pool.reduce((best, e) => score(e.id) > score(best.id) ? e : best);
   }, [entries, onThisDay, currentSlot]);
 
-  const sameAgePair = useMemo(() => {
+  const sameAgeGroup = useMemo(() => {
     if (kids.length < 2) return null;
-    let best = null;
+    // Index each kid's entries by age in days (entries where this kid is primary)
+    const kidItems = kids.map(kid => ({
+      kid,
+      items: entries
+        .filter(e => e.kids[0] === kid.id)
+        .map(e => ({ entry: e, ageDays: (new Date(e.date + 'T12:00:00') - new Date(kid.birthdate + 'T12:00:00')) / 86400000 }))
+        .filter(x => x.ageDays >= 0),
+    })).filter(kd => kd.items.length > 0);
+
+    if (kidItems.length < 2) return null;
+
+    let bestGroup = null;
     let bestScore = -Infinity;
-    for (let i = 0; i < kids.length; i++) {
-      for (let j = i + 1; j < kids.length; j++) {
-        const kidA = kids[i];
-        const kidB = kids[j];
-        const ea = entries.filter(e => e.kids.includes(kidA.id) && !e.kids.includes(kidB.id));
-        const eb = entries.filter(e => e.kids.includes(kidB.id) && !e.kids.includes(kidA.id));
-        for (const a of ea) {
-          const ageA = new Date(a.date + 'T12:00:00') - new Date(kidA.birthdate + 'T12:00:00');
-          for (const b of eb) {
-            const ageB = new Date(b.date + 'T12:00:00') - new Date(kidB.birthdate + 'T12:00:00');
-            const diffDays = Math.abs(ageA - ageB) / 86400000;
-            if (diffDays > 30) continue;
-            const hasPhotos = (a.media?.length > 0 ? 1 : 0) + (b.media?.length > 0 ? 1 : 0);
-            const recency = Math.max(new Date(a.date).getTime(), new Date(b.date).getTime());
-            const score = hasPhotos * 1e12 + (30 - diffDays) * 1e9 + recency;
-            if (score > bestScore) { bestScore = score; best = { entryA: a, entryB: b, kidA, kidB }; }
+
+    // For each entry as anchor, greedily pull in the closest matching entry from every other kid
+    for (const anchor of kidItems) {
+      for (const anchorItem of anchor.items) {
+        const group = [{ entry: anchorItem.entry, kid: anchor.kid }];
+        for (const other of kidItems) {
+          if (other.kid.id === anchor.kid.id) continue;
+          let bestMatch = null, minDiff = Infinity;
+          for (const item of other.items) {
+            const diff = Math.abs(anchorItem.ageDays - item.ageDays);
+            if (diff <= 30 && diff < minDiff) { minDiff = diff; bestMatch = { entry: item.entry, kid: other.kid }; }
           }
+          if (bestMatch) group.push(bestMatch);
         }
+        if (group.length < 2) continue;
+        const hasPhotos = group.filter(x => x.entry.media?.length > 0).length;
+        const recency = Math.max(...group.map(x => new Date(x.entry.date).getTime()));
+        // Prefer larger groups, then more photos, then more recent
+        const score = group.length * 1e13 + hasPhotos * 1e12 + recency;
+        if (score > bestScore) { bestScore = score; bestGroup = group; }
       }
     }
-    return best;
+
+    return bestGroup; // array of { entry, kid }
   }, [entries, kids]);
 
   const Header = () => (
@@ -1250,19 +1264,30 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
             );
           })()}
 
-          {sameAgePair && !kidFilter && (
+          {sameAgeGroup && !kidFilter && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-                  At the same age · {exactAgeLabel(sameAgePair.kidA.birthdate, sameAgePair.entryA.date)}
+                  At the same age · {exactAgeLabel(sameAgeGroup[0].kid.birthdate, sameAgeGroup[0].entry.date)}
                 </span>
                 <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <LetterCard entry={sameAgePair.entryA} kid={sameAgePair.kidA} allKids={kids} featured={false} onClick={() => onOpenEntry(sameAgePair.entryA)} cropY={cropPositions[sameAgePair.entryA.id] ?? sameAgePair.entryA.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
-                <LetterCard entry={sameAgePair.entryB} kid={sameAgePair.kidB} allKids={kids} featured={false} onClick={() => onOpenEntry(sameAgePair.entryB)} cropY={cropPositions[sameAgePair.entryB.id] ?? sameAgePair.entryB.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
-              </div>
+              {sameAgeGroup.length === 2 ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {sameAgeGroup.map(({ entry, kid }) => (
+                    <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={false} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
+                  ))}
+                </div>
+              ) : (
+                <div className="scrollx">
+                  {sameAgeGroup.map(({ entry, kid }) => (
+                    <div key={entry.id} style={{ minWidth: '72%', flexShrink: 0 }}>
+                      <LetterCard entry={entry} kid={kid} allKids={kids} featured={false} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -1641,6 +1666,14 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <span className="chip selected" style={{ cursor: 'default' }}>{entry.mood}</span>
             </div>
           )}
+          {entry.people?.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap' }}>
+              <i className="ti ti-users" style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }} />
+              {entry.people.map(p => (
+                <span key={p} style={{ fontSize: 12, color: 'var(--text-2)', background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 10px' }}>{p}</span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       {showDeleteConfirm && (
@@ -1691,12 +1724,14 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey }) {
+function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [] }) {
   const [selectedKids, setSelectedKids] = useState(
     existingEntry ? existingEntry.kids : (kids.length === 1 ? [kids[0].id] : [])
   );
   const [text, setText] = useState(existingEntry?.text || '');
   const [mood, setMood] = useState(existingEntry?.mood || null);
+  const [people, setPeople] = useState(existingEntry?.people || []);
+  const [peopleInput, setPeopleInput] = useState('');
   const existingMilestone = existingEntry?.milestone || null;
   const [milestoneType, setMilestoneType] = useState(
     existingMilestone?.startsWith('custom:') ? 'custom' : existingMilestone
@@ -1769,6 +1804,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       if (saved.location) setLocation(saved.location);
       if (saved.entryDate) setEntryDate(saved.entryDate);
       if (saved.song) setSong(saved.song);
+      if (saved.people?.length) setPeople(saved.people);
       setDraftRestored(true);
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1782,7 +1818,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         if (!text.trim() && selectedKids.length === 0) {
           localStorage.removeItem(draftKey);
         } else {
-          localStorage.setItem(draftKey, JSON.stringify({ text, selectedKids, mood, milestoneType, customMilestoneText, signedAs, location, entryDate, song }));
+          localStorage.setItem(draftKey, JSON.stringify({ text, selectedKids, mood, milestoneType, customMilestoneText, signedAs, location, entryDate, song, people }));
         }
       } catch {}
     }, 800);
@@ -2001,6 +2037,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         locationLat: locationCoords?.lat ?? null,
         locationLng: locationCoords?.lng ?? null,
         song: song || null,
+        people,
       });
     } catch (err) {
       alert('Something went wrong saving your entry: ' + (err?.message || String(err)));
@@ -2292,6 +2329,48 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                     />
                   ) : (
                     <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', flex: 1 }}>Something else…</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 }}>Who else was there?</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '10px 14px' }}>
+                {people.map(p => (
+                  <div key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 6px 3px 10px', fontSize: 13, color: 'var(--text-2)' }}>
+                    {p}
+                    <button onClick={() => setPeople(prev => prev.filter(n => n !== p))} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', borderRadius: '50%' }}>
+                      <i className="ti ti-x" style={{ fontSize: 10 }} />
+                    </button>
+                  </div>
+                ))}
+                <div style={{ position: 'relative' }}>
+                  <input
+                    value={peopleInput}
+                    onChange={e => setPeopleInput(e.target.value)}
+                    onKeyDown={e => {
+                      if ((e.key === 'Enter' || e.key === ',') && peopleInput.trim()) {
+                        e.preventDefault();
+                        const name = peopleInput.trim().replace(/,$/, '');
+                        if (name && !people.includes(name)) setPeople(prev => [...prev, name]);
+                        setPeopleInput('');
+                      } else if (e.key === 'Backspace' && !peopleInput && people.length > 0) {
+                        setPeople(prev => prev.slice(0, -1));
+                      }
+                    }}
+                    placeholder={people.length === 0 ? 'Add a name…' : '+'}
+                    style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--text)', fontFamily: 'Inter, sans-serif', width: peopleInput ? `${Math.max(peopleInput.length + 2, 4)}ch` : people.length === 0 ? '12ch' : '3ch', minWidth: '2ch' }}
+                  />
+                  {peopleInput.trim().length > 0 && allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).length > 0 && (
+                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 150 }}>
+                      {allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).slice(0, 5).map(p => (
+                        <button key={p} onMouseDown={e => { e.preventDefault(); setPeople(prev => [...prev, p]); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                          <i className="ti ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
+                          {p}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
@@ -2772,7 +2851,8 @@ function CompareScreen({ entries, kids, onBack, onOpenEntry }) {
     const m = e.milestone ? milestoneInfo(e.milestone) : null;
     return (e.text || '').toLowerCase().includes(q)
       || (m && m.label.toLowerCase().includes(q))
-      || e.location?.toLowerCase().includes(q);
+      || e.location?.toLowerCase().includes(q)
+      || (e.people || []).some(p => p.toLowerCase().includes(q));
   }
 
   const showMeta = isSearching || isMilestoneFiltering;
@@ -3015,7 +3095,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
           {earlierEntries.length > 0 && (
             <>
               <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', margin: 0 }}>
-                {unseenEntries.length > 0 ? 'Earlier' : 'All letters'}
+                {unseenEntries.length > 0 ? 'Earlier' : `All ${earlierEntries.length} letters`}
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {earlierEntries.map(e => {
@@ -4048,7 +4128,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
           <div style={{ width: '100%', height: 1, background: 'var(--bg-card)' }} />
 
           <div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--border-light)', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Who's it for?</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Who's it for?</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
               {kids.length > 1 && (
                 <button className={`chip ${selectedKids.length >= kids.length ? 'selected' : ''}`} onClick={() => setSelectedKids(kids.map(k => k.id))}>
@@ -4065,7 +4145,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
 
           {fromOptions.length > 1 && (
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--border-light)', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Who's it from?</p>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Who's it from?</p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 {fromOptions.map(name => (
                   <button key={name} className={`chip ${authorLabel === name ? 'selected' : ''}`} onClick={() => setAuthorLabel(name)}>
@@ -4077,7 +4157,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
           )}
 
           <div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--border-light)', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Which years?</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Which years?</p>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {[{ id: 'all', label: 'All time' }, { id: 'year', label: String(currentYear) }, { id: 'custom', label: 'Custom' }].map(opt => (
                 <button key={opt.id} className={`chip ${dateRange === opt.id ? 'selected' : ''}`} onClick={() => setDateRange(opt.id)}>{opt.label}</button>
@@ -4123,7 +4203,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
 
           <div style={{ width: '100%', height: 1, background: 'var(--bg-card)' }} />
 
-          <div style={{ background: 'var(--text)', borderRadius: 18, padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <div style={{ background: '#1E2C1E', borderRadius: 18, padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {filtered.length === 0 ? (
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.6 }}>
                 {favoritesOnly ? 'No favorited letters match that selection yet.' : 'No letters match that selection yet.'}
@@ -4219,29 +4299,29 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, cropPositions,
         </div>
       )}
       <div style={{ flex: 1, padding: '18px 24px 12px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: 'var(--border)', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>
+        <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#B8C8B4', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>
           {dateLabel}{isContinued ? ' — cont\'d' : ''}
         </p>
         {!isContinued && (
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: 'var(--accent)', margin: '0 0 8px' }}>Dear {salutation},</p>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: '#4A5E50', margin: '0 0 8px' }}>Dear {salutation},</p>
         )}
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: fontSize, color: 'var(--text)', lineHeight: 1.72, margin: 0, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: fontSize, color: '#2C3828', lineHeight: 1.72, margin: 0, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
           {pageText}
         </p>
         {!hasMore && entry.signedAs && (
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10.5, color: 'var(--text-muted)', margin: '10px 0 0', textAlign: 'right' }}>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10.5, color: '#9AA89C', margin: '10px 0 0', textAlign: 'right' }}>
             Love, {entry.signedAs}
           </p>
         )}
         <div style={{ marginTop: 'auto', paddingTop: 8 }}>
           {hasMore ? (
-            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: 'var(--border)', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>continued →</p>
+            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#B8C8B4', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>continued →</p>
           ) : (
-            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#D4E4D0', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>
+            <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, color: '#C4D8C0', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>
               {index + 1} / {sortedLength}
             </p>
           )}
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: 'var(--border)', margin: 0, textAlign: 'center' }}>Patina</p>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#B8C8B4', margin: 0, textAlign: 'center' }}>Patina</p>
         </div>
       </div>
     </div>
@@ -4349,7 +4429,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
 
   const renderCoverPage = () => {
     return (
-      <div style={{ background: 'var(--accent)', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.1) 100%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
@@ -4375,7 +4455,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
 
   const renderTOCPage = () => (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '40px 36px 32px' }}>
-      <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: 'var(--border)', letterSpacing: 1.8, textTransform: 'uppercase', margin: '0 0 28px' }}>Contents</p>
+      <p style={{ fontFamily: "'Inter', sans-serif", fontSize: 9, fontWeight: 700, color: '#B8C8B4', letterSpacing: 1.8, textTransform: 'uppercase', margin: '0 0 28px' }}>Contents</p>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
         {yearTOC.map(({ year, pageIndex }) => {
           const displayPage = pageIndex + 2 + 1; // +2 for cover+TOC, +1 for 1-based
@@ -4385,19 +4465,19 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
               onClick={() => setPage(pageIndex + 2)}
               style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '10px 0', borderBottom: '1px solid #EEF2EE', cursor: 'pointer' }}
             >
-              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: 'var(--text)', fontWeight: 700 }}>{year}</span>
+              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: '#2C3828', fontWeight: 700 }}>{year}</span>
               <span style={{ flex: 1, borderBottom: '1px dotted #C4D8C0', margin: '0 8px 4px' }} />
-              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>{displayPage}</span>
+              <span style={{ fontFamily: "'Inter', sans-serif", fontSize: 11, color: '#9AA89C', fontWeight: 600 }}>{displayPage}</span>
             </div>
           );
         })}
       </div>
-      <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: 'var(--border)', margin: '20px 0 0', textAlign: 'center' }}>Patina</p>
+      <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#B8C8B4', margin: '20px 0 0', textAlign: 'center' }}>Patina</p>
     </div>
   );
 
   const renderChapterPage = (year) => (
-    <div style={{ background: 'var(--accent)', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
+    <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
       <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
       <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
         <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,0.3)', margin: '0 auto 20px' }} />
@@ -4414,7 +4494,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
   const renderBackCover = () => {
     const weOrI = authorLabel?.toLowerCase() === 'our family' || (authorSummary || '').includes(' and ') ? 'We' : 'I';
     return (
-      <div style={{ background: 'var(--accent)', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
+      <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.1) 100%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%' }}>
@@ -5220,6 +5300,7 @@ function normalizeEntry(e) {
     locationLat: e.location_lat ?? null,
     locationLng: e.location_lng ?? null,
     song: e.song || null,
+    people: e.people || [],
   };
 }
 
@@ -5596,12 +5677,18 @@ export default function App() {
     if (data) setEntries(data.map(normalizeEntry));
   }
 
+  const allPeople = useMemo(() => {
+    const set = new Set();
+    entries.forEach(e => (e.people || []).forEach(p => set.add(p)));
+    return [...set].sort();
+  }, [entries]);
+
   function editEntry(entry) {
     setActiveEntry(entry);
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, people }) {
     const primaryKid = kids.find(k => k.id === kidIds[0]);
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
     const { years, months } = exactAge(primaryKid.birthdate, date);
@@ -5641,7 +5728,7 @@ export default function App() {
         setScreen('home');
         return;
       }
-      const { error: updateError } = await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null }).eq('id', entryId);
+      const { error: updateError } = await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null, people: people || [] }).eq('id', entryId);
       if (updateError) {
         alert('Could not save your changes. Please try again.\n' + updateError.message);
         return;
@@ -5649,7 +5736,7 @@ export default function App() {
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
       setScreen('home');
       const { saved, failed } = await prepareAndUpload(media, fileObjects, entryId);
-      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: saved, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null } : e));
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: saved, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [] } : e));
       if (failed) alert(`Media upload failed (${failed.err}) — your text was saved. Please try again.`);
       return;
     }
@@ -5696,6 +5783,7 @@ export default function App() {
       location_lat: locationLat ?? null,
       location_lng: locationLng ?? null,
       song: song || null,
+      people: people || [],
     }).select().single();
 
     if (error || !entry) {
@@ -5704,7 +5792,7 @@ export default function App() {
     }
 
     // Optimistically show entry and navigate away immediately
-    const optimisticEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null };
+    const optimisticEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [] };
     setEntries(prev => [optimisticEntry, ...prev]);
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone });
@@ -6110,7 +6198,7 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} onCancel={() => setScreen('home')} onSave={handleSaveEntry} signedDefault={myDisplayName || undefined} draftKey={session?.user?.id ? `patina-new-draft-${session.user.id}` : 'patina-new-draft'} />
+        <NewEntryScreen kids={kids} onCancel={() => setScreen('home')} onSave={handleSaveEntry} signedDefault={myDisplayName || undefined} draftKey={session?.user?.id ? `patina-new-draft-${session.user.id}` : 'patina-new-draft'} allPeople={allPeople} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
@@ -6121,6 +6209,7 @@ export default function App() {
           onSave={handleSaveEntry}
           onDelete={handleDeleteEntry}
           signedDefault={myDisplayName || undefined}
+          allPeople={allPeople}
         />
       )}
 
