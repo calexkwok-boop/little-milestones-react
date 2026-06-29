@@ -548,7 +548,7 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
             value={value}
             onChange={handleChange}
             placeholder={placeholder}
-            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 12, color: 'var(--text-2)', fontFamily: "'Inter', sans-serif", fontWeight: 500, width: value ? Math.max(80, Math.min(value.length * 7.5, 200)) : 90 }}
+            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 16, color: 'var(--text-2)', fontFamily: "'Inter', sans-serif", fontWeight: 500, width: value ? Math.max(80, Math.min(value.length * 9, 200)) : 90 }}
             onKeyDown={e => { if (e.key === 'Escape' || e.key === 'Enter') setSuggestions([]); }}
             onBlur={() => { blurRef.current = setTimeout(() => setSuggestions([]), 150); }}
             onFocus={() => clearTimeout(blurRef.current)}
@@ -578,7 +578,7 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
           value={value}
           onChange={handleChange}
           placeholder={placeholder}
-          style={{ border: 'none', outline: 'none', flex: 1, fontSize: 15, background: 'transparent', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}
+          style={{ border: 'none', outline: 'none', flex: 1, fontSize: 16, background: 'transparent', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}
           onKeyDown={e => { if (e.key === 'Escape' || e.key === 'Enter') setSuggestions([]); }}
           onBlur={() => { blurRef.current = setTimeout(() => setSuggestions([]), 150); }}
           onFocus={() => clearTimeout(blurRef.current)}
@@ -2359,8 +2359,13 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                         setPeople(prev => prev.slice(0, -1));
                       }
                     }}
+                    onBlur={() => {
+                      const name = peopleInput.trim();
+                      if (name && !people.includes(name)) setPeople(prev => [...prev, name]);
+                      setPeopleInput('');
+                    }}
                     placeholder={people.length === 0 ? 'Add a name…' : '+'}
-                    style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 13, color: 'var(--text)', fontFamily: 'Inter, sans-serif', width: peopleInput ? `${Math.max(peopleInput.length + 2, 4)}ch` : people.length === 0 ? '12ch' : '3ch', minWidth: '2ch' }}
+                    style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 16, color: 'var(--text)', fontFamily: 'Inter, sans-serif', width: peopleInput ? `${Math.max(peopleInput.length + 2, 4)}ch` : people.length === 0 ? '12ch' : '3ch', minWidth: '2ch' }}
                   />
                   {peopleInput.trim().length > 0 && allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).length > 0 && (
                     <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 150 }}>
