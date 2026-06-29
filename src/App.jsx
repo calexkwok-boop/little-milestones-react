@@ -1101,6 +1101,33 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     return pool.reduce((best, e) => score(e.id) > score(best.id) ? e : best);
   }, [entries, onThisDay, currentSlot]);
 
+  const sameAgePair = useMemo(() => {
+    if (kids.length < 2) return null;
+    let best = null;
+    let bestScore = -Infinity;
+    for (let i = 0; i < kids.length; i++) {
+      for (let j = i + 1; j < kids.length; j++) {
+        const kidA = kids[i];
+        const kidB = kids[j];
+        const ea = entries.filter(e => e.kids.includes(kidA.id) && !e.kids.includes(kidB.id));
+        const eb = entries.filter(e => e.kids.includes(kidB.id) && !e.kids.includes(kidA.id));
+        for (const a of ea) {
+          const ageA = new Date(a.date + 'T12:00:00') - new Date(kidA.birthdate + 'T12:00:00');
+          for (const b of eb) {
+            const ageB = new Date(b.date + 'T12:00:00') - new Date(kidB.birthdate + 'T12:00:00');
+            const diffDays = Math.abs(ageA - ageB) / 86400000;
+            if (diffDays > 30) continue;
+            const hasPhotos = (a.media?.length > 0 ? 1 : 0) + (b.media?.length > 0 ? 1 : 0);
+            const recency = Math.max(new Date(a.date).getTime(), new Date(b.date).getTime());
+            const score = hasPhotos * 1e12 + (30 - diffDays) * 1e9 + recency;
+            if (score > bestScore) { bestScore = score; best = { entryA: a, entryB: b, kidA, kidB }; }
+          }
+        }
+      }
+    }
+    return best;
+  }, [entries, kids]);
+
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <div>
@@ -1222,6 +1249,22 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               </div>
             );
           })()}
+
+          {sameAgePair && !kidFilter && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                  At the same age · {exactAgeLabel(sameAgePair.kidA.birthdate, sameAgePair.entryA.date)}
+                </span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <LetterCard entry={sameAgePair.entryA} kid={sameAgePair.kidA} allKids={kids} featured={false} onClick={() => onOpenEntry(sameAgePair.entryA)} cropY={cropPositions[sameAgePair.entryA.id] ?? sameAgePair.entryA.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
+                <LetterCard entry={sameAgePair.entryB} kid={sameAgePair.kidB} allKids={kids} featured={false} onClick={() => onOpenEntry(sameAgePair.entryB)} cropY={cropPositions[sameAgePair.entryB.id] ?? sameAgePair.entryB.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
+              </div>
+            </div>
+          )}
 
           {recent.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
