@@ -5025,7 +5025,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
 
   useEffect(() => {
     if (letterDone || typed >= ONBOARDING_LETTER.length) { setLetterDone(true); return; }
-    const t = setTimeout(() => setTyped(p => p + 1), 22);
+    const t = setTimeout(() => setTyped(p => p + 1), 42);
     return () => clearTimeout(t);
   }, [typed, letterDone]);
 
