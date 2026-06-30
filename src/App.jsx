@@ -5130,7 +5130,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                 </p>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Love, your family</p>
               </div>
-              <button className="btn btn-primary" style={{ width: '100%', opacity: letterDone ? 1 : 0.35 }} disabled={!letterDone} onClick={() => setStep('join-or-new')}>
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('join-or-new')}>
                 Begin
               </button>
               {onSignOut && (
