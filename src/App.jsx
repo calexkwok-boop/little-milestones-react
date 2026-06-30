@@ -5080,7 +5080,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
   }
 
   return (
-    <div className="screen">
+    <div className="screen" data-theme="light">
       <div className="scroll-area">
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560 }}>
 

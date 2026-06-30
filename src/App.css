@@ -47,6 +47,22 @@
   flex-direction: column;
   box-shadow: 0 16px 56px rgba(44,56,40,0.24);
 }
+.app-root [data-theme="light"] {
+  --bg: #FBF8F2;
+  --bg-card: #F6FAF4;
+  --bg-elevated: #EBF2E8;
+  --bg-nav: #EDE8DE;
+  --bg-input: #ffffff;
+  --bg-overlay: rgba(242,244,236,0.98);
+  --text: #2C3828;
+  --text-2: #5C6B5E;
+  --text-3: #7A8C78;
+  --text-muted: #9AA89C;
+  --border: #CCDAC8;
+  --border-light: #B8CCB4;
+  --accent: #4A5E50;
+  background: var(--bg);
+}
 .app-root[data-theme="dark"] {
   --bg: #161C16;
   --bg-card: #1E271E;
