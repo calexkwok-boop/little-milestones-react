@@ -2037,7 +2037,9 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         locationLat: locationCoords?.lat ?? null,
         locationLng: locationCoords?.lng ?? null,
         song: song || null,
-        people,
+        people: peopleInput.trim() && !people.includes(peopleInput.trim())
+          ? [...people, peopleInput.trim()]
+          : people,
       });
     } catch (err) {
       alert('Something went wrong saving your entry: ' + (err?.message || String(err)));
@@ -3144,7 +3146,7 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
     const q = debouncedQuery.toLowerCase();
     const hasVideo = e.media?.some(m => m.type === 'video' || /\.(mp4|mov|webm|avi|mkv)(\?|$)/i.test(m.url || ''));
     const isTrip = e.locationLat != null && homePt != null && haversine(homePt.lat, homePt.lng, e.locationLat, e.locationLng) > 25;
-    return (e.text || '').toLowerCase().includes(q) || (m && m.label.toLowerCase().includes(q)) || kid?.name.toLowerCase().includes(q) || e.location?.toLowerCase().includes(q) || (hasVideo && 'video'.includes(q)) || (e.milestone && 'milestone'.includes(q)) || (e.favorited && 'favorites'.includes(q)) || (isTrip && 'trips'.includes(q));
+    return (e.text || '').toLowerCase().includes(q) || (m && m.label.toLowerCase().includes(q)) || kid?.name.toLowerCase().includes(q) || e.location?.toLowerCase().includes(q) || (hasVideo && 'video'.includes(q)) || (e.milestone && 'milestone'.includes(q)) || (e.favorited && 'favorites'.includes(q)) || (isTrip && 'trips'.includes(q)) || (e.people || []).some(p => p.toLowerCase().includes(q));
   }) : [], [debouncedQuery, entries, kids, homePt]);
 
   return (
