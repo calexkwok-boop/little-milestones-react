@@ -1716,62 +1716,73 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           onClose={() => setShowCrop(false)}
         />
       )}
-      {showPeopleTagger && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => { const name = peopleInput.trim(); if (name && !people.includes(name)) setPeople(p => [...p, name]); setPeopleInput(''); setShowPeopleTagger(false); }}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '24px 20px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Who else was there?</p>
-              <button onClick={() => { const name = peopleInput.trim(); if (name && !people.includes(name)) setPeople(p => [...p, name]); setPeopleInput(''); setShowPeopleTagger(false); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}><i className="ti ti-x" style={{ fontSize: 18 }} /></button>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '10px 14px', marginBottom: 16 }}>
-              {people.map(p => (
-                <div key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 6px 3px 10px', fontSize: 13, color: 'var(--text-2)' }}>
-                  {p}
-                  <button onClick={() => setPeople(prev => prev.filter(n => n !== p))} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', borderRadius: '50%' }}>
-                    <i className="ti ti-x" style={{ fontSize: 10 }} />
-                  </button>
-                </div>
-              ))}
-              <div style={{ position: 'relative' }}>
-                <input
-                  autoFocus
-                  value={peopleInput}
-                  onChange={e => setPeopleInput(e.target.value)}
-                  onKeyDown={e => {
-                    if ((e.key === 'Enter' || e.key === ',') && peopleInput.trim()) {
-                      e.preventDefault();
-                      const name = peopleInput.trim().replace(/,$/, '');
-                      if (name && !people.includes(name)) setPeople(prev => [...prev, name]);
-                      setPeopleInput('');
-                    } else if (e.key === 'Backspace' && !peopleInput && people.length > 0) {
-                      setPeople(prev => prev.slice(0, -1));
-                    }
-                  }}
-                  placeholder={people.length === 0 ? 'Add a name…' : '+'}
-                  style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 16, color: 'var(--text)', fontFamily: 'Inter, sans-serif', width: peopleInput ? `${Math.max(peopleInput.length + 2, 4)}ch` : people.length === 0 ? '12ch' : '3ch', minWidth: '2ch' }}
-                />
-                {peopleInput.trim().length > 0 && allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).length > 0 && (
-                  <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 150 }}>
-                    {allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).slice(0, 5).map(p => (
-                      <button key={p} onMouseDown={e => { e.preventDefault(); setPeople(prev => [...prev, p]); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                        <i className="ti ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
-                        {p}
-                      </button>
-                    ))}
+      {showPeopleTagger && (() => {
+        function addPerson(name) {
+          const trimmed = name.trim();
+          if (!trimmed || people.includes(trimmed)) return;
+          const next = [...people, trimmed];
+          setPeople(next);
+          onUpdatePeople?.(entry.id, next);
+        }
+        function removePerson(name) {
+          const next = people.filter(n => n !== name);
+          setPeople(next);
+          onUpdatePeople?.(entry.id, next);
+        }
+        function closeTagger() {
+          if (peopleInput.trim()) addPerson(peopleInput.trim());
+          setPeopleInput('');
+          setShowPeopleTagger(false);
+        }
+        return (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={closeTagger}>
+            <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '24px 20px 40px', width: '100%' }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Who else was there?</p>
+                <button onClick={closeTagger} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}><i className="ti ti-x" style={{ fontSize: 18 }} /></button>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '10px 14px' }}>
+                {people.map(p => (
+                  <div key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 6px 3px 10px', fontSize: 13, color: 'var(--text-2)' }}>
+                    {p}
+                    <button onMouseDown={e => { e.preventDefault(); removePerson(p); }} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', borderRadius: '50%' }}>
+                      <i className="ti ti-x" style={{ fontSize: 10 }} />
+                    </button>
                   </div>
-                )}
+                ))}
+                <div style={{ position: 'relative' }}>
+                  <input
+                    autoFocus
+                    value={peopleInput}
+                    onChange={e => setPeopleInput(e.target.value)}
+                    onKeyDown={e => {
+                      if ((e.key === 'Enter' || e.key === ',') && peopleInput.trim()) {
+                        e.preventDefault();
+                        addPerson(peopleInput.trim().replace(/,$/, ''));
+                        setPeopleInput('');
+                      } else if (e.key === 'Backspace' && !peopleInput && people.length > 0) {
+                        removePerson(people[people.length - 1]);
+                      }
+                    }}
+                    placeholder={people.length === 0 ? 'Add a name…' : '+'}
+                    style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 16, color: 'var(--text)', fontFamily: 'Inter, sans-serif', width: peopleInput ? `${Math.max(peopleInput.length + 2, 4)}ch` : people.length === 0 ? '12ch' : '3ch', minWidth: '2ch' }}
+                  />
+                  {peopleInput.trim().length > 0 && allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).length > 0 && (
+                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 150 }}>
+                      {allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).slice(0, 5).map(p => (
+                        <button key={p} onMouseDown={e => { e.preventDefault(); addPerson(p); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                          <i className="ti ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-            <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => {
-              const finalPeople = peopleInput.trim() && !people.includes(peopleInput.trim()) ? [...people, peopleInput.trim()] : people;
-              setPeople(finalPeople);
-              setPeopleInput('');
-              onUpdatePeople?.(entry.id, finalPeople);
-              setShowPeopleTagger(false);
-            }}>Save</button>
           </div>
-        </div>
-      )}
+        );
+      })()}
       {editingLocation && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => setEditingLocation(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '24px 20px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
