@@ -1778,6 +1778,14 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [editingLocation, setEditingLocation] = useState(false);
   const [locationDraft, setLocationDraft] = useState('');
   const [locationDraftCoords, setLocationDraftCoords] = useState(null);
+  const [actionToast, setActionToast] = useState(null);
+  const toastTimer = useRef(null);
+
+  function showToast(msg) {
+    clearTimeout(toastTimer.current);
+    setActionToast(msg);
+    toastTimer.current = setTimeout(() => setActionToast(null), 1800);
+  }
 
   async function handleShare() {
     setSharing(true);
@@ -1787,6 +1795,11 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
   return (
     <div className="screen" onTouchStart={handleDetailTouchStart} onTouchEnd={handleDetailTouchEnd}>
+      {actionToast && (
+        <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', background: 'rgba(44,56,40,0.88)', color: '#fff', fontSize: 13, fontWeight: 500, padding: '8px 16px', borderRadius: 20, zIndex: 50, whiteSpace: 'nowrap', pointerEvents: 'none', fontFamily: 'Inter, sans-serif' }}>
+          {actionToast}
+        </div>
+      )}
       <div className="scroll-area">
         <div style={{ position: 'relative' }}>
           {media.length > 0 ? (
@@ -1795,11 +1808,11 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-arrow-left" /></button>
                 <div style={{ display: 'flex', gap: 8 }}>
                   {onToggleShared && (
-                    <button className="icon-btn-ghost" onClick={() => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, next); }} title={isShared ? 'Visible to friends' : 'Private'}>
+                    <button className="icon-btn-ghost" onClick={() => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, next); showToast(next ? 'Visible to friends' : 'Post is private'); }} title={isShared ? 'Visible to friends' : 'Private'}>
                       <i className={`ti ${isShared ? 'ti-users' : 'ti-lock'}`} style={!isShared ? { color: '#C8993E' } : {}} />
                     </button>
                   )}
-                  <button className="icon-btn-ghost" onClick={() => onToggleFavorite(entry.id)} style={entry.favorited ? { color: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
+                  <button className="icon-btn-ghost" onClick={() => { onToggleFavorite(entry.id); showToast(entry.favorited ? 'Removed from favorites' : 'Added to favorites'); }} style={entry.favorited ? { color: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
                   <button className="icon-btn-ghost" onClick={handleShare} disabled={sharing}><i className={`ti ${sharing ? 'ti-loader-2' : 'ti-share'}`} style={sharing ? { animation: 'spin 1s linear infinite' } : {}} /></button>
                   <button className="icon-btn-ghost" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
                   <button className="icon-btn-ghost" onClick={() => setShowDeleteConfirm(true)}><i className="ti ti-trash" /></button>
@@ -1841,11 +1854,11 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
               <div style={{ display: 'flex', gap: 8 }}>
                 {onToggleShared && (
-                  <button className="icon-btn" onClick={() => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, next); }} title={isShared ? 'Visible to friends' : 'Private'} style={!isShared ? { color: '#C8993E', borderColor: '#C8993E' } : {}}>
+                  <button className="icon-btn" onClick={() => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, next); showToast(next ? 'Visible to friends' : 'Post is private'); }} title={isShared ? 'Visible to friends' : 'Private'} style={!isShared ? { color: '#C8993E', borderColor: '#C8993E' } : {}}>
                     <i className={`ti ${isShared ? 'ti-users' : 'ti-lock'}`} />
                   </button>
                 )}
-                <button className="icon-btn" onClick={() => onToggleFavorite(entry.id)} style={entry.favorited ? { color: '#C8993E', borderColor: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
+                <button className="icon-btn" onClick={() => { onToggleFavorite(entry.id); showToast(entry.favorited ? 'Removed from favorites' : 'Added to favorites'); }} style={entry.favorited ? { color: '#C8993E', borderColor: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
                 <button className="icon-btn" onClick={handleShare} disabled={sharing}><i className={`ti ${sharing ? 'ti-loader-2' : 'ti-share'}`} style={sharing ? { animation: 'spin 1s linear infinite' } : {}} /></button>
                 <button className="icon-btn" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
                 <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)}><i className="ti ti-trash" /></button>
@@ -6380,6 +6393,10 @@ export default function App() {
   const familyMembersRef = useRef(familyMembers);
   useEffect(() => { familyMembersRef.current = familyMembers; }, [familyMembers]);
 
+  // Keep a ref of own entry IDs so realtime handlers can check without stale closure
+  const ownEntryIdsRef = useRef(new Set());
+  useEffect(() => { ownEntryIdsRef.current = new Set(entries.map(e => e.id)); }, [entries]);
+
   useEffect(() => {
     if (localMode || !supabase || !session?.user?.id || !familyId) return;
     const channel = supabase
@@ -6401,6 +6418,42 @@ export default function App() {
         setEntries(prev => [newEntry, ...prev.filter(e => e.id !== newEntry.id)]);
         setPartnerToast({ entry: newEntry, authorName });
         setUnseenPartnerIds(prev => [...prev, newEntry.id]);
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_likes' }, payload => {
+        const { entry_id, user_id } = payload.new;
+        if (user_id === session.user.id) return;
+        if (!ownEntryIdsRef.current.has(entry_id)) return;
+        setReactionCounts(prev => {
+          const cur = prev[entry_id] || { likes: 0, comments: 0 };
+          return { ...prev, [entry_id]: { ...cur, likes: cur.likes + 1 } };
+        });
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'entry_likes' }, payload => {
+        const { entry_id } = payload.old;
+        if (!ownEntryIdsRef.current.has(entry_id)) return;
+        setReactionCounts(prev => {
+          const cur = prev[entry_id];
+          if (!cur) return prev;
+          return { ...prev, [entry_id]: { ...cur, likes: Math.max(0, cur.likes - 1) } };
+        });
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_comments' }, payload => {
+        const { entry_id, user_id } = payload.new;
+        if (user_id === session.user.id) return;
+        if (!ownEntryIdsRef.current.has(entry_id)) return;
+        setReactionCounts(prev => {
+          const cur = prev[entry_id] || { likes: 0, comments: 0 };
+          return { ...prev, [entry_id]: { ...cur, comments: cur.comments + 1 } };
+        });
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'entry_comments' }, payload => {
+        const { entry_id } = payload.old;
+        if (!ownEntryIdsRef.current.has(entry_id)) return;
+        setReactionCounts(prev => {
+          const cur = prev[entry_id];
+          if (!cur) return prev;
+          return { ...prev, [entry_id]: { ...cur, comments: Math.max(0, cur.comments - 1) } };
+        });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -6497,7 +6550,20 @@ export default function App() {
       promises.push(supabase.from('entries').select('id, date, kid_ids, mood, milestone, age_months, family_id, user_id, shared, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('date', twoWeeksAgo.toISOString().slice(0, 10)).order('date', { ascending: false }));
     }
     const [{ data }, friendResult] = await Promise.all(promises);
-    if (data) setEntries(data.map(normalizeEntry));
+    if (data) {
+      setEntries(data.map(normalizeEntry));
+      const sharedIds = data.filter(e => e.shared !== false).map(e => e.id);
+      if (sharedIds.length > 0) {
+        const [{ data: lks }, { data: cms }] = await Promise.all([
+          supabase.from('entry_likes').select('entry_id').in('entry_id', sharedIds),
+          supabase.from('entry_comments').select('entry_id').in('entry_id', sharedIds),
+        ]);
+        const counts = {};
+        lks?.forEach(l => { if (!counts[l.entry_id]) counts[l.entry_id] = { likes: 0, comments: 0 }; counts[l.entry_id].likes++; });
+        cms?.forEach(c => { if (!counts[c.entry_id]) counts[c.entry_id] = { likes: 0, comments: 0 }; counts[c.entry_id].comments++; });
+        setReactionCounts(counts);
+      }
+    }
     if (friendResult?.data) setFriendEntries(friendResult.data.map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
   }
 
