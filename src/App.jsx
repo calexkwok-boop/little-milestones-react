@@ -1019,6 +1019,8 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   const [viewerLikes, setViewerLikes] = useState([]);
   const [viewerComments, setViewerComments] = useState([]);
   const [viewerCommentText, setViewerCommentText] = useState('');
+  const [showLikeAnim, setShowLikeAnim] = useState(false);
+  const lastTapRef = useRef(0);
   const handleLongPress = useCallback((entry) => setLongPressEntry(entry), []);
   const scrollRef = useRef(null);
   const ptr = usePullToRefresh(scrollRef, onRefresh);
@@ -1495,8 +1497,27 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               </button>
             </div>
 
-            {/* Photo — fixed square */}
-            <div style={{ width: '100%', aspectRatio: '1', flexShrink: 0, ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+            {/* Photo — fixed square, double-tap to like */}
+            <div
+              style={{ width: '100%', aspectRatio: '1', flexShrink: 0, ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', cursor: 'pointer' }}
+              onClick={e => {
+                e.stopPropagation();
+                const now = Date.now();
+                if (now - lastTapRef.current < 320) {
+                  const alreadyLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
+                  if (!alreadyLiked) handleToggleLike();
+                  setShowLikeAnim(true);
+                  setTimeout(() => setShowLikeAnim(false), 800);
+                }
+                lastTapRef.current = now;
+              }}
+            >
+              {showLikeAnim && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                  <i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+                </div>
+              )}
+            </div>
 
             {/* Kid name + heart inline, then scrollable comments */}
             <div style={{ padding: '12px 16px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, borderBottom: viewerComments.length > 0 ? '1px solid var(--border)' : 'none' }} onClick={e => e.stopPropagation()}>
@@ -3449,6 +3470,29 @@ function PartnerToast({ toast, onView, onDismiss }) {
   );
 }
 
+function ReactionToast({ message, onDismiss }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div style={{
+      position: 'absolute', top: 12, left: 12, right: 12, zIndex: 50,
+      background: 'var(--text)', borderRadius: 14, padding: '12px 14px',
+      display: 'flex', alignItems: 'center', gap: 10,
+      boxShadow: '0 4px 20px rgba(0,0,0,0.22)',
+      animation: 'screenIn 0.2s ease-out',
+    }}>
+      <i className="ti ti-heart-filled" style={{ color: '#E05C6A', fontSize: 18, flexShrink: 0 }} />
+      <span style={{ flex: 1, fontSize: 13, color: '#fff', fontWeight: 500 }}>{message}</span>
+      <button onClick={onDismiss} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 16, padding: 2, display: 'flex', flexShrink: 0 }}>
+        <i className="ti ti-x" />
+      </button>
+    </div>
+  );
+}
+
 function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, currentUserId, onBack, onOpenEntry, onMarkAllRead }) {
   const isSelf = authorId && currentUserId && authorId === currentUserId;
   const unseenEntries = useMemo(
@@ -5097,12 +5141,16 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend }) {
+function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [sentIds, setSentIds] = useState(new Set());
   const searchTimer = useRef(null);
+
+  useEffect(() => {
+    if (onClearReactions) onClearReactions();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pendingIncoming = friendRequests.filter(r => r.addressee_id === currentUserId);
   const pendingOutgoing = friendRequests.filter(r => r.requester_id === currentUserId);
@@ -5189,6 +5237,28 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
             <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>No users found</p>
           )}
 
+          {reactionNotifications.length > 0 && (
+            <div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 10px' }}>Activity</p>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                {reactionNotifications.map((n, idx) => (
+                  <div key={n.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 14px', borderBottom: idx < reactionNotifications.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <i className={n.type === 'like' ? 'ti ti-heart-filled' : 'ti ti-message-circle'} style={{ fontSize: 15, color: n.type === 'like' ? '#E05C6A' : 'var(--text-3)', marginTop: 1, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.4 }}>
+                        <strong>{n.fromName}</strong>
+                        {n.type === 'like' ? ` liked ${n.kidNames}'s photo` : ` commented on ${n.kidNames}'s photo`}
+                      </p>
+                      {n.type === 'comment' && n.body && (
+                        <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-2)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{n.body}&rdquo;</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {pendingIncoming.length > 0 && (
             <div>
               <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 10px' }}>Friend Requests</p>
@@ -5232,7 +5302,7 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
             </div>
           )}
 
-          {friends.length === 0 && pendingIncoming.length === 0 && !searchQuery && (
+          {friends.length === 0 && pendingIncoming.length === 0 && reactionNotifications.length === 0 && !searchQuery && (
             <div className="empty-state">
               <i className="ti ti-users" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
               <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 8px', fontStyle: 'italic' }}>Growing alone, but walking together.</p>
@@ -5245,7 +5315,7 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
   );
 }
 
-function NavBar({ active, onNavigate, friendBadge = 0 }) {
+function NavBar({ active, onNavigate, friendBadge = 0, reactionBadge = 0 }) {
 
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
@@ -5269,8 +5339,8 @@ function NavBar({ active, onNavigate, friendBadge = 0 }) {
             <button key={tab.id} className="nv-tab" style={{ ...tabStyle(tab), position: 'relative' }} onClick={() => onNavigate(tab.id)}>
               <i className={`ti ${tab.icon}`} />
               <span>{tab.label}</span>
-              {tab.id === 'friends' && friendBadge > 0 && (
-                <span style={{ position: 'absolute', top: 4, right: '50%', transform: 'translateX(10px)', width: 8, height: 8, borderRadius: '50%', background: '#D4856A', border: '1.5px solid var(--bg-nav)' }} />
+              {tab.id === 'friends' && (friendBadge > 0 || reactionBadge > 0) && (
+                <span style={{ position: 'absolute', top: 4, right: '50%', transform: 'translateX(10px)', width: 8, height: 8, borderRadius: '50%', background: reactionBadge > 0 ? '#E05C6A' : '#D4856A', border: '1.5px solid var(--bg-nav)' }} />
               )}
             </button>
           ))}
@@ -6058,6 +6128,9 @@ export default function App() {
   const [bookConfig, setBookConfig] = useState(null);
   const [monthlyRecap, setMonthlyRecap] = useState(null);
   const [partnerToast, setPartnerToast] = useState(null); // { entry, authorName }
+  const [reactionToast, setReactionToast] = useState(null); // { message }
+  const [unseenReactionCount, setUnseenReactionCount] = useState(0);
+  const [reactionNotifications, setReactionNotifications] = useState([]); // { id, type, fromName, entryId, kidNames, body?, ts }
   const [letterAuthorId, setLetterAuthorId] = useState(null);
   const [unseenPartnerIds, setUnseenPartnerIds] = useState([]);
   const [friends, setFriends] = useState([]);
@@ -6396,6 +6469,12 @@ export default function App() {
   // Keep a ref of own entry IDs so realtime handlers can check without stale closure
   const ownEntryIdsRef = useRef(new Set());
   useEffect(() => { ownEntryIdsRef.current = new Set(entries.map(e => e.id)); }, [entries]);
+  const entriesRef = useRef(entries);
+  useEffect(() => { entriesRef.current = entries; }, [entries]);
+  const kidsRef = useRef(kids);
+  useEffect(() => { kidsRef.current = kids; }, [kids]);
+  const currentUserIdRef = useRef(session?.user?.id);
+  useEffect(() => { currentUserIdRef.current = session?.user?.id; }, [session?.user?.id]);
 
   useEffect(() => {
     if (localMode || !supabase || !session?.user?.id || !familyId) return;
@@ -6403,7 +6482,7 @@ export default function App() {
       .channel(`family-entries-${familyId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entries', filter: `family_id=eq.${familyId}` }, payload => {
         const row = payload.new;
-        if (!row || row.author_id === session.user.id) return;
+        if (!row || row.author_id === currentUserIdRef.current) return;
         const author = familyMembersRef.current.find(m => m.user_id === row.author_id);
         const authorName = author?.real_name || author?.display_name || 'Your partner';
         const newEntry = {
@@ -6421,12 +6500,18 @@ export default function App() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_likes' }, payload => {
         const { entry_id, user_id } = payload.new;
-        if (user_id === session.user.id) return;
+        if (user_id === currentUserIdRef.current) return;
         if (!ownEntryIdsRef.current.has(entry_id)) return;
         setReactionCounts(prev => {
           const cur = prev[entry_id] || { likes: 0, comments: 0 };
           return { ...prev, [entry_id]: { ...cur, likes: cur.likes + 1 } };
         });
+        const liker = payload.new.display_name || 'Someone';
+        setReactionToast({ message: `${liker} liked your photo ❤️` });
+        setUnseenReactionCount(n => n + 1);
+        const likedEntry = entriesRef.current.find(e => e.id === entry_id);
+        const kidNames = (likedEntry?.kids || []).map(id => kidsRef.current.find(k => k.id === id)?.name?.split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
+        setReactionNotifications(prev => [{ id: `like-${entry_id}-${Date.now()}`, type: 'like', fromName: liker, entryId: entry_id, kidNames, ts: Date.now() }, ...prev]);
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'entry_likes' }, payload => {
         const { entry_id } = payload.old;
@@ -6439,12 +6524,19 @@ export default function App() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_comments' }, payload => {
         const { entry_id, user_id } = payload.new;
-        if (user_id === session.user.id) return;
+        if (user_id === currentUserIdRef.current) return;
         if (!ownEntryIdsRef.current.has(entry_id)) return;
         setReactionCounts(prev => {
           const cur = prev[entry_id] || { likes: 0, comments: 0 };
           return { ...prev, [entry_id]: { ...cur, comments: cur.comments + 1 } };
         });
+        const commenter = payload.new.display_name || 'Someone';
+        const preview = payload.new.body?.slice(0, 40);
+        setReactionToast({ message: `${commenter}: "${preview}"` });
+        setUnseenReactionCount(n => n + 1);
+        const commentedEntry = entriesRef.current.find(e => e.id === entry_id);
+        const commentKidNames = (commentedEntry?.kids || []).map(id => kidsRef.current.find(k => k.id === id)?.name?.split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
+        setReactionNotifications(prev => [{ id: `comment-${entry_id}-${Date.now()}`, type: 'comment', fromName: commenter, entryId: entry_id, kidNames: commentKidNames, body: payload.new.body, ts: Date.now() }, ...prev]);
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'entry_comments' }, payload => {
         const { entry_id } = payload.old;
@@ -7113,6 +7205,9 @@ export default function App() {
           onDismiss={() => setPartnerToast(null)}
         />
       )}
+      {reactionToast && (
+        <ReactionToast message={reactionToast.message} onDismiss={() => setReactionToast(null)} />
+      )}
       {screen === 'home' && (() => {
         const partnerMember = familyMembers.find(m => m.user_id !== session?.user?.id) || null;
         const selfMember = familyMembers.find(m => m.user_id === session?.user?.id) || null;
@@ -7260,6 +7355,8 @@ export default function App() {
           onSendRequest={handleSendFriendRequest}
           onRespond={handleRespondFriendRequest}
           onUnfriend={handleUnfriend}
+          reactionNotifications={reactionNotifications}
+          onClearReactions={() => setReactionNotifications([])}
         />
       )}
 
@@ -7342,9 +7439,9 @@ export default function App() {
       })()}
 
       {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'growth' && screen !== 'book-builder' && screen !== 'book-preview' && (
-        <NavBar active={screen} onNavigate={setScreen} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} />
+        <NavBar active={screen} onNavigate={s => { setScreen(s); if (s === 'friends') { setUnseenReactionCount(0); } }} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={unseenReactionCount} />
       )}
-      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={setScreen} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} />}
+      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={s => { setScreen(s); if (s === 'friends') { setUnseenReactionCount(0); } }} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={unseenReactionCount} />}
 
       {celebration && (
         <CelebrationOverlay
