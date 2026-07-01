@@ -1011,11 +1011,14 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
   const [longPressEntry, setLongPressEntry] = useState(null);
   const [circleViewer, setCircleViewer] = useState(null);
+  const [viewerLikes, setViewerLikes] = useState([]);
+  const [viewerComments, setViewerComments] = useState([]);
+  const [viewerCommentText, setViewerCommentText] = useState('');
   const handleLongPress = useCallback((entry) => setLongPressEntry(entry), []);
   const scrollRef = useRef(null);
   const ptr = usePullToRefresh(scrollRef, onRefresh);
@@ -1035,6 +1038,46 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   const todayMMDD = currentDate.slice(5);
   const todayYear = parseInt(currentDate.slice(0, 4));
   const todayLabel = new Date(currentDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+  // Load likes + comments when lightbox opens
+  useEffect(() => {
+    if (!circleViewer) { setViewerLikes([]); setViewerComments([]); setViewerCommentText(''); return; }
+    Promise.all([
+      supabase.from('entry_likes').select('id, user_id, display_name').eq('entry_id', circleViewer.entry.id),
+      supabase.from('entry_comments').select('id, user_id, display_name, body, created_at').eq('entry_id', circleViewer.entry.id).order('created_at'),
+    ]).then(([{ data: likes }, { data: comments }]) => {
+      setViewerLikes(likes || []);
+      setViewerComments(comments || []);
+    });
+  }, [circleViewer?.entry?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleToggleLike() {
+    if (!supabase || !session) return;
+    const entryId = circleViewer.entry.id;
+    const userId = session.user.id;
+    const existing = viewerLikes.find(l => l.user_id === userId);
+    if (existing) {
+      setViewerLikes(prev => prev.filter(l => l.user_id !== userId));
+      await supabase.from('entry_likes').delete().eq('entry_id', entryId).eq('user_id', userId);
+    } else {
+      const socialName = self?.real_name || myDisplayName || '';
+      const optimistic = { id: 'opt', user_id: userId, display_name: socialName };
+      setViewerLikes(prev => [...prev, optimistic]);
+      const { data } = await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: userId, display_name: socialName }).select('id, user_id, display_name').single();
+      if (data) setViewerLikes(prev => prev.map(l => l.id === 'opt' ? data : l));
+    }
+  }
+
+  async function handleSubmitComment() {
+    const body = viewerCommentText.trim();
+    if (!body || !supabase || !session) return;
+    setViewerCommentText('');
+    const socialName = self?.real_name || myDisplayName || '';
+    const temp = { id: 'opt-' + Date.now(), user_id: session.user.id, display_name: socialName, body, created_at: new Date().toISOString() };
+    setViewerComments(prev => [...prev, temp]);
+    const { data } = await supabase.from('entry_comments').insert({ entry_id: circleViewer.entry.id, user_id: session.user.id, display_name: socialName, body }).select('id, user_id, display_name, body, created_at').single();
+    if (data) setViewerComments(prev => prev.map(c => c.id === temp.id ? data : c));
+  }
 
   const [cropPositions, setCropPositions] = useState(() => {
     try { return JSON.parse(localStorage.getItem('patina-crop-positions') || '{}'); } catch { return {}; }
@@ -1431,8 +1474,8 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         const bgStyle = entryBgStyle(entry);
         return (
           <div onClick={() => setCircleViewer(null)} style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 30, display: 'flex', flexDirection: 'column' }}>
-            {/* Top bar — friend info + close */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 16px 12px' }} onClick={e => e.stopPropagation()}>
+            {/* Top bar — friend info + compare icon + close */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 16px 12px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
                 {friendAvatar
                   ? <img src={cloudinaryTransform(friendAvatar, 'w_72,h_72,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -1442,26 +1485,73 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{friendName || 'Friend'}</p>
                 <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{entryDate}</p>
               </div>
+              {onCompareAtAge && circleViewer.entryKids[0] && (
+                <button onClick={e => { e.stopPropagation(); setCircleViewer(null); onCompareAtAge(circleViewer.entryKids[0].id, circleViewer.entry.ageMonths); }} title="At the same age" style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--accent)', fontSize: 16, flexShrink: 0 }}>
+                  <i className="ti ti-arrows-diff" />
+                </button>
+              )}
               <button onClick={() => setCircleViewer(null)} style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', fontSize: 16, flexShrink: 0 }}>
                 <i className="ti ti-x" />
               </button>
             </div>
 
-            {/* Photo */}
-            <div style={{ flex: 1, ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center' }} />
+            {/* Photo — fixed square */}
+            <div style={{ width: '100%', aspectRatio: '1', flexShrink: 0, ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center' }} />
 
-            {/* Bottom — kid info + button */}
-            <div style={{ padding: '16px 16px 24px' }} onClick={e => e.stopPropagation()}>
-              <p style={{ margin: '0 0 2px', fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{kidLabel}</p>
-              {age && <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text-3)' }}>{age}</p>}
-              {onCompareAtAge && circleViewer.entryKids[0] && (
-                <button onClick={e => { e.stopPropagation(); setCircleViewer(null); onCompareAtAge(circleViewer.entryKids[0].id, circleViewer.entry.ageMonths); }} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}>
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>At the same age</span>
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#fff' }} />
+            {/* Kid name + heart inline, then scrollable comments */}
+            <div style={{ padding: '12px 16px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, borderBottom: viewerComments.length > 0 ? '1px solid var(--border)' : 'none' }} onClick={e => e.stopPropagation()}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: '0 0 1px', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{kidLabel}</p>
+                {age && <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{age}</p>}
+              </div>
+              {(() => {
+                const userHasLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
+                return (
+                  <button onClick={handleToggleLike} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', color: userHasLiked ? '#E05C6A' : 'var(--text-3)', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
+                    <i className={`ti ${userHasLiked ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
+                    {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600 }}>{viewerLikes.length}</span>}
+                  </button>
+                );
+              })()}
+            </div>
+            {/* Scrollable comments */}
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }} onClick={e => e.stopPropagation()}>
+              {viewerComments.map(c => (
+                <div key={c.id} style={{ padding: '6px 16px', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>{c.display_name || 'Someone'} </span>
+                    <span style={{ fontSize: 13, color: 'var(--text-2)', fontFamily: 'Inter, sans-serif' }}>{c.body}</span>
                   </div>
+                  {c.user_id === session?.user?.id && (
+                    <button onClick={async () => {
+                      setViewerComments(prev => prev.filter(x => x.id !== c.id));
+                      await supabase.from('entry_comments').delete().eq('id', c.id);
+                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, padding: '1px 0', flexShrink: 0, fontFamily: 'Inter, sans-serif' }}>
+                      <i className="ti ti-trash" style={{ fontSize: 13 }} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Fixed bottom — comment input */}
+            <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+              <div style={{ padding: '10px 16px 24px', display: 'flex', gap: 10, alignItems: 'center' }}>
+                <input
+                  value={viewerCommentText}
+                  onChange={e => setViewerCommentText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSubmitComment(); } }}
+                  placeholder="Add a comment…"
+                  style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 20, padding: '8px 14px', fontSize: 14, background: 'var(--bg-input)', color: 'var(--text)', outline: 'none', fontFamily: 'Inter, sans-serif' }}
+                />
+                <button
+                  onClick={handleSubmitComment}
+                  disabled={!viewerCommentText.trim()}
+                  style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: viewerCommentText.trim() ? 1 : 0.35, flexShrink: 0 }}
+                >
+                  <i className="ti ti-send" style={{ fontSize: 15, color: '#fff' }} />
                 </button>
-              )}
+              </div>
             </div>
           </div>
         );
@@ -1472,7 +1562,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
 
 // ─── Journal timeline ────────────────────────────────────────────────────
 
-const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen, onLongPress }) {
+const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen, onLongPress, reactionCount }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const d = new Date(entry.date + 'T12:00:00');
   const dayNum = d.getDate();
@@ -1502,6 +1592,18 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{nameLabel}</span>
             {entryKids.length === 1 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {exactAgeLabel(entryKids[0].birthdate, entry.date)}</span>}
             <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {reactionCount?.likes > 0 && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#E05C6A', fontWeight: 600 }}>
+                  <i className="ti ti-heart-filled" style={{ fontSize: 11 }} />
+                  {reactionCount.likes}
+                </span>
+              )}
+              {reactionCount?.comments > 0 && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                  <i className="ti ti-message-circle" style={{ fontSize: 11 }} />
+                  {reactionCount.comments}
+                </span>
+              )}
               {entry.favorited && <i className="ti ti-heart-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
               {m && <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E' }}>{m.label}</span>}
             </div>
@@ -1561,7 +1663,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         );
       }
       const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
-      result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onOpen={onOpenEntry} onLongPress={handleLongPress} />);
+      result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onOpen={onOpenEntry} onLongPress={handleLongPress} reactionCount={reactionCounts[entry.id]} />);
     });
     return result;
   }, [entries, kids, kidFilter, onOpenEntry, handleLongPress]);
@@ -5952,6 +6054,7 @@ export default function App() {
   const [friendFamilyIds, setFriendFamilyIds] = useState([]);
   const [friendFamilyMap, setFriendFamilyMap] = useState({});
   const [compareTarget, setCompareTarget] = useState(null);
+  const [reactionCounts, setReactionCounts] = useState({});
   const [discoverable, setDiscoverable] = useState(true);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('patina_dark_mode');
@@ -6160,6 +6263,21 @@ export default function App() {
               setFriendKids((fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id })));
               setFriendEntries((fEntries || []).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
             }
+          }
+        }
+
+        // Load reaction counts for own shared entries (so poster sees hearts on their cards)
+        if (entriesData?.length > 0) {
+          const sharedIds = entriesData.filter(e => e.shared !== false).map(e => e.id);
+          if (sharedIds.length > 0) {
+            const [{ data: lks }, { data: cms }] = await Promise.all([
+              supabase.from('entry_likes').select('entry_id').in('entry_id', sharedIds),
+              supabase.from('entry_comments').select('entry_id').in('entry_id', sharedIds),
+            ]);
+            const counts = {};
+            lks?.forEach(l => { if (!counts[l.entry_id]) counts[l.entry_id] = { likes: 0, comments: 0 }; counts[l.entry_id].likes++; });
+            cms?.forEach(c => { if (!counts[c.entry_id]) counts[c.entry_id] = { likes: 0, comments: 0 }; counts[c.entry_id].comments++; });
+            setReactionCounts(counts);
           }
         }
 
@@ -6965,6 +7083,9 @@ export default function App() {
               setCompareTarget({ kidId, compareAge: bucket });
               setScreen('compare');
             }}
+            reactionCounts={reactionCounts}
+            session={session}
+            myDisplayName={myDisplayName}
           />
         );
       })()}
