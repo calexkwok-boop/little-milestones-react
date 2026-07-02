@@ -1154,7 +1154,9 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
       const kidLabel = entryKids.map(k => k.name).join(' & ') || 'Photo';
       const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, ownEntry.date) : null;
       const entryDate = new Date(ownEntry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      setCircleViewer({ entry: ownEntry, entryKids, kidLabel, age, friendName: '', friendAvatar: null, entryDate });
+      const myName = self?.real_name || myDisplayName || 'Me';
+      const myAvatar = self?.avatar_url || null;
+      setCircleViewer({ entry: ownEntry, entryKids, kidLabel, age, friendName: myName, friendAvatar: myAvatar, entryDate });
       if (onClearPendingOpen) onClearPendingOpen();
       return;
     }
