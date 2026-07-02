@@ -1019,6 +1019,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   const [viewerLikes, setViewerLikes] = useState([]);
   const [viewerComments, setViewerComments] = useState([]);
   const [viewerCommentText, setViewerCommentText] = useState('');
+  const [replyTarget, setReplyTarget] = useState(null); // { id, display_name, user_id }
   const [showLikeAnim, setShowLikeAnim] = useState(false);
   const lastTapRef = useRef(0);
   const handleLongPress = useCallback((entry) => setLongPressEntry(entry), []);
@@ -1043,10 +1044,10 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
 
   // Load likes + comments when lightbox opens
   useEffect(() => {
-    if (!circleViewer) { setViewerLikes([]); setViewerComments([]); setViewerCommentText(''); return; }
+    if (!circleViewer) { setViewerLikes([]); setViewerComments([]); setViewerCommentText(''); setReplyTarget(null); return; }
     Promise.all([
       supabase.from('entry_likes').select('id, user_id, display_name').eq('entry_id', circleViewer.entry.id),
-      supabase.from('entry_comments').select('id, user_id, display_name, body, created_at').eq('entry_id', circleViewer.entry.id).order('created_at'),
+      supabase.from('entry_comments').select('id, user_id, display_name, body, created_at, parent_id').eq('entry_id', circleViewer.entry.id).order('created_at'),
     ]).then(([{ data: likes }, { data: comments }]) => {
       setViewerLikes(likes || []);
       setViewerComments(comments || []);
@@ -1075,10 +1076,27 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     if (!body || !supabase || !session) return;
     setViewerCommentText('');
     const socialName = self?.real_name || myDisplayName || '';
-    const temp = { id: 'opt-' + Date.now(), user_id: session.user.id, display_name: socialName, body, created_at: new Date().toISOString() };
+    const parentId = replyTarget?.id || null;
+    setReplyTarget(null);
+    const temp = { id: 'opt-' + Date.now(), user_id: session.user.id, display_name: socialName, body, created_at: new Date().toISOString(), parent_id: parentId };
     setViewerComments(prev => [...prev, temp]);
-    const { data } = await supabase.from('entry_comments').insert({ entry_id: circleViewer.entry.id, user_id: session.user.id, display_name: socialName, body }).select('id, user_id, display_name, body, created_at').single();
+    const insertData = { entry_id: circleViewer.entry.id, user_id: session.user.id, display_name: socialName, body };
+    if (parentId) insertData.parent_id = parentId;
+    const { data } = await supabase.from('entry_comments').insert(insertData).select('id, user_id, display_name, body, created_at, parent_id').single();
     if (data) setViewerComments(prev => prev.map(c => c.id === temp.id ? data : c));
+  }
+
+  function handleOpenEntry(entry) {
+    if (!entry.user_id || entry.user_id === currentUserId) {
+      onOpenEntry(entry);
+      return;
+    }
+    const member = familyMembers.find(m => m.user_id === entry.user_id);
+    const entryKids = kids.filter(k => (entry.kids || []).includes(k.id));
+    const kidLabel = entryKids.map(k => k.name).join(' & ') || 'Photo';
+    const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
+    const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    setCircleViewer({ entry, entryKids, kidLabel, age, friendName: member?.display_name || 'Family', friendAvatar: member?.avatar_url || null, entryDate });
   }
 
   const [cropPositions, setCropPositions] = useState(() => {
@@ -1345,7 +1363,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
             const entry = onThisDay[0];
             const kid = kidMap.get(entry.kids[0]);
             const yearsAgo = todayYear - parseInt(entry.date.slice(0, 4));
-            return <OnThisDayCard entry={entry} kid={kid} allKids={kids} yearsAgo={yearsAgo} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} />;
+            return <OnThisDayCard entry={entry} kid={kid} allKids={kids} yearsAgo={yearsAgo} onClick={() => handleOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} />;
           })()}
 
           {onceUponATime && (() => {
@@ -1358,7 +1376,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Once upon a time</span>
                   <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                 </div>
-                <LetterCard entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
+                <LetterCard entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
               </div>
             );
           })()}
@@ -1375,14 +1393,14 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               {sameAgeGroup.length === 2 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {sameAgeGroup.map(({ entry, kid }) => (
-                    <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={false} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
+                    <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={false} onClick={() => handleOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
                   ))}
                 </div>
               ) : (
                 <div className="scrollx">
                   {sameAgeGroup.map(({ entry, kid }) => (
                     <div key={entry.id} style={{ minWidth: '72%', flexShrink: 0 }}>
-                      <LetterCard entry={entry} kid={kid} allKids={kids} featured={false} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
+                      <LetterCard entry={entry} kid={kid} allKids={kids} featured={false} onClick={() => handleOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />
                     </div>
                   ))}
                 </div>
@@ -1395,7 +1413,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               <SectionDivider label="Recent letters" />
               {recent.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
-                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />;
+                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />;
               })}
               {entries.length > 3 && (
                 <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-3)', fontFamily: "'Inter', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
@@ -1410,7 +1428,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               <SectionDivider label="Recently added" />
               {recentlyAdded.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
-                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => onOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />;
+                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />;
               })}
             </div>
           )}
@@ -1563,34 +1581,61 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                 );
               })()}
             </div>
-            {/* Scrollable comments */}
+            {/* Scrollable comments — threaded */}
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }} onClick={e => e.stopPropagation()}>
-              {viewerComments.map(c => (
-                <div key={c.id} style={{ padding: '6px 16px', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>{c.display_name || 'Someone'} </span>
-                    <span style={{ fontSize: 13, color: 'var(--text-2)', fontFamily: 'Inter, sans-serif' }}>{c.body}</span>
+              {(() => {
+                const topLevel = viewerComments.filter(c => !c.parent_id);
+                const repliesMap = {};
+                viewerComments.filter(c => c.parent_id).forEach(r => {
+                  if (!repliesMap[r.parent_id]) repliesMap[r.parent_id] = [];
+                  repliesMap[r.parent_id].push(r);
+                });
+                return topLevel.map(c => (
+                  <div key={c.id}>
+                    <div style={{ padding: '6px 16px', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>{c.display_name || 'Someone'} </span>
+                        <span style={{ fontSize: 13, color: 'var(--text-2)', fontFamily: 'Inter, sans-serif' }}>{c.body}</span>
+                        <button onClick={() => setReplyTarget({ id: c.id, display_name: c.display_name || 'Someone', user_id: c.user_id })} style={{ display: 'block', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, padding: '3px 0 0', fontFamily: 'Inter, sans-serif' }}>Reply</button>
+                      </div>
+                      {c.user_id === session?.user?.id && (
+                        <button onClick={async () => { setViewerComments(prev => prev.filter(x => x.id !== c.id && x.parent_id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                          <i className="ti ti-trash" style={{ fontSize: 13 }} />
+                        </button>
+                      )}
+                    </div>
+                    {(repliesMap[c.id] || []).map(r => (
+                      <div key={r.id} style={{ padding: '4px 16px 4px 36px', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>{r.display_name || 'Someone'} </span>
+                          <span style={{ fontSize: 12, color: 'var(--text-2)', fontFamily: 'Inter, sans-serif' }}>{r.body}</span>
+                        </div>
+                        {r.user_id === session?.user?.id && (
+                          <button onClick={async () => { setViewerComments(prev => prev.filter(x => x.id !== r.id)); await supabase.from('entry_comments').delete().eq('id', r.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                            <i className="ti ti-trash" style={{ fontSize: 12 }} />
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                  {c.user_id === session?.user?.id && (
-                    <button onClick={async () => {
-                      setViewerComments(prev => prev.filter(x => x.id !== c.id));
-                      await supabase.from('entry_comments').delete().eq('id', c.id);
-                    }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, padding: '1px 0', flexShrink: 0, fontFamily: 'Inter, sans-serif' }}>
-                      <i className="ti ti-trash" style={{ fontSize: 13 }} />
-                    </button>
-                  )}
-                </div>
-              ))}
+                ));
+              })()}
             </div>
 
-            {/* Fixed bottom — comment input */}
+            {/* Fixed bottom — reply banner + comment input */}
             <div style={{ flexShrink: 0, borderTop: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+              {replyTarget && (
+                <div style={{ padding: '6px 16px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>Replying to <strong style={{ color: 'var(--text-2)' }}>{replyTarget.display_name}</strong></span>
+                  <button onClick={() => setReplyTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', marginLeft: 'auto' }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>
+                </div>
+              )}
               <div style={{ padding: '10px 16px 24px', display: 'flex', gap: 10, alignItems: 'center' }}>
                 <input
                   value={viewerCommentText}
                   onChange={e => setViewerCommentText(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSubmitComment(); } }}
-                  placeholder="Add a comment…"
+                  placeholder={replyTarget ? `Reply to ${replyTarget.display_name}…` : 'Add a comment…'}
                   style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 20, padding: '8px 14px', fontSize: 14, background: 'var(--bg-input)', color: 'var(--text)', outline: 'none', fontFamily: 'Inter, sans-serif' }}
                 />
                 <button
@@ -5337,16 +5382,16 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
                   <div key={n.id} onClick={() => { if (onDismissReaction) onDismissReaction(n.id); if (onOpenFriendEntry) onOpenFriendEntry(n.entryId); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderBottom: idx < reactionNotifications.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
                     <div style={{ position: 'relative', flexShrink: 0 }}>
                       <FriendAvatar name={n.fromName} avatarUrl={friendAvatarMap[n.fromUserId]} size={36} />
-                      <span style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: n.type === 'like' ? '#E05C6A' : 'var(--accent)', border: '1.5px solid var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <i className={n.type === 'like' ? 'ti ti-heart-filled' : 'ti ti-message-circle'} style={{ fontSize: 8, color: '#fff' }} />
+                      <span style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: n.type === 'like' ? '#E05C6A' : n.type === 'reply' ? '#7A6A8A' : 'var(--accent)', border: '1.5px solid var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className={n.type === 'like' ? 'ti ti-heart-filled' : n.type === 'reply' ? 'ti ti-arrow-back-up' : 'ti ti-message-circle'} style={{ fontSize: 8, color: '#fff' }} />
                       </span>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.4 }}>
                         <strong>{n.fromName}</strong>
-                        {n.type === 'like' ? ` liked ${n.kidNames}'s photo` : ` commented on ${n.kidNames}'s photo`}
+                        {n.type === 'like' ? ` liked ${n.kidNames}'s photo` : n.type === 'reply' ? ` replied to your comment` : ` commented on ${n.kidNames}'s photo`}
                       </p>
-                      {n.type === 'comment' && n.body && (
+                      {(n.type === 'comment' || n.type === 'reply') && n.body && (
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-2)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{n.body}&rdquo;</p>
                       )}
                     </div>
@@ -6473,28 +6518,42 @@ export default function App() {
         }
 
         // Load recent reactions on the user's entries to seed the activity feed
-        if (entriesData?.length > 0) {
-          const sharedIds = entriesData.filter(e => e.shared !== false).map(e => e.id);
-          if (sharedIds.length > 0) {
-            const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-            const cutoff = thirtyDaysAgo.toISOString();
-            const kidMap = {};
-            (kidsData || []).forEach(k => { kidMap[k.id] = k.name; });
-            const entryKidMap = {};
-            (entriesData || []).forEach(e => {
-              const ids = e.kid_ids || [];
-              entryKidMap[e.id] = ids.map(id => (kidMap[id] || '').split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
-            });
-            const [{ data: recentLikes }, { data: recentComments }] = await Promise.all([
-              supabase.from('entry_likes').select('id, entry_id, user_id, display_name, created_at').in('entry_id', sharedIds).neq('user_id', session.user.id).gte('created_at', cutoff).order('created_at', { ascending: false }),
-              supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at').in('entry_id', sharedIds).neq('user_id', session.user.id).gte('created_at', cutoff).order('created_at', { ascending: false }),
-            ]);
-            const all = [
-              ...(recentLikes || []).map(l => ({ id: `like-${l.id}`, type: 'like', fromName: l.display_name || 'Someone', fromUserId: l.user_id, entryId: l.entry_id, kidNames: entryKidMap[l.entry_id] || 'a photo', ts: new Date(l.created_at).getTime() })),
-              ...(recentComments || []).map(c => ({ id: `comment-${c.id}`, type: 'comment', fromName: c.display_name || 'Someone', fromUserId: c.user_id, entryId: c.entry_id, kidNames: entryKidMap[c.entry_id] || 'a photo', body: c.body, ts: new Date(c.created_at).getTime() })),
-            ].sort((a, b) => b.ts - a.ts);
-            if (all.length > 0) setReactionNotifications(all);
+        {
+          const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          const cutoff = thirtyDaysAgo.toISOString();
+          const all = [];
+          if (entriesData?.length > 0) {
+            const sharedIds = entriesData.filter(e => e.shared !== false).map(e => e.id);
+            if (sharedIds.length > 0) {
+              const kidMap = {};
+              (kidsData || []).forEach(k => { kidMap[k.id] = k.name; });
+              const entryKidMap = {};
+              (entriesData || []).forEach(e => {
+                const ids = e.kid_ids || [];
+                entryKidMap[e.id] = ids.map(id => (kidMap[id] || '').split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
+              });
+              const [{ data: recentLikes }, { data: recentComments }] = await Promise.all([
+                supabase.from('entry_likes').select('id, entry_id, user_id, display_name, created_at').in('entry_id', sharedIds).neq('user_id', session.user.id).gte('created_at', cutoff).order('created_at', { ascending: false }),
+                supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at').in('entry_id', sharedIds).neq('user_id', session.user.id).gte('created_at', cutoff).is('parent_id', null).order('created_at', { ascending: false }),
+              ]);
+              all.push(
+                ...(recentLikes || []).map(l => ({ id: `like-${l.id}`, type: 'like', fromName: l.display_name || 'Someone', fromUserId: l.user_id, entryId: l.entry_id, kidNames: entryKidMap[l.entry_id] || 'a photo', ts: new Date(l.created_at).getTime() })),
+                ...(recentComments || []).map(c => ({ id: `comment-${c.id}`, type: 'comment', fromName: c.display_name || 'Someone', fromUserId: c.user_id, entryId: c.entry_id, kidNames: entryKidMap[c.entry_id] || 'a photo', body: c.body, ts: new Date(c.created_at).getTime() })),
+              );
+            }
           }
+          // Always load replies to current user's comments — runs even if user has no own posts
+          const { data: recentReplies } = await supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at, parent_id').not('parent_id', 'is', null).neq('user_id', session.user.id).gte('created_at', cutoff).order('created_at', { ascending: false }).limit(50);
+          if (recentReplies?.length) {
+            const parentIds = [...new Set(recentReplies.map(r => r.parent_id))];
+            const { data: myParents } = await supabase.from('entry_comments').select('id').in('id', parentIds).eq('user_id', session.user.id);
+            const myParentIds = new Set((myParents || []).map(c => c.id));
+            recentReplies.filter(r => myParentIds.has(r.parent_id)).forEach(r => {
+              all.push({ id: `reply-${r.id}`, type: 'reply', fromName: r.display_name || 'Someone', fromUserId: r.user_id, entryId: r.entry_id, kidNames: 'a photo', body: r.body, ts: new Date(r.created_at).getTime() });
+            });
+          }
+          all.sort((a, b) => b.ts - a.ts);
+          if (all.length > 0) setReactionNotifications(all);
         }
 
         // Load own profile for discoverable setting
@@ -6652,9 +6711,20 @@ export default function App() {
           return { ...prev, [entry_id]: { ...cur, likes: Math.max(0, cur.likes - 1) } };
         });
       })
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_comments' }, payload => {
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_comments' }, async payload => {
         const { entry_id, user_id } = payload.new;
         if (user_id === currentUserIdRef.current) return;
+        // If this is a reply, check if the parent comment belongs to the current user
+        if (payload.new.parent_id) {
+          const { data: parentComment } = await supabase.from('entry_comments').select('user_id').eq('id', payload.new.parent_id).single();
+          if (parentComment?.user_id === currentUserIdRef.current) {
+            const repliedEntry = entriesRef.current.find(e => e.id === entry_id);
+            const replyKidNames = (repliedEntry?.kids || []).map(id => kidsRef.current.find(k => k.id === id)?.name?.split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
+            const replyNotifId = `reply-${payload.new.id}`;
+            setReactionNotifications(prev => prev.some(n => n.id === replyNotifId) ? prev : [{ id: replyNotifId, type: 'reply', fromName: payload.new.display_name || 'Someone', fromUserId: user_id, entryId: entry_id, kidNames: replyKidNames, body: payload.new.body, ts: Date.now() }, ...prev]);
+          }
+          return;
+        }
         if (!ownEntryIdsRef.current.has(entry_id)) return;
         setReactionCounts(prev => {
           const cur = prev[entry_id] || { likes: 0, comments: 0 };
@@ -6681,6 +6751,32 @@ export default function App() {
     return () => { supabase.removeChannel(channel); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id, familyId]);
+
+  // Separate subscription for cross-family reply notifications (family channel only covers own-family events)
+  useEffect(() => {
+    if (!supabase || !session?.user?.id) return;
+    const userId = session.user.id;
+    const replyCh = supabase
+      .channel(`my-comment-replies-${userId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_comments' }, async payload => {
+        if (!payload.new.parent_id) return;
+        if (payload.new.user_id === userId) return;
+        const { data: parentComment } = await supabase
+          .from('entry_comments')
+          .select('user_id')
+          .eq('id', payload.new.parent_id)
+          .single();
+        if (parentComment?.user_id !== userId) return;
+        const replyNotifId = `reply-${payload.new.id}`;
+        setReactionNotifications(prev =>
+          prev.some(n => n.id === replyNotifId)
+            ? prev
+            : [{ id: replyNotifId, type: 'reply', fromName: payload.new.display_name || 'Someone', fromUserId: payload.new.user_id, entryId: payload.new.entry_id, kidNames: 'a photo', body: payload.new.body, ts: Date.now() }, ...prev]
+        );
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(replyCh); };
+  }, [session?.user?.id]);
 
   const screenRef = useRef(screen);
   useEffect(() => { screenRef.current = screen; }, [screen]);
