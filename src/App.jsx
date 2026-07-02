@@ -6659,7 +6659,10 @@ export default function App() {
             });
           }
           all.sort((a, b) => b.ts - a.ts);
-          if (all.length > 0) setReactionNotifications(all);
+          const clearedAt = parseInt(localStorage.getItem('notifClearedAt') || '0', 10);
+          const dismissedIds = new Set(JSON.parse(localStorage.getItem('notifDismissedIds') || '[]'));
+          const unseen = all.filter(n => n.ts > clearedAt && !dismissedIds.has(n.id));
+          if (unseen.length > 0) setReactionNotifications(unseen);
         }
 
         // Load own profile for discoverable setting
@@ -7693,8 +7696,8 @@ export default function App() {
           onRespond={handleRespondFriendRequest}
           onUnfriend={handleUnfriend}
           reactionNotifications={reactionNotifications}
-          onClearReactions={() => setReactionNotifications([])}
-          onDismissReaction={id => setReactionNotifications(prev => prev.filter(n => n.id !== id))}
+          onClearReactions={() => { localStorage.setItem('notifClearedAt', Date.now().toString()); setReactionNotifications([]); }}
+          onDismissReaction={id => { const prev = JSON.parse(localStorage.getItem('notifDismissedIds') || '[]'); localStorage.setItem('notifDismissedIds', JSON.stringify([...new Set([...prev, id])])); setReactionNotifications(p => p.filter(n => n.id !== id)); }}
           onOpenFriendEntry={entryId => { setPendingOpenEntryId(entryId); setScreen('home'); }}
         />
       )}
