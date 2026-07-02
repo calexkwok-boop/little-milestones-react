@@ -1621,56 +1621,81 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
   const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
 
+  const hasMedia = entry.media && entry.media.length > 0;
+  const heroMedia = hasMedia ? entry.media[0] : null;
+  const extraMedia = hasMedia ? entry.media.slice(1, 4) : [];
+
   return (
-    <div className={`journal-entry${m ? ' milestone-entry' : ''}`} onClick={lp.wrapClick(() => onOpen(entry))} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd}>
-      <span className="day-quote-mark">"</span>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-        <div style={{ textAlign: 'center', flexShrink: 0, width: 40 }}>
-          <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1, fontFamily: "'Playfair Display', serif" }}>{dayNum}</p>
-          <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '2px 0 0', fontWeight: 600, textTransform: 'uppercase' }}>{weekday}</p>
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
-            <div style={{ display: 'flex' }}>
-              {entryKids.map((k, i) => (
-                <div key={k.id} style={{ marginLeft: i > 0 ? -6 : 0, zIndex: entryKids.length - i, position: 'relative' }}>
-                  <KidThumb kid={k} size={20} />
-                </div>
-              ))}
-            </div>
-            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{nameLabel}</span>
-            {entryKids.length === 1 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {exactAgeLabel(entryKids[0].birthdate, entry.date)}</span>}
-            <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-              {reactionCount?.likes > 0 && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#E05C6A', fontWeight: 600 }}>
-                  <i className="ti ti-heart-filled" style={{ fontSize: 11 }} />
-                  {reactionCount.likes}
-                </span>
-              )}
-              {reactionCount?.comments > 0 && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-                  <i className="ti ti-message-circle" style={{ fontSize: 11 }} />
-                  {reactionCount.comments}
-                </span>
-              )}
-              {entry.favorited && <i className="ti ti-heart-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
-              {m && <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E' }}>{m.label}</span>}
-            </div>
-          </div>
-          <p style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.65, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: text ? 'italic' : 'normal' }}>{text}</p>
-          {entry.media && entry.media.length > 0 && (
-            <div className="journal-thumb-strip">
-              {entry.media.slice(0, 4).map((mm, i) => (
-                <div key={i} className="journal-thumb" style={{ position: 'relative' }}>
-                  {mm.type === 'video'
-                    ? <img src={videoThumbUrl(mm.url, 'so_0,w_200,h_200,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} alt="" />
-                    : <FadeImg src={cloudinaryTransform(mm.url, 'w_200,h_200,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
-                  }
-                  {mm.type === 'video' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-player-play" style={{ fontSize: 12, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} /></div>}
-                </div>
-              ))}
+    <div className={`journal-entry${m ? ' milestone-entry' : ''}`} onClick={lp.wrapClick(() => onOpen(entry))} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd} style={hasMedia ? { padding: 0 } : undefined}>
+      {heroMedia && (
+        <div style={{ margin: 0, borderRadius: '13px 13px 0 0', overflow: 'hidden', aspectRatio: '4/3', position: 'relative' }}>
+          {heroMedia.type === 'video'
+            ? <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+            : <FadeImg src={cloudinaryTransform(heroMedia.url, 'w_800,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          }
+          {heroMedia.type === 'video' && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
             </div>
           )}
+          {entry.media.length > 1 && (
+            <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.45)', borderRadius: 6, padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3 }}>
+              <i className="ti ti-photos" style={{ fontSize: 11, color: '#fff' }} />
+              <span style={{ fontSize: 11, color: '#fff', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>{entry.media.length}</span>
+            </div>
+          )}
+        </div>
+      )}
+      <div style={hasMedia ? { padding: '12px 16px 14px' } : undefined}>
+        {!hasMedia && <span className="day-quote-mark">"</span>}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <div style={{ textAlign: 'center', flexShrink: 0, width: 40 }}>
+            <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0, lineHeight: 1, fontFamily: "'Playfair Display', serif" }}>{dayNum}</p>
+            <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '2px 0 0', fontWeight: 600, textTransform: 'uppercase' }}>{weekday}</p>
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 6 }}>
+              <div style={{ display: 'flex' }}>
+                {entryKids.map((k, i) => (
+                  <div key={k.id} style={{ marginLeft: i > 0 ? -6 : 0, zIndex: entryKids.length - i, position: 'relative' }}>
+                    <KidThumb kid={k} size={20} />
+                  </div>
+                ))}
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{nameLabel}</span>
+              {entryKids.length === 1 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {exactAgeLabel(entryKids[0].birthdate, entry.date)}</span>}
+              <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {reactionCount?.likes > 0 && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#E05C6A', fontWeight: 600 }}>
+                    <i className="ti ti-heart-filled" style={{ fontSize: 11 }} />
+                    {reactionCount.likes}
+                  </span>
+                )}
+                {reactionCount?.comments > 0 && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
+                    <i className="ti ti-message-circle" style={{ fontSize: 11 }} />
+                    {reactionCount.comments}
+                  </span>
+                )}
+                {entry.favorited && <i className="ti ti-heart-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
+                {m && <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E' }}>{m.label}</span>}
+              </div>
+            </div>
+            <p style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.65, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: text ? 'italic' : 'normal' }}>{text}</p>
+            {extraMedia.length > 0 && (
+              <div className="journal-thumb-strip">
+                {extraMedia.map((mm, i) => (
+                  <div key={i} className="journal-thumb" style={{ position: 'relative' }}>
+                    {mm.type === 'video'
+                      ? <img src={videoThumbUrl(mm.url, 'so_0,w_200,h_200,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} alt="" />
+                      : <FadeImg src={cloudinaryTransform(mm.url, 'w_200,h_200,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
+                    }
+                    {mm.type === 'video' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-player-play" style={{ fontSize: 12, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} /></div>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -3355,7 +3380,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                     ? pool.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && e.milestone === milestoneFilter)
                     : pool.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths));
                 return (
-                  <div key={kid.id} style={{ width: 140, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div key={kid.id} style={{ width: 170, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <KidThumb kid={kid} />
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -3369,8 +3394,11 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                       )}
                     </div>
                     {matches.length === 0 ? (
-                      <div style={{ background: 'var(--bg-input)', border: '1px dashed #D8CFBC', borderRadius: 12, padding: '24px 12px', textAlign: 'center' }}>
-                        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>{isFriendKid ? 'Nothing shared yet' : emptyLabel}</p>
+                      <div style={{ background: 'var(--bg-input)', border: '1px dashed #D8CFBC', borderRadius: 12, padding: '28px 12px', textAlign: 'center' }}>
+                        <i className={isFriendKid ? 'ti ti-lock' : 'ti ti-camera'} style={{ fontSize: 22, color: 'var(--border-light)', display: 'block', marginBottom: 8 }} />
+                        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                          {isFriendKid ? 'Nothing shared\nat this age yet' : isSearching ? 'No matches' : isMilestoneFiltering ? 'None logged yet' : 'Nothing captured\nat this age yet'}
+                        </p>
                       </div>
                     ) : matches.map(e => {
                       const m = e.milestone ? milestoneInfo(e.milestone) : null;
@@ -7562,7 +7590,7 @@ export default function App() {
         <div style={{ position: 'absolute', inset: 0, background: '#1E2A1E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 32px' }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px' }}>{monthlyRecap.label}</p>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#fff', textAlign: 'center', margin: '0 0 10px', lineHeight: 1.25 }}>
-            A shared journey, just different chapters.
+            The days are long, but the years are short.
           </h1>
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'rgba(255,255,255,0.5)', textAlign: 'center', margin: '0 0 40px', lineHeight: 1.6 }}>
             They're lucky to have you.
