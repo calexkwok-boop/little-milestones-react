@@ -803,7 +803,7 @@ function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDele
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const preview = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const actions = [
-    { icon: entry.favorited ? 'ti-heart-filled' : 'ti-heart', label: entry.favorited ? 'Remove from favorites' : 'Add to favorites', color: entry.favorited ? '#C8993E' : 'var(--text)', fn: onFavorite },
+    { icon: entry.favorited ? 'ti-star-filled' : 'ti-star', label: entry.favorited ? 'Remove from favorites' : 'Add to favorites', color: entry.favorited ? '#C8993E' : 'var(--text)', fn: onFavorite },
     { icon: 'ti-share', label: 'Share', color: 'var(--text)', fn: onShare },
     { icon: 'ti-trash', label: 'Delete', color: '#D4856A', fn: () => setConfirmingDelete(true) },
   ];
@@ -1091,11 +1091,11 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
       onOpenEntry(entry);
       return;
     }
-    const member = familyMembers.find(m => m.user_id === entry.user_id);
     const entryKids = kids.filter(k => (entry.kids || []).includes(k.id));
     const kidLabel = entryKids.map(k => k.name).join(' & ') || 'Photo';
     const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
     const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const member = familyMembers.find(m => m.user_id === entry.user_id);
     setCircleViewer({ entry, entryKids, kidLabel, age, friendName: member?.display_name || 'Family', friendAvatar: member?.avatar_url || null, entryDate });
   }
 
@@ -1518,7 +1518,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         />
       )}
       {circleViewer && (() => {
-        const { entry, kidLabel, age, friendName, friendAvatar, entryDate } = circleViewer;
+        const { entry, kidLabel, age, friendName, friendAvatar, entryDate, isOwn } = circleViewer;
         const bgStyle = entryBgStyle(entry);
         return (
           <div onClick={() => setCircleViewer(null)} style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 30, display: 'flex', flexDirection: 'column' }}>
@@ -1538,6 +1538,11 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                   <i className="ti ti-arrows-diff" />
                 </button>
               )}
+              {isOwn && (
+                <button onClick={e => { e.stopPropagation(); setCircleViewer(null); onOpenEntry(entry); }} title="Edit" style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--accent)', fontSize: 16, flexShrink: 0 }}>
+                  <i className="ti ti-pencil" />
+                </button>
+              )}
               <button onClick={() => setCircleViewer(null)} style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', fontSize: 16, flexShrink: 0 }}>
                 <i className="ti ti-x" />
               </button>
@@ -1551,7 +1556,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                 const now = Date.now();
                 if (now - lastTapRef.current < 320) {
                   const alreadyLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
-                  if (!alreadyLiked) handleToggleLike();
+                  if (!alreadyLiked && !isOwn) handleToggleLike();
                   setShowLikeAnim(true);
                   setTimeout(() => setShowLikeAnim(false), 800);
                 }
@@ -1573,6 +1578,14 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               </div>
               {(() => {
                 const userHasLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
+                if (isOwn) {
+                  return (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0', color: viewerLikes.length > 0 ? '#E05C6A' : 'var(--text-3)' }}>
+                      <i className={`ti ${viewerLikes.length > 0 ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
+                      {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{viewerLikes.length}</span>}
+                    </div>
+                  );
+                }
                 return (
                   <button onClick={handleToggleLike} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', color: userHasLiked ? '#E05C6A' : 'var(--text-3)', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
                     <i className={`ti ${userHasLiked ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
@@ -1605,16 +1618,19 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                       )}
                     </div>
                     {(repliesMap[c.id] || []).map(r => (
-                      <div key={r.id} style={{ padding: '4px 16px 4px 36px', display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>{r.display_name || 'Someone'} </span>
-                          <span style={{ fontSize: 12, color: 'var(--text-2)', fontFamily: 'Inter, sans-serif' }}>{r.body}</span>
+                      <div key={r.id} style={{ display: 'flex', paddingLeft: 16, paddingRight: 16, paddingBottom: 4 }}>
+                        <div style={{ width: 2, borderRadius: 2, background: 'var(--border)', flexShrink: 0, margin: '2px 10px 2px 8px' }} />
+                        <div style={{ flex: 1, minWidth: 0, paddingTop: 2, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}>{r.display_name || 'Someone'} </span>
+                            <span style={{ fontSize: 12, color: 'var(--text-2)', fontFamily: 'Inter, sans-serif' }}>{r.body}</span>
+                          </div>
+                          {r.user_id === session?.user?.id && (
+                            <button onClick={async () => { setViewerComments(prev => prev.filter(x => x.id !== r.id)); await supabase.from('entry_comments').delete().eq('id', r.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                              <i className="ti ti-trash" style={{ fontSize: 12 }} />
+                            </button>
+                          )}
                         </div>
-                        {r.user_id === session?.user?.id && (
-                          <button onClick={async () => { setViewerComments(prev => prev.filter(x => x.id !== r.id)); await supabase.from('entry_comments').delete().eq('id', r.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
-                            <i className="ti ti-trash" style={{ fontSize: 12 }} />
-                          </button>
-                        )}
                       </div>
                     ))}
                   </div>
@@ -1722,7 +1738,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
                     {reactionCount.comments}
                   </span>
                 )}
-                {entry.favorited && <i className="ti ti-heart-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
+                {entry.favorited && <i className="ti ti-star-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
                 {m && <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E' }}>{m.label}</span>}
               </div>
             </div>
@@ -1868,7 +1884,7 @@ const SongPlayer = memo(function SongPlayer({ song }) {
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onToggleShared, allPeople = [] }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onToggleShared, allPeople = [], supabase, session, socialName = '' }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
@@ -1880,7 +1896,37 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [showPeopleTagger, setShowPeopleTagger] = useState(false);
   const [peopleInput, setPeopleInput] = useState('');
   const [isShared, setIsShared] = useState(entry.shared ?? true);
+  const [showActionSheet, setShowActionSheet] = useState(false);
+  const [detailLikes, setDetailLikes] = useState([]);
+  const [detailComments, setDetailComments] = useState([]);
+  const [detailCommentText, setDetailCommentText] = useState('');
+  const [detailReplyTarget, setDetailReplyTarget] = useState(null);
   const detailSwipeStart = useRef(null);
+
+  useEffect(() => {
+    if (!supabase || !session) return;
+    Promise.all([
+      supabase.from('entry_likes').select('id, user_id, display_name').eq('entry_id', entry.id),
+      supabase.from('entry_comments').select('id, user_id, display_name, body, created_at, parent_id').eq('entry_id', entry.id).order('created_at'),
+    ]).then(([{ data: likes }, { data: comments }]) => {
+      setDetailLikes(likes || []);
+      setDetailComments(comments || []);
+    });
+  }, [entry.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleDetailSubmitComment() {
+    const body = detailCommentText.trim();
+    if (!body || !supabase || !session) return;
+    setDetailCommentText('');
+    const parentId = detailReplyTarget?.id || null;
+    setDetailReplyTarget(null);
+    const temp = { id: 'opt-' + Date.now(), user_id: session.user.id, display_name: socialName, body, created_at: new Date().toISOString(), parent_id: parentId };
+    setDetailComments(prev => [...prev, temp]);
+    const insertData = { entry_id: entry.id, user_id: session.user.id, display_name: socialName, body };
+    if (parentId) insertData.parent_id = parentId;
+    const { data } = await supabase.from('entry_comments').insert(insertData).select('id, user_id, display_name, body, created_at, parent_id').single();
+    if (data) setDetailComments(prev => prev.map(c => c.id === temp.id ? data : c));
+  }
 
   function handleDetailTouchStart(e) {
     detailSwipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -1923,19 +1969,8 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
         <div style={{ position: 'relative' }}>
           {media.length > 0 ? (
             <>
-              <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10, opacity: videoPlaying ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: videoPlaying ? 'none' : 'auto' }}>
+              <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 10, opacity: videoPlaying ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: videoPlaying ? 'none' : 'auto' }}>
                 <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {onToggleShared && (
-                    <button className="icon-btn-ghost" onClick={() => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, next); showToast(next ? 'Visible to friends' : 'Post is private'); }} title={isShared ? 'Visible to friends' : 'Private'}>
-                      <i className={`ti ${isShared ? 'ti-users' : 'ti-lock'}`} style={!isShared ? { color: '#C8993E' } : {}} />
-                    </button>
-                  )}
-                  <button className="icon-btn-ghost" onClick={() => { onToggleFavorite(entry.id); showToast(entry.favorited ? 'Removed from favorites' : 'Added to favorites'); }} style={entry.favorited ? { color: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
-                  <button className="icon-btn-ghost" onClick={handleShare} disabled={sharing}><i className={`ti ${sharing ? 'ti-loader-2' : 'ti-share'}`} style={sharing ? { animation: 'spin 1s linear infinite' } : {}} /></button>
-                  <button className="icon-btn-ghost" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
-                  <button className="icon-btn-ghost" onClick={() => setShowDeleteConfirm(true)}><i className="ti ti-trash" /></button>
-                </div>
               </div>
               <div
                 className="gallery-stage"
@@ -1969,19 +2004,8 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               </div>
             </>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 14px 0' }}>
+            <div style={{ padding: '14px 14px 0' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <div style={{ display: 'flex', gap: 8 }}>
-                {onToggleShared && (
-                  <button className="icon-btn" onClick={() => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, next); showToast(next ? 'Visible to friends' : 'Post is private'); }} title={isShared ? 'Visible to friends' : 'Private'} style={!isShared ? { color: '#C8993E', borderColor: '#C8993E' } : {}}>
-                    <i className={`ti ${isShared ? 'ti-users' : 'ti-lock'}`} />
-                  </button>
-                )}
-                <button className="icon-btn" onClick={() => { onToggleFavorite(entry.id); showToast(entry.favorited ? 'Removed from favorites' : 'Added to favorites'); }} style={entry.favorited ? { color: '#C8993E', borderColor: '#C8993E' } : {}}><i className={`ti ti-heart${entry.favorited ? '-filled' : ''}`} /></button>
-                <button className="icon-btn" onClick={handleShare} disabled={sharing}><i className={`ti ${sharing ? 'ti-loader-2' : 'ti-share'}`} style={sharing ? { animation: 'spin 1s linear infinite' } : {}} /></button>
-                <button className="icon-btn" onClick={() => onEdit(entry)}><i className="ti ti-edit" /></button>
-                <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)}><i className="ti ti-trash" /></button>
-              </div>
             </div>
           )}
         </div>
@@ -1997,11 +2021,25 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => (
               <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                 <KidThumb kid={k} size={32} />
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{k.name}</p>
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                    {exactAgeLabel(k.birthdate, entry.date)} old · {new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    {exactAgeLabel(k.birthdate, entry.date)} old · {new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}{entry.mood ? ` · ${entry.mood}` : ''}
                   </p>
+                  {location && (
+                    <span onClick={() => { setLocationDraft(location); setLocationDraftCoords(null); setEditingLocation(true); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3, cursor: 'pointer' }}>
+                      <i className="ti ti-map-pin" style={{ fontSize: 11, color: 'var(--text-muted)' }} />
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{location}</span>
+                    </span>
+                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  <button onClick={() => { onToggleFavorite(entry.id); showToast(entry.favorited ? 'Removed from favorites' : 'Saved to favorites'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: entry.favorited ? '#C8993E' : 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
+                    <i className={`ti ti-star${entry.favorited ? '-filled' : ''}`} />
+                  </button>
+                  <button onClick={() => setShowActionSheet(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
+                    <i className="ti ti-dots" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -2016,33 +2054,101 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               Love, {entry.signedAs}
             </p>
           )}
-          <div style={{ height: 1, background: 'var(--border)' }} />
-          <div
-            onClick={() => { setLocationDraft(location); setLocationDraftCoords(null); setEditingLocation(true); }}
-            style={{ display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
-          >
-            <i className="ti ti-map-pin" style={{ fontSize: 13, color: location ? 'var(--text-muted)' : 'var(--border)' }} />
-            <span style={{ fontSize: 13, color: location ? 'var(--text-muted)' : 'var(--border)' }}>
-              {location || 'Add location'}
-            </span>
-          </div>
-          {entry.mood && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Feeling</span>
-              <span className="chip selected" style={{ cursor: 'default' }}>{entry.mood}</span>
-            </div>
+          {supabase && session && (
+            <>
+              <div style={{ height: 1, background: 'var(--border)' }} />
+              {/* Likes */}
+              {detailLikes.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <i className="ti ti-heart-filled" style={{ fontSize: 13, color: '#E05C6A' }} />
+                  <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                    {detailLikes.map(l => l.display_name || 'Someone').join(', ')}
+                  </span>
+                </div>
+              )}
+              {/* Threaded comments */}
+              {(() => {
+                const topLevel = detailComments.filter(c => !c.parent_id);
+                const repliesMap = {};
+                detailComments.filter(c => c.parent_id).forEach(r => {
+                  if (!repliesMap[r.parent_id]) repliesMap[r.parent_id] = [];
+                  repliesMap[r.parent_id].push(r);
+                });
+                return topLevel.map(c => (
+                  <div key={c.id}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{c.display_name || 'Someone'} </span>
+                        <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{c.body}</span>
+                        <button onClick={() => setDetailReplyTarget({ id: c.id, display_name: c.display_name || 'Someone', user_id: c.user_id })} style={{ display: 'block', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, padding: '3px 0 0', fontFamily: 'Inter, sans-serif' }}>Reply</button>
+                      </div>
+                      {c.user_id === session?.user?.id && (
+                        <button onClick={async () => { setDetailComments(prev => prev.filter(x => x.id !== c.id && x.parent_id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                          <i className="ti ti-trash" style={{ fontSize: 13 }} />
+                        </button>
+                      )}
+                    </div>
+                    {(repliesMap[c.id] || []).map(r => (
+                      <div key={r.id} style={{ display: 'flex', paddingLeft: 0, paddingBottom: 2 }}>
+                        <div style={{ width: 2, borderRadius: 2, background: 'var(--border)', flexShrink: 0, margin: '2px 10px 2px 8px' }} />
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{r.display_name || 'Someone'} </span>
+                            <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{r.body}</span>
+                          </div>
+                          {r.user_id === session?.user?.id && (
+                            <button onClick={async () => { setDetailComments(prev => prev.filter(x => x.id !== r.id)); await supabase.from('entry_comments').delete().eq('id', r.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                              <i className="ti ti-trash" style={{ fontSize: 12 }} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ));
+              })()}
+              {/* Reply banner */}
+              {detailReplyTarget && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-elevated)', borderRadius: 8, padding: '6px 10px' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', flex: 1 }}>Replying to <strong style={{ color: 'var(--text-2)' }}>{detailReplyTarget.display_name}</strong></span>
+                  <button onClick={() => setDetailReplyTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>
+                </div>
+              )}
+              {/* Comment input */}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <input
+                  value={detailCommentText}
+                  onChange={e => setDetailCommentText(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleDetailSubmitComment(); } }}
+                  placeholder={detailReplyTarget ? `Reply to ${detailReplyTarget.display_name}…` : 'Add a comment…'}
+                  style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 20, padding: '8px 14px', fontSize: 13, background: 'var(--bg-input)', color: 'var(--text)', fontFamily: 'Inter, sans-serif', outline: 'none' }}
+                />
+                <button onClick={handleDetailSubmitComment} disabled={!detailCommentText.trim()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: detailCommentText.trim() ? 'var(--accent)' : 'var(--border)', padding: 0, fontSize: 20, display: 'flex', alignItems: 'center' }}>
+                  <i className="ti ti-send" />
+                </button>
+              </div>
+            </>
           )}
-          <div onClick={() => setShowPeopleTagger(true)} style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', cursor: 'pointer' }}>
-            <i className="ti ti-users" style={{ fontSize: 13, color: people.length > 0 ? 'var(--text-muted)' : 'var(--border)', flexShrink: 0 }} />
-            {people.length > 0
-              ? people.map(p => (
-                  <span key={p} style={{ fontSize: 12, color: 'var(--text-2)', background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 10px' }}>{p}</span>
-                ))
-              : <span style={{ fontSize: 13, color: 'var(--border)' }}>Tag people</span>
-            }
-          </div>
         </div>
       </div>
+      {showActionSheet && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowActionSheet(false)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', paddingBottom: 36 }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 20px' }} />
+            {[
+              { icon: 'ti-edit', label: 'Edit entry', action: () => { setShowActionSheet(false); onEdit(entry); } },
+              onToggleShared && { icon: isShared ? 'ti-lock' : 'ti-users', label: isShared ? 'Make private' : 'Share with friends', action: () => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, next); showToast(next ? 'Visible to friends' : 'Post is private'); setShowActionSheet(false); } },
+              { icon: 'ti-share', label: 'Share', action: () => { setShowActionSheet(false); handleShare(); } },
+              { icon: 'ti-trash', label: 'Delete entry', action: () => { setShowActionSheet(false); setShowDeleteConfirm(true); }, danger: true },
+            ].filter(Boolean).map(item => (
+              <button key={item.label} onClick={item.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', color: item.danger ? '#D4856A' : 'var(--text)', fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 500 }}>
+                <i className={`ti ${item.icon}`} style={{ fontSize: 20, width: 24, flexShrink: 0 }} />
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {showDeleteConfirm && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
@@ -3022,7 +3128,7 @@ function RecapEntryRow({ entry, kids, onOpenEntry }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: snippet ? 3 : 0 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{nameLabel}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 8 }}>
-            {entry.favorited && <i className="ti ti-heart-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
+            {entry.favorited && <i className="ti ti-star-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
             <span style={{ fontSize: 11, color: 'var(--border-light)' }}>{dayLabel}</span>
           </div>
         </div>
@@ -7527,6 +7633,9 @@ export default function App() {
           onUpdatePeople={handleUpdatePeople}
           onToggleShared={!localMode ? handleToggleEntryShared : undefined}
           allPeople={allPeople}
+          supabase={supabase}
+          session={session}
+          socialName={myDisplayName || ''}
         />
       )}
 
