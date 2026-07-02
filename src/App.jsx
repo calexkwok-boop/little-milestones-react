@@ -7562,7 +7562,7 @@ export default function App() {
         <div style={{ position: 'absolute', inset: 0, background: '#1E2A1E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 32px' }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px' }}>{monthlyRecap.label}</p>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#fff', textAlign: 'center', margin: '0 0 10px', lineHeight: 1.25 }}>
-            The days are long, but the years are short.
+            A shared journey, just different chapters.
           </h1>
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'rgba(255,255,255,0.5)', textAlign: 'center', margin: '0 0 40px', lineHeight: 1.6 }}>
             They're lucky to have you.
