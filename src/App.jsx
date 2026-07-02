@@ -1011,7 +1011,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName, pendingOpenEntryId, onClearPendingOpen }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
   const [longPressEntry, setLongPressEntry] = useState(null);
@@ -1144,6 +1144,20 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     });
     return map;
   }, [friends, currentUserId]);
+
+  useEffect(() => {
+    if (!pendingOpenEntryId) return;
+    const entry = friendEntries.find(e => e.id === pendingOpenEntryId);
+    if (!entry) return;
+    const entryKids = friendKids.filter(k => (entry.kids || []).includes(k.id));
+    if (!entryKids.length) return;
+    const friendInfo = friendUserMap[entry.userId] || friendFamilyMap[entry.familyId] || {};
+    const kidLabel = entryKids.map(k => k.name).join(' & ');
+    const age = entryKids[0].birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
+    const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    setCircleViewer({ entry, entryKids, kidLabel, age, friendName: friendInfo.name || '', friendAvatar: friendInfo.avatar || null, entryDate });
+    if (onClearPendingOpen) onClearPendingOpen();
+  }, [pendingOpenEntryId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const kidMap = useMemo(() => new Map(kids.map(k => [k.id, k])), [kids]);
 
@@ -5141,16 +5155,12 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions }) {
+function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [sentIds, setSentIds] = useState(new Set());
   const searchTimer = useRef(null);
-
-  useEffect(() => {
-    if (onClearReactions) onClearReactions();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pendingIncoming = friendRequests.filter(r => r.addressee_id === currentUserId);
   const pendingOutgoing = friendRequests.filter(r => r.requester_id === currentUserId);
@@ -5239,10 +5249,13 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
 
           {reactionNotifications.length > 0 && (
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 10px' }}>Activity</p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: 0 }}>Activity</p>
+                <button onClick={onClearReactions} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 500, padding: 0 }}>Mark all as read</button>
+              </div>
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
                 {reactionNotifications.map((n, idx) => (
-                  <div key={n.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 14px', borderBottom: idx < reactionNotifications.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <div key={n.id} onClick={() => { if (onDismissReaction) onDismissReaction(n.id); if (onOpenFriendEntry) onOpenFriendEntry(n.entryId); }} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 14px', borderBottom: idx < reactionNotifications.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
                     <i className={n.type === 'like' ? 'ti ti-heart-filled' : 'ti ti-message-circle'} style={{ fontSize: 15, color: n.type === 'like' ? '#E05C6A' : 'var(--text-3)', marginTop: 1, flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.4 }}>
@@ -5253,6 +5266,7 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-2)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{n.body}&rdquo;</p>
                       )}
                     </div>
+                    <i className="ti ti-chevron-right" style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, flexShrink: 0 }} />
                   </div>
                 ))}
               </div>
@@ -5340,7 +5354,11 @@ function NavBar({ active, onNavigate, friendBadge = 0, reactionBadge = 0 }) {
               <i className={`ti ${tab.icon}`} />
               <span>{tab.label}</span>
               {tab.id === 'friends' && (friendBadge > 0 || reactionBadge > 0) && (
-                <span style={{ position: 'absolute', top: 4, right: '50%', transform: 'translateX(10px)', width: 8, height: 8, borderRadius: '50%', background: reactionBadge > 0 ? '#E05C6A' : '#D4856A', border: '1.5px solid var(--bg-nav)' }} />
+                <span style={{ position: 'absolute', top: 2, right: '50%', transform: 'translateX(14px)', minWidth: 16, height: 16, borderRadius: 999, background: reactionBadge > 0 ? '#E05C6A' : '#D4856A', border: '1.5px solid var(--bg-nav)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', lineHeight: 1, fontFamily: 'Inter, sans-serif' }}>
+                    {reactionBadge > 0 ? (reactionBadge > 99 ? '99+' : reactionBadge) : friendBadge > 99 ? '99+' : friendBadge}
+                  </span>
+                </span>
               )}
             </button>
           ))}
@@ -6129,7 +6147,6 @@ export default function App() {
   const [monthlyRecap, setMonthlyRecap] = useState(null);
   const [partnerToast, setPartnerToast] = useState(null); // { entry, authorName }
   const [reactionToast, setReactionToast] = useState(null); // { message }
-  const [unseenReactionCount, setUnseenReactionCount] = useState(0);
   const [reactionNotifications, setReactionNotifications] = useState([]); // { id, type, fromName, entryId, kidNames, body?, ts }
   const [letterAuthorId, setLetterAuthorId] = useState(null);
   const [unseenPartnerIds, setUnseenPartnerIds] = useState([]);
@@ -6141,6 +6158,7 @@ export default function App() {
   const [friendFamilyMap, setFriendFamilyMap] = useState({});
   const [compareTarget, setCompareTarget] = useState(null);
   const [reactionCounts, setReactionCounts] = useState({});
+  const [pendingOpenEntryId, setPendingOpenEntryId] = useState(null);
   const [discoverable, setDiscoverable] = useState(true);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('patina_dark_mode');
@@ -6248,8 +6266,11 @@ export default function App() {
       const entriesQ = currentFamilyId
         ? supabase.from('entries').select('*, entry_media(*)').eq('family_id', currentFamilyId).order('date', { ascending: false })
         : supabase.from('entries').select('*, entry_media(*)').eq('user_id', session.user.id).order('date', { ascending: false });
+      const kidsQ = currentFamilyId
+        ? supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id').eq('family_id', currentFamilyId).order('created_at')
+        : supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id').eq('user_id', session.user.id).order('created_at');
       const [{ data: kidsData, error: kidsError }, { data: entriesData, error: entriesError }] = await Promise.all([
-        supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id').eq('user_id', session.user.id).order('created_at'),
+        kidsQ,
         entriesQ,
       ]);
 
@@ -6364,6 +6385,31 @@ export default function App() {
             lks?.forEach(l => { if (!counts[l.entry_id]) counts[l.entry_id] = { likes: 0, comments: 0 }; counts[l.entry_id].likes++; });
             cms?.forEach(c => { if (!counts[c.entry_id]) counts[c.entry_id] = { likes: 0, comments: 0 }; counts[c.entry_id].comments++; });
             setReactionCounts(counts);
+          }
+        }
+
+        // Load recent reactions on the user's entries to seed the activity feed
+        if (entriesData?.length > 0) {
+          const sharedIds = entriesData.filter(e => e.shared !== false).map(e => e.id);
+          if (sharedIds.length > 0) {
+            const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            const cutoff = thirtyDaysAgo.toISOString();
+            const kidMap = {};
+            (kidsData || []).forEach(k => { kidMap[k.id] = k.name; });
+            const entryKidMap = {};
+            (entriesData || []).forEach(e => {
+              const ids = e.kid_ids || [];
+              entryKidMap[e.id] = ids.map(id => (kidMap[id] || '').split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
+            });
+            const [{ data: recentLikes }, { data: recentComments }] = await Promise.all([
+              supabase.from('entry_likes').select('id, entry_id, user_id, display_name, created_at').in('entry_id', sharedIds).neq('user_id', session.user.id).gte('created_at', cutoff).order('created_at', { ascending: false }),
+              supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at').in('entry_id', sharedIds).neq('user_id', session.user.id).gte('created_at', cutoff).order('created_at', { ascending: false }),
+            ]);
+            const all = [
+              ...(recentLikes || []).map(l => ({ id: `like-${l.id}`, type: 'like', fromName: l.display_name || 'Someone', entryId: l.entry_id, kidNames: entryKidMap[l.entry_id] || 'a photo', ts: new Date(l.created_at).getTime() })),
+              ...(recentComments || []).map(c => ({ id: `comment-${c.id}`, type: 'comment', fromName: c.display_name || 'Someone', entryId: c.entry_id, kidNames: entryKidMap[c.entry_id] || 'a photo', body: c.body, ts: new Date(c.created_at).getTime() })),
+            ].sort((a, b) => b.ts - a.ts);
+            if (all.length > 0) setReactionNotifications(all);
           }
         }
 
@@ -6508,10 +6554,10 @@ export default function App() {
         });
         const liker = payload.new.display_name || 'Someone';
         setReactionToast({ message: `${liker} liked your photo ❤️` });
-        setUnseenReactionCount(n => n + 1);
         const likedEntry = entriesRef.current.find(e => e.id === entry_id);
         const kidNames = (likedEntry?.kids || []).map(id => kidsRef.current.find(k => k.id === id)?.name?.split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
-        setReactionNotifications(prev => [{ id: `like-${entry_id}-${Date.now()}`, type: 'like', fromName: liker, entryId: entry_id, kidNames, ts: Date.now() }, ...prev]);
+        const likeNotifId = `like-${payload.new.id || entry_id}`;
+        setReactionNotifications(prev => prev.some(n => n.id === likeNotifId) ? prev : [{ id: likeNotifId, type: 'like', fromName: liker, entryId: entry_id, kidNames, ts: Date.now() }, ...prev]);
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'entry_likes' }, payload => {
         const { entry_id } = payload.old;
@@ -6533,10 +6579,10 @@ export default function App() {
         const commenter = payload.new.display_name || 'Someone';
         const preview = payload.new.body?.slice(0, 40);
         setReactionToast({ message: `${commenter}: "${preview}"` });
-        setUnseenReactionCount(n => n + 1);
         const commentedEntry = entriesRef.current.find(e => e.id === entry_id);
         const commentKidNames = (commentedEntry?.kids || []).map(id => kidsRef.current.find(k => k.id === id)?.name?.split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
-        setReactionNotifications(prev => [{ id: `comment-${entry_id}-${Date.now()}`, type: 'comment', fromName: commenter, entryId: entry_id, kidNames: commentKidNames, body: payload.new.body, ts: Date.now() }, ...prev]);
+        const commentNotifId = `comment-${payload.new.id || entry_id}`;
+        setReactionNotifications(prev => prev.some(n => n.id === commentNotifId) ? prev : [{ id: commentNotifId, type: 'comment', fromName: commenter, entryId: entry_id, kidNames: commentKidNames, body: payload.new.body, ts: Date.now() }, ...prev]);
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'entry_comments' }, payload => {
         const { entry_id } = payload.old;
@@ -6971,12 +7017,12 @@ export default function App() {
     setFamilyId(invite.family_id);
     setMyDisplayName(displayName);
     const [{ data: kidsData }, { data: entriesData }, { data: membersData }] = await Promise.all([
-      supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id').order('created_at'),
+      supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id').eq('family_id', invite.family_id).order('created_at'),
       supabase.from('entries').select('*, entry_media(*)').eq('family_id', invite.family_id).order('date', { ascending: false }),
       supabase.from('family_members').select('id, user_id, family_id, display_name, avatar_url').eq('family_id', invite.family_id),
     ]);
     if (kidsData) {
-      setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url })));
+      setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [] })));
       setProfileKidId(kidsData[0]?.id ?? null);
     }
     if (entriesData) {
@@ -7245,6 +7291,8 @@ export default function App() {
               setScreen('compare');
             }}
             reactionCounts={reactionCounts}
+            pendingOpenEntryId={pendingOpenEntryId}
+            onClearPendingOpen={() => setPendingOpenEntryId(null)}
             session={session}
             myDisplayName={myDisplayName}
           />
@@ -7357,6 +7405,8 @@ export default function App() {
           onUnfriend={handleUnfriend}
           reactionNotifications={reactionNotifications}
           onClearReactions={() => setReactionNotifications([])}
+          onDismissReaction={id => setReactionNotifications(prev => prev.filter(n => n.id !== id))}
+          onOpenFriendEntry={entryId => { setPendingOpenEntryId(entryId); setScreen('home'); }}
         />
       )}
 
@@ -7439,9 +7489,9 @@ export default function App() {
       })()}
 
       {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'growth' && screen !== 'book-builder' && screen !== 'book-preview' && (
-        <NavBar active={screen} onNavigate={s => { setScreen(s); if (s === 'friends') { setUnseenReactionCount(0); } }} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={unseenReactionCount} />
+        <NavBar active={screen} onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={reactionNotifications.length} />
       )}
-      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={s => { setScreen(s); if (s === 'friends') { setUnseenReactionCount(0); } }} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={unseenReactionCount} />}
+      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={reactionNotifications.length} />}
 
       {celebration && (
         <CelebrationOverlay
