@@ -2284,14 +2284,14 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             const tags = await exifr.parse(file, ['DateTimeOriginal']);
             if (tags?.DateTimeOriginal) {
               const d = new Date(tags.DateTimeOriginal);
-              setEntryDate(d.toISOString().slice(0, 10));
+              setEntryDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
               setDateFromPhoto(true);
               break;
             }
           } catch {}
         } else if (file.type.startsWith('video') && file.lastModified) {
           const d = new Date(file.lastModified);
-          setEntryDate(d.toISOString().slice(0, 10));
+          setEntryDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
           setDateFromPhoto(true);
           break;
         }
