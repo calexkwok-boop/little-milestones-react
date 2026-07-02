@@ -1147,16 +1147,28 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
 
   useEffect(() => {
     if (!pendingOpenEntryId) return;
-    const entry = friendEntries.find(e => e.id === pendingOpenEntryId);
-    if (!entry) return;
-    const entryKids = friendKids.filter(k => (entry.kids || []).includes(k.id));
-    if (!entryKids.length) return;
-    const friendInfo = friendUserMap[entry.userId] || friendFamilyMap[entry.familyId] || {};
-    const kidLabel = entryKids.map(k => k.name).join(' & ');
-    const age = entryKids[0].birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
-    const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    setCircleViewer({ entry, entryKids, kidLabel, age, friendName: friendInfo.name || '', friendAvatar: friendInfo.avatar || null, entryDate });
-    if (onClearPendingOpen) onClearPendingOpen();
+    // Notifications are on own entries; friend taps are on friendEntries
+    const ownEntry = entries.find(e => e.id === pendingOpenEntryId);
+    if (ownEntry) {
+      const entryKids = kids.filter(k => (ownEntry.kids || []).includes(k.id));
+      const kidLabel = entryKids.map(k => k.name).join(' & ') || 'Photo';
+      const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, ownEntry.date) : null;
+      const entryDate = new Date(ownEntry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      setCircleViewer({ entry: ownEntry, entryKids, kidLabel, age, friendName: '', friendAvatar: null, entryDate });
+      if (onClearPendingOpen) onClearPendingOpen();
+      return;
+    }
+    const friendEntry = friendEntries.find(e => e.id === pendingOpenEntryId);
+    if (friendEntry) {
+      const entryKids = friendKids.filter(k => (friendEntry.kids || []).includes(k.id));
+      if (!entryKids.length) { if (onClearPendingOpen) onClearPendingOpen(); return; }
+      const friendInfo = friendUserMap[friendEntry.userId] || friendFamilyMap[friendEntry.familyId] || {};
+      const kidLabel = entryKids.map(k => k.name).join(' & ');
+      const age = entryKids[0].birthdate ? exactAgeLabel(entryKids[0].birthdate, friendEntry.date) : null;
+      const entryDate = new Date(friendEntry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      setCircleViewer({ entry: friendEntry, entryKids, kidLabel, age, friendName: friendInfo.name || '', friendAvatar: friendInfo.avatar || null, entryDate });
+      if (onClearPendingOpen) onClearPendingOpen();
+    }
   }, [pendingOpenEntryId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const kidMap = useMemo(() => new Map(kids.map(k => [k.id, k])), [kids]);
