@@ -1082,7 +1082,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   }
 
   const [cropPositions, setCropPositions] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('patina-crop-positions') || '{}'); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem(`patina-crop-positions-${currentUserId}`) || '{}'); } catch { return {}; }
   });
   const [cropModal, setCropModal] = useState(null); // { entryId, url, cardH }
 
@@ -1095,7 +1095,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   function saveCropY(y) {
     const next = { ...cropPositions, [cropModal.entryId]: y };
     setCropPositions(next);
-    try { localStorage.setItem('patina-crop-positions', JSON.stringify(next)); } catch {}
+    try { localStorage.setItem(`patina-crop-positions-${currentUserId}`, JSON.stringify(next)); } catch {}
     onUpdateCrop?.(cropModal.entryId, y);
     setCropModal(null);
   }
@@ -3200,6 +3200,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
 function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], friends = [], currentUserId, onBack, onOpenEntry, initialFriendKidId = null, initialCompareAge = null }) {
   const [filterTab, setFilterTab] = useState('age');
   const [compareAge, setCompareAge] = useState(initialCompareAge ?? 24);
+  const [photoViewer, setPhotoViewer] = useState(null); // { entry, kid, ageStr }
   const [milestoneFilter, setMilestoneFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFriendKidIds, setSelectedFriendKidIds] = useState(initialFriendKidId ? [initialFriendKidId] : []);
@@ -3376,7 +3377,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                       const ageStr = exactAgeLabel(kid.birthdate, e.date);
                       const dateStr = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                       return (
-                        <div key={e.id} className={m ? 'milestone-entry' : undefined} style={{ borderRadius: 12, cursor: isFriendKid ? 'default' : 'pointer', padding: m ? 2 : 0 }} onClick={() => !isFriendKid && onOpenEntry(e)}>
+                        <div key={e.id} className={m ? 'milestone-entry' : undefined} style={{ borderRadius: 12, cursor: 'pointer', padding: m ? 2 : 0 }} onClick={() => { const ageStr = exactAgeLabel(kid.birthdate, e.date); setPhotoViewer({ entry: e, kid, ageStr }); }}>
                           <div style={{ borderRadius: 10, overflow: 'hidden' }}>
                             <div className="compare-photo" style={entryBgStyle(e)}>
                               <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
@@ -3413,6 +3414,32 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
           )}
         </div>
       </div>
+
+      {photoViewer && (() => {
+        const { entry, kid, ageStr } = photoViewer;
+        const media = entry.media?.[0];
+        const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return (
+          <div onClick={() => setPhotoViewer(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ position: 'absolute', top: 16, right: 16 }}>
+              <button onClick={() => setPhotoViewer(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
+                <i className="ti ti-x" />
+              </button>
+            </div>
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', borderRadius: 16, overflow: 'hidden', maxHeight: '70%' }}>
+              {media?.type === 'video'
+                ? <video src={media.url} controls autoPlay playsInline style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'contain', background: '#000' }} />
+                : <img src={media?.url || ''} alt="" style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'contain', background: entry.palette?.bg || 'var(--bg-card)' }} />
+              }
+            </div>
+            <div style={{ marginTop: 16, textAlign: 'center' }}>
+              <p style={{ color: '#fff', fontWeight: 700, fontSize: 15, margin: '0 0 4px' }}>{kid.name} · {ageStr}</p>
+              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, margin: 0 }}>{dateStr}</p>
+              {entry.text ? <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, margin: '8px 0 0', lineHeight: 1.5 }}>{entry.text.slice(0, 120)}{entry.text.length > 120 ? '…' : ''}</p> : null}
+            </div>
+          </div>
+        );
+      })()}
 
       {showFriendPicker && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => { setShowFriendPicker(false); setPickerQuery(''); }}>
@@ -4873,7 +4900,7 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, cropPositions,
 }
 // ─── Book preview ──────────────────────────────────────────────────────────
 
-function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
+function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUserId }) {
   const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
   const sorted = [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1);
 
@@ -4938,7 +4965,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
 
   const [cropPositions, setCropPositions] = useState(() => {
     try {
-      const stored = JSON.parse(localStorage.getItem('patina-book-crop-positions') || '{}');
+      const stored = JSON.parse(localStorage.getItem(`patina-book-crop-positions-${currentUserId}`) || '{}');
       const fromEntries = Object.fromEntries(
         bookConfig.bookEntries.filter(e => e.cropY != null).map(e => [e.id, e.cropY])
       );
@@ -4946,14 +4973,14 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop }) {
     } catch { return {}; }
   });
   const [homeCropPositions] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('patina-crop-positions') || '{}'); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem(`patina-crop-positions-${currentUserId}`) || '{}'); } catch { return {}; }
   });
   const [bookCropModal, setBookCropModal] = useState(null);
 
   function saveBookCrop(y) {
     const next = { ...cropPositions, [bookCropModal.entryId]: y };
     setCropPositions(next);
-    try { localStorage.setItem('patina-book-crop-positions', JSON.stringify(next)); } catch {}
+    try { localStorage.setItem(`patina-book-crop-positions-${currentUserId}`, JSON.stringify(next)); } catch {}
     onUpdateCrop?.(bookCropModal.entryId, y);
     setBookCropModal(null);
   }
@@ -6245,7 +6272,7 @@ export default function App() {
       d.setMonth(d.getMonth() - 1);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
     })();
-    const seenKey = 'patina-recap-seen';
+    const seenKey = `patina-recap-seen-${session?.user?.id}`;
     let seen = {};
     try { seen = JSON.parse(localStorage.getItem(seenKey) || '{}'); } catch {}
     if (seen[lastMonth]) return;
@@ -6639,8 +6666,8 @@ export default function App() {
   async function handleUpdateCrop(entryId, y) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, cropY: y } : e));
     try {
-      const stored = JSON.parse(localStorage.getItem('patina-crop-positions') || '{}');
-      localStorage.setItem('patina-crop-positions', JSON.stringify({ ...stored, [entryId]: y }));
+      const stored = JSON.parse(localStorage.getItem(`patina-crop-positions-${session?.user?.id}`) || '{}');
+      localStorage.setItem(`patina-crop-positions-${session?.user?.id}`, JSON.stringify({ ...stored, [entryId]: y }));
     } catch {}
     if (!localMode && supabase && session) {
       await supabase.from('entries').update({ crop_y: y }).eq('id', entryId);
@@ -7460,6 +7487,7 @@ export default function App() {
           bookConfig={bookConfig}
           onBack={() => setScreen('book-builder')}
           onUpdateCrop={handleUpdateCrop}
+          currentUserId={session?.user?.id}
         />
       )}
 
