@@ -5177,6 +5177,16 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
   const pendingIncoming = friendRequests.filter(r => r.addressee_id === currentUserId);
   const pendingOutgoing = friendRequests.filter(r => r.requester_id === currentUserId);
 
+  const friendAvatarMap = useMemo(() => {
+    const map = {};
+    friends.forEach(fr => {
+      const isReq = fr.requester_id === currentUserId;
+      const id = isReq ? fr.addressee_id : fr.requester_id;
+      map[id] = isReq ? fr.addressee_avatar_url : fr.requester_avatar_url;
+    });
+    return map;
+  }, [friends, currentUserId]);
+
   function handleQueryChange(val) {
     setSearchQuery(val);
     clearTimeout(searchTimer.current);
@@ -5267,8 +5277,13 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
               </div>
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
                 {reactionNotifications.map((n, idx) => (
-                  <div key={n.id} onClick={() => { if (onDismissReaction) onDismissReaction(n.id); if (onOpenFriendEntry) onOpenFriendEntry(n.entryId); }} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 14px', borderBottom: idx < reactionNotifications.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
-                    <i className={n.type === 'like' ? 'ti ti-heart-filled' : 'ti ti-message-circle'} style={{ fontSize: 15, color: n.type === 'like' ? '#E05C6A' : 'var(--text-3)', marginTop: 1, flexShrink: 0 }} />
+                  <div key={n.id} onClick={() => { if (onDismissReaction) onDismissReaction(n.id); if (onOpenFriendEntry) onOpenFriendEntry(n.entryId); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderBottom: idx < reactionNotifications.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <FriendAvatar name={n.fromName} avatarUrl={friendAvatarMap[n.fromUserId]} size={36} />
+                      <span style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: n.type === 'like' ? '#E05C6A' : 'var(--accent)', border: '1.5px solid var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className={n.type === 'like' ? 'ti ti-heart-filled' : 'ti ti-message-circle'} style={{ fontSize: 8, color: '#fff' }} />
+                      </span>
+                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.4 }}>
                         <strong>{n.fromName}</strong>
@@ -5278,7 +5293,7 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-2)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{n.body}&rdquo;</p>
                       )}
                     </div>
-                    <i className="ti ti-chevron-right" style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, flexShrink: 0 }} />
+                    <i className="ti ti-chevron-right" style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }} />
                   </div>
                 ))}
               </div>
@@ -6418,8 +6433,8 @@ export default function App() {
               supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at').in('entry_id', sharedIds).neq('user_id', session.user.id).gte('created_at', cutoff).order('created_at', { ascending: false }),
             ]);
             const all = [
-              ...(recentLikes || []).map(l => ({ id: `like-${l.id}`, type: 'like', fromName: l.display_name || 'Someone', entryId: l.entry_id, kidNames: entryKidMap[l.entry_id] || 'a photo', ts: new Date(l.created_at).getTime() })),
-              ...(recentComments || []).map(c => ({ id: `comment-${c.id}`, type: 'comment', fromName: c.display_name || 'Someone', entryId: c.entry_id, kidNames: entryKidMap[c.entry_id] || 'a photo', body: c.body, ts: new Date(c.created_at).getTime() })),
+              ...(recentLikes || []).map(l => ({ id: `like-${l.id}`, type: 'like', fromName: l.display_name || 'Someone', fromUserId: l.user_id, entryId: l.entry_id, kidNames: entryKidMap[l.entry_id] || 'a photo', ts: new Date(l.created_at).getTime() })),
+              ...(recentComments || []).map(c => ({ id: `comment-${c.id}`, type: 'comment', fromName: c.display_name || 'Someone', fromUserId: c.user_id, entryId: c.entry_id, kidNames: entryKidMap[c.entry_id] || 'a photo', body: c.body, ts: new Date(c.created_at).getTime() })),
             ].sort((a, b) => b.ts - a.ts);
             if (all.length > 0) setReactionNotifications(all);
           }
@@ -6569,7 +6584,7 @@ export default function App() {
         const likedEntry = entriesRef.current.find(e => e.id === entry_id);
         const kidNames = (likedEntry?.kids || []).map(id => kidsRef.current.find(k => k.id === id)?.name?.split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
         const likeNotifId = `like-${payload.new.id || entry_id}`;
-        setReactionNotifications(prev => prev.some(n => n.id === likeNotifId) ? prev : [{ id: likeNotifId, type: 'like', fromName: liker, entryId: entry_id, kidNames, ts: Date.now() }, ...prev]);
+        setReactionNotifications(prev => prev.some(n => n.id === likeNotifId) ? prev : [{ id: likeNotifId, type: 'like', fromName: liker, fromUserId: payload.new.user_id, entryId: entry_id, kidNames, ts: Date.now() }, ...prev]);
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'entry_likes' }, payload => {
         const { entry_id } = payload.old;
@@ -6594,7 +6609,7 @@ export default function App() {
         const commentedEntry = entriesRef.current.find(e => e.id === entry_id);
         const commentKidNames = (commentedEntry?.kids || []).map(id => kidsRef.current.find(k => k.id === id)?.name?.split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
         const commentNotifId = `comment-${payload.new.id || entry_id}`;
-        setReactionNotifications(prev => prev.some(n => n.id === commentNotifId) ? prev : [{ id: commentNotifId, type: 'comment', fromName: commenter, entryId: entry_id, kidNames: commentKidNames, body: payload.new.body, ts: Date.now() }, ...prev]);
+        setReactionNotifications(prev => prev.some(n => n.id === commentNotifId) ? prev : [{ id: commentNotifId, type: 'comment', fromName: commenter, fromUserId: payload.new.user_id, entryId: entry_id, kidNames: commentKidNames, body: payload.new.body, ts: Date.now() }, ...prev]);
       })
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'entry_comments' }, payload => {
         const { entry_id } = payload.old;
