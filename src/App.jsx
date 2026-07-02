@@ -4431,7 +4431,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
             <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 12px' }}>Friends</p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{discoverable ? 'A shared journey, different chapters' : 'A quiet journey, just your family'}</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{discoverable ? 'A shared journey, just different chapters' : 'A quiet journey, just your family'}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{discoverable ? 'Show up when friends search your name' : 'You won\'t appear in friend searches'}</p>
               </div>
               <div
@@ -7559,7 +7559,7 @@ export default function App() {
       )}
 
       {monthlyRecap && (
-        <div style={{ position: 'absolute', inset: 0, background: 'var(--text)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 32px' }}>
+        <div style={{ position: 'absolute', inset: 0, background: '#1E2A1E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 32px' }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px' }}>{monthlyRecap.label}</p>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#fff', textAlign: 'center', margin: '0 0 10px', lineHeight: 1.25 }}>
             The days are long, but the years are short.
