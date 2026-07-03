@@ -3480,7 +3480,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
       const pool = kid.isFriend ? friendEntries : entries;
       matchesPerKid[kid.id] = pool
         .filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths))
-        .sort((a, b) => a.ageMonths - b.ageMonths);
+        .sort((a, b) => a.ageMonths !== b.ageMonths ? a.ageMonths - b.ageMonths : (a.date || '').localeCompare(b.date || ''));
     });
     // Use the kid with fewest entries as the pairing anchor so each of their
     // entries gets the closest possible match instead of leftovers
@@ -3508,7 +3508,11 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
     });
     pairedRows.sort((a, b) => {
       const avg = obj => { const vs = Object.values(obj).map(e => e.ageMonths); return vs.reduce((s, v) => s + v, 0) / vs.length; };
-      return avg(a) - avg(b);
+      const diff = avg(a) - avg(b);
+      if (diff !== 0) return diff;
+      const dateA = Object.values(a)[0]?.date || '';
+      const dateB = Object.values(b)[0]?.date || '';
+      return dateA.localeCompare(dateB);
     });
   }
 
@@ -3667,7 +3671,8 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                   ? pool.filter(e => e.kids.includes(kid.id) && entryMatchesSearch(e))
                   : isMilestoneFiltering
                     ? pool.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && e.milestone === milestoneFilter)
-                    : pool.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths));
+                    : pool.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths))
+                      .sort((a, b) => a.ageMonths !== b.ageMonths ? a.ageMonths - b.ageMonths : (a.date || '').localeCompare(b.date || ''));
                 return (
                   <div key={kid.id} style={{ width: 170, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
