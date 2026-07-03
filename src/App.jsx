@@ -3618,12 +3618,25 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                         return (
                           <div key={e.id} className={m ? 'milestone-entry' : undefined}
                             style={{ borderRadius: 12, cursor: 'pointer', padding: m ? 2 : 0 }}
-                            onClick={() => isFriendKid
-                              ? setPhotoViewer({ entry: e, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null })
-                              : onOpenEntry(e)}>
+                            onClick={() => {
+                              if (isFriendKid) {
+                                setPhotoViewer({ entry: e, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null });
+                              } else if (e.media?.[0]?.type === 'video') {
+                                setPhotoViewer({ entry: e, kid, ageStr, isFriend: false });
+                              } else {
+                                onOpenEntry(e);
+                              }
+                            }}>
                             <div style={{ borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
                               <div className="compare-photo" style={entryBgStyle(e)}>
                                 <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
+                                {e.media?.[0]?.type === 'video' && (
+                                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <i className="ti ti-player-play-filled" style={{ fontSize: 14, color: '#fff', marginLeft: 2 }} />
+                                    </div>
+                                  </div>
+                                )}
                                 <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
                                   <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 700 }}>{ageStr}</p>
                                 </div>
