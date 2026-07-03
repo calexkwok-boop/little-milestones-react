@@ -3472,49 +3472,20 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
 
   const allKidColumns = [...kids, ...selectedFriendKids.map(k => ({ ...k, isFriend: true }))];
 
-  // Build age-matched pairs when comparing 2+ kids in By Age mode
-  let pairedRows = null;
-  if (filterTab === 'age' && allKidColumns.length >= 2) {
-    const matchesPerKid = {};
-    allKidColumns.forEach(kid => {
-      const pool = kid.isFriend ? friendEntries : entries;
-      matchesPerKid[kid.id] = pool
-        .filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths))
-        .sort((a, b) => a.ageMonths !== b.ageMonths ? a.ageMonths - b.ageMonths : (a.date || '').localeCompare(b.date || ''));
-    });
-    // Use the kid with fewest entries as the pairing anchor so each of their
-    // entries gets the closest possible match instead of leftovers
-    const anchorKid = allKidColumns.reduce((min, k) =>
-      matchesPerKid[k.id].length < matchesPerKid[min.id].length ? k : min
-    );
-    const restKids = allKidColumns.filter(k => k.id !== anchorKid.id);
-    const usedPerKid = {};
-    restKids.forEach(k => { usedPerKid[k.id] = new Set(); });
-    pairedRows = matchesPerKid[anchorKid.id].map(anchorEntry => {
-      const row = { [anchorKid.id]: anchorEntry };
-      restKids.forEach(otherKid => {
-        const pool = matchesPerKid[otherKid.id].filter(e => !usedPerKid[otherKid.id].has(e.id));
-        if (pool.length) {
-          const closest = pool.reduce((best, e) => Math.abs(e.ageMonths - anchorEntry.ageMonths) < Math.abs(best.ageMonths - anchorEntry.ageMonths) ? e : best);
-          usedPerKid[otherKid.id].add(closest.id);
-          row[otherKid.id] = closest;
-        }
-      });
-      return row;
-    });
-    restKids.forEach(otherKid => {
-      matchesPerKid[otherKid.id].filter(e => !usedPerKid[otherKid.id].has(e.id))
-        .forEach(e => pairedRows.push({ [otherKid.id]: e }));
-    });
-    pairedRows.sort((a, b) => {
-      const avg = obj => { const vs = Object.values(obj).map(e => e.ageMonths); return vs.reduce((s, v) => s + v, 0) / vs.length; };
-      const diff = avg(a) - avg(b);
-      if (diff !== 0) return diff;
-      const dateA = Object.values(a)[0]?.date || '';
-      const dateB = Object.values(b)[0]?.date || '';
-      return dateA.localeCompare(dateB);
-    });
-  }
+  // Flat sorted list of all entries for the age grid (2+ kids)
+  const ageGridItems = (filterTab === 'age' && allKidColumns.length >= 2)
+    ? allKidColumns.flatMap(kid => {
+        const pool = kid.isFriend ? friendEntries : entries;
+        return pool
+          .filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths))
+          .map(e => ({ e, kid }));
+      }).sort((a, b) => {
+        const toDays = ({ e, kid }) => (kid.birthdate && e.date)
+          ? (new Date(e.date) - new Date(kid.birthdate)) / 86400000
+          : e.ageMonths * 30.44;
+        return toDays(a) - toDays(b);
+      })
+    : null;
 
   return (
     <div className="screen">
@@ -3603,63 +3574,73 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             <div className="empty-state" style={{ padding: '32px 24px' }}>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Pick a milestone above to compare</p>
             </div>
-          ) : pairedRows ? (
-            /* ── Paired row layout: By Age with 2+ kids ── */
+          ) : ageGridItems ? (
+            /* ── Free-flowing 2-col grid: By Age with 2+ kids ── */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {/* Kid headers */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {/* Kid tags */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 {allKidColumns.map(kid => (
-                  <div key={kid.id} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                    <KidThumb kid={kid} />
-                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{kid.name}</p>
+                  <div key={kid.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--bg-elevated)', borderRadius: 99, padding: '4px 10px 4px 5px' }}>
+                    <div style={{ width: 18, height: 18, borderRadius: '50%', background: kid.accent || 'var(--border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {kid.avatar
+                        ? <img src={cloudinaryTransform(kid.avatar, 'w_36,h_36,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{kid.name.charAt(0)}</span>}
+                    </div>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{kid.name}</span>
                     {kid.isFriend && (
-                      <button onClick={() => setSelectedFriendKidIds(prev => prev.filter(id => id !== kid.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', flexShrink: 0 }}>
-                        <i className="ti ti-x" style={{ fontSize: 13 }} />
+                      <button onClick={() => setSelectedFriendKidIds(prev => prev.filter(id => id !== kid.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', marginLeft: 2 }}>
+                        <i className="ti ti-x" style={{ fontSize: 11 }} />
                       </button>
                     )}
                   </div>
                 ))}
                 {friendKids.length > 0 && selectedFriendKidIds.length < 10 && (
-                  <button onClick={() => setShowFriendPicker(true)} style={{ width: 28, height: 28, borderRadius: '50%', background: 'none', border: '1.5px dashed var(--border)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <i className="ti ti-plus" style={{ fontSize: 14 }} />
+                  <button onClick={() => setShowFriendPicker(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: '1.5px dashed var(--border)', borderRadius: 99, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
+                    <i className="ti ti-plus" style={{ fontSize: 12 }} /> Add
                   </button>
                 )}
               </div>
 
-              {pairedRows.length === 0 ? (
+              {ageGridItems.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '32px 24px' }}>
                   <i className="ti ti-camera" style={{ fontSize: 22, color: 'var(--border-light)', display: 'block', marginBottom: 8 }} />
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Nothing captured at this age yet</p>
                 </div>
-              ) : pairedRows.map((row, rowIdx) => (
-                <div key={rowIdx} style={{ display: 'flex', gap: 8 }}>
-                  {allKidColumns.map(kid => {
-                    const entry = row[kid.id];
-                    const isFriendKid = !!kid.isFriend;
-                    if (!entry) return (
-                      <div key={kid.id} style={{ flex: 1, aspectRatio: '3/4', borderRadius: 10, background: 'var(--bg-input)', border: '1px dashed var(--border)' }} />
-                    );
-                    const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
-                    const ageStr = exactAgeLabel(kid.birthdate, entry.date);
-                    const fi = isFriendKid ? (friendInfoMap[kid.userId] || {}) : null;
-                    return (
-                      <div key={kid.id} style={{ flex: 1, borderRadius: 12, cursor: 'pointer', padding: m ? 2 : 0 }} className={m ? 'milestone-entry' : undefined}
-                        onClick={() => isFriendKid
-                          ? setPhotoViewer({ entry, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null })
-                          : onOpenEntry(entry)}>
-                        <div style={{ borderRadius: 10, overflow: 'hidden' }}>
-                          <div className="compare-photo" style={entryBgStyle(entry)}>
-                            <div className="scrim" style={tintedScrimStyle(entry, 0.5)} />
-                            <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
-                              <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 700 }}>{ageStr}</p>
+              ) : (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  {[0, 1].map(col => (
+                    <div key={col} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {ageGridItems.filter((_, i) => i % 2 === col).map(({ e, kid }) => {
+                        const m = e.milestone ? milestoneInfo(e.milestone) : null;
+                        const ageStr = exactAgeLabel(kid.birthdate, e.date);
+                        const isFriendKid = !!kid.isFriend;
+                        const fi = isFriendKid ? (friendInfoMap[kid.userId] || {}) : null;
+                        return (
+                          <div key={e.id} className={m ? 'milestone-entry' : undefined}
+                            style={{ borderRadius: 12, cursor: 'pointer', padding: m ? 2 : 0 }}
+                            onClick={() => isFriendKid
+                              ? setPhotoViewer({ entry: e, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null })
+                              : onOpenEntry(e)}>
+                            <div style={{ borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
+                              <div className="compare-photo" style={entryBgStyle(e)}>
+                                <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
+                                <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
+                                  <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 700 }}>{ageStr}</p>
+                                </div>
+                              </div>
+                              <div style={{ position: 'absolute', top: 7, right: 7, width: 22, height: 22, borderRadius: '50%', background: kid.accent || 'var(--border)', border: '2px solid rgba(255,255,255,0.9)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
+                                {kid.avatar
+                                  ? <img src={cloudinaryTransform(kid.avatar, 'w_44,h_44,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  : <span style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{kid.name.charAt(0)}</span>}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           ) : (
             /* ── Original column layout: milestone/search tabs or single kid ── */
@@ -3672,7 +3653,12 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                   : isMilestoneFiltering
                     ? pool.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && e.milestone === milestoneFilter)
                     : pool.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths))
-                      .sort((a, b) => a.ageMonths !== b.ageMonths ? a.ageMonths - b.ageMonths : (a.date || '').localeCompare(b.date || ''));
+                      .sort((a, b) => {
+                        if (a.ageMonths !== b.ageMonths) return a.ageMonths - b.ageMonths;
+                        if (!kid.birthdate || !a.date || !b.date) return (a.date || '').localeCompare(b.date || '');
+                        const bd = new Date(kid.birthdate);
+                        return (new Date(a.date) - bd) - (new Date(b.date) - bd);
+                      });
                 return (
                   <div key={kid.id} style={{ width: 170, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
