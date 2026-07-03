@@ -3477,7 +3477,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
     ? allKidColumns.flatMap(kid => {
         const pool = kid.isFriend ? friendEntries : entries;
         return pool
-          .filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths))
+          .filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths) && e.media?.length > 0)
           .map(e => ({ e, kid }));
       }).sort((a, b) => {
         const toDays = ({ e, kid }) => (kid.birthdate && e.date)
