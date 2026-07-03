@@ -1168,13 +1168,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     // Notifications are on own entries; friend taps are on friendEntries
     const ownEntry = entries.find(e => e.id === pendingOpenEntryId);
     if (ownEntry) {
-      const entryKids = kids.filter(k => (ownEntry.kids || []).includes(k.id));
-      const kidLabel = entryKids.map(k => k.name).join(' & ') || 'Photo';
-      const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, ownEntry.date) : null;
-      const entryDate = new Date(ownEntry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const myName = self?.real_name || myDisplayName || 'Me';
-      const myAvatar = self?.avatar_url || null;
-      setCircleViewer({ entry: ownEntry, entryKids, kidLabel, age, friendName: myName, friendAvatar: myAvatar, entryDate });
+      onOpenEntry(ownEntry);
       if (onClearPendingOpen) onClearPendingOpen();
       return;
     }
@@ -1270,27 +1264,31 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   );
 
   if (entries.length === 0) {
-    const onlyChild = kids.length === 1 ? kids[0].name.split(' ')[0] : null;
-    const emptyGreeting = onlyChild ? `Dear ${onlyChild},` : 'To my children,';
+    const prompt = 'For all the things you wish they knew, and all the moments you never want them to forget.';
     return (
       <div className="screen">
-        <div className="scroll-area" style={{ overflowY: 'hidden' }}>
-          <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+        <div className="scroll-area" style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '28px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
             {Header()}
-            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} self={self} onSelf={onSeeMyLetters} partner={partner} onPartner={onSeePartnerLetters} />
-            <div
-              onClick={onAddMoment}
-              style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 16, padding: '24px 22px 28px', cursor: 'pointer' }}
-            >
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 19, color: 'var(--accent)', margin: '0 0 22px' }}>
-                {emptyGreeting}
-              </p>
-              {[0, 1, 2, 3].map(i => (
-                <div key={i} style={{ height: 28, borderBottom: '1px solid #D4E4D0' }} />
-              ))}
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: 'var(--text-muted)', margin: '20px 0 0', lineHeight: 1.65 }}>
-                {onlyChild ? `Write something you want ${onlyChild} to know...` : 'Write something you want them to know...'}
-              </p>
+
+            {/* Kid-first hero — vertically centered in remaining space */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, paddingBottom: 32 }}>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                {kids.map((k, i) => (
+                  <div key={k.id} style={{ width: 116, height: 116, borderRadius: '50%', background: k.accent || 'var(--border)', border: '3px solid var(--bg)', marginLeft: i > 0 ? -24 : 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    {k.avatar
+                      ? <img src={cloudinaryTransform(k.avatar, 'w_232,h_232,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <span style={{ fontSize: 44, fontWeight: 700, color: '#fff' }}>{k.name.charAt(0)}</span>}
+                  </div>
+                ))}
+              </div>
+
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'var(--text-3)', lineHeight: 1.7, textAlign: 'center', margin: 0 }}>{prompt}</p>
+
+              <button onClick={onAddMoment} className="btn btn-primary" style={{ width: '100%' }}>
+                <i className="ti ti-pencil" style={{ fontSize: 17 }} />
+                Write your first letter
+              </button>
             </div>
           </div>
         </div>
@@ -2677,23 +2675,50 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         )}
 
 
-        {/* For + Date row */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          {kids.length === 1 ? (
-            <span style={{ fontSize: 15, color: 'var(--text-muted)', fontFamily: "'Inter', sans-serif", fontWeight: 500 }}>
-              For {salutationName}
-            </span>
+        {/* Kid avatar hero + greeting */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+          {selectedKids.length > 0 ? (
+            <>
+              <div
+                style={{ display: 'flex', justifyContent: 'center', cursor: kids.length > 1 ? 'pointer' : 'default' }}
+                onClick={kids.length > 1 ? () => setShowKidPicker(true) : undefined}
+              >
+                {selectedKids.map((id, i) => {
+                  const k = kids.find(kid => kid.id === id);
+                  if (!k) return null;
+                  return (
+                    <div key={id} style={{ width: 68, height: 68, borderRadius: '50%', background: k.accent || 'var(--border)', border: '3px solid var(--bg-card)', marginLeft: i > 0 ? -18 : 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {k.avatar
+                        ? <img src={cloudinaryTransform(k.avatar, 'w_136,h_136,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : <span style={{ fontSize: 26, fontWeight: 700, color: '#fff' }}>{k.name.charAt(0)}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 20, color: 'var(--accent)', margin: '0 0 6px' }}>
+                  Dear {salutationName},
+                </p>
+                <button onClick={openDateEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Inter', sans-serif", padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <i className="ti ti-calendar" style={{ fontSize: 12 }} />
+                  {dateDisplay}
+                  {dateFromPhoto && <span style={{ fontSize: 10 }}>· photo</span>}
+                </button>
+              </div>
+            </>
           ) : (
-            <button onClick={() => setShowKidPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: salutationName ? 'var(--accent)' : 'var(--border)', fontFamily: "'Inter', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
-              {salutationName ? `For ${salutationName}` : 'Who is this for?'}
-              <i className="ti ti-chevron-down" style={{ fontSize: 13 }} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+              <button onClick={() => setShowKidPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: 'var(--border)', fontFamily: "'Inter', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                Who is this for?
+                <i className="ti ti-chevron-down" style={{ fontSize: 13 }} />
+              </button>
+              <button onClick={openDateEdit} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-2)', fontFamily: "'Inter', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
+                <i className="ti ti-calendar" style={{ fontSize: 13 }} />
+                {dateDisplay}
+                {dateFromPhoto && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>· photo</span>}
+              </button>
+            </div>
           )}
-          <button onClick={openDateEdit} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-2)', fontFamily: "'Inter', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
-            <i className="ti ti-calendar" style={{ fontSize: 13 }} />
-            {dateDisplay}
-            {dateFromPhoto && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>· photo</span>}
-          </button>
         </div>
 
         {/* Writing area */}
@@ -3376,7 +3401,19 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
 function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], friends = [], currentUserId, onBack, onOpenEntry, initialFriendKidId = null, initialCompareAge = null }) {
   const [filterTab, setFilterTab] = useState('age');
   const [compareAge, setCompareAge] = useState(initialCompareAge ?? 24);
-  const [photoViewer, setPhotoViewer] = useState(null); // { entry, kid, ageStr }
+  const [photoViewer, setPhotoViewer] = useState(null); // { entry, kid, ageStr, isFriend, friendName, friendAvatar }
+
+  const friendInfoMap = useMemo(() => {
+    const map = {};
+    friends.forEach(fr => {
+      const friendId = fr.requester_id === currentUserId ? fr.addressee_id : fr.requester_id;
+      map[friendId] = {
+        name: fr.requester_id === currentUserId ? fr.addressee_display_name : fr.requester_display_name,
+        avatar: fr.requester_id === currentUserId ? fr.addressee_avatar_url : fr.requester_avatar_url,
+      };
+    });
+    return map;
+  }, [friends, currentUserId]);
   const [milestoneFilter, setMilestoneFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFriendKidIds, setSelectedFriendKidIds] = useState(initialFriendKidId ? [initialFriendKidId] : []);
@@ -3432,6 +3469,48 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
     boxShadow: filterTab === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
     transition: 'all 0.15s',
   });
+
+  const allKidColumns = [...kids, ...selectedFriendKids.map(k => ({ ...k, isFriend: true }))];
+
+  // Build age-matched pairs when comparing 2+ kids in By Age mode
+  let pairedRows = null;
+  if (filterTab === 'age' && allKidColumns.length >= 2) {
+    const matchesPerKid = {};
+    allKidColumns.forEach(kid => {
+      const pool = kid.isFriend ? friendEntries : entries;
+      matchesPerKid[kid.id] = pool
+        .filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths))
+        .sort((a, b) => a.ageMonths - b.ageMonths);
+    });
+    // Use the kid with fewest entries as the pairing anchor so each of their
+    // entries gets the closest possible match instead of leftovers
+    const anchorKid = allKidColumns.reduce((min, k) =>
+      matchesPerKid[k.id].length < matchesPerKid[min.id].length ? k : min
+    );
+    const restKids = allKidColumns.filter(k => k.id !== anchorKid.id);
+    const usedPerKid = {};
+    restKids.forEach(k => { usedPerKid[k.id] = new Set(); });
+    pairedRows = matchesPerKid[anchorKid.id].map(anchorEntry => {
+      const row = { [anchorKid.id]: anchorEntry };
+      restKids.forEach(otherKid => {
+        const pool = matchesPerKid[otherKid.id].filter(e => !usedPerKid[otherKid.id].has(e.id));
+        if (pool.length) {
+          const closest = pool.reduce((best, e) => Math.abs(e.ageMonths - anchorEntry.ageMonths) < Math.abs(best.ageMonths - anchorEntry.ageMonths) ? e : best);
+          usedPerKid[otherKid.id].add(closest.id);
+          row[otherKid.id] = closest;
+        }
+      });
+      return row;
+    });
+    restKids.forEach(otherKid => {
+      matchesPerKid[otherKid.id].filter(e => !usedPerKid[otherKid.id].has(e.id))
+        .forEach(e => pairedRows.push({ [otherKid.id]: e }));
+    });
+    pairedRows.sort((a, b) => {
+      const avg = obj => { const vs = Object.values(obj).map(e => e.ageMonths); return vs.reduce((s, v) => s + v, 0) / vs.length; };
+      return avg(a) - avg(b);
+    });
+  }
 
   return (
     <div className="screen">
@@ -3520,9 +3599,68 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             <div className="empty-state" style={{ padding: '32px 24px' }}>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Pick a milestone above to compare</p>
             </div>
+          ) : pairedRows ? (
+            /* ── Paired row layout: By Age with 2+ kids ── */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Kid headers */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {allKidColumns.map(kid => (
+                  <div key={kid.id} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                    <KidThumb kid={kid} />
+                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>{kid.name}</p>
+                    {kid.isFriend && (
+                      <button onClick={() => setSelectedFriendKidIds(prev => prev.filter(id => id !== kid.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', flexShrink: 0 }}>
+                        <i className="ti ti-x" style={{ fontSize: 13 }} />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {friendKids.length > 0 && selectedFriendKidIds.length < 10 && (
+                  <button onClick={() => setShowFriendPicker(true)} style={{ width: 28, height: 28, borderRadius: '50%', background: 'none', border: '1.5px dashed var(--border)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <i className="ti ti-plus" style={{ fontSize: 14 }} />
+                  </button>
+                )}
+              </div>
+
+              {pairedRows.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '32px 24px' }}>
+                  <i className="ti ti-camera" style={{ fontSize: 22, color: 'var(--border-light)', display: 'block', marginBottom: 8 }} />
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Nothing captured at this age yet</p>
+                </div>
+              ) : pairedRows.map((row, rowIdx) => (
+                <div key={rowIdx} style={{ display: 'flex', gap: 8 }}>
+                  {allKidColumns.map(kid => {
+                    const entry = row[kid.id];
+                    const isFriendKid = !!kid.isFriend;
+                    if (!entry) return (
+                      <div key={kid.id} style={{ flex: 1, aspectRatio: '3/4', borderRadius: 10, background: 'var(--bg-input)', border: '1px dashed var(--border)' }} />
+                    );
+                    const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
+                    const ageStr = exactAgeLabel(kid.birthdate, entry.date);
+                    const fi = isFriendKid ? (friendInfoMap[kid.userId] || {}) : null;
+                    return (
+                      <div key={kid.id} style={{ flex: 1, borderRadius: 12, cursor: 'pointer', padding: m ? 2 : 0 }} className={m ? 'milestone-entry' : undefined}
+                        onClick={() => isFriendKid
+                          ? setPhotoViewer({ entry, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null })
+                          : onOpenEntry(entry)}>
+                        <div style={{ borderRadius: 10, overflow: 'hidden' }}>
+                          <div className="compare-photo" style={entryBgStyle(entry)}>
+                            <div className="scrim" style={tintedScrimStyle(entry, 0.5)} />
+                            <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
+                              <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 700 }}>{ageStr}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
           ) : (
+            /* ── Original column layout: milestone/search tabs or single kid ── */
             <div className="scrollx" style={{ alignItems: 'flex-start', gap: 12, paddingBottom: 8 }}>
-              {[...kids, ...selectedFriendKids.map(k => ({ ...k, isFriend: true }))].map(kid => {
+              {allKidColumns.map(kid => {
                 const isFriendKid = !!kid.isFriend;
                 const pool = isFriendKid ? friendEntries : entries;
                 const matches = isSearching
@@ -3555,8 +3693,15 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                       const m = e.milestone ? milestoneInfo(e.milestone) : null;
                       const ageStr = exactAgeLabel(kid.birthdate, e.date);
                       const dateStr = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                      const fi = isFriendKid ? (friendInfoMap[kid.userId] || {}) : null;
                       return (
-                        <div key={e.id} className={m ? 'milestone-entry' : undefined} style={{ borderRadius: 12, cursor: 'pointer', padding: m ? 2 : 0 }} onClick={() => { const ageStr = exactAgeLabel(kid.birthdate, e.date); setPhotoViewer({ entry: e, kid, ageStr }); }}>
+                        <div key={e.id} className={m ? 'milestone-entry' : undefined} style={{ borderRadius: 12, cursor: 'pointer', padding: m ? 2 : 0 }} onClick={() => {
+                          if (isFriendKid) {
+                            setPhotoViewer({ entry: e, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null });
+                          } else {
+                            onOpenEntry(e);
+                          }
+                        }}>
                           <div style={{ borderRadius: 10, overflow: 'hidden' }}>
                             <div className="compare-photo" style={entryBgStyle(e)}>
                               <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
@@ -3567,11 +3712,6 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                               </div>
                             </div>
                           </div>
-                          {!isFriendKid && (
-                            <p style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5, margin: '8px 2px 0' }}>
-                              {e.text.slice(0, 70)}{e.text.length > 70 ? '...' : ''}
-                            </p>
-                          )}
                         </div>
                       );
                     })}
@@ -3595,26 +3735,31 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
       </div>
 
       {photoViewer && (() => {
-        const { entry, kid, ageStr } = photoViewer;
+        const { entry, kid, ageStr, isFriend, friendName, friendAvatar } = photoViewer;
         const media = entry.media?.[0];
-        const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
         return (
-          <div onClick={() => setPhotoViewer(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-            <div style={{ position: 'absolute', top: 16, right: 16 }}>
+          <div onClick={() => setPhotoViewer(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+            <div style={{ position: 'absolute', top: 16, left: 16 }}>
               <button onClick={() => setPhotoViewer(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
-                <i className="ti ti-x" />
+                <i className="ti ti-arrow-left" />
               </button>
             </div>
-            <div onClick={e => e.stopPropagation()} style={{ width: '100%', borderRadius: 16, overflow: 'hidden', maxHeight: '70%' }}>
+            {isFriend && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, alignSelf: 'flex-start', paddingLeft: 4 }}>
+                <FriendAvatar name={friendName} avatarUrl={friendAvatar} size={36} />
+                <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{friendName}</span>
+              </div>
+            )}
+            <div onClick={e => e.stopPropagation()} style={{ width: '100%', borderRadius: 16, overflow: 'hidden' }}>
               {media?.type === 'video'
-                ? <video src={media.url} controls autoPlay playsInline style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'contain', background: '#000' }} />
-                : <img src={media?.url || ''} alt="" style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'contain', background: entry.palette?.bg || 'var(--bg-card)' }} />
+                ? <video src={media.url} controls autoPlay playsInline style={{ width: '100%', display: 'block', maxHeight: '65vh', objectFit: 'contain', background: '#000' }} />
+                : <img src={media?.url || ''} alt="" style={{ width: '100%', display: 'block', maxHeight: '65vh', objectFit: 'contain', background: entry.palette?.bg || '#111' }} />
               }
             </div>
-            <div style={{ marginTop: 16, textAlign: 'center' }}>
-              <p style={{ color: '#fff', fontWeight: 700, fontSize: 15, margin: '0 0 4px' }}>{kid.name} · {ageStr}</p>
-              <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, margin: 0 }}>{dateStr}</p>
-              {entry.text ? <p style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, margin: '8px 0 0', lineHeight: 1.5 }}>{entry.text.slice(0, 120)}{entry.text.length > 120 ? '…' : ''}</p> : null}
+            <div style={{ marginTop: 14, alignSelf: 'flex-start', paddingLeft: 4 }}>
+              <p style={{ color: '#fff', fontWeight: 700, fontSize: 15, margin: '0 0 3px' }}>{kid.name} · {ageStr}</p>
+              <p style={{ color: 'rgba(255,255,255,0.55)', fontSize: 13, margin: 0 }}>{dateStr}</p>
             </div>
           </div>
         );
@@ -5673,7 +5818,7 @@ function AuthScreen() {
             <img src="/icon-192.png" style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: 'var(--text)', margin: '0 0 10px' }}>Patina</h1>
             <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text-3)', margin: 0, textAlign: 'center' }}>
-              For all the things you wish they knew.
+              For all the things you wish they knew, and all the moments you never want them to forget.
             </p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
@@ -5926,14 +6071,11 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
   const initial = name.trim() ? name.trim()[0].toUpperCase() : null;
 
   function goBack() {
-    if (step === 'join-or-new') setStep('welcome');
-    else if (step === 'name') setStep('join-or-new');
+    if (step === 'name') setStep('welcome');
     else if (step === 'birthdate') setStep('name');
     else if (step === 'photo') setStep('birthdate');
     else if (step === 'another') setStep('photo');
-    else if (step === 'realname') setStep('another');
-    else if (step === 'yourphoto') setStep('realname');
-    else if (step === 'yourname') setStep('yourphoto');
+    else if (step === 'profile') setStep('another');
   }
 
   function handleFile(e) {
@@ -5960,15 +6102,20 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
       accent: KID_ACCENTS[kidIndex % KID_ACCENTS.length],
       birthdate, avatar,
     }]);
-    setStep('realname');
+    setStep('profile');
   }
 
   async function handleReallyDone() {
     setSavingProfile(true);
     setSaveError('');
-    const result = await onDone(doneKids, displayName.trim() || 'Parent', realName.trim(), profilePhotoBlob);
-    if (result?.error) {
-      setSaveError(result.error);
+    try {
+      const result = await onDone(doneKids, displayName.trim() || 'Parent', realName.trim(), profilePhotoBlob);
+      if (result?.error) {
+        setSaveError(result.error);
+      }
+    } catch (e) {
+      setSaveError('Something went wrong. Please try again.');
+    } finally {
       setSavingProfile(false);
     }
   }
@@ -5984,10 +6131,23 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
             </button>
           )}
 
-          {!['welcome', 'join-or-new'].includes(step) && (() => {
+          {step !== 'welcome' && (() => {
+            const DOT_STEPS = ['name', 'birthdate', 'photo', 'profile'];
+            const activeIdx = step === 'another' ? 2 : DOT_STEPS.indexOf(step);
+            if (activeIdx < 0) return null;
+            return (
+              <div style={{ display: 'flex', gap: 6, marginBottom: 20, alignSelf: 'center' }}>
+                {DOT_STEPS.map((_, i) => (
+                  <div key={i} style={{ width: i === activeIdx ? 20 : 6, height: 6, borderRadius: 3, background: i <= activeIdx ? 'var(--accent)' : 'var(--border)', transition: 'width 0.2s, background 0.2s' }} />
+                ))}
+              </div>
+            );
+          })()}
+
+          {step !== 'welcome' && (() => {
             const kidFirstNames = [
               ...doneKids.map(k => k.name.split(' ')[0]),
-              ...(name.trim() ? [name.trim().split(' ')[0]] : []),
+              ...(step !== 'profile' && name.trim() ? [name.trim().split(' ')[0]] : []),
             ];
             const salutation = kidFirstNames.length > 0 ? kidFirstNames.join(' & ') : null;
             return (
@@ -6014,7 +6174,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
               <img src="/icon-192.png" style={{ width: 64, height: 64, borderRadius: 14, display: 'block', marginBottom: 20 }} alt="" />
               <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.1 }}>Patina</h1>
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text-3)', lineHeight: 1.8, margin: '0 0 32px', textAlign: 'center' }}>
-                For all the things you wish they knew.
+                For all the things you wish they knew, and all the moments you never want them to forget.
               </p>
               <div style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'var(--text-muted)', margin: '0 0 10px' }}>Dear Ellie &amp; Miles,</p>
@@ -6024,35 +6184,19 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                 </p>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Love, your family</p>
               </div>
-              <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('join-or-new')}>
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('name')}>
                 Begin
               </button>
+              {onJoinFamily && (
+                <button onClick={onJoinFamily} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', fontFamily: "'Inter', sans-serif", fontWeight: 500, marginTop: 18, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}>
+                  Have an invite code?
+                </button>
+              )}
               {onSignOut && (
-                <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--border-light)', fontFamily: "'Inter', sans-serif", fontWeight: 500, marginTop: 24 }}>
+                <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--border-light)', fontFamily: "'Inter', sans-serif", fontWeight: 500, marginTop: 14 }}>
                   Sign out
                 </button>
               )}
-            </div>
-          )}
-
-          {step === 'join-or-new' && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: 'var(--text)', lineHeight: 1.25, margin: '0 0 14px' }}>
-                Ordinary days, extraordinary memories.
-              </h2>
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: 'var(--text-3)', margin: '0 0 28px' }}>
-                Is this a new journal?
-              </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('name')}>
-                  Yes, start fresh
-                </button>
-                {onJoinFamily && (
-                  <button className="btn btn-outline" style={{ width: '100%' }} onClick={onJoinFamily}>
-                    No, I have an invite code
-                  </button>
-                )}
-              </div>
             </div>
           )}
 
@@ -6206,100 +6350,47 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                 </button>
               )}
               <button className="btn btn-primary" style={{ width: '100%' }} onClick={handleFinish}>
-                No, let's start writing
-              </button>
-            </div>
-          )}
-
-          {step === 'realname' && (
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: 'var(--text)', lineHeight: 1.25, margin: '0 0 12px' }}>
-                What's your name?
-              </h2>
-              <p style={{ fontSize: 15, color: 'var(--text-3)', lineHeight: 1.7, margin: '0 0 32px' }}>
-                So friends on Patina can find you and compare milestones with you.
-              </p>
-              <input
-                className="input-field"
-                placeholder="e.g. Meg, Alex…"
-                value={realName}
-                onChange={e => setRealName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && realName.trim() && setStep('yourphoto')}
-                autoFocus
-                style={{ fontSize: 20, padding: '16px 18px', marginBottom: 24 }}
-              />
-              <button
-                className="btn btn-primary"
-                style={{ width: '100%', opacity: realName.trim() ? 1 : 0.4 }}
-                disabled={!realName.trim()}
-                onClick={() => setStep('yourphoto')}
-              >
                 Continue
               </button>
-              <button
-                onClick={() => setStep('yourphoto')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', fontFamily: "'Inter', sans-serif", width: '100%', marginTop: 14, padding: 6 }}
-              >
-                Skip for now
-              </button>
             </div>
           )}
 
-          {step === 'yourphoto' && (
+          {step === 'profile' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: 'var(--text)', lineHeight: 1.25, margin: '0 0 12px' }}>
-                Add a photo of yourself
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: 'var(--text)', lineHeight: 1.25, margin: '0 0 28px' }}>
+                One last thing —<br />about you.
               </h2>
-              <p style={{ fontSize: 15, color: 'var(--text-3)', lineHeight: 1.7, margin: '0 0 32px' }}>
-                So friends can recognise you when you send a request.
-              </p>
               <input ref={profilePhotoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files[0]; if (f) { setProfileCropSrc(URL.createObjectURL(f)); } e.target.value = ''; }} />
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 32 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 28 }}>
                 <div
                   className="avatar-upload-zone"
-                  style={{ width: 120, height: 120 }}
+                  style={{ width: 88, height: 88 }}
                   onClick={() => profilePhotoInputRef.current?.click()}
                 >
                   {profilePhoto
                     ? <img src={profilePhoto} alt="You" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <i className="ti ti-camera" style={{ fontSize: 28 }} />
+                    : <i className="ti ti-camera" style={{ fontSize: 24 }} />
                   }
                 </div>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+                  {profilePhoto ? 'Tap to change photo' : 'Add your photo (optional)'}
+                </p>
               </div>
-              {profilePhoto ? (
-                <button className="btn btn-primary" style={{ width: '100%', marginBottom: 14 }} onClick={() => setStep('yourname')}>
-                  Continue
-                </button>
-              ) : (
-                <button className="btn btn-primary" style={{ width: '100%', marginBottom: 14 }} onClick={() => profilePhotoInputRef.current?.click()}>
-                  Choose a photo
-                </button>
-              )}
-              <button
-                onClick={() => setStep('yourname')}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', fontFamily: "'Inter', sans-serif", width: '100%', padding: 6 }}
-              >
-                Skip for now
-              </button>
-            </div>
-          )}
-
-          {step === 'yourname' && (
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: 'var(--text)', lineHeight: 1.25, margin: '0 0 12px' }}>
-                One last thing —
-              </h2>
-              <p style={{ fontSize: 15, color: 'var(--text-3)', lineHeight: 1.7, margin: '0 0 32px' }}>
-                What do the kids call you?
-              </p>
               <input
                 className="input-field"
-                placeholder="Mom, Dad, Mama…"
+                placeholder="What the kids call you — Mom, Dad, Mama…"
                 value={displayName}
                 onChange={e => setDisplayName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handleReallyDone()}
                 autoFocus
-                style={{ fontSize: 20, padding: '16px 18px', marginBottom: 24 }}
+                style={{ fontSize: 16, padding: '15px 18px', marginBottom: 10 }}
+              />
+              <input
+                className="input-field"
+                placeholder="Your name, for friends to find you"
+                value={realName}
+                onChange={e => setRealName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleReallyDone()}
+                style={{ fontSize: 16, padding: '15px 18px', marginBottom: 24 }}
               />
               {saveError && (
                 <p style={{ fontSize: 13, color: '#D4856A', margin: '0 0 12px', textAlign: 'center', lineHeight: 1.5 }}>{saveError}</p>
@@ -6400,7 +6491,7 @@ export default function App() {
     if (saved === 'light' || saved === 'dark' || saved === 'auto') return saved;
     if (saved === 'true') return 'dark';
     if (saved === 'false') return 'light';
-    return 'auto';
+    return 'light';
   });
 
   const setDarkModeValue = useCallback((val) => {
@@ -7215,6 +7306,21 @@ export default function App() {
     setScreen('profile');
   }
 
+  async function uploadKidAvatars(newKids, insertedRows) {
+    return Promise.all(
+      newKids.map(async (k, i) => {
+        if (!k.avatar?.startsWith('blob:')) return null;
+        try {
+          const res = await fetch(k.avatar);
+          const blob = await res.blob();
+          const url = await uploadToCloudinary(new File([blob], 'avatar.jpg', { type: blob.type || 'image/jpeg' }), 'image');
+          if (url && insertedRows[i]) await supabase.from('kids').update({ avatar_url: url }).eq('id', insertedRows[i].id);
+          return url || null;
+        } catch (_) { return null; }
+      })
+    );
+  }
+
   async function handleOnboardingDone(newKids, displayName = 'Parent', realName = '', profilePhotoBlob = null) {
     if (localMode || !supabase || !session) {
       const normalizedKids = newKids.map((kid, i) => ({
@@ -7229,7 +7335,35 @@ export default function App() {
     const userId = session.user.id;
     // Don't create a new family if already in one
     const { data: existingMemberships } = await supabase.from('family_members').select('family_id').eq('user_id', userId);
-    if (existingMemberships?.length > 0) return { success: true };
+    if (existingMemberships?.length > 0) {
+      const existingFamilyId = existingMemberships[0].family_id;
+      setFamilyId(existingFamilyId);
+      const { data: kidsData } = await supabase.from('kids').select('id, name, birthdate, accent, avatar_url, sex, growth_log').eq('family_id', existingFamilyId).order('created_at');
+      if (kidsData?.length > 0) {
+        // Already have kids — just load them
+        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [] })));
+        setProfileKidId(kidsData[0]?.id ?? null);
+        return { success: true };
+      }
+      // Family exists but no kids yet (partial previous attempt) — insert them now
+      const { data: inserted, error: insertError } = await supabase.from('kids').insert(
+        newKids.map((k, i) => ({
+          user_id: userId,
+          family_id: existingFamilyId,
+          name: k.name,
+          birthdate: k.birthdate,
+          accent: k.accent || KID_ACCENTS[i % KID_ACCENTS.length],
+          avatar_url: null,
+        }))
+      ).select();
+      if (insertError) return { error: insertError.message };
+      if (inserted?.length > 0) {
+        const avatarUrls = await uploadKidAvatars(newKids, inserted);
+        setKids(inserted.map((k, i) => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent, avatar: avatarUrls[i] || k.avatar_url })));
+        setProfileKidId(inserted[0]?.id ?? null);
+      }
+      return { success: true };
+    }
     const { data: family, error: familyError } = await supabase.from('families').insert({}).select().single();
     if (familyError || !family) {
       return { error: familyError?.message || 'Could not create your family yet.' };
@@ -7258,7 +7392,8 @@ export default function App() {
       return { error: kidsError.message };
     }
     if (data) {
-      setKids(data.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent, avatar: k.avatar_url })));
+      const avatarUrls = await uploadKidAvatars(newKids, data);
+      setKids(data.map((k, i) => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent, avatar: avatarUrls[i] || k.avatar_url })));
       setProfileKidId(data[0]?.id ?? null);
     }
     // Save real name + optional profile photo to profiles table
