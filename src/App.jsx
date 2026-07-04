@@ -6479,6 +6479,8 @@ export default function App() {
   const [kids, setKids] = useState(() => localMode ? loadLocalData().kids : []);
   const [entries, setEntries] = useState(() => localMode ? loadLocalData().entries : []);
   const [screen, setScreen] = useState('home');
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const installPromptRef = useRef(null);
   const journalScrollPos = useRef(0);
   const [kidFilter, setKidFilter] = useState(null);
   const [activeEntry, setActiveEntry] = useState(null);
@@ -6885,6 +6887,23 @@ export default function App() {
   useEffect(() => { kidsRef.current = kids; }, [kids]);
   const currentUserIdRef = useRef(session?.user?.id);
   useEffect(() => { currentUserIdRef.current = session?.user?.id; }, [session?.user?.id]);
+
+  const [installBannerType, setInstallBannerType] = useState(null); // 'ios-safari' | 'ios-other' | 'android'
+  useEffect(() => {
+    if (localStorage.getItem('pwa-install-dismissed')) return;
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    if (isStandalone) return;
+    if (isIOS) {
+      const isSafari = /safari/i.test(navigator.userAgent) && !/crios|fxios|opios/i.test(navigator.userAgent);
+      setInstallBannerType(isSafari ? 'ios-safari' : 'ios-other');
+      setShowInstallBanner(true);
+      return;
+    }
+    const handler = e => { e.preventDefault(); installPromptRef.current = e; setInstallBannerType('android'); setShowInstallBanner(true); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
 
   useEffect(() => {
     if (localMode || !supabase || !session?.user?.id || !familyId) return;
@@ -7936,6 +7955,32 @@ export default function App() {
           />
         ) : null;
       })()}
+
+      {showInstallBanner && (
+        <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
+          <div style={{ background: 'var(--bg-elevated)', borderRadius: 12, padding: '10px 12px 10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+            <i className="ti ti-leaf" style={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+                {installBannerType === 'ios-other' ? 'Open in Safari to install' : 'Add Patina to your home screen'}
+              </p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-3)', lineHeight: 1.4 }}>
+                {installBannerType === 'ios-safari' && 'Tap \u{1F4E4} Share → Add to Home Screen'}
+                {installBannerType === 'ios-other' && 'Chrome on iOS can\'t install apps — Safari can'}
+                {installBannerType === 'android' && 'Install for the full app experience'}
+              </p>
+            </div>
+            {installPromptRef.current && (
+              <button onClick={async () => { installPromptRef.current.prompt(); const { outcome } = await installPromptRef.current.userChoice; if (outcome === 'accepted') { localStorage.setItem('pwa-install-dismissed', '1'); setShowInstallBanner(false); } }} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#fff', cursor: 'pointer', flexShrink: 0, fontFamily: "'Inter', sans-serif" }}>
+                Install
+              </button>
+            )}
+            <button onClick={() => { localStorage.setItem('pwa-install-dismissed', '1'); setShowInstallBanner(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+              <i className="ti ti-x" style={{ fontSize: 14 }} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'growth' && screen !== 'book-builder' && screen !== 'book-preview' && (
         <NavBar active={screen} onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={reactionNotifications.length} />
