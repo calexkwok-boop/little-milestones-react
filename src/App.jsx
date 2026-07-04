@@ -6679,14 +6679,15 @@ export default function App() {
 
         if (frData && frData.length > 0) {
           const involvedIds = [...new Set(frData.flatMap(fr => [fr.requester_id, fr.addressee_id]).filter(id => id !== session.user.id))];
-          const { data: profilesData } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', involvedIds);
+          const { data: profilesData } = await supabase.from('profiles').select('id, display_name, real_name, avatar_url').in('id', involvedIds);
           const pMap = {};
           profilesData?.forEach(p => { pMap[p.id] = p; });
+          const profileName = p => p?.display_name || p?.real_name?.split(' ')[0] || '';
           const enrichFr = fr => ({
             ...fr,
-            requester_display_name: pMap[fr.requester_id]?.display_name || '',
+            requester_display_name: profileName(pMap[fr.requester_id]),
             requester_avatar_url: pMap[fr.requester_id]?.avatar_url || null,
-            addressee_display_name: pMap[fr.addressee_id]?.display_name || '',
+            addressee_display_name: profileName(pMap[fr.addressee_id]),
             addressee_avatar_url: pMap[fr.addressee_id]?.avatar_url || null,
           });
           const accepted = frData.filter(fr => fr.status === 'accepted').map(enrichFr);
@@ -7320,20 +7321,9 @@ export default function App() {
 
   async function handleDeleteAccount() {
     if (!supabase || !session) return;
-    const userId = session.user.id;
-    const hasPartner = familyId && familyMembers.filter(m => m.user_id !== userId).length > 0;
     try {
-      if (hasPartner) {
-        // Leave family — keep all entries/kids so partner still sees them
-        await supabase.from('family_members').delete().eq('family_id', familyId).eq('user_id', userId);
-      } else {
-        // Solo account — full wipe
-        await supabase.from('entries').delete().eq('user_id', userId);
-        await supabase.from('kids').delete().eq('user_id', userId);
-        if (familyId) {
-          await supabase.from('family_members').delete().eq('family_id', familyId).eq('user_id', userId);
-        }
-      }
+      const { error } = await supabase.rpc('delete_my_account');
+      if (error) throw error;
       await supabase.auth.signOut();
     } catch (e) {
       console.error('Delete account error:', e);
