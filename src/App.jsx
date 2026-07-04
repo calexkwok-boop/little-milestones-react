@@ -1217,7 +1217,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     const kidItems = kids.map(kid => ({
       kid,
       items: entries
-        .filter(e => e.kids[0] === kid.id)
+        .filter(e => e.kids[0] === kid.id && e.media?.length > 0)
         .map(e => ({ entry: e, ageDays: (new Date(e.date + 'T12:00:00') - new Date(kid.birthdate + 'T12:00:00')) / 86400000 }))
         .filter(x => x.ageDays >= 0),
     })).filter(kd => kd.items.length > 0);
@@ -1237,7 +1237,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           }
           if (bestMatch) group.push(bestMatch);
         }
-        if (group.length >= 2 && group.some(x => x.entry.media?.length > 0)) {
+        if (group.length >= 2) {
           groups.push(group);
         }
       }
@@ -1387,11 +1387,6 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                   At the same age · {exactAgeLabel(sameAgeGroup[0].kid.birthdate, sameAgeGroup[0].entry.date)}
                 </span>
-                {sameAgeGroups && sameAgeGroups.length > 1 && (
-                  <button onClick={() => setSameAgeIdx(i => { const next = Math.floor(Math.random() * sameAgeGroups.length); return next === i % sameAgeGroups.length ? (i + 1) % sameAgeGroups.length : next; })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-                    <i className="ti ti-refresh" style={{ fontSize: 13 }} />
-                  </button>
-                )}
                 <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
               </div>
               {sameAgeGroup.length === 2 ? (
@@ -6201,7 +6196,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
               <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.1 }}>Patina</h1>
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text-3)', lineHeight: 1.8, margin: '0 0 32px', textAlign: 'center' }}>
                 For all the things you wish they knew, and all the moments you never want them to forget.
-              </p>
+               </p>
               <div style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'var(--text-muted)', margin: '0 0 10px' }}>Dear Ellie &amp; Miles,</p>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text)', lineHeight: 1.75, margin: '0 0 14px', minHeight: 120 }}>
