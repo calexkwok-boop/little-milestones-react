@@ -1011,10 +1011,14 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName, pendingOpenEntryId, onClearPendingOpen }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
   const [longPressEntry, setLongPressEntry] = useState(null);
+  const avatarFileInputRef = useRef(null);
+  const avatarCaptureInputRef = useRef(null);
+  const avatarUploadKidIdRef = useRef(null);
+  const [showAvatarSheet, setShowAvatarSheet] = useState(false);
   const [circleViewer, setCircleViewer] = useState(null);
   const [viewerLikes, setViewerLikes] = useState([]);
   const [viewerComments, setViewerComments] = useState([]);
@@ -1274,21 +1278,48 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
 
             {/* Kid-first hero — vertically centered in remaining space */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, paddingBottom: 32 }}>
+              <input ref={avatarFileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => {
+                const file = e.target.files?.[0];
+                if (file && avatarUploadKidIdRef.current && onAvatarUpload) onAvatarUpload(avatarUploadKidIdRef.current, file);
+                e.target.value = '';
+              }} />
+              <input ref={avatarCaptureInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => {
+                const file = e.target.files?.[0];
+                if (file && avatarUploadKidIdRef.current && onAvatarUpload) onAvatarUpload(avatarUploadKidIdRef.current, file);
+                e.target.value = '';
+              }} />
               <div style={{ display: 'flex', justifyContent: 'center' }}>
                 {kids.map((k, i) => (
-                  <div key={k.id} style={{ width: 116, height: 116, borderRadius: '50%', background: k.accent || 'var(--border)', border: '3px solid var(--bg)', marginLeft: i > 0 ? -24 : 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div key={k.id} onClick={() => { if (!onAvatarUpload) return; avatarUploadKidIdRef.current = k.id; setShowAvatarSheet(true); }} style={{ width: 116, height: 116, borderRadius: '50%', background: k.accent || 'var(--border)', border: '3px solid var(--bg)', marginLeft: i > 0 ? -24 : 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                     {k.avatar
                       ? <img src={cloudinaryTransform(k.avatar, 'w_232,h_232,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : <span style={{ fontSize: 44, fontWeight: 700, color: '#fff' }}>{k.name.charAt(0)}</span>}
                   </div>
                 ))}
               </div>
+              {showAvatarSheet && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowAvatarSheet(false)}>
+                  <div className="quick-sheet" style={{ background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', width: '100%', padding: '12px 16px 36px' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
+                    {[
+                      { label: 'Photo Library', icon: 'ti-photo', action: () => { setShowAvatarSheet(false); avatarFileInputRef.current?.click(); } },
+                      { label: 'Take Photo', icon: 'ti-camera', action: () => { setShowAvatarSheet(false); avatarCaptureInputRef.current?.click(); } },
+                      { label: 'Choose File', icon: 'ti-folder', action: () => { setShowAvatarSheet(false); avatarFileInputRef.current?.click(); } },
+                    ].map(opt => (
+                      <button key={opt.label} onClick={opt.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 4px', fontFamily: "'Inter', sans-serif", fontSize: 16, color: 'var(--text)', borderBottom: '1px solid var(--border)' }}>
+                        <i className={`ti ${opt.icon}`} style={{ fontSize: 20, color: 'var(--accent)', width: 24 }} />
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'var(--text-3)', lineHeight: 1.7, textAlign: 'center', margin: 0 }}>{prompt}</p>
 
               <button onClick={onAddMoment} className="btn btn-primary" style={{ width: '100%' }}>
                 <i className="ti ti-pencil" style={{ fontSize: 17 }} />
-                Write your first letter
+                {kids.length === 1 ? `Write ${kids[0].name.split(' ')[0]}'s first letter` : 'Write their first letter'}
               </button>
             </div>
           </div>
@@ -4459,7 +4490,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
               <div key={k.id} style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 14, padding: '20px 16px 16px', textAlign: 'center' }}>
                 <div
                   className="avatar-upload-zone"
-                  style={{ width: 84, height: 84, margin: '0 auto 12px', position: 'relative' }}
+                  style={{ width: 84, height: 84, margin: '0 auto 12px', position: 'relative', border: k.avatar ? 'none' : undefined }}
                   onClick={() => { setUploadKidId(k.id); fileInputRef.current?.click(); }}
                   title="Tap to change photo"
                 >
@@ -5720,8 +5751,8 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
           {friends.length === 0 && pendingIncoming.length === 0 && reactionNotifications.length === 0 && !searchQuery && (
             <div className="empty-state">
               <i className="ti ti-users" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
-              <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 8px', fontStyle: 'italic' }}>Growing alone, but walking together.</p>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>Friends can see your photos, age, and date — <strong style={{ color: 'var(--text-2)' }}>not your letters</strong>. You can mark individual posts private anytime.</p>
+              <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 16px', fontStyle: 'italic' }}>Growing alone, but walking together.</p>
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>We believe that your personal letters should stay between you and your family. Friends will only see your photos and a little context, nothing more.</p>
             </div>
           )}
         </div>
@@ -6385,7 +6416,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 28 }}>
                 <div
                   className="avatar-upload-zone"
-                  style={{ width: 88, height: 88 }}
+                  style={{ width: 88, height: 88, border: profilePhoto ? 'none' : undefined }}
                   onClick={() => profilePhotoInputRef.current?.click()}
                 >
                   {profilePhoto
@@ -6547,7 +6578,7 @@ export default function App() {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (!session) { setKids([]); setEntries([]); }
+      if (!session) { setKids([]); setEntries([]); setScreen('home'); }
     });
     return () => subscription.unsubscribe();
   }, [localMode]);
@@ -7749,6 +7780,7 @@ export default function App() {
             onClearPendingOpen={() => setPendingOpenEntryId(null)}
             session={session}
             myDisplayName={myDisplayName}
+            onAvatarUpload={handleAvatarUpload}
           />
         );
       })()}
@@ -7929,6 +7961,7 @@ export default function App() {
               }
               return;
             }
+            setScreen('home');
             supabase.auth.signOut();
           }}
         />
