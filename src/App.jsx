@@ -1212,9 +1212,8 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     return pool.reduce((best, e) => score(e.id) > score(best.id) ? e : best);
   }, [entries, onThisDay, currentSlot]);
 
-  const sameAgeGroup = useMemo(() => {
+  const sameAgeGroups = useMemo(() => {
     if (kids.length < 2) return null;
-    // Index each kid's entries by age in days (entries where this kid is primary)
     const kidItems = kids.map(kid => ({
       kid,
       items: entries
@@ -1225,10 +1224,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
 
     if (kidItems.length < 2) return null;
 
-    let bestGroup = null;
-    let bestScore = -Infinity;
-
-    // For each entry as anchor, greedily pull in the closest matching entry from every other kid
+    const groups = [];
     for (const anchor of kidItems) {
       for (const anchorItem of anchor.items) {
         const group = [{ entry: anchorItem.entry, kid: anchor.kid }];
@@ -1241,17 +1237,22 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           }
           if (bestMatch) group.push(bestMatch);
         }
-        if (group.length < 2) continue;
-        const hasPhotos = group.filter(x => x.entry.media?.length > 0).length;
-        const recency = Math.max(...group.map(x => new Date(x.entry.date).getTime()));
-        // Prefer larger groups, then more photos, then more recent
-        const score = group.length * 1e13 + hasPhotos * 1e12 + recency;
-        if (score > bestScore) { bestScore = score; bestGroup = group; }
+        if (group.length >= 2 && group.some(x => x.entry.media?.length > 0)) {
+          groups.push(group);
+        }
       }
     }
-
-    return bestGroup; // array of { entry, kid }
+    return groups.length > 0 ? groups : null;
   }, [entries, kids]);
+
+  const [sameAgeIdx, setSameAgeIdx] = useState(0);
+  useEffect(() => {
+    if (sameAgeGroups?.length > 1) {
+      setSameAgeIdx(Math.floor(Math.random() * sameAgeGroups.length));
+    }
+  }, [sameAgeGroups?.length]);
+
+  const sameAgeGroup = sameAgeGroups ? sameAgeGroups[sameAgeIdx % sameAgeGroups.length] : null;
 
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1386,6 +1387,11 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
                   At the same age · {exactAgeLabel(sameAgeGroup[0].kid.birthdate, sameAgeGroup[0].entry.date)}
                 </span>
+                {sameAgeGroups && sameAgeGroups.length > 1 && (
+                  <button onClick={() => setSameAgeIdx(i => { const next = Math.floor(Math.random() * sameAgeGroups.length); return next === i % sameAgeGroups.length ? (i + 1) % sameAgeGroups.length : next; })} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+                    <i className="ti ti-refresh" style={{ fontSize: 13 }} />
+                  </button>
+                )}
                 <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
               </div>
               {sameAgeGroup.length === 2 ? (
@@ -3402,6 +3408,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
   const [filterTab, setFilterTab] = useState('age');
   const [compareAge, setCompareAge] = useState(initialCompareAge ?? 24);
   const [photoViewer, setPhotoViewer] = useState(null); // { entry, kid, ageStr, isFriend, friendName, friendAvatar }
+  const [playingVideoId, setPlayingVideoId] = useState(null);
 
   const friendInfoMap = useMemo(() => {
     const map = {};
@@ -3618,34 +3625,49 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                         return (
                           <div key={e.id} className={m ? 'milestone-entry' : undefined}
                             style={{ borderRadius: 12, cursor: 'pointer', padding: m ? 2 : 0 }}
-                            onClick={() => {
-                              if (isFriendKid) {
-                                setPhotoViewer({ entry: e, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null });
-                              } else if (e.media?.[0]?.type === 'video') {
-                                setPhotoViewer({ entry: e, kid, ageStr, isFriend: false });
-                              } else {
-                                onOpenEntry(e);
-                              }
-                            }}>
+                            onClick={() => isFriendKid
+                              ? setPhotoViewer({ entry: e, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null })
+                              : onOpenEntry(e)}>
                             <div style={{ borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
-                              <div className="compare-photo" style={entryBgStyle(e)}>
-                                <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
-                                {e.media?.[0]?.type === 'video' && (
-                                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-                                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                      <i className="ti ti-player-play-filled" style={{ fontSize: 14, color: '#fff', marginLeft: 2 }} />
-                                    </div>
-                                  </div>
-                                )}
-                                <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
-                                  <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 700 }}>{ageStr}</p>
+                              {playingVideoId === e.id ? (
+                                <div style={{ aspectRatio: '3/4', background: '#000', position: 'relative' }}>
+                                  <video
+                                    src={e.media[0].url}
+                                    autoPlay playsInline controls
+                                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                                    onClick={ev => ev.stopPropagation()}
+                                    onEnded={() => setPlayingVideoId(null)}
+                                  />
+                                  <button
+                                    onClick={ev => { ev.stopPropagation(); setPlayingVideoId(null); }}
+                                    style={{ position: 'absolute', top: 6, left: 6, background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', zIndex: 4 }}>
+                                    <i className="ti ti-x" style={{ fontSize: 12 }} />
+                                  </button>
                                 </div>
-                              </div>
-                              <div style={{ position: 'absolute', top: 7, right: 7, width: 22, height: 22, borderRadius: '50%', background: kid.accent || 'var(--border)', border: '2px solid rgba(255,255,255,0.9)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
-                                {kid.avatar
-                                  ? <img src={cloudinaryTransform(kid.avatar, 'w_44,h_44,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  : <span style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{kid.name.charAt(0)}</span>}
-                              </div>
+                              ) : (
+                                <div className="compare-photo" style={entryBgStyle(e)}>
+                                  <div className="scrim" style={tintedScrimStyle(e, 0.5)} />
+                                  {e.media?.[0]?.type === 'video' && (
+                                    <button
+                                      onClick={ev => { ev.stopPropagation(); setPlayingVideoId(e.id); }}
+                                      style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', zIndex: 2 }}>
+                                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <i className="ti ti-player-play-filled" style={{ fontSize: 15, color: '#fff', marginLeft: 2 }} />
+                                      </div>
+                                    </button>
+                                  )}
+                                  <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
+                                    <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 700 }}>{ageStr}</p>
+                                  </div>
+                                </div>
+                              )}
+                              {playingVideoId !== e.id && (
+                                <div style={{ position: 'absolute', top: 7, right: 7, width: 22, height: 22, borderRadius: '50%', background: kid.accent || 'var(--border)', border: '2px solid rgba(255,255,255,0.9)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
+                                  {kid.avatar
+                                    ? <img src={cloudinaryTransform(kid.avatar, 'w_44,h_44,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <span style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{kid.name.charAt(0)}</span>}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
