@@ -6085,7 +6085,7 @@ function AvatarCropModal({ imageSrc, onConfirm, onCancel }) {
 
 // ─── Onboarding ────────────────────────────────────────────────────────────
 
-const ONBOARDING_LETTER = "Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet attempt to slow down time—a gift for you to one day hold, and an anchor for us to inhabit today.";
+const ONBOARDING_LETTER = "Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet, perilous attempt to slow down time. A gift for you to one day hold, and an anchor for us to inhabit today.";
 
 function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
   const [step, setStep] = useState('welcome');
@@ -6229,7 +6229,16 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                 For all the things you wish they knew, and all the moments you never want them to forget.
                </p>
               <div style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
-                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'var(--text-muted)', margin: '0 0 10px' }}>Dear Ellie &amp; Miles,</p>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+                    {[{ initial: 'E', color: KID_ACCENTS[0] }, { initial: 'M', color: KID_ACCENTS[1] }].map((k, i) => (
+                      <div key={i} style={{ width: 42, height: 42, borderRadius: '50%', background: k.color, display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: i > 0 ? -12 : 0, border: '3px solid var(--bg-card)', flexShrink: 0 }}>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{k.initial}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Dear Ellie &amp; Miles,</p>
+                </div>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text)', lineHeight: 1.75, margin: '0 0 14px', minHeight: 120 }}>
                   {ONBOARDING_LETTER.slice(0, typed)}
                   {!letterDone && <span style={{ display: 'inline-block', width: 2, height: 15, background: 'var(--accent)', marginLeft: 1, verticalAlign: 'middle', animation: 'blink-cursor 0.8s step-end infinite' }} />}
@@ -6812,7 +6821,7 @@ export default function App() {
         }
 
         // Load own profile for discoverable setting
-        const { data: ownProfile } = await supabase.from('profiles').select('discoverable').eq('id', session.user.id).single();
+        const { data: ownProfile } = await supabase.from('profiles').select('discoverable').eq('id', session.user.id).maybeSingle();
         if (ownProfile) setDiscoverable(ownProfile.discoverable ?? true);
 
         // Create profile if none exists — never overwrite (real name set during onboarding)
