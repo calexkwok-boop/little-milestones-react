@@ -6798,7 +6798,8 @@ export default function App() {
 
         if (frData && frData.length > 0) {
           const involvedIds = [...new Set(frData.flatMap(fr => [fr.requester_id, fr.addressee_id]).filter(id => id !== session.user.id))];
-          const { data: profilesData } = await supabase.from('profiles').select('id, display_name, real_name, avatar_url').in('id', involvedIds);
+          const { data: profilesData, error: profilesErr } = await supabase.from('profiles').select('id, display_name, real_name, avatar_url').in('id', involvedIds);
+          console.log('[friends] involvedIds', involvedIds, 'profilesData', profilesData, 'error', profilesErr);
           const pMap = {};
           profilesData?.forEach(p => { pMap[p.id] = p; });
           const profileName = p => p?.display_name || p?.real_name?.split(' ')[0] || '';
