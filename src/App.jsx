@@ -624,7 +624,7 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
   function handleSave() {
     const img = imgRef.current;
     const container = scrollRef.current;
-    if (!img || !container) return onSave(cropY);
+    if (!img || !container || img.naturalWidth === 0) return onSave(cropY);
     const scale = container.offsetWidth / img.naturalWidth;
     const scaledH = img.naturalHeight * scale;
     const extra = scaledH - cardHeight;
@@ -2199,7 +2199,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
       )}
       {showCrop && media[activeSlide] && (
         <CropModal
-          url={media[activeSlide].url}
+          url={cloudinaryTransform(media[activeSlide].url, 'w_1200,q_auto,f_auto')}
           cropY={cropY}
           cardHeight={260}
           onSave={newY => { setCropY(newY); onUpdateCrop?.(entry.id, newY); setShowCrop(false); }}
@@ -4021,12 +4021,14 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTop = scrollPos?.current ?? 0;
-    const onScroll = () => { if (scrollPos) scrollPos.current = el.scrollTop; };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
+    if (!el || !scrollPos) return;
+    requestAnimationFrame(() => { el.scrollTop = scrollPos.current; });
   }, []);
+
+  function handleOpenEntry(entry) {
+    if (scrollRef.current && scrollPos) scrollPos.current = scrollRef.current.scrollTop;
+    onOpenEntry(entry);
+  }
   const unseenEntries = useMemo(
     () => isSelf ? [] : entries.filter(e => unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
     [entries, unseenIds, isSelf]
