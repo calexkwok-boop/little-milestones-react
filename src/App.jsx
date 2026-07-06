@@ -2709,9 +2709,6 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
               <i className="ti ti-camera" />
             </button>
           </div>
-          <button onClick={toggleListening} style={{ background: listening ? '#F0897A' : 'none', border: 'none', cursor: 'pointer', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: listening ? '#fff' : 'var(--text-muted)', fontSize: 20, borderRadius: 10 }}>
-            <i className={`ti ti-${listening ? 'microphone' : 'microphone'}`} />
-          </button>
           <button onClick={() => setIsShared(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: isShared ? 'var(--text-muted)' : 'var(--accent)', fontSize: 20, borderRadius: 10 }}>
             <i className={`ti ${isShared ? 'ti-users' : 'ti-lock'}`} />
           </button>
@@ -2810,6 +2807,27 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
               </button>
             </div>
           )}
+        </div>
+
+        {/* Big mic button */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
+          <button
+            onClick={toggleListening}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              padding: '14px 28px', borderRadius: 999,
+              background: listening ? '#F0897A' : 'var(--bg-elevated)',
+              border: 'none', cursor: 'pointer',
+              color: listening ? '#fff' : 'var(--accent)',
+              animation: listening ? 'mic-pulse 1.5s ease-in-out infinite' : 'none',
+              transition: 'background 0.2s, color 0.2s',
+            }}
+          >
+            <i className="ti ti-microphone" style={{ fontSize: 20 }} />
+            <span style={{ fontSize: 14, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.2 }}>
+              {listening ? 'Listening…' : 'Tap to speak'}
+            </span>
+          </button>
         </div>
 
         {/* Writing area */}

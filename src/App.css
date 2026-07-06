@@ -26,6 +26,11 @@
   to   { transform: translateY(0); }
 }
 .quick-sheet { animation: sheetIn 0.22s ease; }
+@keyframes mic-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(240,137,122,0.45); }
+  70%  { box-shadow: 0 0 0 20px rgba(240,137,122,0); }
+  100% { box-shadow: 0 0 0 0 rgba(240,137,122,0); }
+}
 
 .app-root {
   --bg: #FBF8F2;
