@@ -5047,7 +5047,7 @@ function TermsScreen({ onBack }) {
             { title: 'Your Account', body: 'You must be 18 or older to create an account. You are responsible for keeping your credentials secure and for all activity under your account. Notify us at hello@patinafamily.com if you suspect unauthorized access.' },
             { title: 'Your Content', body: 'You retain full ownership of everything you post. By uploading content, you grant us a limited license to store and display it within the app solely to provide the service to you and your family.' },
             { title: 'Prohibited Uses', body: 'You agree not to use Patina for any unlawful purpose, upload illegal or abusive content, attempt to access another user\'s data, or reverse-engineer the service. Content involving child exploitation will be reported to authorities and result in immediate account termination.' },
-            { title: 'Friends Feature', body: 'You control who you add as a friend. Friends see only your photos and basic context — never your letter text. You can remove friends at any time.' },
+            { title: 'Friends Feature', body: 'You control who you add as a friend. Friends can see your photos and milestones by default. Sharing your letter text with friends is optional — you choose the sharing level for each entry (Private, Partner only, or All). You can remove friends at any time, which immediately revokes their access.' },
             { title: 'Termination', body: 'We reserve the right to suspend or terminate accounts that violate these Terms. You may delete your account anytime from the Profile screen.' },
             { title: 'Disclaimer', body: 'Patina is provided "as is" without warranties of any kind. We do not guarantee the service will be uninterrupted or error-free. We strongly encourage you to keep personal backups of entries that matter to you.' },
             { title: 'Limitation of Liability', body: 'To the fullest extent permitted by law, Patina and its creators shall not be liable for any indirect, incidental, or consequential damages arising from your use of the app, including data loss.' },
@@ -6297,7 +6297,7 @@ function AvatarCropModal({ imageSrc, onConfirm, onCancel }) {
 
 const ONBOARDING_LETTER = "Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet, perilous attempt to slow down time. A gift for you to one day hold, and an anchor for us to inhabit today.";
 
-function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
+function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGenerateInvite, onFinish }) {
   const [step, setStep] = useState('welcome');
   const [doneKids, setDoneKids] = useState([]);
   const [name, setName] = useState('');
@@ -6316,6 +6316,9 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
   const [profileCropSrc, setProfileCropSrc] = useState(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [inviteCode, setInviteCode] = useState(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteCopied, setInviteCopied] = useState(false);
   const fileInputRef = useRef(null);
   const profilePhotoInputRef = useRef(null);
 
@@ -6374,6 +6377,15 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
       const result = await onDone(doneKids, displayName.trim() || 'Parent', realName.trim(), profilePhotoBlob);
       if (result?.error) {
         setSaveError(result.error);
+      } else if (hasBackend) {
+        setStep('invite-partner');
+        setInviteLoading(true);
+        try {
+          const code = await onGenerateInvite?.();
+          setInviteCode(code);
+        } finally {
+          setInviteLoading(false);
+        }
       }
     } catch (e) {
       setSaveError('Something went wrong. Please try again.');
@@ -6393,7 +6405,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
             </button>
           )}
 
-          {step !== 'welcome' && (() => {
+          {step !== 'welcome' && step !== 'invite-partner' && (() => {
             const DOT_STEPS = ['name', 'birthdate', 'photo', 'profile'];
             const activeIdx = step === 'another' ? 2 : DOT_STEPS.indexOf(step);
             if (activeIdx < 0) return null;
@@ -6406,7 +6418,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
             );
           })()}
 
-          {step !== 'welcome' && (() => {
+          {step !== 'welcome' && step !== 'invite-partner' && (() => {
             const kidFirstNames = [
               ...doneKids.map(k => k.name.split(' ')[0]),
               ...(step !== 'profile' && name.trim() ? [name.trim().split(' ')[0]] : []),
@@ -6626,6 +6638,52 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
             </div>
           )}
 
+          {step === 'invite-partner' && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                <i className="ti ti-users" style={{ fontSize: 28, color: 'var(--accent)' }} />
+              </div>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: 'var(--text)', lineHeight: 1.25, margin: '0 0 10px' }}>
+                Invite your<br />partner?
+              </h2>
+              <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 36px', lineHeight: 1.65 }}>
+                Share this code so they can join<br />your family journal on their device.
+              </p>
+              {inviteLoading ? (
+                <div style={{ padding: '32px 0', color: 'var(--text-muted)', fontSize: 14 }}>Generating code…</div>
+              ) : inviteCode ? (
+                <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 24px', width: '100%', marginBottom: 28 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.5, margin: '0 0 10px', textTransform: 'uppercase' }}>Invite code</p>
+                  <p style={{ fontSize: 36, fontWeight: 700, color: 'var(--accent)', letterSpacing: 8, margin: '0 0 16px', fontFamily: "'Urbanist', sans-serif" }}>{inviteCode}</p>
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText(inviteCode); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); }}
+                    style={{ background: 'var(--bg-elevated)', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontFamily: "'Urbanist', sans-serif", padding: '10px 20px', borderRadius: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <i className={`ti ${inviteCopied ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 14 }} />
+                    {inviteCopied ? 'Copied!' : 'Copy code'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ padding: '20px 0 28px', color: 'var(--text-muted)', fontSize: 13 }}>Could not generate a code. You can invite from the Family screen later.</div>
+              )}
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', marginBottom: 14 }}
+                onClick={onFinish}
+              >
+                {inviteCode ? 'Done' : 'Go to journal'}
+              </button>
+              {inviteCode && (
+                <button
+                  onClick={onFinish}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}
+                >
+                  I'll share later
+                </button>
+              )}
+            </div>
+          )}
+
           {step === 'profile' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: 'var(--text)', lineHeight: 1.25, margin: '0 0 28px' }}>
@@ -6763,6 +6821,7 @@ export default function App() {
   const [pendingOpenEntryId, setPendingOpenEntryId] = useState(null);
   const [discoverable, setDiscoverable] = useState(true);
   const [sharingDefaults, setSharingDefaults] = useState({ partner: true, family: false, friends: false });
+  const [postOnboardInvite, setPostOnboardInvite] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('patina_dark_mode');
     if (saved === 'light' || saved === 'dark' || saved === 'auto') return saved;
@@ -7657,6 +7716,7 @@ export default function App() {
         // Already have kids — just load them
         setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [] })));
         setProfileKidId(kidsData[0]?.id ?? null);
+        setPostOnboardInvite(true);
         return { success: true };
       }
       // Family exists but no kids yet (partial previous attempt) — insert them now
@@ -7676,6 +7736,7 @@ export default function App() {
         setKids(inserted.map((k, i) => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent, avatar: avatarUrls[i] || k.avatar_url })));
         setProfileKidId(inserted[0]?.id ?? null);
       }
+      setPostOnboardInvite(true);
       return { success: true };
     }
     const { data: family, error: familyError } = await supabase.from('families').insert({}).select().single();
@@ -7723,6 +7784,7 @@ export default function App() {
         setFamilyMembers(prev => prev.map(m => m.user_id === userId ? { ...m, avatar_url: avatarUrl } : m));
       }
     } catch (_) {}
+    setPostOnboardInvite(true);
     return { success: true };
   }
 
@@ -7977,12 +8039,19 @@ export default function App() {
     );
   }
 
-  if (kids.length === 0) {
+  if (kids.length === 0 || postOnboardInvite) {
     return (
       <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined}>
         {joiningFamily
           ? <JoinFamilyScreen onJoin={handleJoinFamily} onBack={() => setJoiningFamily(false)} />
-          : <OnboardingScreen onDone={handleOnboardingDone} onJoinFamily={() => setJoiningFamily(true)} onSignOut={() => supabase ? supabase.auth.signOut() : undefined} />
+          : <OnboardingScreen
+              onDone={handleOnboardingDone}
+              onJoinFamily={() => setJoiningFamily(true)}
+              onSignOut={() => supabase ? supabase.auth.signOut() : undefined}
+              hasBackend={!localMode && !!supabase && !!session}
+              onGenerateInvite={handleInvitePartner}
+              onFinish={() => setPostOnboardInvite(false)}
+            />
         }
       </div>
     );
