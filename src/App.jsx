@@ -861,14 +861,14 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
         >
           {entry.media[0].type === 'video' ? (
             <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
-              <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+              <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
                 </div>
               </div>
             </div>
-          ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_1600,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+          ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
           }
         </div>
       )}
@@ -923,14 +923,14 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
           >
             {entry.media[0].type === 'video' ? (
               <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
-                <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
+                <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
                   </div>
                 </div>
               </div>
-            ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_1600,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+            ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
             }
           </div>
         )}
@@ -1721,7 +1721,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
       {heroMedia && (
         <div style={{ margin: 0, borderRadius: '13px 13px 0 0', overflow: 'hidden', aspectRatio: '4/3', position: 'relative' }}>
           {heroMedia.type === 'video'
-            ? <img src={videoThumbUrl(heroMedia.url, 'so_0,w_1600,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+            ? <img src={videoThumbUrl(heroMedia.url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
             : <FadeImg src={cloudinaryTransform(heroMedia.url, 'w_800,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           }
           {heroMedia.type === 'video' && (
@@ -2008,7 +2008,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 style={{ cursor: media[activeSlide]?.type !== 'video' ? 'pointer' : 'default' }}
               >
                 {media.map((item, i) => (
-                  <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${cloudinaryTransform(item.url, 'w_1600,q_auto,f_auto')}')`, backgroundPosition: `center ${cropY}%` }}>
+                  <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${cloudinaryTransform(item.url, 'w_1600,e_sharpen:60,q_auto,f_auto')}')`, backgroundPosition: `center ${cropY}%` }}>
                     {item.type === 'video'
                       ? <video src={item.url} poster={videoThumbUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" playsInline controls onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />
                       : <div className="video-play-overlay" style={{ display: 'none' }} />
