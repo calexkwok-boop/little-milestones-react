@@ -5447,7 +5447,7 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
 }
 // ─── Book preview ──────────────────────────────────────────────────────────
 
-function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUserId }) {
+function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUserId, onNotifyMe, userEmail }) {
   const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
   const sorted = [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1);
 
@@ -5480,6 +5480,10 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
   const [page, setPage] = useState(0);
   const swipeStart = useRef(null);
   const pageDir = useRef(1);
+  const [showWaitlist, setShowWaitlist] = useState(false);
+  const [waitlistEmail, setWaitlistEmail] = useState(userEmail || '');
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
+  const [waitlistDone, setWaitlistDone] = useState(false);
 
   function goNext() { pageDir.current = 1;  setPage(p => Math.min(p + 1, totalPages - 1)); }
   function goPrev() { pageDir.current = -1; setPage(p => Math.max(p - 1, 0)); }
@@ -5682,11 +5686,60 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
 
       <div style={{ padding: '8px 20px 28px', flexShrink: 0 }}>
         <button className="btn btn-gold" style={{ width: '100%', borderRadius: 14 }}
-          onClick={() => alert('Print ordering is coming soon. Your book is ready — we\'ll let you know when you can order!')}>
+          onClick={() => setShowWaitlist(true)}>
           <i className="ti ti-shopping-cart" style={{ fontSize: 16 }} />
           Order this book
         </button>
       </div>
+
+      {showWaitlist && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => setShowWaitlist(false)}>
+          <div style={{ background: 'var(--bg)', borderRadius: '22px 22px 0 0', padding: '28px 24px 40px', width: '100%' }}
+            onClick={e => e.stopPropagation()}>
+            {!waitlistDone ? (
+              <>
+                <img src="/icon-192.png" style={{ width: 48, height: 48, borderRadius: 12, display: 'block', marginBottom: 16 }} alt="Patina" />
+                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.25 }}>Print ordering<br />is coming soon</h3>
+                <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.6 }}>
+                  Your book is ready to go. Leave your email and we'll let you know the moment print ordering opens.
+                </p>
+                <input
+                  className="input-field"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={waitlistEmail}
+                  onChange={e => setWaitlistEmail(e.target.value)}
+                  style={{ marginBottom: 12 }}
+                />
+                <button
+                  className="btn btn-gold"
+                  style={{ width: '100%', opacity: (!waitlistEmail.trim() || waitlistSubmitting) ? 0.5 : 1 }}
+                  disabled={!waitlistEmail.trim() || waitlistSubmitting}
+                  onClick={async () => {
+                    setWaitlistSubmitting(true);
+                    await onNotifyMe?.(waitlistEmail.trim());
+                    setWaitlistSubmitting(false);
+                    setWaitlistDone(true);
+                  }}
+                >
+                  {waitlistSubmitting ? 'Saving…' : 'Notify me when it\'s ready'}
+                </button>
+                <button onClick={() => setShowWaitlist(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', marginTop: 14, fontSize: 13, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>
+                  Maybe later
+                </button>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '12px 0' }}>
+                <i className="ti ti-circle-check" style={{ fontSize: 40, color: '#C8993E', display: 'block', marginBottom: 14 }} />
+                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: 'var(--text)', margin: '0 0 8px' }}>You're on the list</h3>
+                <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 28px', lineHeight: 1.6 }}>We'll email you at <strong>{waitlistEmail}</strong> when print ordering is available.</p>
+                <button className="btn btn-outline" style={{ width: '100%' }} onClick={() => setShowWaitlist(false)}>Done</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );
@@ -7843,6 +7896,14 @@ export default function App() {
     return error ? null : token;
   }
 
+  async function handleBookWaitlist(email) {
+    if (!supabase || !session) return;
+    await supabase.from('book_waitlist').upsert(
+      { user_id: session.user.id, email },
+      { onConflict: 'user_id' }
+    );
+  }
+
   async function handleRenameKid(kidId, name) {
     setKids(prev => prev.map(k => k.id === kidId ? { ...k, name } : k));
     if (localMode || !supabase || !session) return;
@@ -8256,6 +8317,8 @@ export default function App() {
           onBack={() => setScreen('book-builder')}
           onUpdateCrop={handleUpdateCrop}
           currentUserId={session?.user?.id}
+          onNotifyMe={handleBookWaitlist}
+          userEmail={session?.user?.email}
         />
       )}
 
