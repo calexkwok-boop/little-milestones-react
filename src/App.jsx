@@ -1973,6 +1973,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
     if (dx > 60 && Math.abs(dx) > Math.abs(dy)) onBack();
   }
   const [showCrop, setShowCrop] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
   const [location, setLocation] = useState(entry.location || '');
   const [editingLocation, setEditingLocation] = useState(false);
   const [locationDraft, setLocationDraft] = useState('');
@@ -2008,7 +2009,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               </div>
               <div
                 className="gallery-stage"
-                onClick={() => { if (media[activeSlide]?.type !== 'video') setShowPeopleTagger(true); }}
+                onClick={() => { if (media[activeSlide]?.type !== 'video') setShowLightbox(true); }}
                 style={{ cursor: media[activeSlide]?.type !== 'video' ? 'pointer' : 'default' }}
               >
                 {media.map((item, i) => (
@@ -2028,12 +2029,15 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   </button>
                 )}
                 {media[activeSlide]?.type !== 'video' && (
-                  <div style={{ position: 'absolute', bottom: 12, left: 12, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.38)', borderRadius: 999, padding: '5px 10px 5px 7px', pointerEvents: 'none' }}>
+                  <button
+                    onClick={e => { e.stopPropagation(); setShowPeopleTagger(true); }}
+                    style={{ position: 'absolute', bottom: 12, left: 12, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.38)', borderRadius: 999, padding: '5px 10px 5px 7px', border: 'none', cursor: 'pointer' }}
+                  >
                     <i className="ti ti-user-plus" style={{ fontSize: 12, color: '#fff' }} />
                     <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>
                       {people.length > 0 ? people.join(', ') : 'Tag people'}
                     </span>
-                  </div>
+                  </button>
                 )}
               </div>
             </>
@@ -2207,6 +2211,24 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           onSave={newY => { setCropY(newY); onUpdateCrop?.(entry.id, newY); setShowCrop(false); }}
           onClose={() => setShowCrop(false)}
         />
+      )}
+      {showLightbox && media[activeSlide] && media[activeSlide].type !== 'video' && (
+        <div
+          onClick={() => setShowLightbox(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <button
+            onClick={e => { e.stopPropagation(); setShowLightbox(false); }}
+            style={{ position: 'absolute', top: 16, right: 16, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 1 }}
+          >
+            <i className="ti ti-x" />
+          </button>
+          <img
+            src={cloudinaryTransform(media[activeSlide].url, 'w_1600,q_auto,f_auto')}
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+            alt=""
+          />
+        </div>
       )}
       {showPeopleTagger && (() => {
         function addPerson(name) {
