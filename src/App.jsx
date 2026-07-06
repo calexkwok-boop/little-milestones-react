@@ -606,6 +606,7 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
 function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
   const scrollRef = useRef(null);
   const imgRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
 
   function scrollToCropY(y) {
     const img = imgRef.current;
@@ -618,13 +619,14 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
   }
 
   function handleLoad() {
+    setLoaded(true);
     scrollToCropY(cropY);
   }
 
   function handleSave() {
     const img = imgRef.current;
     const container = scrollRef.current;
-    if (!img || !container || img.naturalWidth === 0) return onSave(cropY);
+    if (!img || !container) return onSave(cropY);
     const scale = container.offsetWidth / img.naturalWidth;
     const scaledH = img.naturalHeight * scale;
     const extra = scaledH - cardHeight;
@@ -647,8 +649,8 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
         <button onClick={onClose} style={{ flex: 1, padding: '13px', border: '1px solid rgba(255,255,255,0.25)', background: 'none', color: '#fff', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
           Cancel
         </button>
-        <button onClick={handleSave} style={{ flex: 1, padding: '13px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-          Done
+        <button onClick={handleSave} disabled={!loaded} style={{ flex: 1, padding: '13px', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: loaded ? 'pointer' : 'default', opacity: loaded ? 1 : 0.45, fontFamily: 'Inter, sans-serif' }}>
+          {loaded ? 'Done' : 'Loading…'}
         </button>
       </div>
     </div>
@@ -4067,7 +4069,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {unseenEntries.map(e => {
                   const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
-                  return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onOpen={onOpenEntry} />;
+                  return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onOpen={handleOpenEntry} />;
                 })}
               </div>
             </>
@@ -4081,7 +4083,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {earlierEntries.map(e => {
                   const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
-                  return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onOpen={onOpenEntry} />;
+                  return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onOpen={handleOpenEntry} />;
                 })}
               </div>
             </>
