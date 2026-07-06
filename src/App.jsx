@@ -6798,11 +6798,10 @@ export default function App() {
 
         if (frData && frData.length > 0) {
           const involvedIds = [...new Set(frData.flatMap(fr => [fr.requester_id, fr.addressee_id]).filter(id => id !== session.user.id))];
-          const { data: profilesData, error: profilesErr } = await supabase.from('profiles').select('id, display_name, real_name, avatar_url').in('id', involvedIds);
-          console.log('[friends] involvedIds', involvedIds, 'profilesData', profilesData, 'error', profilesErr);
+          const { data: profilesData } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', involvedIds);
           const pMap = {};
           profilesData?.forEach(p => { pMap[p.id] = p; });
-          const profileName = p => p?.display_name || p?.real_name?.split(' ')[0] || '';
+          const profileName = p => p?.display_name || '';
           const enrichFr = fr => ({
             ...fr,
             requester_display_name: profileName(pMap[fr.requester_id]),
