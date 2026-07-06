@@ -6381,7 +6381,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
         setStep('invite-partner');
         setInviteLoading(true);
         try {
-          const code = await onGenerateInvite?.();
+          const code = await onGenerateInvite?.(result.familyId);
           setInviteCode(code);
         } finally {
           setInviteLoading(false);
@@ -7717,7 +7717,7 @@ export default function App() {
         setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [] })));
         setProfileKidId(kidsData[0]?.id ?? null);
         setPostOnboardInvite(true);
-        return { success: true };
+        return { success: true, familyId: existingFamilyId };
       }
       // Family exists but no kids yet (partial previous attempt) — insert them now
       const { data: inserted, error: insertError } = await supabase.from('kids').insert(
@@ -7737,7 +7737,7 @@ export default function App() {
         setProfileKidId(inserted[0]?.id ?? null);
       }
       setPostOnboardInvite(true);
-      return { success: true };
+      return { success: true, familyId: existingFamilyId };
     }
     const { data: family, error: familyError } = await supabase.from('families').insert({}).select().single();
     if (familyError || !family) {
@@ -7785,7 +7785,7 @@ export default function App() {
       }
     } catch (_) {}
     setPostOnboardInvite(true);
-    return { success: true };
+    return { success: true, familyId: newFamilyId };
   }
 
   async function handleJoinFamily(code, displayName) {
@@ -7833,11 +7833,12 @@ export default function App() {
     return { success: true };
   }
 
-  async function handleInvitePartner() {
-    if (!familyId || !supabase || !session) return null;
+  async function handleInvitePartner(explicitFamilyId) {
+    const fid = explicitFamilyId || familyId;
+    if (!fid || !supabase || !session) return null;
     const token = Math.random().toString(36).substring(2, 8).toUpperCase();
     const { error } = await supabase.from('family_invites').insert({
-      family_id: familyId, invited_by: session.user.id, token,
+      family_id: fid, invited_by: session.user.id, token,
     });
     return error ? null : token;
   }
