@@ -548,7 +548,7 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
             value={value}
             onChange={handleChange}
             placeholder={placeholder}
-            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 16, color: 'var(--text-2)', fontFamily: "'DM Sans', sans-serif", fontWeight: 500, width: value ? Math.max(80, Math.min(value.length * 9, 200)) : 90 }}
+            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 16, color: 'var(--text-2)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500, width: value ? Math.max(80, Math.min(value.length * 9, 200)) : 90 }}
             onKeyDown={e => { if (e.key === 'Escape' || e.key === 'Enter') setSuggestions([]); }}
             onBlur={() => { blurRef.current = setTimeout(() => setSuggestions([]), 150); }}
             onFocus={() => clearTimeout(blurRef.current)}
@@ -1306,7 +1306,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                       { label: 'Take Photo', icon: 'ti-camera', action: () => { setShowAvatarSheet(false); avatarCaptureInputRef.current?.click(); } },
                       { label: 'Choose File', icon: 'ti-folder', action: () => { setShowAvatarSheet(false); avatarFileInputRef.current?.click(); } },
                     ].map(opt => (
-                      <button key={opt.label} onClick={opt.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 4px', fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: 'var(--text)', borderBottom: '1px solid var(--border)' }}>
+                      <button key={opt.label} onClick={opt.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 4px', fontFamily: "'Urbanist', sans-serif", fontSize: 16, color: 'var(--text)', borderBottom: '1px solid var(--border)' }}>
                         <i className={`ti ${opt.icon}`} style={{ fontSize: 20, color: 'var(--accent)', width: 24 }} />
                         {opt.label}
                       </button>
@@ -1446,7 +1446,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                 return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={cropPositions[entry.id] ?? entry.cropY ?? 50} onCropEdit={openCropModal} onLongPress={handleLongPress} />;
               })}
               {entries.length > 3 && (
-                <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-3)', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
+                <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-3)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                   See all letters <i className="ti ti-arrow-right" style={{ fontSize: 13 }} />
                 </button>
               )}
@@ -1476,7 +1476,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           </div>
 
           {kids.length > 1 && onCompare && (
-            <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+            <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
               <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>At the same age</span>
               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#fff' }} />
@@ -2634,12 +2634,12 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
               <>
                 <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setShowMediaMenu(false)} />
                 <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', minWidth: 210, zIndex: 10 }}>
-                  <button onClick={() => { cameraInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
+                  <button onClick={() => { cameraInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500 }}>
                     <i className="ti ti-camera" style={{ fontSize: 17, color: 'var(--accent)' }} />
                     Take a photo
                   </button>
                   <div style={{ height: 1, background: 'var(--border)' }} />
-                  <button onClick={() => { uploadInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}>
+                  <button onClick={() => { uploadInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500 }}>
                     <i className="ti ti-photo" style={{ fontSize: 17, color: 'var(--accent)' }} />
                     Upload from library
                   </button>
@@ -2731,7 +2731,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 20, color: 'var(--accent)', margin: '0 0 6px' }}>
                   Dear {salutationName},
                 </p>
-                <button onClick={openDateEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontFamily: "'DM Sans', sans-serif", padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <button onClick={openDateEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   <i className="ti ti-calendar" style={{ fontSize: 12 }} />
                   {dateDisplay}
                   {dateFromPhoto && <span style={{ fontSize: 10 }}>· photo</span>}
@@ -2740,11 +2740,11 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             </>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <button onClick={() => setShowKidPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: 'var(--border)', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={() => setShowKidPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: 'var(--border)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                 Who is this for?
                 <i className="ti ti-chevron-down" style={{ fontSize: 13 }} />
               </button>
-              <button onClick={openDateEdit} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-2)', fontFamily: "'DM Sans', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
+              <button onClick={openDateEdit} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-2)', fontFamily: "'Urbanist', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
                 <i className="ti ti-calendar" style={{ fontSize: 13 }} />
                 {dateDisplay}
                 {dateFromPhoto && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>· photo</span>}
@@ -2772,7 +2772,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             <button
               onClick={handleGenerate}
               disabled={generating || polishing}
-              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: generating ? 'var(--border-light)' : 'var(--accent)', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: generating ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: generating ? 'var(--border-light)' : 'var(--accent)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, cursor: generating ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <i className="ti ti-sparkles" style={{ fontSize: 14, animation: generating ? 'spin 1s linear infinite' : 'none' }} />
               {generating ? 'Writing…' : 'Write for me'}
@@ -2782,7 +2782,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             <button
               onClick={handlePolish}
               disabled={polishing || generating}
-              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: polishing ? 'var(--border-light)' : 'var(--accent)', fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: polishing ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: polishing ? 'var(--border-light)' : 'var(--accent)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, cursor: polishing ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
             >
               <i className="ti ti-writing" style={{ fontSize: 14, animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
               {polishing ? 'Fixing…' : 'Fix grammar'}
@@ -2856,7 +2856,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                   <button onClick={() => setSong(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><i className="ti ti-x" /></button>
                 </div>
               ) : (
-                <button onClick={() => setShowSongPicker(true)} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px dashed var(--border)', borderRadius: 13, padding: '12px 14px', width: '100%', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+                <button onClick={() => setShowSongPicker(true)} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px dashed var(--border)', borderRadius: 13, padding: '12px 14px', width: '100%', cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
                   <i className="ti ti-music" style={{ fontSize: 15, color: '#F45B54' }} />
                   <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>Add a soundtrack</span>
                 </button>
@@ -2934,7 +2934,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                       onChange={e => setCustomMilestoneText(e.target.value)}
                       onClick={e => e.stopPropagation()}
                       placeholder="Name this milestone…"
-                      style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, fontWeight: 600, color: '#fff', fontFamily: "'DM Sans', sans-serif" }}
+                      style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, fontWeight: 600, color: '#fff', fontFamily: "'Urbanist', sans-serif" }}
                     />
                   ) : (
                     <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', flex: 1 }}>Something else…</span>
@@ -3002,7 +3002,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
               <i className="ti ti-music" style={{ fontSize: 20, color: '#F45B54' }} />
               <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0, flex: 1 }}>Soundtrack</p>
               {song && (
-                <button onClick={() => { setSong(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontFamily: "'DM Sans', sans-serif", padding: 0 }}>Remove</button>
+                <button onClick={() => { setSong(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", padding: 0 }}>Remove</button>
               )}
             </div>
             {song ? (
@@ -3012,7 +3012,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                   <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>{song.artist}</p>
                 </div>
-                <button onClick={() => { setSong(null); setSongQuery(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--accent)', fontFamily: "'DM Sans', sans-serif", padding: 0, fontWeight: 600 }}>Change</button>
+                <button onClick={() => { setSong(null); setSongQuery(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--accent)', fontFamily: "'Urbanist', sans-serif", padding: 0, fontWeight: 600 }}>Change</button>
               </div>
             ) : (
               <div>
@@ -3035,7 +3035,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                       <button
                         key={r.trackId}
                         onClick={() => { setSong({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100.replace('100x100bb', '300x300bb'), previewUrl: r.previewUrl }); setSongQuery(''); setSongResults([]); }}
-                        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', border: 'none', borderBottom: i < songResults.length - 1 ? '1px solid var(--border)' : 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: "'DM Sans', sans-serif" }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', border: 'none', borderBottom: i < songResults.length - 1 ? '1px solid var(--border)' : 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: "'Urbanist', sans-serif" }}
                       >
                         <img src={r.artworkUrl100} style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" />
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -3059,7 +3059,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px' }}>When did this happen?</p>
             <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
               <div style={{ position: 'relative', flex: 2.2 }}>
-                <select value={editMonth} onChange={e => setEditMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 36px 14px 14px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: editMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'DM Sans', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
+                <select value={editMonth} onChange={e => setEditMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 36px 14px 14px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: editMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
                   <option value="" disabled>Month</option>
                   {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
                     <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
@@ -3067,8 +3067,8 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                 </select>
                 <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13, pointerEvents: 'none' }} />
               </div>
-              <input type="number" placeholder="Day" value={editDay} min={1} max={31} onChange={e => setEditDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'DM Sans', sans-serif", textAlign: 'center' }} />
-              <input type="number" placeholder="Year" value={editYear} min={1900} max={2030} onChange={e => setEditYear(e.target.value)} style={{ flex: 1.5, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'DM Sans', sans-serif", textAlign: 'center' }} />
+              <input type="number" placeholder="Day" value={editDay} min={1} max={31} onChange={e => setEditDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
+              <input type="number" placeholder="Year" value={editYear} min={1900} max={2030} onChange={e => setEditYear(e.target.value)} style={{ flex: 1.5, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
             </div>
             <button className="btn btn-primary" style={{ width: '100%' }} onClick={applyDate}>Done</button>
           </div>
@@ -3416,7 +3416,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
             </>
           )}
 
-          <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}>
+          <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
             <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>At the same age</span>
             <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#fff' }} />
@@ -4324,7 +4324,7 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
                   <i className="ti ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
                 </span>
               ) : (
-                <button onClick={openDateEdit} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-2)', fontFamily: "'DM Sans', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
+                <button onClick={openDateEdit} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-2)', fontFamily: "'Urbanist', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
                   <i className="ti ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
                 </button>
               )}
@@ -4368,14 +4368,14 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px' }}>When was this measured?</p>
             <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
               <div style={{ position: 'relative', flex: 2.2 }}>
-                <select value={editMonth} onChange={e => setEditMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 36px 14px 14px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: editMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'DM Sans', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
+                <select value={editMonth} onChange={e => setEditMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 36px 14px 14px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: editMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
                   <option value="" disabled>Month</option>
                   {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
                 </select>
                 <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13, pointerEvents: 'none' }} />
               </div>
-              <input type="number" placeholder="Day" value={editDay} min={1} max={31} onChange={e => setEditDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'DM Sans', sans-serif", textAlign: 'center' }} />
-              <input type="number" placeholder="Year" value={editYear} min={2000} max={2030} onChange={e => setEditYear(e.target.value)} style={{ flex: 1.5, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'DM Sans', sans-serif", textAlign: 'center' }} />
+              <input type="number" placeholder="Day" value={editDay} min={1} max={31} onChange={e => setEditDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
+              <input type="number" placeholder="Year" value={editYear} min={2000} max={2030} onChange={e => setEditYear(e.target.value)} style={{ flex: 1.5, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
             </div>
             <button className="btn btn-primary" style={{ width: '100%' }} onClick={applyDate}>Done</button>
           </div>
@@ -4584,7 +4584,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                         { icon: 'ti-user-heart', label: 'Grandparent', sub: 'Grandma, Grandpa, Nana, Pop…', action: () => handlePickerInvite('grandparent') },
                         { icon: 'ti-users', label: 'Other', sub: 'Auntie, uncle, cousin, close friend', action: () => handlePickerInvite('other') },
                       ].map(opt => (
-                        <button key={opt.label} onClick={opt.action} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: "'DM Sans', sans-serif" }}>
+                        <button key={opt.label} onClick={opt.action} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: "'Urbanist', sans-serif" }}>
                           <div style={{ width: 42, height: 42, borderRadius: 11, background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             <i className={`ti ${opt.icon}`} style={{ fontSize: 20, color: 'var(--accent)' }} />
                           </div>
@@ -4612,9 +4612,9 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                         <p style={{ fontSize: 12, color: 'var(--text-3)', margin: '0 0 10px', fontWeight: 600 }}>
                           {pickerRole === 'grandparent' ? 'Share this code with a grandparent' : pickerRole === 'other' ? 'Share this invite code' : 'Share this code with them'}
                         </p>
-                        <p style={{ fontSize: 30, fontWeight: 700, color: 'var(--accent)', letterSpacing: 5, margin: '0 0 14px', fontFamily: "'DM Sans', sans-serif" }}>{inviteCode}</p>
+                        <p style={{ fontSize: 30, fontWeight: 700, color: 'var(--accent)', letterSpacing: 5, margin: '0 0 14px', fontFamily: "'Urbanist', sans-serif" }}>{inviteCode}</p>
                         <p style={{ fontSize: 11, color: 'var(--border-light)', margin: '0 0 14px', lineHeight: 1.5 }}>They'll enter this code during sign-up to join your family journal.</p>
-                        <button onClick={() => { navigator.clipboard?.writeText(inviteCode); }} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontFamily: "'DM Sans', sans-serif", padding: '10px 20px', borderRadius: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <button onClick={() => { navigator.clipboard?.writeText(inviteCode); }} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontFamily: "'Urbanist', sans-serif", padding: '10px 20px', borderRadius: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                           <i className="ti ti-copy" style={{ fontSize: 14 }} />Copy code
                         </button>
                       </div>
@@ -4640,7 +4640,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 />
                 <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                   <div style={{ position: 'relative', flex: 2.2 }}>
-                    <select value={newBdMonth} onChange={e => setNewBdMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '13px 32px 13px 14px', fontSize: 15, outline: 'none', background: 'var(--bg-input)', color: newBdMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'DM Sans', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
+                    <select value={newBdMonth} onChange={e => setNewBdMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '13px 32px 13px 14px', fontSize: 15, outline: 'none', background: 'var(--bg-input)', color: newBdMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
                       <option value="" disabled>Month</option>
                       {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => (
                         <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
@@ -4648,13 +4648,13 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                     </select>
                     <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 12, pointerEvents: 'none' }} />
                   </div>
-                  <input type="number" placeholder="Day" value={newBdDay} min={1} max={31} onChange={e => setNewBdDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '13px 8px', fontSize: 15, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'DM Sans', sans-serif", textAlign: 'center' }} />
-                  <input type="number" placeholder="Year" value={newBdYear} min={1900} max={2030} onChange={e => setNewBdYear(e.target.value)} style={{ flex: 1.5, border: '1px solid var(--border)', borderRadius: 10, padding: '13px 8px', fontSize: 15, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'DM Sans', sans-serif", textAlign: 'center' }} />
+                  <input type="number" placeholder="Day" value={newBdDay} min={1} max={31} onChange={e => setNewBdDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '13px 8px', fontSize: 15, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
+                  <input type="number" placeholder="Year" value={newBdYear} min={1900} max={2030} onChange={e => setNewBdYear(e.target.value)} style={{ flex: 1.5, border: '1px solid var(--border)', borderRadius: 10, padding: '13px 8px', fontSize: 15, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
                 </div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '12px 0 8px' }}>Sex <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional — improves growth chart accuracy)</span></p>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                   {[['M', 'Boy'], ['F', 'Girl']].map(([val, label]) => (
-                    <button key={val} onClick={() => setNewSex(newSex === val ? null : val)} style={{ flex: 1, border: `1px solid ${newSex === val ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10, padding: '11px 0', fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", background: newSex === val ? 'var(--accent)' : 'var(--bg-input)', color: newSex === val ? '#fff' : 'var(--text-2)', cursor: 'pointer' }}>{label}</button>
+                    <button key={val} onClick={() => setNewSex(newSex === val ? null : val)} style={{ flex: 1, border: `1px solid ${newSex === val ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10, padding: '11px 0', fontSize: 14, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", background: newSex === val ? 'var(--accent)' : 'var(--bg-input)', color: newSex === val ? '#fff' : 'var(--text-2)', cursor: 'pointer' }}>{label}</button>
                   ))}
                 </div>
                 <button
@@ -4687,7 +4687,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>Sex <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(for growth chart percentiles)</span></p>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                   {[['M', 'Boy'], ['F', 'Girl']].map(([val, label]) => (
-                    <button key={val} onClick={() => setKidSexInput(kidSexInput === val ? null : val)} style={{ flex: 1, border: `1px solid ${kidSexInput === val ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10, padding: '11px 0', fontSize: 14, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", background: kidSexInput === val ? 'var(--accent)' : 'var(--bg-input)', color: kidSexInput === val ? '#fff' : 'var(--text-2)', cursor: 'pointer' }}>{label}</button>
+                    <button key={val} onClick={() => setKidSexInput(kidSexInput === val ? null : val)} style={{ flex: 1, border: `1px solid ${kidSexInput === val ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10, padding: '11px 0', fontSize: 14, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", background: kidSexInput === val ? 'var(--accent)' : 'var(--bg-input)', color: kidSexInput === val ? '#fff' : 'var(--text-2)', cursor: 'pointer' }}>{label}</button>
                   ))}
                 </div>
                 <button
@@ -4768,7 +4768,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
 
 
           {onCreateBook && (
-            <button onClick={onCreateBook} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'linear-gradient(180deg, #3A4D40 0%, #1E2E24 100%)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", boxShadow: '0 3px 10px rgba(20,35,25,0.38), inset 0 1px 0 rgba(255,255,255,0.08)', transition: 'transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease' }} onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.opacity = '0.88'; }} onMouseUp={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }} onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }} onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.opacity = '0.88'; }} onTouchEnd={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }}>
+            <button onClick={onCreateBook} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'linear-gradient(180deg, #3A4D40 0%, #1E2E24 100%)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", boxShadow: '0 3px 10px rgba(20,35,25,0.38), inset 0 1px 0 rgba(255,255,255,0.08)', transition: 'transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease' }} onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.opacity = '0.88'; }} onMouseUp={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }} onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }} onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.opacity = '0.88'; }} onTouchEnd={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <i className="ti ti-book" style={{ fontSize: 18, color: '#C8993E' }} />
@@ -4792,7 +4792,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 <button
                   key={mode}
                   onClick={() => onSetDarkMode(mode)}
-                  style={{ flex: 1, padding: '8px 4px', border: 'none', borderRadius: 8, background: darkMode === mode ? 'var(--bg-input)' : 'transparent', color: darkMode === mode ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", transition: 'background 0.15s' }}
+                  style={{ flex: 1, padding: '8px 4px', border: 'none', borderRadius: 8, background: darkMode === mode ? 'var(--bg-input)' : 'transparent', color: darkMode === mode ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", transition: 'background 0.15s' }}
                 >
                   <i className={`ti ti-${icon}`} style={{ fontSize: 17 }} />
                   {label}
@@ -4819,18 +4819,18 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
             </div>
           </div>
 
-          <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', fontFamily: "'DM Sans', sans-serif", padding: '8px 0', fontWeight: 600, alignSelf: 'center' }}>
+          <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", padding: '8px 0', fontWeight: 600, alignSelf: 'center' }}>
             Sign out
           </button>
           {onDeleteAccount && (
-            <button onClick={() => setShowDeleteConfirm(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#C4A09C', fontFamily: "'DM Sans', sans-serif", padding: '4px 0', fontWeight: 500, alignSelf: 'center' }}>
+            <button onClick={() => setShowDeleteConfirm(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: '#C4A09C', fontFamily: "'Urbanist', sans-serif", padding: '4px 0', fontWeight: 500, alignSelf: 'center' }}>
               Delete account
             </button>
           )}
           <div style={{ display: 'flex', gap: 16, justifyContent: 'center', paddingTop: 4, paddingBottom: 8 }}>
-            <button onClick={onShowPrivacy} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)', fontFamily: "'DM Sans', sans-serif", padding: 0 }}>Privacy Policy</button>
+            <button onClick={onShowPrivacy} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", padding: 0 }}>Privacy Policy</button>
             <span style={{ fontSize: 11, color: 'var(--border)' }}>·</span>
-            <button onClick={onShowTerms} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)', fontFamily: "'DM Sans', sans-serif", padding: 0 }}>Terms of Service</button>
+            <button onClick={onShowTerms} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", padding: 0 }}>Terms of Service</button>
           </div>
         </div>
       </div>
@@ -4976,7 +4976,7 @@ function JoinFamilyScreen({ onJoin, onBack }) {
     <div className="screen">
       <div className="scroll-area">
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560, justifyContent: 'center' }}>
-          <button onClick={backFn} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 36px', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", alignSelf: 'flex-start' }}>
+          <button onClick={backFn} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 36px', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", alignSelf: 'flex-start' }}>
             <i className="ti ti-arrow-left" style={{ fontSize: 16 }} /> Back
           </button>
 
@@ -5325,7 +5325,7 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, cropPositions,
         </div>
       )}
       <div style={{ flex: 1, padding: '18px 24px 12px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, fontWeight: 700, color: '#B8C8B4', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>
+        <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, fontWeight: 700, color: '#B8C8B4', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>
           {dateLabel}{isContinued ? ' — cont\'d' : ''}
         </p>
         {!isContinued && (
@@ -5341,9 +5341,9 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, cropPositions,
         )}
         <div style={{ marginTop: 'auto', paddingTop: 8 }}>
           {hasMore ? (
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, color: '#B8C8B4', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>continued →</p>
+            <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#B8C8B4', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>continued →</p>
           ) : (
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, color: '#C4D8C0', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>
+            <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#C4D8C0', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>
               {index + 1} / {sortedLength}
             </p>
           )}
@@ -5466,14 +5466,14 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
             Letters to<br />{kidNameDisplay}
           </h1>
           {authorSummary && authorSummary.toLowerCase() !== kidNameDisplay.toLowerCase() && (
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.7)', margin: 0, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+            <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.7)', margin: 0, letterSpacing: 1.2, textTransform: 'uppercase' }}>
               Love, {authorSummary}
             </p>
           )}
-          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.62)', margin: 0, lineHeight: 1.7, textAlign: 'center', maxWidth: 240 }}>
+          <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.62)', margin: 0, lineHeight: 1.7, textAlign: 'center', maxWidth: 240 }}>
             For all the moments you may have forgotten, and all the things I never want you to forget
           </p>
-          {dateRangeLabel && <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'rgba(255,255,255,0.48)', margin: 0, letterSpacing: 1 }}>{dateRangeLabel.toUpperCase()}</p>}
+          {dateRangeLabel && <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 11, color: 'rgba(255,255,255,0.48)', margin: 0, letterSpacing: 1 }}>{dateRangeLabel.toUpperCase()}</p>}
         </div>
       </div>
     );
@@ -5481,7 +5481,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
 
   const renderTOCPage = () => (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '40px 36px 32px' }}>
-      <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, fontWeight: 700, color: '#B8C8B4', letterSpacing: 1.8, textTransform: 'uppercase', margin: '0 0 28px' }}>Contents</p>
+      <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, fontWeight: 700, color: '#B8C8B4', letterSpacing: 1.8, textTransform: 'uppercase', margin: '0 0 28px' }}>Contents</p>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
         {yearTOC.map(({ year, pageIndex }) => {
           const displayPage = pageIndex + 2 + 1; // +2 for cover+TOC, +1 for 1-based
@@ -5493,7 +5493,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
             >
               <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: '#2C3828', fontWeight: 700 }}>{year}</span>
               <span style={{ flex: 1, borderBottom: '1px dotted #C4D8C0', margin: '0 8px 4px' }} />
-              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: '#9AA89C', fontWeight: 600 }}>{displayPage}</span>
+              <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 11, color: '#9AA89C', fontWeight: 600 }}>{displayPage}</span>
             </div>
           );
         })}
@@ -5562,7 +5562,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
     <div className="screen" style={{ background: '#1E2820' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', flexShrink: 0 }}>
         <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-x" /></button>
-        <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, fontWeight: 600 }}>{pageLabel}</p>
+        <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, fontWeight: 600 }}>{pageLabel}</p>
         <div style={{ width: 36 }} />
       </div>
 
@@ -5590,7 +5590,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       </div>
 
       <div style={{ padding: '0 20px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: "'DM Sans', sans-serif" }}>Page</span>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: "'Urbanist', sans-serif" }}>Page</span>
         <input
           type="number"
           min={1}
@@ -5604,9 +5604,9 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
               e.target.blur();
             }
           }}
-          style={{ width: 52, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '5px 8px', fontSize: 12, color: '#fff', fontFamily: "'DM Sans', sans-serif", textAlign: 'center', outline: 'none' }}
+          style={{ width: 52, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '5px 8px', fontSize: 12, color: '#fff', fontFamily: "'Urbanist', sans-serif", textAlign: 'center', outline: 'none' }}
         />
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: "'DM Sans', sans-serif" }}>of {totalPages}</span>
+        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: "'Urbanist', sans-serif" }}>of {totalPages}</span>
       </div>
 
       <div style={{ padding: '8px 20px 28px', flexShrink: 0 }}>
@@ -5651,11 +5651,12 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction }) {
+function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = [], currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [sentIds, setSentIds] = useState(new Set());
+  const [selectedFriendUid, setSelectedFriendUid] = useState(null);
   const searchTimer = useRef(null);
 
   const pendingIncoming = friendRequests.filter(r => r.addressee_id === currentUserId);
@@ -5806,18 +5807,26 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
               {friends.map(fr => {
                 const uid = friendUserId(fr);
                 const name = friendDisplayName(fr);
+                const avatar = fr.requester_id === currentUserId ? fr.addressee_avatar_url : fr.requester_avatar_url;
                 const theirKids = friendKids.filter(k => k.userId === uid);
                 return (
-                  <div key={fr.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 10 }}>
+                  <div key={fr.id} onClick={() => setSelectedFriendUid(uid)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 10, cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: theirKids.length > 0 ? 10 : 0 }}>
-                      <FriendAvatar name={name} avatarUrl={fr.requester_id === currentUserId ? fr.addressee_avatar_url : fr.requester_avatar_url} />
+                      <FriendAvatar name={name} avatarUrl={avatar} />
                       <p style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{name || 'Friend'}</p>
-                      <button onClick={() => onUnfriend(fr.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, fontFamily: 'Inter, sans-serif', padding: 0 }}>Remove</button>
+                      <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)' }} />
                     </div>
                     {theirKids.length > 0 && (
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {theirKids.map(k => (
-                          <span key={k.id} style={{ fontSize: 12, color: 'var(--text-2)', background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 10px' }}>{k.name}</span>
+                          <span key={k.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-2)', background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 10px 3px 4px' }}>
+                            <span style={{ width: 20, height: 20, borderRadius: '50%', background: k.accent || KID_ACCENTS[0], overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              {k.avatar
+                                ? <img src={cloudinaryTransform(k.avatar, 'w_40,h_40,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                : <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{k.name?.[0]?.toUpperCase()}</span>}
+                            </span>
+                            {k.name}
+                          </span>
                         ))}
                       </div>
                     )}
@@ -5836,6 +5845,67 @@ function FriendsScreen({ friends, friendRequests, friendKids, currentUserId, fam
           )}
         </div>
       </div>
+
+      {selectedFriendUid && (() => {
+        const fr = friends.find(f => friendUserId(f) === selectedFriendUid);
+        if (!fr) return null;
+        const name = friendDisplayName(fr);
+        const avatar = fr.requester_id === currentUserId ? fr.addressee_avatar_url : fr.requester_avatar_url;
+        const theirKids = friendKids.filter(k => k.userId === selectedFriendUid);
+        const theirKidIds = new Set(theirKids.map(k => k.id));
+        const theirEntries = friendEntries.filter(e => e.media?.length > 0 && e.kids.some(kid => theirKidIds.has(kid)));
+        return (
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', zIndex: 30, display: 'flex', alignItems: 'flex-end' }} onClick={() => setSelectedFriendUid(null)}>
+            <div className="quick-sheet" style={{ background: 'var(--bg)', borderRadius: '24px 24px 0 0', width: '100%', maxHeight: '88%', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+              <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 4px' }} />
+
+              <div style={{ padding: '16px 20px 14px', display: 'flex', alignItems: 'center', gap: 14, borderBottom: '1px solid var(--border)' }}>
+                <FriendAvatar name={name} avatarUrl={avatar} size={54} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 5px' }}>{name || 'Friend'}</p>
+                  {theirKids.length > 0 && (
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      {theirKids.map(k => (
+                        <span key={k.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-2)', background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 10px 3px 4px' }}>
+                          <span style={{ width: 20, height: 20, borderRadius: '50%', background: k.accent || KID_ACCENTS[0], overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {k.avatar
+                              ? <img src={cloudinaryTransform(k.avatar, 'w_40,h_40,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                              : <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{k.name?.[0]?.toUpperCase()}</span>}
+                          </span>
+                          {k.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => { setSelectedFriendUid(null); onUnfriend(fr.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, padding: 0, flexShrink: 0 }}>Remove</button>
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {theirEntries.length === 0 ? (
+                  <div style={{ padding: '48px 24px', textAlign: 'center' }}>
+                    <i className="ti ti-camera-off" style={{ fontSize: 28, color: 'var(--border)', display: 'block', marginBottom: 10 }} />
+                    <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>No shared photos yet</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, padding: 2 }}>
+                    {theirEntries.map(e => (
+                      <div key={e.id} style={{ aspectRatio: '1', overflow: 'hidden', cursor: 'pointer', position: 'relative', background: 'var(--bg-elevated)' }}
+                        onClick={() => { setSelectedFriendUid(null); onOpenFriendEntry(e.id); }}>
+                        <img
+                          src={cloudinaryTransform(e.media[0].url, 'w_400,h_400,c_fill,q_auto,f_auto')}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          alt=""
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -5932,7 +6002,7 @@ function AuthScreen() {
               We sent a confirmation link to<br />
               <strong style={{ color: 'var(--accent)' }}>{email}</strong>
             </p>
-            <button onClick={() => setCheckEmail(false)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", marginTop: 8 }}>
+            <button onClick={() => setCheckEmail(false)} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginTop: 8 }}>
               Back to sign in
             </button>
           </div>
@@ -5986,7 +6056,7 @@ function AuthScreen() {
             {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
             <button
               onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError(''); }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontWeight: 600, fontSize: 13, padding: 0, fontFamily: "'DM Sans', sans-serif" }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontWeight: 600, fontSize: 13, padding: 0, fontFamily: "'Urbanist', sans-serif" }}
             >
               {mode === 'signup' ? 'Sign in' : 'Sign up'}
             </button>
@@ -6257,7 +6327,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560 }}>
 
           {step !== 'welcome' && (
-            <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 24px', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: "'DM Sans', sans-serif", alignSelf: 'flex-start' }}>
+            <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 24px', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", alignSelf: 'flex-start' }}>
               <i className="ti ti-arrow-left" style={{ fontSize: 16 }} /> Back
             </button>
           )}
@@ -6328,12 +6398,12 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                 Begin
               </button>
               {onJoinFamily && (
-                <button onClick={onJoinFamily} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', fontFamily: "'DM Sans', sans-serif", fontWeight: 500, marginTop: 18, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}>
+                <button onClick={onJoinFamily} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500, marginTop: 18, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}>
                   Have an invite code?
                 </button>
               )}
               {onSignOut && (
-                <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--border-light)', fontFamily: "'DM Sans', sans-serif", fontWeight: 500, marginTop: 14 }}>
+                <button onClick={onSignOut} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--border-light)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500, marginTop: 14 }}>
                   Sign out
                 </button>
               )}
@@ -6385,7 +6455,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                       width: '100%', border: '1px solid var(--border)', borderRadius: 10,
                       padding: '15px 36px 15px 16px', fontSize: 16, outline: 'none',
                       background: 'var(--bg-input)', color: bdMonth ? 'var(--text)' : 'var(--text-muted)',
-                      fontFamily: "'DM Sans', sans-serif", appearance: 'none',
+                      fontFamily: "'Urbanist', sans-serif", appearance: 'none',
                       WebkitAppearance: 'none', cursor: 'pointer',
                     }}
                   >
@@ -6406,7 +6476,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                   style={{
                     flex: 1, border: '1px solid var(--border)', borderRadius: 10,
                     padding: '15px 10px', fontSize: 16, outline: 'none',
-                    background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'DM Sans', sans-serif",
+                    background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif",
                     textAlign: 'center', MozAppearance: 'textfield',
                   }}
                 />
@@ -6419,7 +6489,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                   style={{
                     flex: 1.5, border: '1px solid var(--border)', borderRadius: 10,
                     padding: '15px 10px', fontSize: 16, outline: 'none',
-                    background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'DM Sans', sans-serif",
+                    background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif",
                     textAlign: 'center', MozAppearance: 'textfield',
                   }}
                 />
@@ -6454,7 +6524,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                 {avatar
                   ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   : initial
-                    ? <span style={{ fontSize: 48, fontWeight: 700, color: '#fff', fontFamily: "'DM Sans', sans-serif" }}>{initial}</span>
+                    ? <span style={{ fontSize: 48, fontWeight: 700, color: '#fff', fontFamily: "'Urbanist', sans-serif" }}>{initial}</span>
                     : <i className="ti ti-camera" style={{ fontSize: 32, color: 'rgba(255,255,255,0.7)' }} />
                 }
               </div>
@@ -6476,7 +6546,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut }) {
                 }}>
                   {avatar
                     ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    : <span style={{ fontSize: 32, fontWeight: 700, color: '#fff', fontFamily: "'DM Sans', sans-serif" }}>{initial}</span>
+                    : <span style={{ fontSize: 32, fontWeight: 700, color: '#fff', fontFamily: "'Urbanist', sans-serif" }}>{initial}</span>
                   }
                 </div>
                 <p style={{ fontSize: 15, color: 'var(--text-3)', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>{name} is all set.</p>
@@ -7973,6 +8043,7 @@ export default function App() {
           friends={friends}
           friendRequests={friendRequests}
           friendKids={friendKids}
+          friendEntries={friendEntries}
           currentUserId={session?.user?.id}
           familyMemberIds={familyMembers.filter(m => m.user_id !== session?.user?.id).map(m => m.user_id)}
           onBack={() => setScreen('home')}
@@ -8087,7 +8158,7 @@ export default function App() {
               </p>
             </div>
             {installPromptRef.current && (
-              <button onClick={async () => { installPromptRef.current.prompt(); const { outcome } = await installPromptRef.current.userChoice; if (outcome === 'accepted') { localStorage.setItem('pwa-install-dismissed', '1'); setShowInstallBanner(false); } }} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#fff', cursor: 'pointer', flexShrink: 0, fontFamily: "'DM Sans', sans-serif" }}>
+              <button onClick={async () => { installPromptRef.current.prompt(); const { outcome } = await installPromptRef.current.userChoice; if (outcome === 'accepted') { localStorage.setItem('pwa-install-dismissed', '1'); setShowInstallBanner(false); } }} style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: '#fff', cursor: 'pointer', flexShrink: 0, fontFamily: "'Urbanist', sans-serif" }}>
                 Install
               </button>
             )}
@@ -8143,7 +8214,7 @@ export default function App() {
           <button
             onClick={() => setMonthlyRecap(null)}
             className="btn btn-gold"
-            style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'DM Sans', sans-serif" }}
+            style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}
           >
             Keep going
           </button>
