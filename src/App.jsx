@@ -1695,7 +1695,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
         <div style={{ margin: 0, borderRadius: '13px 13px 0 0', overflow: 'hidden', aspectRatio: '4/3', position: 'relative' }}>
           {heroMedia.type === 'video'
             ? <img src={videoThumbUrl(heroMedia.url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
-            : <FadeImg src={cloudinaryTransform(heroMedia.url, 'w_800,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            : <FadeImg src={cloudinaryTransform(heroMedia.url, 'w_1200,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%`, display: 'block' }} />
           }
           {heroMedia.type === 'video' && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -7274,6 +7274,7 @@ export default function App() {
 
   async function handleUpdateCrop(entryId, y) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, cropY: y } : e));
+    setActiveEntry(prev => prev?.id === entryId ? { ...prev, cropY: y } : prev);
     try {
       const stored = JSON.parse(localStorage.getItem(`patina-crop-positions-${session?.user?.id}`) || '{}');
       localStorage.setItem(`patina-crop-positions-${session?.user?.id}`, JSON.stringify({ ...stored, [entryId]: y }));
