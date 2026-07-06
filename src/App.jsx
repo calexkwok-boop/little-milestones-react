@@ -6399,14 +6399,14 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
       <div className="scroll-area">
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560 }}>
 
-          {step !== 'welcome' && (
+          {step !== 'welcome' && step !== 'invite-partner' && (
             <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 24px', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", alignSelf: 'flex-start' }}>
               <i className="ti ti-arrow-left" style={{ fontSize: 16 }} /> Back
             </button>
           )}
 
-          {step !== 'welcome' && step !== 'invite-partner' && (() => {
-            const DOT_STEPS = ['name', 'birthdate', 'photo', 'profile'];
+          {step !== 'welcome' && (() => {
+            const DOT_STEPS = ['name', 'birthdate', 'photo', 'profile', 'invite-partner'];
             const activeIdx = step === 'another' ? 2 : DOT_STEPS.indexOf(step);
             if (activeIdx < 0) return null;
             return (
@@ -6671,7 +6671,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                 style={{ width: '100%', marginBottom: 14 }}
                 onClick={onFinish}
               >
-                {inviteCode ? 'Done' : 'Go to journal'}
+                {inviteCode ? 'Start writing' : 'Go to journal'}
               </button>
               {inviteCode && (
                 <button
@@ -6687,7 +6687,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
           {step === 'profile' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: 'var(--text)', lineHeight: 1.25, margin: '0 0 28px' }}>
-                One last thing —<br />about you.
+                Almost there —<br />about you.
               </h2>
               <input ref={profilePhotoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files[0]; if (f) { setProfileCropSrc(URL.createObjectURL(f)); } e.target.value = ''; }} />
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 28 }}>
@@ -6725,7 +6725,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                 <p style={{ fontSize: 13, color: '#D4856A', margin: '0 0 12px', textAlign: 'center', lineHeight: 1.5 }}>{saveError}</p>
               )}
               <button className="btn btn-primary" style={{ width: '100%', opacity: savingProfile ? 0.6 : 1 }} onClick={handleReallyDone} disabled={savingProfile}>
-                {savingProfile ? 'Saving…' : 'Start writing'}
+                {savingProfile ? 'Saving…' : 'Continue'}
               </button>
             </div>
           )}
@@ -7768,6 +7768,7 @@ export default function App() {
     }
     if (data) {
       const avatarUrls = await uploadKidAvatars(newKids, data);
+      setPostOnboardInvite(true);
       setKids(data.map((k, i) => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent, avatar: avatarUrls[i] || k.avatar_url })));
       setProfileKidId(data[0]?.id ?? null);
     }
@@ -7784,7 +7785,6 @@ export default function App() {
         setFamilyMembers(prev => prev.map(m => m.user_id === userId ? { ...m, avatar_url: avatarUrl } : m));
       }
     } catch (_) {}
-    setPostOnboardInvite(true);
     return { success: true, familyId: newFamilyId };
   }
 
