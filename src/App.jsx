@@ -1912,6 +1912,37 @@ const SongPlayer = memo(function SongPlayer({ song }) {
   );
 });
 
+// ─── Voice memo player ───────────────────────────────────────────────────
+
+const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
+  const audioRef = useRef(null);
+  const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  function toggle() {
+    const a = audioRef.current;
+    if (!a) return;
+    if (playing) { a.pause(); setPlaying(false); }
+    else { a.play().catch(() => {}); setPlaying(true); }
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-elevated)', borderRadius: 14, padding: '10px 14px' }}>
+      <audio ref={audioRef} src={url} onEnded={() => { setPlaying(false); setProgress(0); }} onTimeUpdate={() => { const a = audioRef.current; if (a && a.duration) setProgress(a.currentTime / a.duration); }} />
+      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <i className="ti ti-microphone" style={{ fontSize: 16, color: '#fff' }} />
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0 }}>Voice memo</p>
+        <div style={{ marginTop: 5, height: 2, background: 'var(--border)', borderRadius: 1 }}>
+          <div style={{ height: '100%', width: `${progress * 100}%`, background: 'var(--accent)', borderRadius: 1, transition: 'width 0.5s linear' }} />
+        </div>
+      </div>
+      <button onClick={toggle} style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 15 }}>
+        <i className={`ti ti-player-${playing ? 'pause' : 'play'}-filled`} />
+      </button>
+    </div>
+  );
+});
+
 // ─── Entry detail ────────────────────────────────────────────────────────
 
 function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onToggleShared, allPeople = [], supabase, session, socialName = '' }) {
@@ -2075,6 +2106,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             ))}
           </div>
           {entry.song && <SongPlayer song={entry.song} />}
+          {entry.voiceMemoUrl && <VoiceMemoPlayer url={entry.voiceMemoUrl} />}
           <p style={{ fontSize: 17, color: 'var(--accent)', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
             Dear {buildSalutation(entry, allKids)},
           </p>
@@ -2338,6 +2370,10 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const cameraInputRef = useRef(null);
   const uploadInputRef = useRef(null);
   const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const [voiceMemoBlob, setVoiceMemoBlob] = useState(null);
+  const [voiceMemoUrl, setVoiceMemoUrl] = useState(existingEntry?.voiceMemoUrl || null);
 
   useEffect(() => {
     const onVisibility = () => { if (document.hidden) document.activeElement?.blur(); };
@@ -2416,8 +2452,29 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
     if (!SR) { alert('Speech recognition is not supported in this browser.'); return; }
     if (listening) {
       recognitionRef.current?.stop();
+      mediaRecorderRef.current?.stop();
       setListening(false);
       return;
+    }
+    // Capture audio alongside transcription so it can be saved with the entry
+    if (navigator.mediaDevices?.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+        audioChunksRef.current = [];
+        const recorder = new MediaRecorder(stream);
+        recorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
+        recorder.onstop = () => {
+          stream.getTracks().forEach(t => t.stop());
+          if (audioChunksRef.current.length > 0) {
+            const mimeType = audioChunksRef.current[0].type || 'audio/webm';
+            const blob = new Blob(audioChunksRef.current, { type: mimeType });
+            setVoiceMemoBlob(URL.createObjectURL(blob));
+            setVoiceMemoUrl(null);
+            setShowExtras(true);
+          }
+        };
+        mediaRecorderRef.current = recorder;
+        recorder.start();
+      }).catch(() => {});
     }
     const recognition = new SR();
     recognition.continuous = true;
@@ -2427,8 +2484,8 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       const transcript = Array.from(e.results).slice(e.resultIndex).map(r => r[0].transcript).join('');
       setText(prev => prev ? prev + ' ' + transcript : transcript);
     };
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    recognition.onend = () => { mediaRecorderRef.current?.stop(); setListening(false); };
+    recognition.onerror = () => { mediaRecorderRef.current?.stop(); setListening(false); };
     recognitionRef.current = recognition;
     recognition.start();
     setListening(true);
@@ -2612,6 +2669,8 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         people: peopleInput.trim() && !people.includes(peopleInput.trim())
           ? [...people, peopleInput.trim()]
           : people,
+        voiceMemoBlob,
+        voiceMemoUrl,
       });
     } catch (err) {
       alert('Something went wrong saving your entry: ' + (err?.message || String(err)));
@@ -2862,6 +2921,17 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
                 </button>
               )}
             </div>
+
+            {(voiceMemoBlob || voiceMemoUrl) && (
+              <div>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 }}>Voice Memo</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 14px' }}>
+                  <i className="ti ti-microphone" style={{ fontSize: 15, color: 'var(--accent)', flexShrink: 0 }} />
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-2)' }}>Voice captured</span>
+                  <button onClick={() => { setVoiceMemoBlob(null); setVoiceMemoUrl(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><i className="ti ti-x" /></button>
+                </div>
+              </div>
+            )}
 
             <div>
               <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 }}>How are you feeling?</p>
@@ -6657,6 +6727,7 @@ function normalizeEntry(e) {
     song: e.song || null,
     people: e.people || [],
     shared: e.shared ?? true,
+    voiceMemoUrl: e.voice_memo_url || null,
   };
 }
 
@@ -7327,7 +7398,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, shared = true, people }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, shared = true, people, voiceMemoBlob, voiceMemoUrl }) {
     const primaryKid = kids.find(k => k.id === kidIds[0]);
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
     const { years, months } = exactAge(primaryKid.birthdate, date);
@@ -7360,6 +7431,17 @@ export default function App() {
       return { saved, failed };
     }
 
+    // Upload voice memo blob to Cloudinary if a new recording was made
+    let voiceMemoUrlFinal = voiceMemoUrl || null;
+    if (voiceMemoBlob && supabase && session) {
+      try {
+        const res = await fetch(voiceMemoBlob);
+        const blob = await res.blob();
+        const ext = blob.type.includes('mp4') ? 'mp4' : 'webm';
+        voiceMemoUrlFinal = await uploadToCloudinary(new File([blob], `voice.${ext}`, { type: blob.type }), 'video');
+      } catch (_) {}
+    }
+
     // ── UPDATE existing entry ──
     if (entryId) {
       if (localMode || !supabase || !session) {
@@ -7367,7 +7449,7 @@ export default function App() {
         setScreen('home');
         return;
       }
-      const { error: updateError } = await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null, people: people || [], shared }).eq('id', entryId);
+      const { error: updateError } = await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null, people: people || [], shared, voice_memo_url: voiceMemoUrlFinal }).eq('id', entryId);
       if (updateError) {
         alert('Could not save your changes. Please try again.\n' + updateError.message);
         return;
@@ -7375,7 +7457,7 @@ export default function App() {
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
       setScreen('home');
       const { saved, failed } = await prepareAndUpload(media, fileObjects, entryId);
-      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: saved, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [] } : e));
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: saved, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], voiceMemoUrl: voiceMemoUrlFinal } : e));
       if (failed) alert(`Media upload failed (${failed.err}) — your text was saved. Please try again.`);
       return;
     }
@@ -7424,6 +7506,7 @@ export default function App() {
       song: song || null,
       people: people || [],
       shared,
+      voice_memo_url: voiceMemoUrlFinal,
     }).select().single();
 
     if (error || !entry) {
@@ -7432,7 +7515,7 @@ export default function App() {
     }
 
     // Optimistically show entry and navigate away immediately
-    const optimisticEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [] };
+    const optimisticEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], voiceMemoUrl: voiceMemoUrlFinal };
     setEntries(prev => [optimisticEntry, ...prev]);
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone });
