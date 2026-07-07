@@ -1205,7 +1205,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   const onceUponATime = useMemo(() => {
     if (onThisDay.length > 0) return null;
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 180);
+    cutoff.setDate(cutoff.getDate() - 90);
     const pool = entries.filter(e => new Date(e.date + 'T12:00:00') < cutoff);
     if (pool.length === 0) return null;
     const daySeed = parseInt(currentSlot.replace(/-/g, ''));
@@ -5829,7 +5829,7 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = [], currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction, supabase, session }) {
+function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = [], currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction, supabase, session, socialName }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -5864,9 +5864,9 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
       setViewerLikes(p => p.filter(l => l.user_id !== userId));
       await supabase.from('entry_likes').delete().eq('entry_id', entryId).eq('user_id', userId);
     } else {
-      const fake = { entry_id: entryId, user_id: userId };
+      const fake = { entry_id: entryId, user_id: userId, display_name: socialName || '' };
       setViewerLikes(p => [...p, fake]);
-      await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: userId, display_name: session.user.user_metadata?.display_name || '' });
+      await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: userId, display_name: socialName || '' });
     }
   }
 
@@ -5874,7 +5874,7 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
     if (!supabase || !session || !viewerCommentText.trim() || !friendViewer) return;
     const body = viewerCommentText.trim();
     setViewerCommentText('');
-    const { data } = await supabase.from('entry_comments').insert({ entry_id: friendViewer.entry.id, user_id: session.user.id, display_name: session.user.user_metadata?.display_name || 'You', body }).select().single();
+    const { data } = await supabase.from('entry_comments').insert({ entry_id: friendViewer.entry.id, user_id: session.user.id, display_name: socialName || '', body }).select().single();
     if (data) setViewerComments(p => [...p, data]);
   }
 
@@ -6172,17 +6172,26 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
                 <p style={{ margin: '0 0 1px', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{kidLabel}</p>
                 {age && <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{age}</p>}
               </div>
-              <button onClick={handleViewerLike} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: userHasLiked ? '#E05C6A' : 'var(--text-3)', flexShrink: 0 }}>
-                <i className={`ti ${userHasLiked ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
-                {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{viewerLikes.length}</span>}
-              </button>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                <button onClick={handleViewerLike} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: userHasLiked ? '#E05C6A' : 'var(--text-3)', padding: 0 }}>
+                  <i className={`ti ${userHasLiked ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
+                  {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{viewerLikes.length}</span>}
+                </button>
+                {viewerLikes.length > 0 && (
+                  <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'Inter, sans-serif' }}>
+                    {viewerLikes.length === 1
+                      ? viewerLikes[0].display_name || 'Someone'
+                      : viewerLikes.slice(0, 2).map(l => l.display_name?.split(' ')[0] || 'Someone').join(', ') + (viewerLikes.length > 2 ? ` +${viewerLikes.length - 2}` : '')}
+                  </span>
+                )}
+              </div>
             </div>
             {/* Comments */}
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '8px 16px' }}>
               {viewerComments.map(c => (
                 <div key={c.id} style={{ marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginRight: 6 }}>{c.display_name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginRight: 6 }}>{c.user_id === session?.user?.id ? (socialName || c.display_name) : (c.display_name || 'Someone')}</span>
                     <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{c.body}</span>
                   </div>
                   {c.user_id === session?.user?.id && (
@@ -7238,10 +7247,10 @@ export default function App() {
           .select('id, requester_id, addressee_id, status, created_at')
           .or(`requester_id.eq.${session.user.id},addressee_id.eq.${session.user.id}`);
 
+        const pMap = {};
         if (frData && frData.length > 0) {
           const involvedIds = [...new Set(frData.flatMap(fr => [fr.requester_id, fr.addressee_id]).filter(id => id !== session.user.id))];
           const { data: profilesData } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', involvedIds);
-          const pMap = {};
           profilesData?.forEach(p => { pMap[p.id] = p; });
           const profileName = p => p?.display_name || '';
           const enrichFr = fr => ({
@@ -7319,8 +7328,8 @@ export default function App() {
                 supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at').in('entry_id', sharedIds).neq('user_id', session.user.id).gte('created_at', cutoff).is('parent_id', null).order('created_at', { ascending: false }),
               ]);
               all.push(
-                ...(recentLikes || []).map(l => ({ id: `like-${l.id}`, type: 'like', fromName: l.display_name || 'Someone', fromUserId: l.user_id, entryId: l.entry_id, kidNames: entryKidMap[l.entry_id] || 'a photo', ts: new Date(l.created_at).getTime() })),
-                ...(recentComments || []).map(c => ({ id: `comment-${c.id}`, type: 'comment', fromName: c.display_name || 'Someone', fromUserId: c.user_id, entryId: c.entry_id, kidNames: entryKidMap[c.entry_id] || 'a photo', body: c.body, ts: new Date(c.created_at).getTime() })),
+                ...(recentLikes || []).map(l => ({ id: `like-${l.id}`, type: 'like', fromName: l.display_name || pMap[l.user_id]?.display_name || 'Someone', fromUserId: l.user_id, entryId: l.entry_id, kidNames: entryKidMap[l.entry_id] || 'a photo', ts: new Date(l.created_at).getTime() })),
+                ...(recentComments || []).map(c => ({ id: `comment-${c.id}`, type: 'comment', fromName: c.display_name || pMap[c.user_id]?.display_name || 'Someone', fromUserId: c.user_id, entryId: c.entry_id, kidNames: entryKidMap[c.entry_id] || 'a photo', body: c.body, ts: new Date(c.created_at).getTime() })),
               );
             }
           }
@@ -8495,6 +8504,7 @@ export default function App() {
           }}
           supabase={supabase}
           session={session}
+          socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName}
         />
       )}
 
