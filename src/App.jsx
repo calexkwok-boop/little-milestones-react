@@ -1679,7 +1679,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           })()}
 
           {birthdayToday.map(k => (
-            <div key={k.id} onClick={() => onBirthdayTodayClick?.(k)} style={{ background: 'var(--accent)', borderRadius: 16, padding: '22px 20px', textAlign: 'center', cursor: 'pointer' }}>
+            <div key={k.id} onClick={() => onBirthdayTodayClick?.(k)} style={{ background: '#4A5E50', borderRadius: 16, padding: '22px 20px', textAlign: 'center', cursor: 'pointer' }}>
               <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
                 <i className="ti ti-cake" style={{ fontSize: 24, color: '#C8993E' }} />
               </div>
