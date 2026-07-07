@@ -5974,7 +5974,17 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
               </div>
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
                 {reactionNotifications.map((n, idx) => (
-                  <div key={n.id} onClick={() => { if (onDismissReaction) onDismissReaction(n.id); if (onOpenFriendEntry) onOpenFriendEntry(n.entryId); }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderBottom: idx < reactionNotifications.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
+                  <div key={n.id} onClick={() => {
+                    if (onDismissReaction) onDismissReaction(n.id);
+                    const entry = friendEntries.find(e => e.id === n.entryId);
+                    if (entry) {
+                      const entryKids = (friendKids[entry.familyId] || []).filter(k => (entry.kids || []).includes(k.id));
+                      const fr = friends.find(f => friendUserId(f) === n.fromUserId);
+                      const friendName = fr ? friendDisplayName(fr) : n.fromName;
+                      const avatar = fr?.requester_id === currentUserId ? fr?.addressee_avatar_url : fr?.requester_avatar_url;
+                      setFriendViewer({ entry, entryKids: entryKids.length ? entryKids : (friendKids[entry.familyId] || []), friendName, friendAvatar: avatar });
+                    }
+                  }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderBottom: idx < reactionNotifications.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
                     <div style={{ position: 'relative', flexShrink: 0 }}>
                       <FriendAvatar name={n.fromName} avatarUrl={friendAvatarMap[n.fromUserId]} size={36} />
                       <span style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: n.type === 'like' ? '#E05C6A' : n.type === 'reply' ? '#7A6A8A' : 'var(--accent)', border: '1.5px solid var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -8465,12 +8475,7 @@ export default function App() {
           reactionNotifications={reactionNotifications}
           onClearReactions={() => { localStorage.setItem('notifClearedAt', Date.now().toString()); setReactionNotifications([]); }}
           onDismissReaction={id => { const prev = JSON.parse(localStorage.getItem('notifDismissedIds') || '[]'); localStorage.setItem('notifDismissedIds', JSON.stringify([...new Set([...prev, id])])); setReactionNotifications(p => p.filter(n => n.id !== id)); }}
-          onOpenFriendEntry={(entry, entryKids, friendName, friendAvatar) => {
-            const kidLabel = entryKids.map(k => k.name).join(' & ');
-            const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
-            const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-            setScreen('home');
-          }}
+          onOpenFriendEntry={() => {}}
           supabase={supabase}
           session={session}
         />
