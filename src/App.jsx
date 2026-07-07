@@ -1539,8 +1539,8 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
       {circleViewer && (() => {
         const { entry, kidLabel, age, friendName, friendAvatar, entryDate, isOwn } = circleViewer;
         const bgStyle = entryBgStyle(entry);
-        const posterMember = familyMembers.find(m => m.user_id === entry.user_id);
-        const resolvedName = friendName || posterMember?.real_name || posterMember?.display_name || (self?.real_name || myDisplayName) || '';
+        const posterMember = familyMembers.find(m => m.user_id === entry.userId);
+        const resolvedName = friendName || posterMember?.real_name || posterMember?.display_name || '';
         const resolvedAvatar = friendAvatar || posterMember?.avatar_url || null;
         return (
           <div onClick={() => setCircleViewer(null)} style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 30, display: 'flex', flexDirection: 'column' }}>
@@ -5841,7 +5841,7 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = [], currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction, supabase, session, socialName }) {
+function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = [], currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction, supabase, session, socialName, friendUserFamilyMap = {} }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -6042,7 +6042,8 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
                 const uid = friendUserId(fr);
                 const name = friendDisplayName(fr);
                 const avatar = fr.requester_id === currentUserId ? fr.addressee_avatar_url : fr.requester_avatar_url;
-                const theirKids = friendKids.filter(k => k.userId === uid);
+                const friendFamilyId = friendUserFamilyMap[uid];
+                const theirKids = friendKids.filter(k => friendFamilyId ? k.familyId === friendFamilyId : k.userId === uid);
                 return (
                   <div key={fr.id} onClick={() => setSelectedFriendUid(uid)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 10, cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: theirKids.length > 0 ? 10 : 0 }}>
@@ -6085,9 +6086,12 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
         if (!fr) return null;
         const name = friendDisplayName(fr);
         const avatar = fr.requester_id === currentUserId ? fr.addressee_avatar_url : fr.requester_avatar_url;
-        const theirKids = friendKids.filter(k => k.userId === selectedFriendUid);
+        const selectedFamilyId = friendUserFamilyMap[selectedFriendUid];
+        const theirKids = friendKids.filter(k => selectedFamilyId ? k.familyId === selectedFamilyId : k.userId === selectedFriendUid);
         const theirKidIds = new Set(theirKids.map(k => k.id));
-        const theirEntries = friendEntries.filter(e => e.media?.length > 0 && e.kids.some(kid => theirKidIds.has(kid)));
+        const theirEntries = selectedFamilyId
+          ? friendEntries.filter(e => e.media?.length > 0 && e.familyId === selectedFamilyId)
+          : friendEntries.filter(e => e.media?.length > 0 && e.kids.some(kid => theirKidIds.has(kid)));
         return (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', zIndex: 30, display: 'flex', alignItems: 'flex-end' }} onClick={() => setSelectedFriendUid(null)}>
             <div className="quick-sheet" style={{ background: 'var(--bg)', borderRadius: '24px 24px 0 0', width: '100%', maxHeight: '88%', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
@@ -7078,6 +7082,7 @@ export default function App() {
   const [friendEntries, setFriendEntries] = useState([]);
   const [friendFamilyIds, setFriendFamilyIds] = useState([]);
   const [friendFamilyMap, setFriendFamilyMap] = useState({});
+  const [friendUserFamilyMap, setFriendUserFamilyMap] = useState({});
   const [compareTarget, setCompareTarget] = useState(null);
   const [reactionCounts, setReactionCounts] = useState({});
   const [pendingOpenEntryId, setPendingOpenEntryId] = useState(null);
@@ -7185,6 +7190,7 @@ export default function App() {
       }
 
       let currentFamilyId = myMembership?.family_id ?? null;
+      let familyUserIds = [session.user.id];
       if (myMembership) {
         setFamilyId(currentFamilyId);
         setMyDisplayName(myMembership.display_name);
@@ -7227,6 +7233,7 @@ export default function App() {
         const { data: membersData } = await supabase.from('family_members').select('id, user_id, family_id, display_name, avatar_url').eq('family_id', currentFamilyId);
         if (membersData) {
           const memberUserIds = membersData.map(m => m.user_id).filter(Boolean);
+          familyUserIds = memberUserIds.length > 0 ? memberUserIds : [session.user.id];
           const { data: memberProfiles } = await supabase.from('profiles').select('id, display_name').in('id', memberUserIds);
           const profileMap = {};
           memberProfiles?.forEach(p => { profileMap[p.id] = p.display_name || null; });
@@ -7281,16 +7288,26 @@ export default function App() {
 
           const friendUserIds = accepted.map(fr => fr.requester_id === session.user.id ? fr.addressee_id : fr.requester_id);
           if (friendUserIds.length > 0) {
-            const { data: friendProfiles } = await supabase.from('profiles').select('id, family_id').in('id', friendUserIds);
-            const friendFamilyIds = [...new Set((friendProfiles || []).map(p => p.family_id).filter(Boolean))];
+            // Query both sources: family_members is authoritative but profiles.family_id is a fallback
+            const [{ data: friendMembers }, { data: friendProfiles }] = await Promise.all([
+              supabase.from('family_members').select('user_id, family_id').in('user_id', friendUserIds),
+              supabase.from('profiles').select('id, family_id').in('id', friendUserIds),
+            ]);
+            // Build user_id → family_id map; family_members wins, profiles is fallback; exclude own family
+            const userFamilyMap = {};
+            (friendProfiles || []).forEach(p => { if (p.family_id && p.family_id !== currentFamilyId) userFamilyMap[p.id] = p.family_id; });
+            (friendMembers || []).forEach(m => { if (m.family_id && m.family_id !== currentFamilyId) userFamilyMap[m.user_id] = m.family_id; else if (m.family_id === currentFamilyId) delete userFamilyMap[m.user_id]; });
+            const friendFamilyIds = [...new Set(Object.values(userFamilyMap))];
             setFriendFamilyIds(friendFamilyIds);
+            setFriendUserFamilyMap(userFamilyMap);
             const ffMap = {};
-            (friendProfiles || []).forEach(p => {
-              if (!p.family_id) return;
-              const fr = accepted.find(f => f.requester_id === p.id || f.addressee_id === p.id);
+            friendUserIds.forEach(uid => {
+              const familyId = userFamilyMap[uid];
+              if (!familyId) return;
+              const fr = accepted.find(f => f.requester_id === uid || f.addressee_id === uid);
               if (fr) {
-                const isReq = fr.requester_id === p.id;
-                ffMap[p.family_id] = { name: isReq ? fr.requester_display_name : fr.addressee_display_name, avatar: isReq ? fr.requester_avatar_url : fr.addressee_avatar_url };
+                const isReq = fr.requester_id === uid;
+                ffMap[familyId] = { name: isReq ? fr.requester_display_name : fr.addressee_display_name, avatar: isReq ? fr.requester_avatar_url : fr.addressee_avatar_url };
               }
             });
             setFriendFamilyMap(ffMap);
@@ -7301,7 +7318,7 @@ export default function App() {
                 supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, family_id').in('family_id', friendFamilyIds),
                 supabase.from('entries').select('id, date, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('date', twoWeeksAgoStr).order('date', { ascending: false }),
               ]);
-              setFriendKids((fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id })));
+              setFriendKids((fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id, familyId: k.family_id })));
               setFriendEntries((fEntries || []).filter(e => e.shared !== false).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
             }
           }
@@ -7337,9 +7354,10 @@ export default function App() {
                 const ids = e.kid_ids || [];
                 entryKidMap[e.id] = ids.map(id => (kidMap[id] || '').split(' ')[0]).filter(Boolean).join(' & ') || 'a photo';
               });
+              const familyExclude = `(${familyUserIds.join(',')})`;
               const [{ data: recentLikes }, { data: recentComments }] = await Promise.all([
-                supabase.from('entry_likes').select('id, entry_id, user_id, display_name, created_at').in('entry_id', sharedIds).neq('user_id', session.user.id).gte('created_at', cutoff).order('created_at', { ascending: false }),
-                supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at').in('entry_id', sharedIds).neq('user_id', session.user.id).gte('created_at', cutoff).is('parent_id', null).order('created_at', { ascending: false }),
+                supabase.from('entry_likes').select('id, entry_id, user_id, display_name, created_at').in('entry_id', sharedIds).not('user_id', 'in', familyExclude).gte('created_at', cutoff).order('created_at', { ascending: false }),
+                supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at').in('entry_id', sharedIds).not('user_id', 'in', familyExclude).gte('created_at', cutoff).is('parent_id', null).order('created_at', { ascending: false }),
               ]);
               all.push(
                 ...(recentLikes || []).map(l => ({ id: `like-${l.id}`, type: 'like', fromName: l.display_name || pMap[l.user_id]?.display_name || 'Someone', fromUserId: l.user_id, entryId: l.entry_id, kidNames: entryKidMap[l.entry_id] || 'a photo', ts: new Date(l.created_at).getTime() })),
@@ -7517,7 +7535,7 @@ export default function App() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_likes' }, payload => {
         const { entry_id, user_id } = payload.new;
-        if (user_id === currentUserIdRef.current) return;
+        if (familyUserIds.includes(user_id)) return;
         if (!ownEntryIdsRef.current.has(entry_id)) return;
         setReactionCounts(prev => {
           const cur = prev[entry_id] || { likes: 0, comments: 0 };
@@ -7541,7 +7559,7 @@ export default function App() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_comments' }, async payload => {
         const { entry_id, user_id } = payload.new;
-        if (user_id === currentUserIdRef.current) return;
+        if (familyUserIds.includes(user_id)) return;
         // If this is a reply, check if the parent comment belongs to the current user
         if (payload.new.parent_id) {
           const { data: parentComment } = await supabase.from('entry_comments').select('user_id').eq('id', payload.new.parent_id).single();
@@ -8519,6 +8537,7 @@ export default function App() {
           supabase={supabase}
           session={session}
           socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName}
+          friendUserFamilyMap={friendUserFamilyMap}
         />
       )}
 
