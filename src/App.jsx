@@ -274,6 +274,7 @@ async function generateShareCard(entry, allKids) {
   return canvas;
 }
 
+
 async function shareEntry(entry, allKids) {
   const canvas = await generateShareCard(entry, allKids);
   const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
@@ -1024,7 +1025,314 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer }) {
+const SLIDESHOW_DURATION = 30000;
+
+function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
+  const slides = useMemo(() => {
+    const result = [];
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    for (const e of entries) {
+      if (!e.kids.includes(kid.id) || !e.media?.length) continue;
+      if (new Date(e.date + 'T12:00:00') < oneYearAgo) continue;
+      for (const m of e.media) {
+        result.push({ url: m.url, type: m.type, date: e.date, cropY: e.cropY ?? 50 });
+      }
+    }
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result.slice(0, 15);
+  }, [entries, kid.id]);
+
+  const slideInterval = slides.length > 0 ? Math.floor(SLIDESHOW_DURATION / slides.length) : SLIDESHOW_DURATION;
+
+  const yearStats = useMemo(() => {
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const yearEntries = entries.filter(e => e.kids.includes(kid.id) && new Date(e.date + 'T12:00:00') >= oneYearAgo);
+    return {
+      photos: yearEntries.reduce((n, e) => n + (e.media?.filter(m => m.type !== 'video').length || 0), 0),
+      letters: yearEntries.filter(e => e.text?.trim()).length,
+      milestones: yearEntries.filter(e => e.milestone).length,
+    };
+  }, [entries, kid.id]);
+
+  const [index, setIndex] = useState(0);
+  const [ended, setEnded] = useState(false);
+  const [showStats, setShowStats] = useState(false);
+  const [countedStats, setCountedStats] = useState({ photos: 0, letters: 0, milestones: 0 });
+  const [song, setSong] = useState(null);
+  const [playing, setPlaying] = useState(false);
+  const [songQuery, setSongQuery] = useState('');
+  const [songResults, setSongResults] = useState([]);
+  const [songSearching, setSongSearching] = useState(false);
+  const [showSongPicker, setShowSongPicker] = useState(false);
+  const audioRef = useRef(null);
+
+  // Unlock audio context during the mount gesture, then fetch and autoplay
+  useEffect(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const buf = ctx.createBuffer(1, 1, 22050);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(ctx.destination);
+      src.start(0);
+      ctx.resume();
+    } catch {}
+
+    // Preload all slide images so they're cached before display
+    slides.forEach(s => {
+      const src = s.type === 'video'
+        ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto')
+        : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
+      const img = new Image();
+      img.src = src;
+    });
+
+    async function loadDefault() {
+      try {
+        const res = await fetch('https://itunes.apple.com/search?term=happy+birthday+to+you&entity=song&limit=10');
+        const data = await res.json();
+        const results = (data.results || []).filter(r => r.previewUrl);
+        if (results.length > 0) {
+          const r = results[0];
+          setSong({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100, previewUrl: r.previewUrl });
+        }
+      } catch {}
+    }
+    loadDefault();
+  }, []);
+
+  // Auto-advance slides, show stats card after last one
+  useEffect(() => {
+    if (slides.length <= 1 || ended) return;
+    const t = setInterval(() => {
+      setIndex(i => {
+        if (i + 1 >= slides.length) {
+          setEnded(true);
+          setTimeout(() => setShowStats(true), 600);
+          return i;
+        }
+        return i + 1;
+      });
+    }, slideInterval);
+    return () => clearInterval(t);
+  }, [slides.length, slideInterval, ended]);
+
+  // Set src and autoplay when song loads
+  useEffect(() => {
+    if (song && audioRef.current) {
+      audioRef.current.src = song.previewUrl;
+      audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
+    }
+  }, [song]);
+
+  function togglePlay() {
+    const a = audioRef.current;
+    if (!a || !song) return;
+    if (playing) {
+      a.pause();
+      setPlaying(false);
+    } else {
+      a.play().then(() => setPlaying(true)).catch(() => {});
+    }
+  }
+
+  // Count-up animation when stats card appears
+  useEffect(() => {
+    if (!showStats) return;
+    const DURATION = 1400;
+    const STEPS = 40;
+    const interval = DURATION / STEPS;
+    let step = 0;
+    const t = setInterval(() => {
+      step++;
+      const progress = Math.min(step / STEPS, 1);
+      const ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setCountedStats({
+        photos: Math.round(yearStats.photos * ease),
+        letters: Math.round(yearStats.letters * ease),
+        milestones: Math.round(yearStats.milestones * ease),
+      });
+      if (step >= STEPS) clearInterval(t);
+    }, interval);
+    return () => clearInterval(t);
+  }, [showStats, yearStats.photos, yearStats.letters, yearStats.milestones]);
+
+  // Song search
+  useEffect(() => {
+    const q = songQuery.trim();
+    if (q.length < 2) { setSongResults([]); return; }
+    const t = setTimeout(async () => {
+      setSongSearching(true);
+      try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=8`);
+        const data = await res.json();
+        setSongResults((data.results || []).filter(r => r.previewUrl));
+      } catch {}
+      setSongSearching(false);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [songQuery]);
+
+  function replay() {
+    setIndex(0);
+    setEnded(false);
+    setShowStats(false);
+    setCountedStats({ photos: 0, letters: 0, milestones: 0 });
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.volume = 1;
+      audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
+    }
+  }
+
+  if (slides.length === 0) {
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.94)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
+        <i className="ti ti-camera-off" style={{ fontSize: 48, color: 'rgba(255,255,255,0.3)' }} />
+        <p style={{ color: '#fff', fontSize: 18, fontFamily: "'Playfair Display', serif", textAlign: 'center', padding: '0 32px' }}>No photos yet for {kid.name}</p>
+        <button onClick={onClose} className="btn btn-outline" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)' }}>Close</button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: '#000', zIndex: 100, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {slides.map((s, i) => {
+        const src = s.type === 'video'
+          ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto')
+          : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
+        return (
+          <div key={i} style={{ position: 'absolute', inset: 0, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY}%`, opacity: i === index ? 1 : 0, transition: 'opacity 0.8s ease' }} />
+        );
+      })}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 28%, transparent 55%, rgba(0,0,0,0.75) 100%)' }} />
+
+      {/* Top bar — branding + actions */}
+      <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 0' }}>
+        {/* Patina branding */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#4A5E50', borderRadius: 999, padding: '5px 12px 5px 6px' }}>
+          <img src="/quill-no-background.png" style={{ width: 20, height: 20, objectFit: 'contain' }} alt="" />
+          <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 14, color: '#fff', letterSpacing: 0.3 }}>Patina</span>
+        </div>
+        <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
+          <i className="ti ti-x" />
+        </button>
+      </div>
+
+      {/* Stats closing card */}
+      {showStats && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(38,58,44,0.97)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 36px' }}>
+          {/* Kid avatar */}
+          <div className="fade-up" style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', marginBottom: 20, border: '2px solid rgba(200,153,62,0.5)', flexShrink: 0, background: kid.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', animationDelay: '0ms' }}>
+            {kid.avatar
+              ? <img src={kid.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+              : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 28, color: '#fff' }}>{kid.name?.charAt(0)}</span>
+            }
+          </div>
+          <p className="fade-up" style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'rgba(255,255,255,0.45)', margin: '0 0 36px', textAlign: 'center', lineHeight: 1.7, animationDelay: '120ms' }}>
+            "Day by day nothing changes, but when we look back everything is different."
+          </p>
+          <p className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 28px', textAlign: 'center', lineHeight: 1.2, animationDelay: '260ms' }}>
+            Happy {ordinal(age)} birthday to {kid.name}.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 48 }}>
+            {[
+              { n: countedStats.photos, real: yearStats.photos, singular: 'moment captured', plural: 'moments captured', icon: 'ti-camera' },
+              { n: countedStats.letters, real: yearStats.letters, singular: 'letter written', plural: 'letters written', icon: 'ti-feather' },
+              { n: countedStats.milestones, real: yearStats.milestones, singular: 'milestone celebrated', plural: 'milestones celebrated', icon: 'ti-star' },
+            ].filter(s => s.real > 0).map(({ n, real, singular, plural, icon }, idx) => (
+              <div key={icon} className="fade-up" style={{ display: 'flex', alignItems: 'center', gap: 12, animationDelay: `${400 + idx * 100}ms` }}>
+                <i className={`ti ${icon}`} style={{ fontSize: 18, color: '#C8993E', flexShrink: 0, width: 22, textAlign: 'center' }} />
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, color: 'rgba(255,255,255,0.75)', margin: 0 }}>
+                  {n} {n === 1 ? singular : plural}.
+                </p>
+              </div>
+            ))}
+          </div>
+          <button className="fade-up" onClick={replay} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.8, textTransform: 'uppercase', padding: 0, animationDelay: '700ms' }}>
+            Watch again
+          </button>
+          <div style={{ position: 'absolute', bottom: 32, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <img src="/quill-no-background.png" style={{ width: 15, height: 15, objectFit: 'contain', opacity: 0.35 }} alt="" />
+            <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 12, color: 'rgba(255,255,255,0.3)', letterSpacing: 0.5 }}>Patina</span>
+          </div>
+        </div>
+      )}
+
+      {/* Bottom */}
+      {!showStats && (
+        <div style={{ position: 'relative', zIndex: 1, marginTop: 'auto', padding: '0 20px 32px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ textAlign: 'center' }}>
+            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 4px', textShadow: '0 2px 12px rgba(0,0,0,0.6)', lineHeight: 1.25 }}>
+              Happy {ordinal(age)} birthday to {kid.name}!
+            </p>
+            {song && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: 8 }}>
+                <img src={song.artworkUrl} style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0 }} alt="" />
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{song.name} — {song.artist}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ height: 3, background: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', background: '#fff', borderRadius: 2, width: `${((index + 1) / slides.length) * 100}%`, transition: `width ${slideInterval}ms linear` }} />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            {song ? (
+              <button onClick={togglePlay} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 20, padding: '8px 18px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Urbanist', sans-serif" }}>
+                <i className={`ti ${playing ? 'ti-player-pause' : 'ti-player-play'}`} style={{ fontSize: 15 }} />
+                {playing ? 'Pause' : 'Resume'}
+              </button>
+            ) : (
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: 0, fontFamily: "'Urbanist', sans-serif" }}>Loading…</p>
+            )}
+            <button onClick={() => setShowSongPicker(v => !v)} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', fontSize: 15, flexShrink: 0 }}>
+              <i className="ti ti-music" />
+            </button>
+          </div>
+
+          {showSongPicker && (
+            <div style={{ background: 'rgba(10,10,10,0.88)', borderRadius: 14, padding: '12px 12px 4px', backdropFilter: 'blur(16px)', maxHeight: 220, overflowY: 'auto' }}>
+              <input value={songQuery} onChange={e => setSongQuery(e.target.value)} placeholder="Search for a song…" autoFocus style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 8, padding: '8px 10px', color: '#fff', fontSize: 14, outline: 'none', fontFamily: "'Urbanist', sans-serif", marginBottom: 8 }} />
+              {songSearching && <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, margin: '8px 0', textAlign: 'center' }}>Searching…</p>}
+              {songResults.map(r => (
+                <button key={r.trackId} onClick={() => { setSong({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100, previewUrl: r.previewUrl }); setShowSongPicker(false); setSongQuery(''); setSongResults([]); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '7px 0', color: '#fff', textAlign: 'left', fontFamily: "'Urbanist', sans-serif" }}>
+                  <img src={r.artworkUrl100} style={{ width: 36, height: 36, borderRadius: 4, flexShrink: 0 }} alt="" />
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.trackName}</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', margin: 0 }}>{r.artistName}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <audio
+        ref={audioRef}
+        onPlay={() => { if (audioRef.current) audioRef.current.volume = 1; setPlaying(true); }}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onTimeUpdate={() => {
+          const a = audioRef.current;
+          if (!a || !a.duration) return;
+          const remaining = a.duration - a.currentTime;
+          if (remaining <= 3) a.volume = Math.max(0, remaining / 3);
+        }}
+      />
+    </div>
+  );
+}
+
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
   const [longPressEntry, setLongPressEntry] = useState(null);
@@ -1040,6 +1348,14 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   const [showLikeAnim, setShowLikeAnim] = useState(false);
   const lastTapRef = useRef(0);
   const handleLongPress = useCallback((entry) => setLongPressEntry(entry), []);
+  const [dismissedBdays, setDismissedBdays] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('patina-bday-dismissed') || '{}'); } catch { return {}; }
+  });
+  function dismissBirthday(kidId, age) {
+    const next = { ...dismissedBdays, [`${kidId}-${age}`]: true };
+    setDismissedBdays(next);
+    localStorage.setItem('patina-bday-dismissed', JSON.stringify(next));
+  }
   const scrollRef = useRef(null);
   const ptr = usePullToRefresh(scrollRef, onRefresh);
 
@@ -1199,8 +1515,9 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     return kids.map(k => ({ kid: k, count: countMap.get(k.id) ?? 0 }));
   }, [kids, entries]);
 
-  const birthdayToday = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 0), [kids]);
-  const birthdayNextWeek = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 7), [kids]);
+  const birthdayToday = useMemo(() => kids.filter(k => k.name?.toLowerCase().startsWith('ellie')), [kids]); // TEMP
+  const birthdayTodayIds = useMemo(() => new Set(birthdayToday.map(k => k.id)), [birthdayToday]);
+  const birthdayNextWeek = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 7 && !birthdayTodayIds.has(k.id)), [kids, birthdayTodayIds]);
 
   const onceUponATime = useMemo(() => {
     if (onThisDay.length > 0) return null;
@@ -1362,32 +1679,35 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           })()}
 
           {birthdayToday.map(k => (
-            <div key={k.id} style={{ background: 'var(--accent)', borderRadius: 16, padding: '22px 20px', textAlign: 'center' }}>
+            <div key={k.id} onClick={() => onBirthdayTodayClick?.(k)} style={{ background: 'var(--accent)', borderRadius: 16, padding: '22px 20px', textAlign: 'center', cursor: 'pointer' }}>
               <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
                 <i className="ti ti-cake" style={{ fontSize: 24, color: '#C8993E' }} />
               </div>
               <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>
-                Happy Birthday, {k.name}!
+                Happy {ordinal(turningAge(k.birthdate))} Birthday, {k.name}!
               </p>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', margin: 0 }}>
-                {k.name} turns {ordinal(turningAge(k.birthdate))} today
+                Tap to see {k.name}'s year in photos
               </p>
             </div>
           ))}
 
-          {birthdayNextWeek.map(k => (
-            <div key={k.id} style={{ background: 'var(--bg-nav)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+          {birthdayNextWeek.filter(k => !dismissedBdays[`${k.id}-${turningAge(k.birthdate)}`]).map(k => (
+            <div key={k.id} onClick={() => onBirthdayNextWeekClick?.(k, turningAge(k.birthdate))} style={{ background: 'var(--bg-nav)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', position: 'relative' }}>
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(200,153,62,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <i className="ti ti-cake" style={{ fontSize: 20, color: '#C8993E' }} />
               </div>
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', margin: '0 0 2px' }}>
-                  {k.name}'s {ordinal(turningAge(k.birthdate))} birthday is in one week
+                  {k.name}'s {ordinal(turningAge(k.birthdate))} birthday is in one week!
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
                   Write something special for the occasion
                 </p>
               </div>
+              <button onClick={e => { e.stopPropagation(); dismissBirthday(k.id, turningAge(k.birthdate)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, flexShrink: 0, lineHeight: 1 }}>
+                <i className="ti ti-x" />
+              </button>
             </div>
           ))}
 
@@ -2387,9 +2707,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false } }) {
+function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone }) {
   const [selectedKids, setSelectedKids] = useState(
-    existingEntry ? existingEntry.kids : (kids.length === 1 ? [kids[0].id] : [])
+    existingEntry ? existingEntry.kids : (initialKidIds?.length ? initialKidIds : (kids.length === 1 ? [kids[0].id] : []))
   );
   const [text, setText] = useState(existingEntry?.text || '');
   const [mood, setMood] = useState(existingEntry?.mood || null);
@@ -2397,10 +2717,10 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [peopleInput, setPeopleInput] = useState('');
   const existingMilestone = existingEntry?.milestone || null;
   const [milestoneType, setMilestoneType] = useState(
-    existingMilestone?.startsWith('custom:') ? 'custom' : existingMilestone
+    existingMilestone?.startsWith('custom:') ? 'custom' : (existingMilestone ?? initialMilestone ?? null)
   );
   const [customMilestoneText, setCustomMilestoneText] = useState(
-    existingMilestone?.startsWith('custom:') ? existingMilestone.slice(7) : ''
+    existingMilestone?.startsWith('custom:') ? existingMilestone.slice(7) : (initialCustomMilestone || '')
   );
   const [media, setMedia] = useState(existingEntry?.media || []);
   const [fileObjects, setFileObjects] = useState(existingEntry?.media?.map(() => null) || []);
@@ -2465,10 +2785,10 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       const saved = JSON.parse(localStorage.getItem(draftKey) || 'null');
       if (!saved) return;
       if (saved.text) setText(saved.text);
-      if (saved.selectedKids?.length) setSelectedKids(saved.selectedKids);
+      if (saved.selectedKids?.length && !initialKidIds?.length) setSelectedKids(saved.selectedKids);
       if (saved.mood) setMood(saved.mood);
-      if (saved.milestoneType) setMilestoneType(saved.milestoneType);
-      if (saved.customMilestoneText) setCustomMilestoneText(saved.customMilestoneText);
+      if (saved.milestoneType && !initialMilestone) setMilestoneType(saved.milestoneType);
+      if (saved.customMilestoneText && !initialCustomMilestone) setCustomMilestoneText(saved.customMilestoneText);
       if (saved.signedAs) setSignedAs(saved.signedAs);
       if (saved.location) setLocation(saved.location);
       if (saved.entryDate) setEntryDate(saved.entryDate);
@@ -7084,6 +7404,8 @@ export default function App() {
   const [friendFamilyMap, setFriendFamilyMap] = useState({});
   const [friendUserFamilyMap, setFriendUserFamilyMap] = useState({});
   const [compareTarget, setCompareTarget] = useState(null);
+  const [newEntryInitial, setNewEntryInitial] = useState(null);
+  const [birthdaySlideshow, setBirthdaySlideshow] = useState(null);
   const [reactionCounts, setReactionCounts] = useState({});
   const [pendingOpenEntryId, setPendingOpenEntryId] = useState(null);
   const [discoverable, setDiscoverable] = useState(true);
@@ -8404,6 +8726,11 @@ export default function App() {
             session={session}
             myDisplayName={myDisplayName}
             onAvatarUpload={handleAvatarUpload}
+            onBirthdayNextWeekClick={(kid, age) => {
+              setNewEntryInitial({ kidIds: [kid.id], milestone: 'custom', customMilestone: `${ordinal(age)} Birthday` });
+              setScreen('new-entry');
+            }}
+            onBirthdayTodayClick={kid => setBirthdaySlideshow(kid)}
           />
         );
       })()}
@@ -8466,7 +8793,7 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} onCancel={() => setScreen('home')} onSave={handleSaveEntry} signedDefault={myDisplayName || undefined} draftKey={session?.user?.id ? `patina-new-draft-${session.user.id}` : 'patina-new-draft'} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} />
+        <NewEntryScreen kids={kids} onCancel={() => { setScreen('home'); setNewEntryInitial(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${session.user.id}` : 'patina-new-draft')} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
@@ -8662,6 +8989,15 @@ export default function App() {
         <NavBar active={screen} onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={reactionNotifications.length} />
       )}
       {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={reactionNotifications.length} />}
+
+      {birthdaySlideshow && (
+        <BirthdaySlideshowScreen
+          kid={birthdaySlideshow}
+          age={turningAge(birthdaySlideshow.birthdate)}
+          entries={entries}
+          onClose={() => setBirthdaySlideshow(null)}
+        />
+      )}
 
       {celebration && (
         <CelebrationOverlay
