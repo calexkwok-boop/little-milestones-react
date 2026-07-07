@@ -1539,17 +1539,20 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
       {circleViewer && (() => {
         const { entry, kidLabel, age, friendName, friendAvatar, entryDate, isOwn } = circleViewer;
         const bgStyle = entryBgStyle(entry);
+        const posterMember = familyMembers.find(m => m.user_id === entry.user_id);
+        const resolvedName = friendName || posterMember?.real_name || posterMember?.display_name || (self?.real_name || myDisplayName) || '';
+        const resolvedAvatar = friendAvatar || posterMember?.avatar_url || null;
         return (
           <div onClick={() => setCircleViewer(null)} style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 30, display: 'flex', flexDirection: 'column' }}>
             {/* Top bar — friend info + compare icon + close */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 16px 12px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
-                {friendAvatar
-                  ? <img src={cloudinaryTransform(friendAvatar, 'w_72,h_72,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : friendName?.charAt(0) || '?'}
+                {resolvedAvatar
+                  ? <img src={cloudinaryTransform(resolvedAvatar, 'w_72,h_72,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : resolvedName?.charAt(0) || '?'}
               </div>
               <div style={{ flex: 1 }}>
-                {friendName && <p style={{ margin: '0 0 1px', fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{friendName}</p>}
+                {resolvedName && <p style={{ margin: '0 0 1px', fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{resolvedName}</p>}
                 <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{entryDate}</p>
               </div>
               {onCompareAtAge && circleViewer.entryKids[0] && (
