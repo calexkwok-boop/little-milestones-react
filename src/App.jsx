@@ -1009,7 +1009,7 @@ function turningAge(birthdate) {
 function slotString() {
   const d = new Date();
   const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const slot = Math.floor(d.getHours() / 6) * 6;
+  const slot = Math.floor(d.getHours() / 3) * 3;
   return `${date}-${slot}`;
 }
 
@@ -1046,7 +1046,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
   useEffect(() => {
     function scheduleRefresh() {
       const now = new Date();
-      const nextSlotHour = (Math.floor(now.getHours() / 6) + 1) * 6;
+      const nextSlotHour = (Math.floor(now.getHours() / 3) + 1) * 3;
       const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), nextSlotHour);
       const ms = next - now;
       return setTimeout(() => { setCurrentDate(todayString()); setCurrentSlot(slotString()); scheduleRefresh(); }, ms);
@@ -7234,6 +7234,7 @@ export default function App() {
         if (membersData) {
           const memberUserIds = membersData.map(m => m.user_id).filter(Boolean);
           familyUserIds = memberUserIds.length > 0 ? memberUserIds : [session.user.id];
+          familyUserIdsRef.current = familyUserIds;
           const { data: memberProfiles } = await supabase.from('profiles').select('id, display_name').in('id', memberUserIds);
           const profileMap = {};
           memberProfiles?.forEach(p => { profileMap[p.id] = p.display_name || null; });
@@ -7493,6 +7494,7 @@ export default function App() {
   useEffect(() => { kidsRef.current = kids; }, [kids]);
   const currentUserIdRef = useRef(session?.user?.id);
   useEffect(() => { currentUserIdRef.current = session?.user?.id; }, [session?.user?.id]);
+  const familyUserIdsRef = useRef([session?.user?.id].filter(Boolean));
 
   const [installBannerType, setInstallBannerType] = useState(null); // 'ios-safari' | 'ios-other' | 'android'
   useEffect(() => {
@@ -7535,7 +7537,7 @@ export default function App() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_likes' }, payload => {
         const { entry_id, user_id } = payload.new;
-        if (familyUserIds.includes(user_id)) return;
+        if (familyUserIdsRef.current.includes(user_id)) return;
         if (!ownEntryIdsRef.current.has(entry_id)) return;
         setReactionCounts(prev => {
           const cur = prev[entry_id] || { likes: 0, comments: 0 };
@@ -7559,7 +7561,7 @@ export default function App() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_comments' }, async payload => {
         const { entry_id, user_id } = payload.new;
-        if (familyUserIds.includes(user_id)) return;
+        if (familyUserIdsRef.current.includes(user_id)) return;
         // If this is a reply, check if the parent comment belongs to the current user
         if (payload.new.parent_id) {
           const { data: parentComment } = await supabase.from('entry_comments').select('user_id').eq('id', payload.new.parent_id).single();
