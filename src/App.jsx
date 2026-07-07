@@ -1437,6 +1437,12 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                   ))}
                 </div>
               )}
+              {kids.length > 1 && onCompare && (
+                <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 12, padding: '12px 16px', background: 'var(--bg-elevated)', border: 'none', borderRadius: 12, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>See all side-by-side</span>
+                  <i className="ti ti-arrow-right" style={{ fontSize: 14, color: 'var(--accent)' }} />
+                </button>
+              )}
             </div>
           )}
 
@@ -1477,14 +1483,6 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
             ))}
           </div>
 
-          {kids.length > 1 && onCompare && (
-            <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>At the same age</span>
-              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#fff' }} />
-              </div>
-            </button>
-          )}
 
           {circleSnapshot.length > 0 && (() => {
             const sharedMoments = circleSnapshot;
