@@ -1120,7 +1120,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
     const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const member = familyMembers.find(m => m.user_id === entry.user_id);
-    setCircleViewer({ entry, entryKids, kidLabel, age, friendName: member?.display_name || 'Family', friendAvatar: member?.avatar_url || null, entryDate });
+    setCircleViewer({ entry, entryKids, kidLabel, age, friendName: member?.real_name || member?.display_name || '', friendAvatar: member?.avatar_url || null, entryDate });
   }
 
 
@@ -1549,7 +1549,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                   : friendName?.charAt(0) || '?'}
               </div>
               <div style={{ flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{friendName || 'Friend'}</p>
+                {friendName && <p style={{ margin: '0 0 1px', fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{friendName}</p>}
                 <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{entryDate}</p>
               </div>
               {onCompareAtAge && circleViewer.entryKids[0] && (
@@ -1597,19 +1597,30 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               </div>
               {(() => {
                 const userHasLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
+                const likeNames = viewerLikes.length >= 3
+                  ? `${viewerLikes.length} likes`
+                  : viewerLikes.length === 2
+                    ? viewerLikes.map(l => l.display_name?.split(' ')[0] || 'Someone').join(' & ')
+                    : viewerLikes[0]?.display_name || 'Someone';
                 if (isOwn) {
                   return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 0', color: viewerLikes.length > 0 ? '#E05C6A' : 'var(--text-3)' }}>
-                      <i className={`ti ${viewerLikes.length > 0 ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
-                      {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{viewerLikes.length}</span>}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: viewerLikes.length > 0 ? '#E05C6A' : 'var(--text-3)' }}>
+                        <i className={`ti ${viewerLikes.length > 0 ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
+                        {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{viewerLikes.length}</span>}
+                      </div>
+                      {viewerLikes.length > 0 && <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'Inter, sans-serif' }}>{likeNames}</span>}
                     </div>
                   );
                 }
                 return (
-                  <button onClick={handleToggleLike} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 0', color: userHasLiked ? '#E05C6A' : 'var(--text-3)', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}>
-                    <i className={`ti ${userHasLiked ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
-                    {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600 }}>{viewerLikes.length}</span>}
-                  </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
+                    <button onClick={handleToggleLike} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: userHasLiked ? '#E05C6A' : 'var(--text-3)', fontFamily: 'Inter, sans-serif' }}>
+                      <i className={`ti ${userHasLiked ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
+                      {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600 }}>{viewerLikes.length}</span>}
+                    </button>
+                    {viewerLikes.length > 0 && <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'Inter, sans-serif' }}>{likeNames}</span>}
+                  </div>
                 );
               })()}
             </div>
@@ -6177,9 +6188,11 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
                 </button>
                 {viewerLikes.length > 0 && (
                   <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'Inter, sans-serif' }}>
-                    {viewerLikes.length === 1
-                      ? viewerLikes[0].display_name || 'Someone'
-                      : viewerLikes.slice(0, 2).map(l => l.display_name?.split(' ')[0] || 'Someone').join(', ') + (viewerLikes.length > 2 ? ` +${viewerLikes.length - 2}` : '')}
+                    {viewerLikes.length >= 3
+                      ? `${viewerLikes.length} likes`
+                      : viewerLikes.length === 2
+                        ? viewerLikes.map(l => l.display_name?.split(' ')[0] || 'Someone').join(' & ')
+                        : viewerLikes[0]?.display_name || 'Someone'}
                   </span>
                 )}
               </div>
@@ -8497,7 +8510,7 @@ export default function App() {
             const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
             const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             const member = familyMembers.find(m => m.user_id === entry.user_id);
-            setCircleViewerEntry({ entry, entryKids, kidLabel, age, friendName: member?.display_name || 'Family', friendAvatar: member?.avatar_url || null, entryDate });
+            setCircleViewerEntry({ entry, entryKids, kidLabel, age, friendName: member?.real_name || member?.display_name || '', friendAvatar: member?.avatar_url || null, entryDate });
             setScreen('home');
           }}
           supabase={supabase}
