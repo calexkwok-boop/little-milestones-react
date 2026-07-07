@@ -2854,6 +2854,32 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
           )}
         </div>
 
+        {/* Photo preview */}
+        {media.length > 0 && (
+          <div style={{ marginBottom: 20, display: 'flex', gap: 8, justifyContent: 'center', overflowX: 'auto', paddingBottom: 2 }}>
+            {media.map((item, i) => (
+              <div key={i} style={{ width: 180, aspectRatio: '4/3', borderRadius: 12, overflow: 'hidden', position: 'relative', flexShrink: 0, cursor: 'pointer' }} onClick={() => setPreviewMedia(item)}>
+                {item.type === 'video'
+                  ? item.thumbnail
+                    ? <img src={item.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    : <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
+                  : <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                }
+                <button onClick={e => { e.stopPropagation(); const it = media[i]; if (it.url?.startsWith('blob:')) URL.revokeObjectURL(it.url); setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <i className="ti ti-x" />
+                </button>
+                {item.type === 'video' && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 12 }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Big mic button */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
           <button
@@ -2929,25 +2955,6 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         <div style={{ marginTop: 10 }}>
           <LocationInput value={location} onChange={v => { setLocation(v); if (!v) setLocationCoords(null); }} onChangeCoords={(lat, lng) => setLocationCoords(lat != null ? { lat, lng } : null)} placeholder="Add location" compact />
         </div>
-
-        {/* Photo strip */}
-        {media.length > 0 && (
-          <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-            {media.map((item, i) => (
-              <div key={i} style={{ width: 76, height: 76, borderRadius: 10, overflow: 'hidden', position: 'relative', flexShrink: 0, cursor: 'pointer' }} onClick={() => setPreviewMedia(item)}>
-                {item.type === 'video'
-                  ? item.thumbnail
-                    ? <img src={item.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                    : <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
-                  : <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                }
-                <button onClick={e => { e.stopPropagation(); const it = media[i]; if (it.url?.startsWith('blob:')) URL.revokeObjectURL(it.url); setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <i className="ti ti-x" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
 
         {/* Fullscreen photo preview */}
         {previewMedia && (
