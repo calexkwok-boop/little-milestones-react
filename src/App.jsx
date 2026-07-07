@@ -1555,7 +1555,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                 {resolvedName && <p style={{ margin: '0 0 1px', fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{resolvedName}</p>}
                 <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{entryDate}</p>
               </div>
-              {onCompareAtAge && circleViewer.entryKids[0] && (
+              {onCompareAtAge && circleViewer.entryKids[0] && !isOwn && (
                 <button onClick={e => { e.stopPropagation(); setCircleViewer(null); onCompareAtAge(circleViewer.entryKids[0].id, circleViewer.entry.ageMonths); }} title="At the same age" style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--accent)', fontSize: 16, flexShrink: 0 }}>
                   <i className="ti ti-arrows-diff" />
                 </button>
