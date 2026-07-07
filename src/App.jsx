@@ -450,7 +450,17 @@ function KidSelector({ kids, selected, onSelect, onManage, showBoth, partner, on
     <div className="scrollx">
       <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-layout-list" label="All" />
       {showBoth && kids.length >= 2 && (
-        <KidChip active={selected === 'both'} onClick={() => onSelect('both')} icon="ti-users" label="Both" />
+        <div
+          className={`kid-chip ${selected === 'both' ? 'active' : ''}`}
+          style={selected === 'both' ? { background: 'var(--accent)' } : {}}
+          onClick={() => onSelect('both')}
+        >
+          <div style={{ position: 'relative', width: 34, height: 24, flexShrink: 0 }}>
+            <span style={{ position: 'absolute', left: 0, top: 0 }}><KidThumb kid={kids[0]} /></span>
+            <span style={{ position: 'absolute', left: 12, top: 0, outline: `2px solid ${selected === 'both' ? 'var(--accent)' : 'var(--bg-input)'}`, borderRadius: '50%' }}><KidThumb kid={kids[1]} /></span>
+          </div>
+          Both
+        </div>
       )}
       {kids.map(k => (
         <KidChip key={k.id} kid={k} active={selected === k.id} onClick={() => onSelect(k.id)} />
@@ -1766,7 +1776,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
   );
 });
 
-function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos, onRefresh, onToggleFavorite, onDeleteEntry }) {
+function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos, onRefresh, onToggleFavorite, onDeleteEntry, reactionCounts = {}, onBack }) {
   const scrollRef = useRef(null);
   const [longPressEntry, setLongPressEntry] = useState(null);
   const handleLongPress = useCallback((entry) => setLongPressEntry(entry), []);
@@ -1795,6 +1805,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         currentMonth = monthLabel;
         result.push(
           <div className="month-divider" key={'divider-' + monthLabel}>
+            <i className="ti ti-leaf" style={{ fontSize: 13, color: 'var(--text-3)', flexShrink: 0 }} />
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.3 }}>{monthLabel.toUpperCase()}</span>
             <div className="month-divider-line" />
           </div>
@@ -1810,10 +1821,11 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
     <div className="screen" style={{ position: 'relative' }}>
       <div className="scroll-area" ref={scrollRef} style={{ overscrollBehaviorY: 'contain' }} {...ptr.handlers}>
         {ptr.indicator}
-        <div className="scrollpad" style={{ paddingBottom: 6 }}>
-          <div>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Patina</p>
-            <h1 style={{ fontSize: 23, color: 'var(--accent)', margin: '4px 0 0', fontWeight: 700 }}>{memberCount > 1 ? 'From us, with love' : 'From you, with love'}</h1>
+        <div className="scrollpad" style={{ paddingBottom: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            {onBack && <button className="icon-btn" onClick={onBack} style={{ flexShrink: 0 }}><i className="ti ti-arrow-left" /></button>}
+            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700, flex: 1, textAlign: 'center' }}>{memberCount > 1 ? 'Our letters' : 'My letters'}</h2>
+            {onBack && <div style={{ width: 36, flexShrink: 0 }} />}
           </div>
           <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth />
         </div>
@@ -3319,7 +3331,7 @@ function RecapEntryRow({ entry, kids, onOpenEntry }) {
   );
 }
 
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
+function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare, onSeeAll }) {
   const [viewMode, setViewMode] = useState('month');
   const [selectedMonth, setSelectedMonth] = useState(TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
@@ -3406,7 +3418,10 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare }) {
               <button style={segTabStyle('year')} onClick={() => setViewMode('year')}>Year</button>
               <button style={segTabStyle('all')} onClick={() => setViewMode('all')}>All</button>
             </div>
-            <div style={{ width: 36 }} />
+            <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, color: 'var(--text-muted)', padding: 0 }}>
+              <i className="ti ti-layout-list" style={{ fontSize: 18 }} />
+              <span style={{ fontSize: 9, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.3 }}>All</span>
+            </button>
           </div>
 
           {viewMode !== 'all' && (
@@ -6037,7 +6052,10 @@ function NavBar({ active, onNavigate, friendBadge = 0, reactionBadge = 0 }) {
 
   function tabStyle(tab) {
     const isActive = active === tab.id;
-    return { backgroundColor: isActive ? tab.color : 'transparent', color: isActive ? '#ffffff' : 'var(--text-muted)' };
+    return {
+      backgroundColor: isActive ? 'rgba(74,94,80,0.12)' : 'transparent',
+      color: isActive ? 'var(--accent)' : 'var(--text-muted)',
+    };
   }
 
   return (
@@ -6842,6 +6860,7 @@ export default function App() {
   const [kids, setKids] = useState(() => localMode ? loadLocalData().kids : []);
   const [entries, setEntries] = useState(() => localMode ? loadLocalData().entries : []);
   const [screen, setScreen] = useState('home');
+  const [journalBackScreen, setJournalBackScreen] = useState('home');
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const installPromptRef = useRef(null);
   const journalScrollPos = useRef(0);
@@ -8144,7 +8163,7 @@ export default function App() {
             onSearch={() => setScreen('search')}
             onManage={() => openProfile(kids[0].id)}
             onAddMoment={() => setScreen('new-entry')}
-            onSeeAll={() => setScreen('journal')}
+            onSeeAll={() => { setJournalBackScreen('home'); setScreen('journal'); }}
             onCompare={() => setScreen('compare')}
             onUpdateCrop={handleUpdateCrop}
             unseenPartnerIds={unseenPartnerIds}
@@ -8209,6 +8228,8 @@ export default function App() {
           onRefresh={handleRefresh}
           onToggleFavorite={handleToggleFavorite}
           onDeleteEntry={handleQuickDelete}
+          reactionCounts={reactionCounts}
+          onBack={() => setScreen(journalBackScreen)}
         />
       )}
 
@@ -8257,6 +8278,7 @@ export default function App() {
           onBack={() => setScreen('home')}
           onOpenEntry={openEntry}
           onCompare={() => setScreen('compare')}
+          onSeeAll={() => { setJournalBackScreen('recap'); setScreen('journal'); }}
         />
       )}
 

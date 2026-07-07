@@ -285,6 +285,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   font-weight: 600; padding: 6px 0; margin: 0 3px; border-radius: 14px;
   cursor: pointer; background-color: transparent; color: var(--text-muted);
   border: 0; box-shadow: none; font-family: 'Urbanist', sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 .nv-tab i { font-size: 19px; }
 .nv-add-wrap {
