@@ -2858,7 +2858,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         {media.length > 0 && (
           <div style={{ marginBottom: 20, display: 'flex', gap: 8, justifyContent: 'center', overflowX: 'auto', paddingBottom: 2 }}>
             {media.map((item, i) => (
-              <div key={i} style={{ width: 180, aspectRatio: '4/3', borderRadius: 12, overflow: 'hidden', position: 'relative', flexShrink: 0, cursor: 'pointer' }} onClick={() => setPreviewMedia(item)}>
+              <div key={i} style={{ width: 165, aspectRatio: '4/3', borderRadius: 12, overflow: 'hidden', position: 'relative', flexShrink: 0, cursor: 'pointer' }} onClick={() => setPreviewMedia(item)}>
                 {item.type === 'video'
                   ? item.thumbnail
                     ? <img src={item.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
