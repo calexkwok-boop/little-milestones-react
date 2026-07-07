@@ -5904,7 +5904,7 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
   }
 
   return (
-    <div className="screen">
+    <div className="screen" style={{ position: 'relative' }}>
       <div className="scroll-area">
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -6152,7 +6152,7 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
               </button>
             </div>
             {/* Photo */}
-            <div onClick={() => { const now = Date.now(); if (now - lastTapRef.current < 320) { handleViewerLike(); setShowLikeAnim(true); setTimeout(() => setShowLikeAnim(false), 800); } lastTapRef.current = now; }} style={{ width: '100%', aspectRatio: '1', flexShrink: 0, ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', cursor: 'pointer' }}>
+            <div onClick={() => { const now = Date.now(); if (now - lastTapRef.current < 320) { handleViewerLike(); setShowLikeAnim(true); setTimeout(() => setShowLikeAnim(false), 800); } lastTapRef.current = now; }} style={{ width: '100%', aspectRatio: '4/3', flexShrink: 0, ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', cursor: 'pointer' }}>
               {entry.media?.[0]?.type === 'video' && <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} controls playsInline onClick={e => e.stopPropagation()} />}
               {showLikeAnim && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}><i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} /></div>}
             </div>
@@ -8471,6 +8471,8 @@ export default function App() {
             const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             setScreen('home');
           }}
+          supabase={supabase}
+          session={session}
         />
       )}
 
