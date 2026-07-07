@@ -168,11 +168,11 @@ function ctxWrapText(ctx, text, maxW) {
 
 const SHARE_PALETTE = {
   bg: '#E8F0E4',
-  card: 'var(--bg-card)',
-  border: 'var(--border)',
-  accent: 'var(--accent)',
-  text: 'var(--text)',
-  muted: 'var(--text-muted)',
+  card: '#F6FAF4',
+  border: '#CCDAC8',
+  accent: '#4A5E50',
+  text: '#2C3828',
+  muted: '#9AA89C',
   gold: '#C8993E',
 };
 
