@@ -814,7 +814,7 @@ function usePullToRefresh(scrollRef, onRefresh) {
 
 function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDelete }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const preview = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
+  const preview = (entry.text || '').replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const actions = [
     { icon: entry.favorited ? 'ti-star-filled' : 'ti-star', label: entry.favorited ? 'Remove from favorites' : 'Add to favorites', color: entry.favorited ? '#C8993E' : 'var(--text)', fn: onFavorite },
     { icon: 'ti-share', label: 'Share', color: 'var(--text)', fn: onShare },
@@ -1070,6 +1070,13 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
       setViewerComments(comments || []);
     });
   }, [circleViewer?.entry?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (initialCircleViewer) {
+      setCircleViewer(initialCircleViewer);
+      if (onClearInitialCircleViewer) onClearInitialCircleViewer();
+    }
+  }, [initialCircleViewer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleToggleLike() {
     if (!supabase || !session) return;
@@ -1691,7 +1698,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
   const d = new Date(entry.date + 'T12:00:00');
   const dayNum = d.getDate();
   const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
-  const rawText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
+  const rawText = (entry.text || '').replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const text = rawText.length > 160 ? rawText.slice(0, 160) + '...' : rawText;
   const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
@@ -5976,14 +5983,7 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
                 {reactionNotifications.map((n, idx) => (
                   <div key={n.id} onClick={() => {
                     if (onDismissReaction) onDismissReaction(n.id);
-                    const entry = friendEntries.find(e => e.id === n.entryId);
-                    if (entry) {
-                      const entryKids = (friendKids[entry.familyId] || []).filter(k => (entry.kids || []).includes(k.id));
-                      const fr = friends.find(f => friendUserId(f) === n.fromUserId);
-                      const friendName = fr ? friendDisplayName(fr) : n.fromName;
-                      const avatar = fr?.requester_id === currentUserId ? fr?.addressee_avatar_url : fr?.requester_avatar_url;
-                      setFriendViewer({ entry, entryKids: entryKids.length ? entryKids : (friendKids[entry.familyId] || []), friendName, friendAvatar: avatar });
-                    }
+                    if (onOpenFriendEntry) onOpenFriendEntry(n.entryId);
                   }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderBottom: idx < reactionNotifications.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
                     <div style={{ position: 'relative', flexShrink: 0 }}>
                       <FriendAvatar name={n.fromName} avatarUrl={friendAvatarMap[n.fromUserId]} size={36} />
@@ -6180,9 +6180,16 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
             {/* Comments */}
             <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '8px 16px' }}>
               {viewerComments.map(c => (
-                <div key={c.id} style={{ marginBottom: 10 }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginRight: 6 }}>{c.display_name}</span>
-                  <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{c.body}</span>
+                <div key={c.id} style={{ marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginRight: 6 }}>{c.display_name}</span>
+                    <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{c.body}</span>
+                  </div>
+                  {c.user_id === session?.user?.id && (
+                    <button onClick={async () => { setViewerComments(p => p.filter(x => x.id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                      <i className="ti ti-trash" style={{ fontSize: 13 }} />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -8475,7 +8482,17 @@ export default function App() {
           reactionNotifications={reactionNotifications}
           onClearReactions={() => { localStorage.setItem('notifClearedAt', Date.now().toString()); setReactionNotifications([]); }}
           onDismissReaction={id => { const prev = JSON.parse(localStorage.getItem('notifDismissedIds') || '[]'); localStorage.setItem('notifDismissedIds', JSON.stringify([...new Set([...prev, id])])); setReactionNotifications(p => p.filter(n => n.id !== id)); }}
-          onOpenFriendEntry={() => {}}
+          onOpenFriendEntry={(entryId) => {
+            const entry = entries.find(e => e.id === entryId);
+            if (!entry) return;
+            const entryKids = kids.filter(k => (entry.kids || []).includes(k.id));
+            const kidLabel = entryKids.map(k => k.name).join(' & ') || 'Photo';
+            const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
+            const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const member = familyMembers.find(m => m.user_id === entry.user_id);
+            setCircleViewerEntry({ entry, entryKids, kidLabel, age, friendName: member?.display_name || 'Family', friendAvatar: member?.avatar_url || null, entryDate });
+            setScreen('home');
+          }}
           supabase={supabase}
           session={session}
         />
