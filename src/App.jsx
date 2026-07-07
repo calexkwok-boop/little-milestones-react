@@ -1780,6 +1780,9 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
   const scrollRef = useRef(null);
   const [longPressEntry, setLongPressEntry] = useState(null);
   const handleLongPress = useCallback((entry) => setLongPressEntry(entry), []);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const searchInputRef = useRef(null);
   const ptr = usePullToRefresh(scrollRef, onRefresh);
 
   useEffect(() => {
@@ -1792,8 +1795,19 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
   }, []);
 
   const rows = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     const filtered = entries
       .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
+      .filter(e => {
+        if (!q) return true;
+        if ((e.text || '').toLowerCase().includes(q)) return true;
+        const [y, m] = (e.date || '').split('-');
+        if (y && m) {
+          const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toLowerCase();
+          if (label.includes(q)) return true;
+        }
+        return false;
+      })
       .sort((a, b) => new Date(b.date) - new Date(a.date));
 
     let currentMonth = null;
@@ -1815,7 +1829,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
       result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onOpen={onOpenEntry} onLongPress={handleLongPress} reactionCount={reactionCounts[entry.id]} />);
     });
     return result;
-  }, [entries, kids, kidFilter, onOpenEntry, handleLongPress]);
+  }, [entries, kids, kidFilter, searchQuery, onOpenEntry, handleLongPress]);
 
   return (
     <div className="screen" style={{ position: 'relative' }}>
@@ -1825,9 +1839,29 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {onBack && <button className="icon-btn" onClick={onBack} style={{ flexShrink: 0 }}><i className="ti ti-arrow-left" /></button>}
             <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700, flex: 1, textAlign: 'center' }}>{memberCount > 1 ? 'Our letters' : 'My letters'}</h2>
-            {onBack && <div style={{ width: 36, flexShrink: 0 }} />}
+            <button className="icon-btn" onClick={() => { setShowSearch(s => !s); setSearchQuery(''); setTimeout(() => searchInputRef.current?.focus(), 50); }} style={{ flexShrink: 0 }}>
+              <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+            </button>
           </div>
           <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth />
+          {showSearch && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
+              <i className="ti ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search letters…"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ border: 'none', outline: 'none', flex: 1, fontSize: 15, background: 'transparent', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif" }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', alignItems: 'center' }}>
+                  <i className="ti ti-x" style={{ fontSize: 14 }} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
         <div className="scrollpad" style={{ paddingTop: 0 }}>
           {rows.length === 0 ? (
@@ -3473,27 +3507,27 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare, onSeeAll }
           ) : (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <div onClick={() => setRecapFilter(null)} style={{ background: 'var(--accent)', borderRadius: 14, padding: '14px 16px', opacity: recapFilter !== null ? 0.4 : 1, transition: 'opacity 0.15s', cursor: recapFilter !== null ? 'pointer' : 'default' }}>
+                <div onClick={() => setRecapFilter(null)} style={{ background: 'var(--accent)', borderRadius: 14, padding: '14px 16px', opacity: recapFilter !== null ? 0.65 : 1, transition: 'opacity 0.15s', cursor: recapFilter !== null ? 'pointer' : 'default' }}>
                   <p style={{ fontSize: 32, fontWeight: 800, color: '#C8993E', margin: 0, lineHeight: 1 }}>{momentCount}</p>
                   <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: '5px 0 0', fontWeight: 600 }}>moment{momentCount !== 1 ? 's' : ''} logged</p>
                 </div>
                 <div
                   onClick={() => setRecapFilter(f => f === 'milestones' ? null : 'milestones')}
-                  style={{ background: recapFilter === 'milestones' ? '#D4856A' : '#FAF0ED', borderRadius: 14, padding: '14px 16px', cursor: milestoneCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'milestones' ? 0.4 : 1, transition: 'opacity 0.15s' }}
+                  style={{ background: recapFilter === 'milestones' ? '#D4856A' : '#FAF0ED', borderRadius: 14, padding: '14px 16px', cursor: milestoneCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'milestones' ? 0.65 : 1, transition: 'opacity 0.15s' }}
                 >
                   <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'milestones' ? '#fff' : '#D4856A', margin: 0, lineHeight: 1 }}>{milestoneCount}</p>
                   <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'milestones' ? 'rgba(255,255,255,0.75)' : '#D4856A', margin: '5px 0 0' }}>milestones</p>
                 </div>
                 <div
                   onClick={() => setRecapFilter(f => f === 'photos' ? null : 'photos')}
-                  style={{ background: recapFilter === 'photos' ? '#A09080' : '#F0ECE8', borderRadius: 14, padding: '14px 16px', cursor: photoCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'photos' ? 0.4 : 1, transition: 'opacity 0.15s' }}
+                  style={{ background: recapFilter === 'photos' ? '#A09080' : '#F0ECE8', borderRadius: 14, padding: '14px 16px', cursor: photoCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'photos' ? 0.65 : 1, transition: 'opacity 0.15s' }}
                 >
                   <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'photos' ? '#fff' : '#A09080', margin: 0, lineHeight: 1 }}>{photoCount}</p>
                   <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'photos' ? 'rgba(255,255,255,0.75)' : '#A09080', margin: '5px 0 0' }}>photos</p>
                 </div>
                 <div
                   onClick={() => setRecapFilter(f => f === 'favorites' ? null : 'favorites')}
-                  style={{ background: recapFilter === 'favorites' ? '#C8993E' : '#FDF3E0', borderRadius: 14, padding: '14px 16px', cursor: favoriteCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'favorites' ? 0.4 : 1, transition: 'opacity 0.15s' }}
+                  style={{ background: recapFilter === 'favorites' ? '#C8993E' : '#FDF3E0', borderRadius: 14, padding: '14px 16px', cursor: favoriteCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'favorites' ? 0.65 : 1, transition: 'opacity 0.15s' }}
                 >
                   <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'favorites' ? '#fff' : '#C8993E', margin: 0, lineHeight: 1 }}>{favoriteCount}</p>
                   <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'favorites' ? 'rgba(255,255,255,0.75)' : '#C8993E', margin: '5px 0 0' }}>favorites</p>
