@@ -1207,7 +1207,12 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
           ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto')
           : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
         return (
-          <div key={i} style={{ position: 'absolute', inset: 0, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY}%`, opacity: i === index ? 1 : 0, transition: 'opacity 0.8s ease' }} />
+          <div key={i} style={{ position: 'absolute', inset: 0, opacity: i === index ? 1 : 0, transition: 'opacity 0.8s ease' }}>
+            {/* Blurred background fill */}
+            <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
+            {/* Full photo, no crop */}
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${src}')`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
+          </div>
         );
       })}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 28%, transparent 55%, rgba(0,0,0,0.75) 100%)' }} />
@@ -1684,7 +1689,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                 <i className="ti ti-cake" style={{ fontSize: 24, color: '#C8993E' }} />
               </div>
               <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>
-                Happy {ordinal(turningAge(k.birthdate))} Birthday, {k.name}!
+                Happy {ordinal(turningAge(k.birthdate))} birthday to {k.name}!
               </p>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', margin: 0 }}>
                 Tap to see {k.name}'s year in photos
