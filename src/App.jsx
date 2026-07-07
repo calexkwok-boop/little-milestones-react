@@ -9,6 +9,7 @@ import {
 } from './constants.js';
 
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
+let _pendingCircleViewer = null;
 const LOCAL_STORAGE_KEY = 'patina-local-data';
 
 function isDarkTime() { const h = new Date().getHours(); return h < 6 || h >= 18; }
@@ -1023,7 +1024,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
   const [longPressEntry, setLongPressEntry] = useState(null);
@@ -5821,13 +5822,54 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = [], currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction }) {
+function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = [], currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction, supabase, session }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [sentIds, setSentIds] = useState(new Set());
   const [selectedFriendUid, setSelectedFriendUid] = useState(null);
+  const [friendViewer, setFriendViewer] = useState(null);
+  const [viewerLikes, setViewerLikes] = useState([]);
+  const [viewerComments, setViewerComments] = useState([]);
+  const [viewerCommentText, setViewerCommentText] = useState('');
+  const [showLikeAnim, setShowLikeAnim] = useState(false);
+  const lastTapRef = useRef(0);
   const searchTimer = useRef(null);
+
+  useEffect(() => {
+    if (!friendViewer || !supabase) return;
+    const id = friendViewer.entry.id;
+    Promise.all([
+      supabase.from('entry_likes').select('*').eq('entry_id', id),
+      supabase.from('entry_comments').select('*').eq('entry_id', id).is('parent_id', null).order('created_at'),
+    ]).then(([{ data: lks }, { data: cms }]) => {
+      setViewerLikes(lks || []);
+      setViewerComments(cms || []);
+    });
+  }, [friendViewer]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleViewerLike() {
+    if (!supabase || !session || !friendViewer) return;
+    const entryId = friendViewer.entry.id;
+    const userId = session.user.id;
+    const already = viewerLikes.some(l => l.user_id === userId);
+    if (already) {
+      setViewerLikes(p => p.filter(l => l.user_id !== userId));
+      await supabase.from('entry_likes').delete().eq('entry_id', entryId).eq('user_id', userId);
+    } else {
+      const fake = { entry_id: entryId, user_id: userId };
+      setViewerLikes(p => [...p, fake]);
+      await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: userId, display_name: session.user.user_metadata?.display_name || '' });
+    }
+  }
+
+  async function handleViewerComment() {
+    if (!supabase || !session || !viewerCommentText.trim() || !friendViewer) return;
+    const body = viewerCommentText.trim();
+    setViewerCommentText('');
+    const { data } = await supabase.from('entry_comments').insert({ entry_id: friendViewer.entry.id, user_id: session.user.id, display_name: session.user.user_metadata?.display_name || 'You', body }).select().single();
+    if (data) setViewerComments(p => [...p, data]);
+  }
 
   const pendingIncoming = friendRequests.filter(r => r.addressee_id === currentUserId);
   const pendingOutgoing = friendRequests.filter(r => r.requester_id === currentUserId);
@@ -6059,19 +6101,85 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
                   </div>
                 ) : (
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2, padding: 2 }}>
-                    {theirEntries.map(e => (
-                      <div key={e.id} style={{ aspectRatio: '1', overflow: 'hidden', cursor: 'pointer', position: 'relative', background: 'var(--bg-elevated)' }}
-                        onClick={() => { setSelectedFriendUid(null); onOpenFriendEntry(e.id); }}>
-                        <img
-                          src={cloudinaryTransform(e.media[0].url, 'w_400,h_400,c_fill,q_auto,f_auto')}
-                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                          alt=""
-                        />
-                      </div>
-                    ))}
+                    {theirEntries.map(e => {
+                      const m = e.media[0];
+                      const isVideo = m.type === 'video';
+                      const thumbSrc = isVideo
+                        ? videoThumbUrl(m.url, 'so_0,w_400,h_400,c_fill,q_auto,f_auto')
+                        : cloudinaryTransform(m.url, 'w_400,h_400,c_fill,q_auto,f_auto');
+                      return (
+                        <div key={e.id} style={{ aspectRatio: '1', overflow: 'hidden', cursor: 'pointer', position: 'relative', background: 'var(--bg-elevated)' }}
+                          onClick={() => { const entryKids = theirKids.filter(k => (e.kids || []).includes(k.id)); setFriendViewer({ entry: e, entryKids: entryKids.length ? entryKids : theirKids, friendName: name, friendAvatar: avatar }); }}>
+                          <img src={thumbSrc} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                          {isVideo && (
+                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                              <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 12 }} />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {friendViewer && (() => {
+        const { entry, entryKids, friendName, friendAvatar } = friendViewer;
+        const bgStyle = entryBgStyle(entry);
+        const kidLabel = entryKids.map(k => k.name).join(' & ');
+        const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
+        const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const userHasLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
+        return (
+          <div style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 50, display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 16px 12px', flexShrink: 0 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
+                {friendAvatar ? <img src={cloudinaryTransform(friendAvatar, 'w_72,h_72,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : friendName?.charAt(0) || '?'}
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{friendName || 'Friend'}</p>
+                <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{entryDate}</p>
+              </div>
+              <button onClick={() => { setFriendViewer(null); setViewerLikes([]); setViewerComments([]); }} style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', fontSize: 16, flexShrink: 0 }}>
+                <i className="ti ti-x" />
+              </button>
+            </div>
+            {/* Photo */}
+            <div onClick={() => { const now = Date.now(); if (now - lastTapRef.current < 320) { handleViewerLike(); setShowLikeAnim(true); setTimeout(() => setShowLikeAnim(false), 800); } lastTapRef.current = now; }} style={{ width: '100%', aspectRatio: '1', flexShrink: 0, ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', cursor: 'pointer' }}>
+              {entry.media?.[0]?.type === 'video' && <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} controls playsInline onClick={e => e.stopPropagation()} />}
+              {showLikeAnim && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}><i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} /></div>}
+            </div>
+            {/* Kid + like */}
+            <div style={{ padding: '12px 16px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, borderBottom: viewerComments.length > 0 ? '1px solid var(--border)' : 'none' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ margin: '0 0 1px', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{kidLabel}</p>
+                {age && <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{age}</p>}
+              </div>
+              <button onClick={handleViewerLike} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: userHasLiked ? '#E05C6A' : 'var(--text-3)', flexShrink: 0 }}>
+                <i className={`ti ${userHasLiked ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
+                {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{viewerLikes.length}</span>}
+              </button>
+            </div>
+            {/* Comments */}
+            <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, padding: '8px 16px' }}>
+              {viewerComments.map(c => (
+                <div key={c.id} style={{ marginBottom: 10 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginRight: 6 }}>{c.display_name}</span>
+                  <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{c.body}</span>
+                </div>
+              ))}
+            </div>
+            {/* Comment input */}
+            <div style={{ display: 'flex', gap: 8, padding: '10px 16px', borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+              <input value={viewerCommentText} onChange={e => setViewerCommentText(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleViewerComment()} placeholder="Add a comment…" style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif" }} />
+              {viewerCommentText.trim() && <button onClick={handleViewerComment} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>Post</button>}
             </div>
           </div>
         );
@@ -6901,6 +7009,7 @@ export default function App() {
   const [kids, setKids] = useState(() => localMode ? loadLocalData().kids : []);
   const [entries, setEntries] = useState(() => localMode ? loadLocalData().entries : []);
   const [screen, setScreen] = useState('home');
+  const [circleViewerEntry, setCircleViewerEntry] = useState(null);
   const [journalBackScreen, setJournalBackScreen] = useState('home');
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const installPromptRef = useRef(null);
@@ -7153,7 +7262,7 @@ export default function App() {
                 supabase.from('entries').select('id, date, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('date', twoWeeksAgoStr).order('date', { ascending: false }),
               ]);
               setFriendKids((fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id })));
-              setFriendEntries((fEntries || []).filter(e => e.shared_with?.friends === true).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
+              setFriendEntries((fEntries || []).filter(e => e.shared !== false).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
             }
           }
         }
@@ -7564,7 +7673,7 @@ export default function App() {
         setReactionCounts(counts);
       }
     }
-    if (friendResult?.data) setFriendEntries(friendResult.data.filter(e => e.shared_with?.friends === true).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
+    if (friendResult?.data) setFriendEntries(friendResult.data.filter(e => e.shared !== false).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
   }
 
   const allPeople = useMemo(() => {
@@ -8230,6 +8339,8 @@ export default function App() {
             reactionCounts={reactionCounts}
             pendingOpenEntryId={pendingOpenEntryId}
             onClearPendingOpen={() => setPendingOpenEntryId(null)}
+            initialCircleViewer={circleViewerEntry}
+            onClearInitialCircleViewer={() => setCircleViewerEntry(null)}
             session={session}
             myDisplayName={myDisplayName}
             onAvatarUpload={handleAvatarUpload}
@@ -8354,7 +8465,12 @@ export default function App() {
           reactionNotifications={reactionNotifications}
           onClearReactions={() => { localStorage.setItem('notifClearedAt', Date.now().toString()); setReactionNotifications([]); }}
           onDismissReaction={id => { const prev = JSON.parse(localStorage.getItem('notifDismissedIds') || '[]'); localStorage.setItem('notifDismissedIds', JSON.stringify([...new Set([...prev, id])])); setReactionNotifications(p => p.filter(n => n.id !== id)); }}
-          onOpenFriendEntry={entryId => { setPendingOpenEntryId(entryId); setScreen('home'); }}
+          onOpenFriendEntry={(entry, entryKids, friendName, friendAvatar) => {
+            const kidLabel = entryKids.map(k => k.name).join(' & ');
+            const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
+            const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            setScreen('home');
+          }}
         />
       )}
 
