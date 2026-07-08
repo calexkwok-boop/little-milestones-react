@@ -859,6 +859,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
   const cardH = featured ? 200 : 150;
   const photoRef = useRef(null);
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
+  const [videoPlaying, setVideoPlaying] = useState(false);
   const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const preview = cleanText.length > (featured ? 160 : 110)
     ? cleanText.slice(0, featured ? 160 : 110) + '…'
@@ -875,12 +876,18 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
         >
           {entry.media[0].type === 'video' ? (
             <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
-              <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
-                </div>
-              </div>
+              {videoPlaying ? (
+                <video src={entry.media[0].url} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+              ) : (
+                <>
+                  <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
           }
@@ -918,6 +925,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
 const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50 }) {
   const cardH = 250;
   const photoRef = useRef(null);
+  const [videoPlaying, setVideoPlaying] = useState(false);
   const preview = entry.text.length > 200 ? entry.text.slice(0, 200) + '…' : entry.text;
   const yearLabel = yearsAgo === 1 ? 'One year ago today' : `${yearsAgo} years ago today`;
 
@@ -937,12 +945,18 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
           >
             {entry.media[0].type === 'video' ? (
               <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
-                <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                  <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
-                  </div>
-                </div>
+                {videoPlaying ? (
+                  <video src={entry.media[0].url} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                ) : (
+                  <>
+                    <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
+                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
             }
@@ -9216,9 +9230,6 @@ export default function App() {
           </h1>
           <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.3)', textAlign: 'center', margin: '0 0 32px', letterSpacing: 0.5 }}>
             — C.S. Lewis
-          </p>
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'rgba(255,255,255,0.5)', textAlign: 'center', margin: '0 0 40px', lineHeight: 1.6 }}>
-            They're lucky to have you.
           </p>
 
           <div style={{ display: 'flex', gap: 12, width: '100%', marginBottom: 40 }}>
