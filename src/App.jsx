@@ -1005,6 +1005,19 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'Just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return 'Yesterday';
+  if (d < 7) return new Date(ts).toLocaleDateString('en-US', { weekday: 'short' });
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 function daysUntilBirthday(birthdate) {
   const [, bm, bd] = birthdate.split('-').map(Number);
   const [ty, tm, td] = TODAY.split('-').map(Number);
@@ -1012,6 +1025,15 @@ function daysUntilBirthday(birthdate) {
   let next = new Date(ty, bm - 1, bd);
   if (next < today) next = new Date(ty + 1, bm - 1, bd);
   return Math.round((next - today) / 86400000);
+}
+
+// Returns how many days ago this birthday occurred this year (0=today, 1=yesterday, negative=still upcoming)
+function daysSinceBirthday(birthdate) {
+  const [, bm, bd] = birthdate.split('-').map(Number);
+  const [ty, tm, td] = TODAY.split('-').map(Number);
+  const today = new Date(ty, tm - 1, td);
+  const thisYear = new Date(ty, bm - 1, bd);
+  return Math.round((today - thisYear) / 86400000);
 }
 
 function turningAge(birthdate) {
@@ -1047,7 +1069,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
     const seen = new Set();
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    for (const e of entries) {
+    const uniqueEntries = [...new Map(entries.map(e => [e.id, e])).values()];
+    for (const e of uniqueEntries) {
       if (!e.kids.includes(kid.id) || !e.media?.length) continue;
       if (new Date(e.date + 'T12:00:00') < oneYearAgo) continue;
       for (const m of e.media) {
@@ -1061,7 +1084,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       [result[i], result[j]] = [result[j], result[i]];
     }
     // TEST VIDEO — remove after testing
-    const testVideo = entries.flatMap(e => (e.kids.includes(kid.id) ? (e.media || []).filter(m => m.type === 'video').map(m => ({ url: m.url, type: 'video', date: e.date, cropY: e.cropY ?? 50 })) : [])).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const testVideo = uniqueEntries.flatMap(e => (e.kids.includes(kid.id) ? (e.media || []).filter(m => m.type === 'video').map(m => ({ url: m.url, type: 'video', date: e.date, cropY: e.cropY ?? 50 })) : [])).sort((a, b) => a.date.localeCompare(b.date))[0];
     if (testVideo && !seen.has(testVideo.url)) result.unshift(testVideo);
     return result.slice(0, 9);
   }, [entries, kid.id]);
@@ -1528,7 +1551,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   );
 }
 
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick }) {
+function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick }) {
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
   const [longPressEntry, setLongPressEntry] = useState(null);
@@ -1711,9 +1734,10 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     return kids.map(k => ({ kid: k, count: countMap.get(k.id) ?? 0 }));
   }, [kids, entries]);
 
-  const birthdayToday = useMemo(() => kids.filter(k => k.name?.toLowerCase().startsWith('ellie')), [kids]); // TEMP
+  const birthdayToday = useMemo(() => kids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [kids]);
   const birthdayTodayIds = useMemo(() => new Set(birthdayToday.map(k => k.id)), [birthdayToday]);
   const birthdayNextWeek = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 7 && !birthdayTodayIds.has(k.id)), [kids, birthdayTodayIds]);
+  const friendBirthdaysToday = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [friendKids]);
 
   const onceUponATime = useMemo(() => {
     if (onThisDay.length > 0) return null;
@@ -2018,12 +2042,45 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           </div>
 
 
-          {circleSnapshot.length > 0 && (() => {
+          {(circleSnapshot.length > 0 || friendBirthdaysToday.length > 0) && (() => {
             const sharedMoments = circleSnapshot;
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <SectionDivider label="From your circle" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>From your circle</span>
+                  {friendBirthdaysToday.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 999, padding: '2px 7px' }}>
+                      <i className="ti ti-cake" style={{ fontSize: 10, color: '#C8993E' }} />
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.3 }}>{friendBirthdaysToday.length}</span>
+                    </div>
+                  )}
+                  <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                </div>
                 <div className="scrollx" style={{ gap: 10, paddingBottom: 4 }}>
+                  {friendBirthdaysToday.map(k => {
+                    const friendInfo = friendFamilyMap[k.familyId] || {};
+                    const age = turningAge(k.birthdate);
+                    return (
+                      <div key={`bday-${k.id}`} onClick={() => onFriendBirthdayClick?.(k)} style={{ width: 136, flexShrink: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(200,153,62,0.35)', background: 'linear-gradient(160deg, #2A4035 0%, #3A5548 100%)', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}>
+                        <div style={{ height: 136, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 10px', position: 'relative' }}>
+                          <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(200,153,62,0.5)', background: k.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            {k.avatar
+                              ? <img src={k.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                              : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 18, color: '#fff' }}>{k.name?.charAt(0)}</span>
+                            }
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(200,153,62,0.15)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: '50%', width: 28, height: 28 }}>
+                            <i className="ti ti-player-play-filled" style={{ fontSize: 11, color: '#C8993E' }} />
+                          </div>
+                        </div>
+                        <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(200,153,62,0.15)' }}>
+                          <p style={{ fontSize: 12, fontWeight: 600, color: '#C8993E', margin: 0, lineHeight: 1.3 }}>🎂 {k.name}'s {ordinal(age)}</p>
+                          {friendInfo.name && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0', fontFamily: "'Urbanist', sans-serif" }}>{friendInfo.name}'s family</p>}
+                        </div>
+                      </div>
+                    );
+                  })}
                   {sharedMoments.map(entry => {
                     const entryKids = friendKids.filter(k => (entry.kids || []).includes(k.id));
                     if (!entryKids.length) return null;
@@ -3634,7 +3691,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       </div>
 
       {/* Bottom toolbar */}
-      <div style={{ flexShrink: 0, borderTop: '1px solid var(--border-light)', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', padding: '6px 8px', paddingBottom: 'max(6px, env(safe-area-inset-bottom))', gap: 0 }}>
+      <div style={{ flexShrink: 0, borderTop: '1px solid var(--border-light)', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-evenly', padding: '6px 8px', paddingBottom: 'max(6px, env(safe-area-inset-bottom))' }}>
         {/* Camera */}
         <div style={{ position: 'relative' }}>
           {showMediaMenu && (
@@ -3672,7 +3729,6 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             <i className="ti ti-writing" style={{ animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
           </button>
         )}
-        <div style={{ flex: 1 }} />
         {/* Sharing */}
         <button onClick={() => setShowSharePicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, color: Object.values(sharedWith).some(Boolean) ? 'var(--accent)' : 'var(--text-muted)', borderRadius: 10 }}>
           <i className={`ti ${Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'}`} style={{ fontSize: 18 }} />
@@ -6373,7 +6429,7 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = [], currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction, supabase, session, socialName, friendUserFamilyMap = {} }) {
+function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = [], currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction, onFriendBirthdayClick, onDismissBirthday, birthdayNotifications = [], supabase, session, socialName, friendUserFamilyMap = {} }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -6386,6 +6442,23 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
   const [showLikeAnim, setShowLikeAnim] = useState(false);
   const lastTapRef = useRef(0);
   const searchTimer = useRef(null);
+
+  // Merge birthday notifications with the same kid name into one card with combined family names
+  const groupedBirthdayNotifs = useMemo(() => {
+    const groups = new Map();
+    for (const n of birthdayNotifications) {
+      const key = n.kidName?.toLowerCase() || n.id;
+      if (groups.has(key)) {
+        const g = groups.get(key);
+        if (n.familyName && !g.familyNames.includes(n.familyName)) g.familyNames.push(n.familyName);
+        g.kidIds.push(n.kidId);
+        g.ids.push(n.id);
+      } else {
+        groups.set(key, { ...n, familyNames: n.familyName ? [n.familyName] : [], kidIds: [n.kidId], ids: [n.id] });
+      }
+    }
+    return Array.from(groups.values());
+  }, [birthdayNotifications]);
 
   useEffect(() => {
     if (!friendViewer || !supabase) return;
@@ -6517,13 +6590,38 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
             <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>No users found</p>
           )}
 
-          {reactionNotifications.length > 0 && (
+          {(reactionNotifications.length > 0 || birthdayNotifications.length > 0) && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: 0 }}>Activity</p>
-                <button onClick={onClearReactions} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 500, padding: 0 }}>Mark all as read</button>
+                {(reactionNotifications.length > 0 || birthdayNotifications.length > 0) && <button onClick={() => { onClearReactions?.(); birthdayNotifications.forEach(n => onDismissBirthday?.(n.id)); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 500, padding: 0 }}>Mark all as read</button>}
               </div>
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                {groupedBirthdayNotifs.map((n, idx) => {
+                  const kid = friendKids.find(k => k.id === n.kidId) || { id: n.kidId, name: n.kidName, birthdate: n.birthdate };
+                  const isToday = n.ts ? new Date(n.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) === new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : false;
+                  const familyLabel = n.familyNames.length > 1
+                    ? n.familyNames.slice(0, -1).join(', ') + ' and ' + n.familyNames.slice(-1) + "'s family"
+                    : n.familyNames[0] ? `${n.familyNames[0]}'s family` : null;
+                  return (
+                    <div key={n.id} onClick={() => onFriendBirthdayClick?.(kid)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: (idx < groupedBirthdayNotifs.length - 1 || reactionNotifications.length > 0) ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: 'rgba(74,94,80,0.08)' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(74,94,80,0.15)', border: '1px solid rgba(74,94,80,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <i className="ti ti-cake" style={{ fontSize: 16, color: 'var(--accent)' }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.4 }}>
+                          <strong>{n.kidName}</strong> turned {n.age} {isToday ? 'today' : n.ts ? 'on ' + new Date(n.ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'recently'}
+                        </p>
+                        <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>
+                          {familyLabel ? `${familyLabel} · ` : ''}{n.ts ? timeAgo(n.ts) : 'Recently'}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: '50%', width: 28, height: 28, flexShrink: 0 }}>
+                        <i className="ti ti-player-play-filled" style={{ fontSize: 11, color: '#C8993E' }} />
+                      </div>
+                    </div>
+                  );
+                })}
                 {reactionNotifications.map((n, idx) => (
                   <div key={n.id} onClick={() => {
                     if (onDismissReaction) onDismissReaction(n.id);
@@ -6543,6 +6641,7 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
                       {(n.type === 'comment' || n.type === 'reply') && n.body && (
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-2)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{n.body}&rdquo;</p>
                       )}
+                      {n.ts && <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>{timeAgo(n.ts)}</p>}
                     </div>
                     <i className="ti ti-chevron-right" style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }} />
                   </div>
@@ -6603,7 +6702,7 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
             </div>
           )}
 
-          {friends.length === 0 && pendingIncoming.length === 0 && reactionNotifications.length === 0 && !searchQuery && (
+          {friends.length === 0 && pendingIncoming.length === 0 && reactionNotifications.length === 0 && birthdayNotifications.length === 0 && !searchQuery && (
             <div className="empty-state">
               <i className="ti ti-users" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
               <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 16px', fontStyle: 'italic' }}>Growing alone, but walking together.</p>
@@ -7618,6 +7717,8 @@ export default function App() {
   const [compareTarget, setCompareTarget] = useState(null);
   const [newEntryInitial, setNewEntryInitial] = useState(null);
   const [birthdaySlideshow, setBirthdaySlideshow] = useState(null);
+  const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
+  const [birthdayNotifications, setBirthdayNotifications] = useState([]);
   const [reactionCounts, setReactionCounts] = useState({});
   const [pendingOpenEntryId, setPendingOpenEntryId] = useState(null);
   const [discoverable, setDiscoverable] = useState(true);
@@ -7842,7 +7943,11 @@ export default function App() {
               const fr = accepted.find(f => f.requester_id === uid || f.addressee_id === uid);
               if (fr) {
                 const isReq = fr.requester_id === uid;
-                ffMap[familyId] = { name: isReq ? fr.requester_display_name : fr.addressee_display_name, avatar: isReq ? fr.requester_avatar_url : fr.addressee_avatar_url };
+                const memberName = isReq ? fr.requester_display_name : fr.addressee_display_name;
+                const memberAvatar = isReq ? fr.requester_avatar_url : fr.addressee_avatar_url;
+                if (!ffMap[familyId]) ffMap[familyId] = { names: [], avatar: memberAvatar };
+                if (memberName && !ffMap[familyId].names.includes(memberName)) ffMap[familyId].names.push(memberName);
+                ffMap[familyId].name = ffMap[familyId].names.join(' and ');
               }
             });
             setFriendFamilyMap(ffMap);
@@ -7935,6 +8040,47 @@ export default function App() {
     loadData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.user?.id]);
+
+  // Load birthday notifications from Supabase on session start
+  useEffect(() => {
+    if (!session?.user?.id || !supabase) return;
+    supabase
+      .from('birthday_notifications')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .eq('dismissed', false)
+      .then(({ data }) => {
+        if (data) setBirthdayNotifications(data.map(n => ({ id: n.id, kidId: n.kid_id, kidName: n.kid_name, familyName: n.family_name, birthdate: n.birthdate, age: n.age, ts: n.ts })));
+      });
+  }, [session?.user?.id]);
+
+  // Detect friend birthdays in the last 7 days and persist to Supabase
+  useEffect(() => {
+    if (!friendKids.length || !session?.user?.id || !supabase) return;
+    const WINDOW = 7;
+    const year = new Date().getFullYear();
+    const rows = [];
+    for (const k of friendKids) {
+      if (!k.birthdate) continue;
+      const since = daysSinceBirthday(k.birthdate);
+      if (since < 0 || since > WINDOW) continue;
+      const [, bm, bd] = k.birthdate.split('-').map(Number);
+      const age = year - parseInt(k.birthdate.split('-')[0]);
+      const familyName = friendFamilyMap[k.familyId]?.name || null;
+      rows.push({ id: `bday-${k.id}-${year}`, user_id: session.user.id, kid_id: k.id, kid_name: k.name, family_name: familyName, birthdate: k.birthdate, age, ts: new Date(year, bm - 1, bd).getTime() });
+    }
+    if (!rows.length) return;
+    const normalize = n => ({ id: n.id, kidId: n.kid_id, kidName: n.kid_name, familyName: n.family_name, birthdate: n.birthdate, age: n.age, ts: n.ts });
+    supabase.from('birthday_notifications').upsert(rows, { onConflict: 'id', ignoreDuplicates: true }).select().then(({ data }) => {
+      if (data?.length) {
+        setBirthdayNotifications(prev => {
+          const prevIds = new Set(prev.map(n => n.id));
+          const fresh = data.filter(n => !prevIds.has(n.id)).map(normalize);
+          return fresh.length ? [...fresh, ...prev] : prev;
+        });
+      }
+    });
+  }, [friendKids, friendFamilyMap, session?.user?.id]);
 
   // Background geocode entries that have a location text but no coordinates yet
   const geocodedIdsRef = useRef(new Set());
@@ -8365,7 +8511,7 @@ export default function App() {
       };
       setEntries(prev => [newEntry, ...prev]);
       if (milestone) {
-        setCelebration({ kid: primaryKid, milestoneType: milestone });
+        setCelebration({ kid: primaryKid, milestoneType: milestone, entry: newEntry });
       } else {
         setScreen('home');
       }
@@ -8403,7 +8549,7 @@ export default function App() {
     const optimisticEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal };
     setEntries(prev => [optimisticEntry, ...prev]);
     if (milestone) {
-      setCelebration({ kid: primaryKid, milestoneType: milestone });
+      setCelebration({ kid: primaryKid, milestoneType: milestone, entry: optimisticEntry });
     } else {
       setScreen('home');
     }
@@ -8787,8 +8933,8 @@ export default function App() {
           supabase.from('kids').select('*').eq('user_id', friendUserId),
           supabase.from('entries').select('*, entry_media(*)').eq('user_id', friendUserId).eq('shared', true).order('date', { ascending: false }),
         ]);
-        setFriendKids(prev => [...prev, ...(fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id }))]);
-        setFriendEntries(prev => [...prev, ...(fEntries || []).map(normalizeEntry)]);
+        setFriendKids(prev => { const ids = new Set(prev.map(k => k.id)); return [...prev, ...(fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id })).filter(k => !ids.has(k.id))]; });
+        setFriendEntries(prev => { const ids = new Set(prev.map(e => e.id)); return [...prev, ...(fEntries || []).map(normalizeEntry).filter(e => !ids.has(e.id))]; });
       } catch (_) {}
     }
   }
@@ -8942,6 +9088,7 @@ export default function App() {
               setScreen('new-entry');
             }}
             onBirthdayTodayClick={kid => setBirthdaySlideshow(kid)}
+            onFriendBirthdayClick={kid => setBirthdaySlideshowFriend({ kid, entries: friendEntries })}
           />
         );
       })()}
@@ -9061,7 +9208,12 @@ export default function App() {
           onRespond={handleRespondFriendRequest}
           onUnfriend={handleUnfriend}
           reactionNotifications={reactionNotifications}
-          onClearReactions={() => { localStorage.setItem('notifClearedAt', Date.now().toString()); setReactionNotifications([]); }}
+          onClearReactions={() => {
+            localStorage.setItem('notifClearedAt', Date.now().toString());
+            setReactionNotifications([]);
+            if (supabase && session?.user?.id) supabase.from('birthday_notifications').update({ dismissed: true }).eq('user_id', session.user.id);
+            setBirthdayNotifications([]);
+          }}
           onDismissReaction={id => { const prev = JSON.parse(localStorage.getItem('notifDismissedIds') || '[]'); localStorage.setItem('notifDismissedIds', JSON.stringify([...new Set([...prev, id])])); setReactionNotifications(p => p.filter(n => n.id !== id)); }}
           onOpenFriendEntry={(entryId) => {
             const entry = entries.find(e => e.id === entryId);
@@ -9073,6 +9225,12 @@ export default function App() {
             const member = familyMembers.find(m => m.user_id === entry.user_id);
             setCircleViewerEntry({ entry, entryKids, kidLabel, age, friendName: member?.real_name || member?.display_name || '', friendAvatar: member?.avatar_url || null, entryDate });
             setScreen('home');
+          }}
+          onFriendBirthdayClick={kid => setBirthdaySlideshowFriend({ kid, entries: friendEntries })}
+          birthdayNotifications={birthdayNotifications}
+          onDismissBirthday={id => {
+            if (supabase && session?.user?.id) supabase.from('birthday_notifications').update({ dismissed: true }).eq('id', id).eq('user_id', session.user.id);
+            setBirthdayNotifications(p => p.filter(n => n.id !== id));
           }}
           supabase={supabase}
           session={session}
@@ -9197,9 +9355,9 @@ export default function App() {
       )}
 
       {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'growth' && screen !== 'book-builder' && screen !== 'book-preview' && (
-        <NavBar active={screen} onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={reactionNotifications.length} />
+        <NavBar active={screen} onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length + birthdayNotifications.length} reactionBadge={reactionNotifications.length} />
       )}
-      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length} reactionBadge={reactionNotifications.length} />}
+      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length + birthdayNotifications.length} reactionBadge={reactionNotifications.length} />}
 
       {birthdaySlideshow && (
         <BirthdaySlideshowScreen
@@ -9209,12 +9367,20 @@ export default function App() {
           onClose={() => setBirthdaySlideshow(null)}
         />
       )}
+      {birthdaySlideshowFriend && (
+        <BirthdaySlideshowScreen
+          kid={birthdaySlideshowFriend.kid}
+          age={turningAge(birthdaySlideshowFriend.kid.birthdate)}
+          entries={birthdaySlideshowFriend.entries}
+          onClose={() => setBirthdaySlideshowFriend(null)}
+        />
+      )}
 
       {celebration && (
         <CelebrationOverlay
           kid={celebration.kid}
           milestoneType={celebration.milestoneType}
-          onDone={() => { setCelebration(null); setScreen('journal'); }}
+          onDone={() => { const e = celebration.entry; setCelebration(null); if (e) openEntry(e); else setScreen('journal'); }}
         />
       )}
 
