@@ -1069,7 +1069,18 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   const [songResults, setSongResults] = useState([]);
   const [songSearching, setSongSearching] = useState(false);
   const [showSongPicker, setShowSongPicker] = useState(false);
+  const [showIntro, setShowIntro] = useState(true);
+  const [introFading, setIntroFading] = useState(false);
   const audioRef = useRef(null);
+
+  const confettiParticles = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
+    left: `${6 + (i * 37 + 13) % 84}%`,
+    bottom: `${8 + (i * 53 + 7) % 42}%`,
+    size: 4 + (i * 3) % 7,
+    color: ['#C8993E','#E5C97E','#EAD9BE','rgba(255,255,255,0.85)','#B8D4B8'][i % 5],
+    delay: `${((i * 0.17) % 1.4).toFixed(2)}s`,
+    dur: `${(1.8 + (i * 0.13) % 1.4).toFixed(2)}s`,
+  })), []);
 
   // Unlock audio context during the mount gesture, then fetch and autoplay
   useEffect(() => {
@@ -1106,9 +1117,16 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
     loadDefault();
   }, []);
 
+  // Intro card: fade in, hold, fade out, then unmount
+  useEffect(() => {
+    const t1 = setTimeout(() => setIntroFading(true), 1800);
+    const t2 = setTimeout(() => setShowIntro(false), 2500);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
   // Auto-advance slides, show stats card after last one
   useEffect(() => {
-    if (slides.length <= 1 || ended) return;
+    if (slides.length <= 1 || ended || showIntro) return;
     const t = setInterval(() => {
       setIndex(i => {
         if (i + 1 >= slides.length) {
@@ -1120,7 +1138,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       });
     }, slideInterval);
     return () => clearInterval(t);
-  }, [slides.length, slideInterval, ended]);
+  }, [slides.length, slideInterval, ended, showIntro]);
 
   // Set src and autoplay when song loads
   useEffect(() => {
@@ -1206,23 +1224,28 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
         const src = s.type === 'video'
           ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto')
           : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
+        const kbAnim = `kb${(i % 4) + 1} ${slideInterval}ms ease-in-out forwards`;
         return (
           <div key={i} style={{ position: 'absolute', inset: 0, opacity: i === index ? 1 : 0, transition: 'opacity 0.8s ease' }}>
             {/* Blurred background fill */}
             <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
-            {/* Full photo, no crop */}
-            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${src}')`, backgroundSize: 'contain', backgroundPosition: 'center 38%', backgroundRepeat: 'no-repeat' }} />
+            {/* Full photo with Ken Burns when active */}
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${src}')`, backgroundSize: 'contain', backgroundPosition: 'center 38%', backgroundRepeat: 'no-repeat', animation: i === index ? kbAnim : 'none' }} />
           </div>
         );
       })}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 28%, transparent 55%, rgba(0,0,0,0.75) 100%)' }} />
 
+      {/* Progress bar */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, zIndex: 5, background: 'rgba(255,255,255,0.12)' }}>
+        <div style={{ height: '100%', background: 'rgba(255,255,255,0.65)', width: `${((index + 1) / slides.length) * 100}%`, transition: `width ${slideInterval}ms linear` }} />
+      </div>
+
       {/* Top bar — branding + actions */}
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 0' }}>
         {/* Patina branding */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#4A5E50', borderRadius: 999, padding: '5px 12px 5px 6px' }}>
+        <div style={{ background: '#4A5E50', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <img src="/quill-no-background.png" style={{ width: 20, height: 20, objectFit: 'contain' }} alt="" />
-          <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 14, color: '#fff', letterSpacing: 0.3 }}>Patina</span>
         </div>
         <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
           <i className="ti ti-x" />
@@ -1232,6 +1255,10 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       {/* Stats closing card */}
       {showStats && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(38,58,44,0.97)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 36px' }}>
+          {/* Confetti particles */}
+          {confettiParticles.map((p, i) => (
+            <div key={i} style={{ position: 'absolute', left: p.left, bottom: p.bottom, width: p.size, height: p.size, borderRadius: '50%', background: p.color, animation: `confettiFloat ${p.dur} ease-out ${p.delay} both`, pointerEvents: 'none' }} />
+          ))}
           {/* Kid avatar */}
           <div className="fade-up" style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', marginBottom: 20, border: '2px solid rgba(200,153,62,0.5)', flexShrink: 0, background: kid.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', animationDelay: '0ms' }}>
             {kid.avatar
@@ -1273,6 +1300,11 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       {!showStats && (
         <div style={{ position: 'relative', zIndex: 1, marginTop: 'auto', padding: '0 20px 32px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ textAlign: 'center' }}>
+            {slides[index]?.date && (
+              <p key={index} style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', margin: '0 0 10px', letterSpacing: 1, textTransform: 'uppercase', animation: 'captionIn 0.5s ease forwards' }}>
+                {new Date(slides[index].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </p>
+            )}
             <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 4px', textShadow: '0 2px 12px rgba(0,0,0,0.6)', lineHeight: 1.25 }}>
               Happy {ordinal(age)} birthday to {kid.name}!
             </p>
@@ -1318,6 +1350,21 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Opening title card */}
+      {showIntro && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 9, background: 'rgba(22,17,12,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', animation: introFading ? 'introOut 0.7s ease forwards' : 'introIn 0.8s ease forwards' }}>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'rgba(200,153,62,0.75)', margin: '0 0 16px', letterSpacing: 0.5 }}>
+            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          </p>
+          <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 56, fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1, textAlign: 'center', padding: '0 24px' }}>
+            {kid.name}
+          </p>
+          <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 15, fontWeight: 500, color: 'rgba(255,255,255,0.45)', margin: '18px 0 0', letterSpacing: 2, textTransform: 'uppercase' }}>
+            turns {age} today
+          </p>
         </div>
       )}
 

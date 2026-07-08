@@ -327,3 +327,18 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   to   { opacity: 1; transform: translateY(0); }
 }
 .fade-up { animation: fadeUp 0.6s ease both; }
+/* Ken Burns variants */
+@keyframes kb1 { from { transform: scale(1);           } to { transform: scale(1.09); } }
+@keyframes kb2 { from { transform: scale(1.06) translateX(-2%); } to { transform: scale(1.0) translateX(2%); } }
+@keyframes kb3 { from { transform: scale(1.0) translate(2%, 1%); } to { transform: scale(1.09) translate(-1%, -1%); } }
+@keyframes kb4 { from { transform: scale(1.08) translateY(-2%); } to { transform: scale(1.0) translateY(1%); } }
+/* Birthday reel intro */
+@keyframes introIn  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes introOut { from { opacity: 1; } to { opacity: 0; } }
+/* Date caption per slide */
+@keyframes captionIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+/* Confetti float up */
+@keyframes confettiFloat {
+  0%   { transform: translateY(0) rotate(0deg) scale(1);   opacity: 0.9; }
+  100% { transform: translateY(-110px) rotate(280deg) scale(0.4); opacity: 0; }
+}
