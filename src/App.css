@@ -332,6 +332,11 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 @keyframes kb2 { from { transform: scale(1.03) translateX(-1%); } to { transform: scale(1.0) translateX(1%); } }
 @keyframes kb3 { from { transform: scale(1.0) translate(1%, 0.5%); } to { transform: scale(1.04) translate(-0.5%, -0.5%); } }
 @keyframes kb4 { from { transform: scale(1.03) translateY(-1%); } to { transform: scale(1.0) translateY(0.5%); } }
+/* Birthday banner particle float */
+@keyframes bdayFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg);   opacity: 0.6; }
+  50%       { transform: translateY(-10px) rotate(160deg); opacity: 0.2; }
+}
 /* Birthday reel intro */
 @keyframes introIn  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes introOut { from { opacity: 1; } to { opacity: 0; } }

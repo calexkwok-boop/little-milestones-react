@@ -1789,15 +1789,30 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
           })()}
 
           {birthdayToday.map(k => (
-            <div key={k.id} onClick={() => onBirthdayTodayClick?.(k)} style={{ background: 'var(--accent)', borderRadius: 16, padding: '22px 20px', textAlign: 'center', cursor: 'pointer' }}>
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <i className="ti ti-cake" style={{ fontSize: 24, color: '#C8993E' }} />
+            <div key={k.id} onClick={() => onBirthdayTodayClick?.(k)} style={{ background: 'linear-gradient(160deg, #2A4035 0%, #4A5E50 60%, #3A5548 100%)', borderRadius: 16, padding: '26px 20px', textAlign: 'center', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}>
+              {/* Floating particles */}
+              {[
+                { left: '7%',  top: '18%', size: 4, color: '#C8993E',             delay: '0s',    dur: '2.4s' },
+                { left: '18%', top: '72%', size: 3, color: '#E5C97E',             delay: '0.4s',  dur: '2.0s' },
+                { left: '78%', top: '14%', size: 5, color: 'rgba(255,255,255,0.5)', delay: '0.7s', dur: '2.6s' },
+                { left: '88%', top: '65%', size: 3, color: '#C8993E',             delay: '0.2s',  dur: '1.9s' },
+                { left: '50%', top: '80%', size: 4, color: '#E5C97E',             delay: '1.1s',  dur: '2.2s' },
+                { left: '65%', top: '25%', size: 3, color: 'rgba(255,255,255,0.4)', delay: '0.6s', dur: '2.8s' },
+              ].map((p, i) => (
+                <div key={i} style={{ position: 'absolute', left: p.left, top: p.top, width: p.size, height: p.size, borderRadius: '50%', background: p.color, animation: `bdayFloat ${p.dur} ease-in-out ${p.delay} infinite`, pointerEvents: 'none' }} />
+              ))}
+              {/* Kid avatar */}
+              <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 14px', border: '2px solid rgba(200,153,62,0.5)', background: k.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {k.avatar
+                  ? <img src={k.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                  : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 22, color: '#fff' }}>{k.name?.charAt(0)}</span>
+                }
               </div>
-              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, color: '#fff', margin: '0 0 6px' }}>
+              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, margin: '0 0 6px', background: 'linear-gradient(90deg, #fff 20%, rgba(200,153,62,0.95) 50%, #fff 80%)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'shimmer 2.8s linear infinite' }}>
                 Happy {ordinal(turningAge(k.birthdate))} birthday to {k.name}!
               </p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', margin: 0 }}>
-                Tap to see {k.name}'s year in photos
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
+                A year of moments, waiting for you.
               </p>
             </div>
           ))}
