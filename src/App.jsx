@@ -1412,7 +1412,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
             }
           </div>
           <p className="fade-up" style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'rgba(255,255,255,0.45)', margin: '0 0 36px', textAlign: 'center', lineHeight: 1.7, animationDelay: '120ms' }}>
-            They might not always show it, but they're so lucky to have you.
+            They might not always show it, but they're lucky to have you.
           </p>
           <p className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 28px', textAlign: 'center', lineHeight: 1.2, animationDelay: '260ms' }}>
             Happy {ordinal(age)} birthday to {kid.name}.
@@ -9218,7 +9218,7 @@ export default function App() {
             — C.S. Lewis
           </p>
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'rgba(255,255,255,0.5)', textAlign: 'center', margin: '0 0 40px', lineHeight: 1.6 }}>
-            They're so lucky to have you.
+            They're lucky to have you.
           </p>
 
           <div style={{ display: 'flex', gap: 12, width: '100%', marginBottom: 40 }}>
