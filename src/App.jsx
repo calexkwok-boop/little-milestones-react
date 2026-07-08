@@ -1211,7 +1211,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
             {/* Blurred background fill */}
             <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
             {/* Full photo, no crop */}
-            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${src}')`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
+            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${src}')`, backgroundSize: 'contain', backgroundPosition: 'center 38%', backgroundRepeat: 'no-repeat' }} />
           </div>
         );
       })}
