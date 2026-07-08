@@ -2025,7 +2025,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                 <SectionDivider label="From your circle" />
                 <div className="scrollx" style={{ gap: 10, paddingBottom: 4 }}>
                   {sharedMoments.map(entry => {
-                    const entryKids = friendKids.filter(k => entry.kids.includes(k.id));
+                    const entryKids = friendKids.filter(k => (entry.kids || []).includes(k.id));
                     if (!entryKids.length) return null;
                     const friendInfo = friendUserMap[entry.userId] || friendFamilyMap[entry.familyId] || {};
                     const friendName = friendInfo.name || '';
@@ -2956,7 +2956,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
   const [showExtras, setShowExtras] = useState(
-    !!(existingEntry?.mood || existingEntry?.milestone || existingEntry?.song || existingEntry?.people?.length)
+    !!(existingEntry?.mood || existingEntry?.milestone || existingEntry?.song || existingEntry?.people?.length || existingEntry?.voiceMemoUrl || initialMilestone)
   );
   const [showKidPicker, setShowKidPicker] = useState(false);
   const [showMediaMenu, setShowMediaMenu] = useState(false);
@@ -3010,6 +3010,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       if (saved.entryDate) setEntryDate(saved.entryDate);
       if (saved.song) setSong(saved.song);
       if (saved.people?.length) setPeople(saved.people);
+      if (saved.mood || saved.milestoneType || saved.song || saved.people?.length) setShowExtras(true);
       setDraftRestored(true);
     } catch {}
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -7847,10 +7848,9 @@ export default function App() {
             setFriendFamilyMap(ffMap);
             if (friendFamilyIds.length > 0) {
               const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-              const twoWeeksAgoStr = twoWeeksAgo.toISOString().slice(0, 10);
               const [{ data: fKids }, { data: fEntries }] = await Promise.all([
                 supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, family_id').in('family_id', friendFamilyIds),
-                supabase.from('entries').select('id, date, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('date', twoWeeksAgoStr).order('date', { ascending: false }),
+                supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }),
               ]);
               setFriendKids((fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id, familyId: k.family_id })));
               setFriendEntries((fEntries || []).filter(e => e.shared !== false).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
@@ -8247,7 +8247,7 @@ export default function App() {
     const promises = [supabase.from('entries').select('*, entry_media(*)').eq('family_id', familyId).order('date', { ascending: false })];
     if (friendFamilyIds.length > 0) {
       const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-      promises.push(supabase.from('entries').select('id, date, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('date', twoWeeksAgo.toISOString().slice(0, 10)).order('date', { ascending: false }));
+      promises.push(supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }));
     }
     const [{ data }, friendResult] = await Promise.all(promises);
     if (data) {
