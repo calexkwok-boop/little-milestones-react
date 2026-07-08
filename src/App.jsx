@@ -1184,6 +1184,28 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
     }
   }
 
+  // Fade audio out when reel ends (synced to freeze-frame duration)
+  useEffect(() => {
+    if (!ended) return;
+    const STEPS = 40;
+    const intervalMs = 2400 / STEPS;
+    let step = 0;
+    const startVol1 = audioRef.current?.volume ?? 1;
+    const startVol2 = audioRef2.current?.volume ?? 0;
+    const id = setInterval(() => {
+      step++;
+      const ratio = Math.max(0, 1 - step / STEPS);
+      if (audioRef.current) audioRef.current.volume = startVol1 * ratio;
+      if (audioRef2.current) audioRef2.current.volume = startVol2 * ratio;
+      if (step >= STEPS) {
+        clearInterval(id);
+        audioRef.current?.pause();
+        audioRef2.current?.pause();
+      }
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [ended]);
+
   // Count-up animation when stats card appears
   useEffect(() => {
     if (!showStats) return;
@@ -1436,12 +1458,6 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
             <div style={{ height: '100%', background: '#fff', borderRadius: 2, width: `${((index + slideProgress) / slides.length) * 100}%` }} />
           </div>
 
-          {song && (
-            <button onClick={togglePlay} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 20, padding: '8px 18px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Urbanist', sans-serif", alignSelf: 'center' }}>
-              <i className={`ti ${playing ? 'ti-player-pause' : 'ti-player-play'}`} style={{ fontSize: 15 }} />
-              {playing ? 'Pause' : 'Resume'}
-            </button>
-          )}
         </div>
       )}
 
