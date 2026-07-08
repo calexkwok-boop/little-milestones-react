@@ -327,16 +327,26 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   to   { opacity: 1; transform: translateY(0); }
 }
 .fade-up { animation: fadeUp 0.6s ease both; }
-/* Ken Burns variants */
-@keyframes kb1 { from { transform: scale(1);           } to { transform: scale(1.09); } }
-@keyframes kb2 { from { transform: scale(1.06) translateX(-2%); } to { transform: scale(1.0) translateX(2%); } }
-@keyframes kb3 { from { transform: scale(1.0) translate(2%, 1%); } to { transform: scale(1.09) translate(-1%, -1%); } }
-@keyframes kb4 { from { transform: scale(1.08) translateY(-2%); } to { transform: scale(1.0) translateY(1%); } }
+/* Ken Burns variants — subtle, reflective */
+@keyframes kb1 { from { transform: scale(1);             } to { transform: scale(1.04); } }
+@keyframes kb2 { from { transform: scale(1.03) translateX(-1%); } to { transform: scale(1.0) translateX(1%); } }
+@keyframes kb3 { from { transform: scale(1.0) translate(1%, 0.5%); } to { transform: scale(1.04) translate(-0.5%, -0.5%); } }
+@keyframes kb4 { from { transform: scale(1.03) translateY(-1%); } to { transform: scale(1.0) translateY(0.5%); } }
 /* Birthday reel intro */
 @keyframes introIn  { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes introOut { from { opacity: 1; } to { opacity: 0; } }
 /* Date caption per slide */
 @keyframes captionIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+/* Name shimmer on intro card */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+/* Stats avatar gold pulse */
+@keyframes avatarGlow {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(200,153,62,0.35), 0 0 14px rgba(200,153,62,0.12); }
+  50%       { box-shadow: 0 0 0 5px rgba(200,153,62,0.6),  0 0 24px rgba(200,153,62,0.3); }
+}
 /* Confetti float up */
 @keyframes confettiFloat {
   0%   { transform: translateY(0) rotate(0deg) scale(1);   opacity: 0.9; }

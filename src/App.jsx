@@ -1025,7 +1025,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-const SLIDESHOW_DURATION = 27500;
+const SLIDESHOW_DURATION = 50700;
 
 function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   const slides = useMemo(() => {
@@ -1043,7 +1043,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       const j = Math.floor(Math.random() * (i + 1));
       [result[i], result[j]] = [result[j], result[i]];
     }
-    return result.slice(0, 14);
+    return result.slice(0, 9);
   }, [entries, kid.id]);
 
   const slideInterval = slides.length > 0 ? Math.floor(SLIDESHOW_DURATION / slides.length) : SLIDESHOW_DURATION;
@@ -1065,13 +1065,18 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   const [countedStats, setCountedStats] = useState({ photos: 0, letters: 0, milestones: 0 });
   const [song, setSong] = useState(null);
   const [playing, setPlaying] = useState(false);
-  const [songQuery, setSongQuery] = useState('');
-  const [songResults, setSongResults] = useState([]);
-  const [songSearching, setSongSearching] = useState(false);
-  const [showSongPicker, setShowSongPicker] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
   const [introFading, setIntroFading] = useState(false);
+  const [slideshowPaused, setSlideshowPaused] = useState(false);
+  const [showPauseHint, setShowPauseHint] = useState(false);
+  const [slideResetKey, setSlideResetKey] = useState(0);
   const audioRef = useRef(null);
+  const audioRef2 = useRef(null);
+  const crossfadeTriggeredRef = useRef(false);
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
+  const [song2, setSong2] = useState(null);
+  const [showingSong2, setShowingSong2] = useState(false);
 
   const confettiParticles = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
     left: `${6 + (i * 37 + 13) % 84}%`,
@@ -1105,7 +1110,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
 
     async function loadDefault() {
       try {
-        const res = await fetch('https://itunes.apple.com/search?term=happy+birthday+to+you&entity=song&limit=10');
+        const res = await fetch('https://itunes.apple.com/search?term=photograph+ed+sheeran&entity=song&limit=10');
         const data = await res.json();
         const results = (data.results || []).filter(r => r.previewUrl);
         if (results.length > 0) {
@@ -1114,20 +1119,33 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
         }
       } catch {}
     }
+    async function loadSong2() {
+      try {
+        const res = await fetch('https://itunes.apple.com/search?term=what+a+wonderful+world&entity=song&limit=10');
+        const data = await res.json();
+        const results = (data.results || []).filter(r => r.previewUrl);
+        if (results.length > 0) {
+          const r = results[0];
+          setSong2({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100, previewUrl: r.previewUrl });
+        }
+      } catch {}
+    }
     loadDefault();
+    loadSong2();
   }, []);
 
   // Intro card: fade in, hold, fade out, then unmount
   useEffect(() => {
-    const t1 = setTimeout(() => setIntroFading(true), 1800);
-    const t2 = setTimeout(() => setShowIntro(false), 2500);
+    const t1 = setTimeout(() => setIntroFading(true), 4500);
+    const t2 = setTimeout(() => setShowIntro(false), 5300);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
   // Auto-advance slides, show stats card after last one
   useEffect(() => {
-    if (slides.length <= 1 || ended || showIntro) return;
+    if (slides.length <= 1 || ended || showIntro || slideshowPaused) return;
     const t = setInterval(() => {
+      try { navigator.vibrate?.(8); } catch {}
       setIndex(i => {
         if (i + 1 >= slides.length) {
           setEnded(true);
@@ -1138,7 +1156,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       });
     }, slideInterval);
     return () => clearInterval(t);
-  }, [slides.length, slideInterval, ended, showIntro]);
+  }, [slides.length, slideInterval, ended, showIntro, slideshowPaused, slideResetKey]);
 
   // Set src and autoplay when song loads
   useEffect(() => {
@@ -1180,32 +1198,70 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
     return () => clearInterval(t);
   }, [showStats, yearStats.photos, yearStats.letters, yearStats.milestones]);
 
-  // Song search
-  useEffect(() => {
-    const q = songQuery.trim();
-    if (q.length < 2) { setSongResults([]); return; }
-    const t = setTimeout(async () => {
-      setSongSearching(true);
-      try {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=8`);
-        const data = await res.json();
-        setSongResults((data.results || []).filter(r => r.previewUrl));
-      } catch {}
-      setSongSearching(false);
-    }, 500);
-    return () => clearTimeout(t);
-  }, [songQuery]);
+
+  function handleTapPause() {
+    const nowPaused = !slideshowPaused;
+    setSlideshowPaused(nowPaused);
+    if (nowPaused) {
+      audioRef.current?.pause();
+      audioRef2.current?.pause();
+    } else {
+      audioRef.current?.play().catch(() => {});
+      if (crossfadeTriggeredRef.current) audioRef2.current?.play().catch(() => {});
+    }
+    setShowPauseHint(true);
+    setTimeout(() => setShowPauseHint(false), 900);
+  }
+
+  function handleTouchStart(e) {
+    if (e.target.closest('button, input, a')) return;
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  }
+
+  function handleTouchEnd(e) {
+    if (touchStartX.current === null || e.target.closest('button, input, a')) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    touchStartX.current = null;
+    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+      setIndex(i => Math.max(0, Math.min(slides.length - 1, i + (dx < 0 ? 1 : -1))));
+      setSlideResetKey(k => k + 1);
+    } else if (Math.abs(dx) < 12 && Math.abs(dy) < 12) {
+      handleTapPause();
+    }
+  }
 
   function replay() {
     setIndex(0);
     setEnded(false);
     setShowStats(false);
     setCountedStats({ photos: 0, letters: 0, milestones: 0 });
+    crossfadeTriggeredRef.current = false;
+    setShowingSong2(false);
+    setSlideshowPaused(false);
+    setShowPauseHint(false);
+    setSlideResetKey(0);
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.volume = 1;
       audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
     }
+    if (audioRef2.current) {
+      audioRef2.current.pause();
+      audioRef2.current.src = '';
+      audioRef2.current.volume = 0;
+    }
+  }
+
+  function ageAtDate(birthdate, photoDate) {
+    const [by, bm, bd] = birthdate.split('-').map(Number);
+    const [py, pm, pd] = photoDate.split('-').map(Number);
+    let years = py - by, months = pm - bm, days = pd - bd;
+    if (days < 0) { months--; days += new Date(py, pm - 1, 0).getDate(); }
+    if (months < 0) { years--; months += 12; }
+    if (years < 0) return null;
+    return `${years}y ${months}m ${days}d`;
   }
 
   if (slides.length === 0) {
@@ -1219,14 +1275,14 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   }
 
   return (
-    <div style={{ position: 'absolute', inset: 0, background: '#000', zIndex: 100, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ position: 'absolute', inset: 0, background: '#000', zIndex: 100, display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {slides.map((s, i) => {
         const src = s.type === 'video'
           ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto')
           : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
         const kbAnim = `kb${(i % 4) + 1} ${slideInterval}ms ease-in-out forwards`;
         return (
-          <div key={i} style={{ position: 'absolute', inset: 0, opacity: i === index ? 1 : 0, transition: 'opacity 0.8s ease' }}>
+          <div key={i} style={{ position: 'absolute', inset: 0, opacity: !showIntro && i === index ? 1 : 0, transition: 'opacity 1.4s ease' }}>
             {/* Blurred background fill */}
             <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
             {/* Full photo with Ken Burns when active */}
@@ -1235,11 +1291,16 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
         );
       })}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 28%, transparent 55%, rgba(0,0,0,0.75) 100%)' }} />
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", opacity: 0.06 }} />
+      {/* Pause/play hint */}
+      {showPauseHint && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8, pointerEvents: 'none' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'introOut 0.9s ease forwards' }}>
+            <i className={`ti ${slideshowPaused ? 'ti-player-pause' : 'ti-player-play'}`} style={{ fontSize: 26, color: '#fff' }} />
+          </div>
+        </div>
+      )}
 
-      {/* Progress bar */}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, zIndex: 5, background: 'rgba(255,255,255,0.12)' }}>
-        <div style={{ height: '100%', background: 'rgba(255,255,255,0.65)', width: `${((index + 1) / slides.length) * 100}%`, transition: `width ${slideInterval}ms linear` }} />
-      </div>
 
       {/* Top bar — branding + actions */}
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 0' }}>
@@ -1258,14 +1319,14 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
             <div key={i} style={{ position: 'absolute', left: p.left, bottom: p.bottom, width: p.size, height: p.size, borderRadius: '50%', background: p.color, animation: `confettiFloat ${p.dur} ease-out ${p.delay} both`, pointerEvents: 'none' }} />
           ))}
           {/* Kid avatar */}
-          <div className="fade-up" style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', marginBottom: 20, border: '2px solid rgba(200,153,62,0.5)', flexShrink: 0, background: kid.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', animationDelay: '0ms' }}>
+          <div className="fade-up" style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', marginBottom: 20, flexShrink: 0, background: kid.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', animationDelay: '0ms', animation: 'fadeUp 0.6s ease both 0ms, avatarGlow 2.2s ease-in-out 0.6s infinite' }}>
             {kid.avatar
               ? <img src={kid.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
               : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 28, color: '#fff' }}>{kid.name?.charAt(0)}</span>
             }
           </div>
           <p className="fade-up" style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'rgba(255,255,255,0.45)', margin: '0 0 36px', textAlign: 'center', lineHeight: 1.7, animationDelay: '120ms' }}>
-            "Day by day nothing changes, but when we look back everything is different."
+            They might not always show it, but they're so lucky to have you.
           </p>
           <p className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 28px', textAlign: 'center', lineHeight: 1.2, animationDelay: '260ms' }}>
             Happy {ordinal(age)} birthday to {kid.name}.
@@ -1284,12 +1345,12 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
               </div>
             ))}
           </div>
-          <button className="fade-up" onClick={replay} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.8, textTransform: 'uppercase', padding: 0, animationDelay: '700ms' }}>
+          <button className="fade-up" onClick={replay} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 999, color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.8, textTransform: 'uppercase', padding: '10px 24px', animationDelay: '700ms' }}>
             Watch again
           </button>
-          <div style={{ position: 'absolute', bottom: 32, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <img src="/quill-no-background.png" style={{ width: 15, height: 15, objectFit: 'contain', opacity: 0.35 }} alt="" />
-            <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 12, color: 'rgba(255,255,255,0.3)', letterSpacing: 0.5 }}>Patina</span>
+          <div style={{ position: 'absolute', bottom: 28, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <img src="/quill-no-background.png" style={{ width: 15, height: 15, objectFit: 'contain', opacity: 0.25 }} alt="" />
+            <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 12, color: 'rgba(255,255,255,0.25)', letterSpacing: 0.5 }}>Patina</span>
           </div>
         </div>
       )}
@@ -1300,18 +1361,19 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
           <div style={{ textAlign: 'center' }}>
             {slides[index]?.date && (
               <p key={index} style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', margin: '0 0 10px', letterSpacing: 1, textTransform: 'uppercase', animation: 'captionIn 0.5s ease forwards' }}>
-                {new Date(slides[index].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                {(() => {
+                  const a = ageAtDate(kid.birthdate, slides[index].date);
+                  const my = new Date(slides[index].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                  return a ? `${a} · ${my}` : my;
+                })()}
               </p>
             )}
-            <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 4px', textShadow: '0 2px 12px rgba(0,0,0,0.6)', lineHeight: 1.25 }}>
-              Happy {ordinal(age)} birthday to {kid.name}!
-            </p>
-            {song && (
+            {(song || song2) && (() => { const s = showingSong2 && song2 ? song2 : song; return s ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: 8 }}>
-                <img src={song.artworkUrl} style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0 }} alt="" />
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{song.name} — {song.artist}</p>
+                <img src={s.artworkUrl} style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0 }} alt="" />
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{s.name} — {s.artist}</p>
               </div>
-            )}
+            ) : null; })()}
           </div>
 
           {/* Progress bar */}
@@ -1319,45 +1381,22 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
             <div style={{ height: '100%', background: '#fff', borderRadius: 2, width: `${((index + 1) / slides.length) * 100}%`, transition: `width ${slideInterval}ms linear` }} />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-            {song ? (
-              <button onClick={togglePlay} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 20, padding: '8px 18px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Urbanist', sans-serif" }}>
-                <i className={`ti ${playing ? 'ti-player-pause' : 'ti-player-play'}`} style={{ fontSize: 15 }} />
-                {playing ? 'Pause' : 'Resume'}
-              </button>
-            ) : (
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: 0, fontFamily: "'Urbanist', sans-serif" }}>Loading…</p>
-            )}
-            <button onClick={() => setShowSongPicker(v => !v)} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', fontSize: 15, flexShrink: 0 }}>
-              <i className="ti ti-music" />
+          {song && (
+            <button onClick={togglePlay} style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 20, padding: '8px 18px', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'Urbanist', sans-serif", alignSelf: 'center' }}>
+              <i className={`ti ${playing ? 'ti-player-pause' : 'ti-player-play'}`} style={{ fontSize: 15 }} />
+              {playing ? 'Pause' : 'Resume'}
             </button>
-          </div>
-
-          {showSongPicker && (
-            <div style={{ background: 'rgba(10,10,10,0.88)', borderRadius: 14, padding: '12px 12px 4px', backdropFilter: 'blur(16px)', maxHeight: 220, overflowY: 'auto' }}>
-              <input value={songQuery} onChange={e => setSongQuery(e.target.value)} placeholder="Search for a song…" autoFocus style={{ width: '100%', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.18)', borderRadius: 8, padding: '8px 10px', color: '#fff', fontSize: 14, outline: 'none', fontFamily: "'Urbanist', sans-serif", marginBottom: 8 }} />
-              {songSearching && <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, margin: '8px 0', textAlign: 'center' }}>Searching…</p>}
-              {songResults.map(r => (
-                <button key={r.trackId} onClick={() => { setSong({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100, previewUrl: r.previewUrl }); setShowSongPicker(false); setSongQuery(''); setSongResults([]); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '7px 0', color: '#fff', textAlign: 'left', fontFamily: "'Urbanist', sans-serif" }}>
-                  <img src={r.artworkUrl100} style={{ width: 36, height: 36, borderRadius: 4, flexShrink: 0 }} alt="" />
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.trackName}</p>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', margin: 0 }}>{r.artistName}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
           )}
         </div>
       )}
 
       {/* Opening title card */}
       {showIntro && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 9, background: 'rgba(22,17,12,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', animation: introFading ? 'introOut 0.7s ease forwards' : 'introIn 0.8s ease forwards' }}>
+        <div style={{ position: 'absolute', inset: 0, zIndex: 9, background: 'rgba(38,58,44,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', animation: introFading ? 'introOut 0.7s ease forwards' : 'introIn 0.8s ease forwards' }}>
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'rgba(200,153,62,0.75)', margin: '0 0 16px', letterSpacing: 0.5 }}>
             {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 56, fontWeight: 700, color: '#fff', margin: 0, lineHeight: 1, textAlign: 'center', padding: '0 24px' }}>
+          <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 56, fontWeight: 700, margin: 0, lineHeight: 1, textAlign: 'center', padding: '0 24px', background: 'linear-gradient(90deg, #fff 20%, rgba(200,153,62,0.95) 50%, #fff 80%)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'shimmer 2.8s linear infinite' }}>
             {kid.name}
           </p>
           <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 15, fontWeight: 500, color: 'rgba(255,255,255,0.45)', margin: '18px 0 0', letterSpacing: 2, textTransform: 'uppercase' }}>
@@ -1367,14 +1406,34 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       )}
 
       <audio
+        ref={audioRef2}
+        onTimeUpdate={() => {
+          const a2 = audioRef2.current;
+          if (!a2 || !a2.duration) return;
+          const remaining = a2.duration - a2.currentTime;
+          if (remaining <= 3) a2.volume = Math.max(0, remaining / 3);
+        }}
+      />
+      <audio
         ref={audioRef}
         onPlay={() => { if (audioRef.current) audioRef.current.volume = 1; setPlaying(true); }}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
         onTimeUpdate={() => {
           const a = audioRef.current;
+          const a2 = audioRef2.current;
           if (!a || !a.duration) return;
           const remaining = a.duration - a.currentTime;
+          if (remaining <= 4 && !crossfadeTriggeredRef.current && a2 && song2) {
+            crossfadeTriggeredRef.current = true;
+            setShowingSong2(true);
+            a2.src = song2.previewUrl;
+            a2.volume = 0;
+            a2.play().catch(() => {});
+          }
+          if (crossfadeTriggeredRef.current && a2) {
+            a2.volume = Math.min(1, Math.max(0, 1 - remaining / 4));
+          }
           if (remaining <= 3) a.volume = Math.max(0, remaining / 3);
         }}
       />
