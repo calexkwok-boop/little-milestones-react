@@ -1025,7 +1025,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-const SLIDESHOW_DURATION = 30000;
+const SLIDESHOW_DURATION = 27500;
 
 function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   const slides = useMemo(() => {
@@ -1043,7 +1043,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       const j = Math.floor(Math.random() * (i + 1));
       [result[i], result[j]] = [result[j], result[i]];
     }
-    return result.slice(0, 15);
+    return result.slice(0, 14);
   }, [entries, kid.id]);
 
   const slideInterval = slides.length > 0 ? Math.floor(SLIDESHOW_DURATION / slides.length) : SLIDESHOW_DURATION;
@@ -1244,9 +1244,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       {/* Top bar — branding + actions */}
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 0' }}>
         {/* Patina branding */}
-        <div style={{ background: '#4A5E50', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <img src="/quill-no-background.png" style={{ width: 20, height: 20, objectFit: 'contain' }} alt="" />
-        </div>
+        <div />
         <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
           <i className="ti ti-x" />
         </button>
