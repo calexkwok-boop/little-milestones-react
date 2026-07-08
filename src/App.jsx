@@ -1030,12 +1030,15 @@ const SLIDESHOW_DURATION = 50700;
 function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   const slides = useMemo(() => {
     const result = [];
+    const seen = new Set();
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     for (const e of entries) {
       if (!e.kids.includes(kid.id) || !e.media?.length) continue;
       if (new Date(e.date + 'T12:00:00') < oneYearAgo) continue;
       for (const m of e.media) {
+        if (seen.has(m.url)) continue;
+        seen.add(m.url);
         result.push({ url: m.url, type: m.type, date: e.date, cropY: e.cropY ?? 50 });
       }
     }
@@ -1494,7 +1497,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
           const a2 = audioRef2.current;
           if (!a || !a.duration) return;
           const remaining = a.duration - a.currentTime;
-          if (remaining <= 4 && !crossfadeTriggeredRef.current && a2 && song2) {
+          if (remaining <= 1 && !crossfadeTriggeredRef.current && a2 && song2) {
             crossfadeTriggeredRef.current = true;
             setShowingSong2(true);
             a2.src = song2.previewUrl;
@@ -1502,9 +1505,9 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
             a2.play().catch(() => {});
           }
           if (crossfadeTriggeredRef.current && a2) {
-            a2.volume = Math.min(1, Math.max(0, 1 - remaining / 4));
+            a2.volume = Math.min(1, Math.max(0, 1 - remaining));
           }
-          if (remaining <= 3) a.volume = Math.max(0, remaining / 3);
+          if (remaining <= 1) a.volume = Math.max(0, remaining);
         }}
       />
     </div>
