@@ -1881,11 +1881,8 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, margin: '0 0 6px', color: '#C8993E' }}>
                 Happy {ordinal(turningAge(k.birthdate))} birthday to {k.name}
               </p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 2px', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
                 "The days are long, but the years are short."
-              </p>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)', margin: 0, fontFamily: "'Urbanist', sans-serif" }}>
-                You're making the most of them.
               </p>
             </div>
           ))}
