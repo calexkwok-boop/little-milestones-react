@@ -1218,7 +1218,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 28%, transparent 55%, rgba(0,0,0,0.75) 100%)' }} />
 
       {/* Top bar — branding + actions */}
-      <div style={{ position: 'relative', zIndex: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 0' }}>
+      <div style={{ position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 0' }}>
         {/* Patina branding */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#4A5E50', borderRadius: 999, padding: '5px 12px 5px 6px' }}>
           <img src="/quill-no-background.png" style={{ width: 20, height: 20, objectFit: 'contain' }} alt="" />
