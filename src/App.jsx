@@ -1185,22 +1185,23 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
     }
   }
 
-  // Fade audio out when reel ends (synced to freeze-frame duration)
+  // Begin fading audio as the last slide appears — long gradual fade over the full slide duration
   useEffect(() => {
-    if (!ended) return;
+    if (index !== slides.length - 1 || slides.length <= 1 || showIntro || ended) return;
     endingRef.current = true;
-    const STEPS = 48;
-    const intervalMs = 2400 / STEPS;
+    const fadeDuration = slideInterval + 2400; // slide duration + freeze-frame
+    const STEPS = 60;
+    const intervalMs = fadeDuration / STEPS;
     let step = 0;
     const a1 = audioRef.current;
     const a2 = audioRef2.current;
-    const startVol1 = a1?.volume ?? 0;
-    const startVol2 = a2?.volume ?? 1;
+    const vol1 = (a1 && !a1.ended) ? a1.volume : 0;
+    const vol2 = (a2 && !a2.ended) ? (a2.volume || 1) : 0;
     const id = setInterval(() => {
       step++;
       const ratio = Math.max(0, 1 - step / STEPS);
-      if (a1 && !a1.ended) a1.volume = startVol1 * ratio;
-      if (a2 && !a2.ended) a2.volume = startVol2 * ratio;
+      if (a1 && !a1.ended) a1.volume = vol1 * ratio;
+      if (a2 && !a2.ended) a2.volume = vol2 * ratio;
       if (step >= STEPS) {
         clearInterval(id);
         a1?.pause();
@@ -1208,7 +1209,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       }
     }, intervalMs);
     return () => clearInterval(id);
-  }, [ended]);
+  }, [index, slides.length, showIntro, ended, slideInterval]);
 
   // Count-up animation when stats card appears
   useEffect(() => {
@@ -1480,16 +1481,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
         </div>
       )}
 
-      <audio
-        ref={audioRef2}
-        onTimeUpdate={() => {
-          if (endingRef.current) return;
-          const a2 = audioRef2.current;
-          if (!a2 || !a2.duration) return;
-          const remaining = a2.duration - a2.currentTime;
-          if (remaining <= 3) a2.volume = Math.max(0, remaining / 3);
-        }}
-      />
+      <audio ref={audioRef2} />
       <audio
         ref={audioRef}
         onPlay={() => { if (audioRef.current) audioRef.current.volume = 1; setPlaying(true); }}
