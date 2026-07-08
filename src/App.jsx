@@ -1077,6 +1077,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   const touchStartY = useRef(null);
   const [song2, setSong2] = useState(null);
   const [showingSong2, setShowingSong2] = useState(false);
+  const [slideProgress, setSlideProgress] = useState(0);
+  const slideElapsedMsRef = useRef(0);
 
   const confettiParticles = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
     left: `${6 + (i * 37 + 13) % 84}%`,
@@ -1198,6 +1200,25 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
     return () => clearInterval(t);
   }, [showStats, yearStats.photos, yearStats.letters, yearStats.milestones]);
 
+
+  // Reset progress bar when slide changes
+  useEffect(() => {
+    slideElapsedMsRef.current = 0;
+    setSlideProgress(0);
+  }, [index, slideResetKey]);
+
+  // Drive progress bar (pauses correctly with slideshowPaused)
+  useEffect(() => {
+    if (ended || showIntro || slideshowPaused) return;
+    const startTime = Date.now();
+    const baseElapsed = slideElapsedMsRef.current;
+    const id = setInterval(() => {
+      const total = baseElapsed + (Date.now() - startTime);
+      slideElapsedMsRef.current = total;
+      setSlideProgress(Math.min(1, total / slideInterval));
+    }, 50);
+    return () => clearInterval(id);
+  }, [index, slideResetKey, ended, showIntro, slideshowPaused, slideInterval]);
 
   function handleTapPause() {
     const nowPaused = !slideshowPaused;
@@ -1379,7 +1400,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
 
           {/* Progress bar */}
           <div style={{ height: 3, background: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', background: '#fff', borderRadius: 2, width: `${((index + 1) / slides.length) * 100}%`, transition: `width ${slideInterval}ms linear` }} />
+            <div style={{ height: '100%', background: '#fff', borderRadius: 2, width: `${((index + slideProgress) / slides.length) * 100}%` }} />
           </div>
 
           {song && (
@@ -1808,11 +1829,11 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
                   : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 22, color: '#fff' }}>{k.name?.charAt(0)}</span>
                 }
               </div>
-              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, margin: '0 0 6px', background: 'linear-gradient(90deg, #fff 20%, rgba(200,153,62,0.95) 50%, #fff 80%)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'shimmer 2.8s linear infinite' }}>
-                Happy {ordinal(turningAge(k.birthdate))} birthday to {k.name}!
+              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, fontWeight: 700, margin: '0 0 6px', color: '#C8993E' }}>
+                Happy {ordinal(turningAge(k.birthdate))} birthday to {k.name}
               </p>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
-                A year of moments, waiting for you.
+                "The days are long, the years are short."
               </p>
             </div>
           ))}
@@ -9135,11 +9156,14 @@ export default function App() {
       {monthlyRecap && (
         <div style={{ position: 'absolute', inset: 0, background: '#1E2A1E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 32px' }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px' }}>{monthlyRecap.label}</p>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#fff', textAlign: 'center', margin: '0 0 10px', lineHeight: 1.25 }}>
-            The days are long, but the years are short.
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#fff', textAlign: 'center', margin: '0 0 6px', lineHeight: 1.25 }}>
+            "Isn't it funny how day by day nothing changes, but when you look back, everything is different."
           </h1>
+          <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.3)', textAlign: 'center', margin: '0 0 32px', letterSpacing: 0.5 }}>
+            — C.S. Lewis
+          </p>
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'rgba(255,255,255,0.5)', textAlign: 'center', margin: '0 0 40px', lineHeight: 1.6 }}>
-            They're lucky to have you.
+            They're so lucky to have you.
           </p>
 
           <div style={{ display: 'flex', gap: 12, width: '100%', marginBottom: 40 }}>
