@@ -1044,7 +1044,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       [result[i], result[j]] = [result[j], result[i]];
     }
     // TEST VIDEO — remove after testing
-    result.unshift({ url: 'https://res.cloudinary.com/demo/video/upload/dog.mp4', type: 'video', date: new Date().toISOString().slice(0, 10), cropY: 50 });
+    const testVideo = entries.flatMap(e => (e.kids.includes(kid.id) ? (e.media || []).filter(m => m.type === 'video').map(m => ({ url: m.url, type: 'video', date: e.date, cropY: e.cropY ?? 50 })) : [])).sort((a, b) => a.date.localeCompare(b.date))[0];
+    if (testVideo) result.unshift(testVideo);
     return result.slice(0, 9);
   }, [entries, kid.id]);
 
