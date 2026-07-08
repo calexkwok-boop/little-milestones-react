@@ -1043,6 +1043,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       const j = Math.floor(Math.random() * (i + 1));
       [result[i], result[j]] = [result[j], result[i]];
     }
+    // TEST VIDEO — remove after testing
+    result.unshift({ url: 'https://res.cloudinary.com/demo/video/upload/dog.mp4', type: 'video', date: new Date().toISOString().slice(0, 10), cropY: 50 });
     return result.slice(0, 9);
   }, [entries, kid.id]);
 
@@ -1079,6 +1081,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   const [showingSong2, setShowingSong2] = useState(false);
   const [slideProgress, setSlideProgress] = useState(0);
   const slideElapsedMsRef = useRef(0);
+  const [freezeFrame, setFreezeFrame] = useState(false);
+  const videoRefs = useRef({});
 
   const confettiParticles = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
     left: `${6 + (i * 37 + 13) % 84}%`,
@@ -1151,7 +1155,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       setIndex(i => {
         if (i + 1 >= slides.length) {
           setEnded(true);
-          setTimeout(() => setShowStats(true), 600);
+          setFreezeFrame(true);
+          setTimeout(() => { setFreezeFrame(false); setShowStats(true); }, 2400);
           return i;
         }
         return i + 1;
@@ -1200,6 +1205,19 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
     return () => clearInterval(t);
   }, [showStats, yearStats.photos, yearStats.letters, yearStats.milestones]);
 
+
+  // Control video playback for active slide
+  useEffect(() => {
+    Object.entries(videoRefs.current).forEach(([idx, el]) => {
+      if (parseInt(idx) === index && !showIntro) {
+        if (slideshowPaused) el.pause();
+        else el.play().catch(() => {});
+      } else {
+        el.pause();
+        el.currentTime = 0;
+      }
+    });
+  }, [index, slideshowPaused, showIntro]);
 
   // Reset progress bar when slide changes
   useEffect(() => {
@@ -1299,19 +1317,34 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#000', zIndex: 100, display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {slides.map((s, i) => {
-        const src = s.type === 'video'
-          ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto')
-          : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
+        const isVideo = s.type === 'video';
+        const thumbSrc = videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto');
+        const imgSrc = cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
+        const bgSrc = isVideo ? thumbSrc : imgSrc;
         const kbAnim = `kb${(i % 4) + 1} ${slideInterval}ms ease-in-out forwards`;
+        const isActive = !showIntro && i === index;
         return (
-          <div key={i} style={{ position: 'absolute', inset: 0, opacity: !showIntro && i === index ? 1 : 0, transition: 'opacity 1.4s ease' }}>
+          <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 1.4s ease' }}>
             {/* Blurred background fill */}
-            <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
-            {/* Full photo with Ken Burns when active */}
-            <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${src}')`, backgroundSize: 'contain', backgroundPosition: 'center 38%', backgroundRepeat: 'no-repeat', animation: i === index ? kbAnim : 'none' }} />
+            <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${bgSrc}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
+            {isVideo ? (
+              <video
+                ref={el => { if (el) videoRefs.current[i] = el; else delete videoRefs.current[i]; }}
+                src={s.url}
+                muted
+                playsInline
+                loop
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            ) : (
+              <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${imgSrc}')`, backgroundSize: 'contain', backgroundPosition: 'center 38%', backgroundRepeat: 'no-repeat', animation: i === index ? kbAnim : 'none' }} />
+            )}
           </div>
         );
       })}
+      {freezeFrame && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none', animation: 'freezeIn 2.4s ease forwards' }} />
+      )}
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 28%, transparent 55%, rgba(0,0,0,0.75) 100%)' }} />
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", opacity: 0.06 }} />
       {/* Pause/play hint */}
