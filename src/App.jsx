@@ -1206,8 +1206,9 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       audioRef.current?.pause();
       audioRef2.current?.pause();
     } else {
-      audioRef.current?.play().catch(() => {});
-      if (crossfadeTriggeredRef.current) audioRef2.current?.play().catch(() => {});
+      const a = audioRef.current;
+      if (a && !a.ended) a.play().catch(() => {});
+      if (crossfadeTriggeredRef.current && audioRef2.current) audioRef2.current.play().catch(() => {});
     }
     setShowPauseHint(true);
     setTimeout(() => setShowPauseHint(false), 900);
@@ -1692,7 +1693,7 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
       </div>
-      <button className="icon-btn" onClick={onSearch}><i className="ti ti-search" /></button>
+      <button className="icon-btn" onClick={onSeeAll}><i className="ti ti-layout-list" /></button>
     </div>
   );
 
