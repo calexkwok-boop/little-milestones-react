@@ -1900,9 +1900,8 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.55)', margin: '0 0 14px', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
                 "The days are long, but the years are short."
               </p>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(200,153,62,0.15)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 999, padding: '5px 12px' }}>
-                <i className="ti ti-player-play-filled" style={{ fontSize: 10, color: '#C8993E' }} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#C8993E', fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.5 }}>Watch reel</span>
+              <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(200,153,62,0.15)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: '50%', width: 32, height: 32 }}>
+                <i className="ti ti-player-play-filled" style={{ fontSize: 13, color: '#C8993E' }} />
               </div>
             </div>
           ))}
