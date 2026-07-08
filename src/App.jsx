@@ -2956,7 +2956,9 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const [previewMedia, setPreviewMedia] = useState(null);
   const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
-  const [showExtras, setShowExtras] = useState(true);
+  const [showExtras, setShowExtras] = useState(
+    !!(existingEntry?.mood || existingEntry?.milestone || existingEntry?.song || existingEntry?.people?.length)
+  );
   const [showKidPicker, setShowKidPicker] = useState(false);
   const [showMediaMenu, setShowMediaMenu] = useState(false);
   const [editingDate, setEditingDate] = useState(false);
@@ -3282,47 +3284,11 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
     <div className="screen" style={{ background: 'var(--bg-card)', position: 'relative' }}>
 
       {/* Top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px', flexShrink: 0, position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <button className="icon-btn" onClick={onCancel}><i className="ti ti-x" /></button>
-          <div style={{ position: 'relative' }}>
-            {showMediaMenu && (
-              <>
-                <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setShowMediaMenu(false)} />
-                <div style={{ position: 'absolute', top: 'calc(100% + 6px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', minWidth: 210, zIndex: 10 }}>
-                  <button onClick={() => { cameraInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500 }}>
-                    <i className="ti ti-camera" style={{ fontSize: 17, color: 'var(--accent)' }} />
-                    Take a photo
-                  </button>
-                  <div style={{ height: 1, background: 'var(--border)' }} />
-                  <button onClick={() => { uploadInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500 }}>
-                    <i className="ti ti-photo" style={{ fontSize: 17, color: 'var(--accent)' }} />
-                    Upload from library
-                  </button>
-                </div>
-              </>
-            )}
-            <button onClick={() => setShowMediaMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showMediaMenu ? 'var(--accent)' : 'var(--text-muted)', fontSize: 20, borderRadius: 10 }}>
-              <i className="ti ti-camera" />
-            </button>
-          </div>
-          <button onClick={() => setShowSharePicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 38, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, color: Object.values(sharedWith).some(Boolean) ? 'var(--accent)' : 'var(--text-muted)', borderRadius: 10, padding: '4px 0' }}>
-            <i className={`ti ${Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'}`} style={{ fontSize: 18 }} />
-            <span style={{ fontSize: 9, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.2, lineHeight: 1 }}>
-              {sharedWith.partner && sharedWith.friends ? 'All' : sharedWith.partner ? 'Partner' : 'Private'}
-            </span>
-          </button>
-          <button onClick={() => setShowExtras(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showExtras ? 'var(--accent)' : 'var(--text-muted)', fontSize: 20, borderRadius: 10 }}>
-            <i className="ti ti-dots" />
-          </button>
-        </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px', flexShrink: 0 }}>
+        <button className="icon-btn" onClick={onCancel}><i className="ti ti-x" /></button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {existingEntry && onDelete && (
-            <button
-              className="icon-btn"
-              onClick={() => setShowDeleteConfirm(true)}
-              style={{ color: '#D4856A', borderColor: '#F2C4B8' }}
-            >
+            <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)} style={{ color: '#D4856A', borderColor: '#F2C4B8' }}>
               <i className="ti ti-trash" />
             </button>
           )}
@@ -3435,7 +3401,8 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
           </div>
         )}
 
-        {/* Big mic button */}
+
+        {/* Tap to speak */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
           <button
             onClick={toggleListening}
@@ -3469,29 +3436,6 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
           }}
         />
 
-        {/* AI buttons */}
-        <div style={{ display: 'flex', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-          {selectedKids.length > 0 && (
-            <button
-              onClick={handleGenerate}
-              disabled={generating || polishing}
-              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: generating ? 'var(--border-light)' : 'var(--accent)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, cursor: generating ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <i className="ti ti-sparkles" style={{ fontSize: 14, animation: generating ? 'spin 1s linear infinite' : 'none' }} />
-              {generating ? 'Writing…' : 'Write for me'}
-            </button>
-          )}
-          {text.trim().length > 0 && (
-            <button
-              onClick={handlePolish}
-              disabled={polishing || generating}
-              style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 10, padding: '8px 14px', fontSize: 13, color: polishing ? 'var(--border-light)' : 'var(--accent)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, cursor: polishing ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <i className="ti ti-writing" style={{ fontSize: 14, animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
-              {polishing ? 'Fixing…' : 'Fix grammar'}
-            </button>
-          )}
-        </div>
 
         {/* Sign-off */}
         {signedDefault && (
@@ -3687,6 +3631,59 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
 
           </div>
         )}
+      </div>
+
+      {/* Bottom toolbar */}
+      <div style={{ flexShrink: 0, borderTop: '1px solid var(--border-light)', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', padding: '6px 8px', paddingBottom: 'max(6px, env(safe-area-inset-bottom))', gap: 0 }}>
+        {/* Camera */}
+        <div style={{ position: 'relative' }}>
+          {showMediaMenu && (
+            <>
+              <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setShowMediaMenu(false)} />
+              <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 -4px 20px rgba(0,0,0,0.1)', minWidth: 210, zIndex: 10 }}>
+                <button onClick={() => { cameraInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500 }}>
+                  <i className="ti ti-camera" style={{ fontSize: 17, color: 'var(--accent)' }} /> Take a photo
+                </button>
+                <div style={{ height: 1, background: 'var(--border)' }} />
+                <button onClick={() => { uploadInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500 }}>
+                  <i className="ti ti-photo" style={{ fontSize: 17, color: 'var(--accent)' }} /> Upload from library
+                </button>
+              </div>
+            </>
+          )}
+          <button onClick={() => setShowMediaMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showMediaMenu ? 'var(--accent)' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
+            <i className="ti ti-camera" />
+          </button>
+        </div>
+        {/* Mic */}
+        <button onClick={toggleListening} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: listening ? '#F0897A' : 'var(--text-muted)', fontSize: 22, borderRadius: 10, animation: listening ? 'mic-pulse 1.5s ease-in-out infinite' : 'none' }}>
+          <i className="ti ti-microphone" />
+        </button>
+        {/* Write for me */}
+        {selectedKids.length > 0 && (
+          <button onClick={handleGenerate} disabled={generating || polishing} style={{ background: 'none', border: 'none', cursor: generating ? 'default' : 'pointer', height: 44, display: 'flex', alignItems: 'center', gap: 5, padding: '0 10px', color: generating ? 'var(--border)' : 'var(--accent)', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", borderRadius: 10 }}>
+            <i className="ti ti-sparkles" style={{ fontSize: 15, animation: generating ? 'spin 1s linear infinite' : 'none' }} />
+            {generating ? 'Writing…' : 'Write for me'}
+          </button>
+        )}
+        {/* Fix grammar */}
+        {text.trim().length > 0 && !generating && (
+          <button onClick={handlePolish} disabled={polishing} style={{ background: 'none', border: 'none', cursor: polishing ? 'default' : 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: polishing ? 'var(--border)' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
+            <i className="ti ti-writing" style={{ animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
+          </button>
+        )}
+        <div style={{ flex: 1 }} />
+        {/* Sharing */}
+        <button onClick={() => setShowSharePicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, color: Object.values(sharedWith).some(Boolean) ? 'var(--accent)' : 'var(--text-muted)', borderRadius: 10 }}>
+          <i className={`ti ${Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'}`} style={{ fontSize: 18 }} />
+          <span style={{ fontSize: 9, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.2, lineHeight: 1 }}>
+            {sharedWith.partner && sharedWith.friends ? 'All' : sharedWith.partner ? 'Partner' : 'Private'}
+          </span>
+        </button>
+        {/* More */}
+        <button onClick={() => setShowExtras(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showExtras ? 'var(--accent)' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
+          <i className="ti ti-dots" />
+        </button>
       </div>
 
       {/* Song picker sheet */}
