@@ -1083,6 +1083,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   const slideElapsedMsRef = useRef(0);
   const [freezeFrame, setFreezeFrame] = useState(false);
   const videoRefs = useRef({});
+  const endingRef = useRef(false);
 
   const confettiParticles = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
     left: `${6 + (i * 37 + 13) % 84}%`,
@@ -1187,20 +1188,23 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
   // Fade audio out when reel ends (synced to freeze-frame duration)
   useEffect(() => {
     if (!ended) return;
-    const STEPS = 40;
+    endingRef.current = true;
+    const STEPS = 48;
     const intervalMs = 2400 / STEPS;
     let step = 0;
-    const startVol1 = audioRef.current?.volume ?? 1;
-    const startVol2 = audioRef2.current?.volume ?? 0;
+    const a1 = audioRef.current;
+    const a2 = audioRef2.current;
+    const startVol1 = a1?.volume ?? 0;
+    const startVol2 = a2?.volume ?? 1;
     const id = setInterval(() => {
       step++;
       const ratio = Math.max(0, 1 - step / STEPS);
-      if (audioRef.current) audioRef.current.volume = startVol1 * ratio;
-      if (audioRef2.current) audioRef2.current.volume = startVol2 * ratio;
+      if (a1 && !a1.ended) a1.volume = startVol1 * ratio;
+      if (a2 && !a2.ended) a2.volume = startVol2 * ratio;
       if (step >= STEPS) {
         clearInterval(id);
-        audioRef.current?.pause();
-        audioRef2.current?.pause();
+        a1?.pause();
+        a2?.pause();
       }
     }, intervalMs);
     return () => clearInterval(id);
@@ -1300,6 +1304,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
     setShowStats(false);
     setCountedStats({ photos: 0, letters: 0, milestones: 0 });
     crossfadeTriggeredRef.current = false;
+    endingRef.current = false;
     setShowingSong2(false);
     setSlideshowPaused(false);
     setShowPauseHint(false);
@@ -1355,7 +1360,6 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
                 src={s.url}
                 muted
                 playsInline
-                loop
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
               />
             ) : (
@@ -1479,6 +1483,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       <audio
         ref={audioRef2}
         onTimeUpdate={() => {
+          if (endingRef.current) return;
           const a2 = audioRef2.current;
           if (!a2 || !a2.duration) return;
           const remaining = a2.duration - a2.currentTime;
@@ -1491,6 +1496,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
         onTimeUpdate={() => {
+          if (endingRef.current) return;
           const a = audioRef.current;
           const a2 = audioRef2.current;
           if (!a || !a.duration) return;
