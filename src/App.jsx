@@ -1062,7 +1062,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
     }
     // TEST VIDEO — remove after testing
     const testVideo = entries.flatMap(e => (e.kids.includes(kid.id) ? (e.media || []).filter(m => m.type === 'video').map(m => ({ url: m.url, type: 'video', date: e.date, cropY: e.cropY ?? 50 })) : [])).sort((a, b) => a.date.localeCompare(b.date))[0];
-    if (testVideo) result.unshift(testVideo);
+    if (testVideo && !seen.has(testVideo.url)) result.unshift(testVideo);
     return result.slice(0, 9);
   }, [entries, kid.id]);
 
