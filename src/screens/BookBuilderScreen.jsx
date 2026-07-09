@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import KidThumb from '../KidThumb.jsx';
 import { TODAY } from '../constants.js';
 
-export default function BookBuilderScreen({ kids = [], entries = [], familyMembers = [], myDisplayName, onBack, onPreview }) {
+export default function BookBuilderScreen({ kids = [], entries = [], familyMembers = [], myDisplayName, darkMode, onBack, onPreview }) {
   const [selectedKids, setSelectedKids] = useState(() => kids.map(k => k.id));
   const [rangeMode, setRangeMode] = useState('all');
   const [customFrom, setCustomFrom] = useState('');
@@ -65,7 +65,7 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
 
   const canPreview = selectedKids.length > 0 && textEntries.length > 0;
   const sectionLabel = { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.2, textTransform: 'uppercase', margin: '0 0 10px' };
-  const chipBtn = (selected) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--bg-elevated)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s' });
+  const chipBtn = (selected) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: `2px solid ${selected ? 'var(--accent)' : darkMode ? 'rgba(255,255,255,0.1)' : 'var(--border)'}`, background: selected ? 'var(--bg-elevated)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s' });
 
   return (
     <div className="screen">
@@ -98,9 +98,9 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
       {/* Time period — segmented control matching RecapScreen style */}
       <div>
         <p style={sectionLabel}>Time period</p>
-        <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: 12, padding: 4, gap: 2 }}>
+        <div style={{ display: 'flex', background: darkMode ? 'var(--bg-input)' : 'var(--bg-elevated)', borderRadius: 12, padding: 4, gap: 2 }}>
           {[['all', 'All time'], ['year', currentYear], ['custom', 'Custom']].map(([mode, label]) => (
-            <button key={mode} onClick={() => setRangeMode(mode)} style={{ flex: 1, padding: '8px 0', borderRadius: 9, border: 'none', background: rangeMode === mode ? 'var(--bg-input)' : 'transparent', fontSize: 13, fontWeight: 600, color: rangeMode === mode ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", transition: 'all 0.15s', boxShadow: rangeMode === mode ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
+            <button key={mode} onClick={() => setRangeMode(mode)} style={{ flex: 1, padding: '8px 0', borderRadius: 9, border: 'none', background: rangeMode === mode ? (darkMode ? 'var(--bg-elevated)' : 'var(--bg-input)') : 'transparent', fontSize: 13, fontWeight: 600, color: rangeMode === mode ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", transition: 'all 0.15s', boxShadow: rangeMode === mode && !darkMode ? '0 1px 3px rgba(0,0,0,0.08)' : 'none' }}>
               {label}
             </button>
           ))}
@@ -110,7 +110,7 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
             {[['From', customFrom, v => setCustomFrom(v), '', customTo || TODAY], ['To', customTo, v => setCustomTo(v), customFrom, TODAY]].map(([lbl, val, set, min, max]) => (
               <div key={lbl} style={{ flex: 1 }}>
                 <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 5px', fontWeight: 600 }}>{lbl}</p>
-                <input type="date" value={val} onChange={e => set(e.target.value)} min={min} max={max} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', fontSize: 14, fontFamily: "'Urbanist', sans-serif", boxSizing: 'border-box' }} />
+                <input type="date" value={val} onChange={e => set(e.target.value)} min={min} max={max} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1.5px solid ${darkMode ? 'rgba(255,255,255,0.1)' : 'var(--border)'}`, background: 'var(--bg-card)', color: 'var(--text)', fontSize: 14, fontFamily: "'Urbanist', sans-serif", boxSizing: 'border-box' }} />
               </div>
             ))}
           </div>
@@ -123,7 +123,7 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
           <i className="ti ti-star-filled" style={{ fontSize: 17, color: favoritesOnly ? '#C8993E' : 'var(--text-muted)' }} />
           <span style={{ fontSize: 14, fontWeight: 600, color: favoritesOnly ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>Favorites only</span>
         </div>
-        <div style={{ width: 46, height: 27, borderRadius: 14, background: favoritesOnly ? 'var(--accent)' : 'var(--border)', position: 'relative', transition: 'background 0.22s', flexShrink: 0 }}>
+        <div style={{ width: 46, height: 27, borderRadius: 14, background: favoritesOnly ? 'var(--accent)' : darkMode ? 'rgba(255,255,255,0.15)' : 'var(--border)', position: 'relative', transition: 'background 0.22s', flexShrink: 0 }}>
           <div style={{ position: 'absolute', top: 3, left: favoritesOnly ? 22 : 3, width: 21, height: 21, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.18)', transition: 'left 0.22s' }} />
         </div>
       </button>
@@ -168,7 +168,7 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
       )}
 
       {/* Preview button */}
-      <button onClick={handlePreview} disabled={!canPreview} style={{ width: '100%', padding: '16px', borderRadius: 14, border: 'none', background: canPreview ? 'var(--accent)' : 'var(--border)', color: canPreview ? '#fff' : 'var(--text-muted)', fontSize: 15, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", cursor: canPreview ? 'pointer' : 'default', opacity: canPreview ? 1 : 0.5, transition: 'all 0.15s' }}>
+      <button onClick={handlePreview} disabled={!canPreview} className={canPreview ? 'btn btn-primary' : 'btn'} style={{ width: '100%', padding: '16px', borderRadius: 12, background: canPreview ? '#7A9E8C' : darkMode ? 'var(--bg-elevated)' : 'var(--border)', color: canPreview ? '#fff' : 'var(--text-muted)', cursor: canPreview ? 'pointer' : 'default', opacity: canPreview ? 1 : 0.5 }}>
         Preview book
       </button>
 

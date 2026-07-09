@@ -8038,6 +8038,7 @@ export default function App() {
             entries={entries}
             familyMembers={familyMembers}
             myDisplayName={myDisplayName}
+            darkMode={effectiveDark}
             onBack={() => setScreen('profile')}
             onPreview={config => { setBookConfig(config); setScreen('book-preview'); }}
           />
