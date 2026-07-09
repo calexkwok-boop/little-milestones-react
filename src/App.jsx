@@ -968,7 +968,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick }) {
+function HomeScreen({ onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onSeeLetters, onSeeCircle }) {
   const { entries, kids } = useData() ?? {};
   const { unseenPartnerIds = [], reactionCounts = {} } = useNotif() ?? {};
   const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
@@ -995,6 +995,7 @@ function HomeScreen({ onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, 
     setDismissedBdays(next);
     localStorage.setItem('patina-bday-dismissed', JSON.stringify(next));
   }
+  const [showMenu, setShowMenu] = useState(false);
   const scrollRef = useRef(null);
   const ptr = usePullToRefresh(scrollRef, onRefresh);
 
@@ -1228,7 +1229,7 @@ function HomeScreen({ onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, 
         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
       </div>
-      <button className="icon-btn" onClick={onSeeAll}><i className="ti ti-layout-list" /></button>
+      <button className="icon-btn" onClick={() => setShowMenu(true)}><i className="ti ti-menu-2" /></button>
     </div>
   );
 
@@ -1715,6 +1716,38 @@ function HomeScreen({ onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, 
           </div>
         );
       })()}
+      {showMenu && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end' }}
+          onClick={() => setShowMenu(false)}
+        >
+          <div
+            style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', paddingBottom: 36 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 8px' }} />
+            {[
+              { icon: 'ti-mail', label: 'Our letters', sub: 'All family letters', action: () => { setShowMenu(false); onSeeLetters?.(); } },
+              { icon: 'ti-arrows-diff', label: 'At the same age', sub: 'Compare moments side by side', action: () => { setShowMenu(false); onCompare?.(); } },
+              { icon: 'ti-users', label: 'From your circle', sub: "What friends are sharing", action: () => { setShowMenu(false); onSeeCircle?.(); } },
+            ].map(item => (
+              <button
+                key={item.label}
+                onClick={item.action}
+                style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', textAlign: 'left' }}
+              >
+                <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <i className={`ti ${item.icon}`} style={{ fontSize: 22, color: 'var(--accent)' }} />
+                </div>
+                <div>
+                  <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif" }}>{item.label}</p>
+                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>{item.sub}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3363,6 +3396,345 @@ function CelebrationOverlay({ kid, milestoneType, onDone }) {
   );
 }
 
+// ─── Circle feed screen ───────────────────────────────────────────────────
+
+function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {} }) {
+  const { userId: currentUserId, myDisplayName } = useSession() ?? {};
+  const [loading, setLoading] = useState(true);
+  const [feedEntries, setFeedEntries] = useState([]);
+  const [likesMap, setLikesMap] = useState({});   // entryId -> [{id, user_id, display_name}]
+  const [commentsMap, setCommentsMap] = useState({}); // entryId -> [{id, user_id, display_name, body, created_at}]
+  const [commentDrafts, setCommentDrafts] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [profileFamilyId, setProfileFamilyId] = useState(null);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+
+  const familyIds = useMemo(() => Object.keys(friendFamilyMap), [friendFamilyMap]);
+
+  useEffect(() => {
+    if (!supabase || familyIds.length === 0) { setLoading(false); return; }
+    (async () => {
+      const { data: entriesData } = await supabase
+        .from('entries')
+        .select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, entry_media(url, type)')
+        .in('family_id', familyIds)
+        .neq('shared', false)
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      const normalized = (entriesData || []).map(e => ({
+        id: e.id,
+        date: e.date,
+        createdAt: e.created_at,
+        kids: e.kid_ids || [],
+        milestone: e.milestone || null,
+        ageMonths: e.age_months,
+        familyId: e.family_id,
+        userId: e.user_id,
+        media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
+      }));
+
+      setFeedEntries(normalized);
+
+      if (normalized.length > 0) {
+        const ids = normalized.map(e => e.id);
+        const [{ data: likes }, { data: comments }] = await Promise.all([
+          supabase.from('entry_likes').select('id, entry_id, user_id, display_name').in('entry_id', ids),
+          supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at').in('entry_id', ids).is('parent_id', null).order('created_at'),
+        ]);
+        const lMap = {};
+        (likes || []).forEach(l => {
+          if (!lMap[l.entry_id]) lMap[l.entry_id] = [];
+          lMap[l.entry_id].push(l);
+        });
+        const cMap = {};
+        (comments || []).forEach(c => {
+          if (!cMap[c.entry_id]) cMap[c.entry_id] = [];
+          cMap[c.entry_id].push(c);
+        });
+        setLikesMap(lMap);
+        setCommentsMap(cMap);
+      }
+
+      setLoading(false);
+    })();
+  }, [familyIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleToggleLike(entryId) {
+    if (!supabase || !currentUserId) return;
+    const existing = (likesMap[entryId] || []).find(l => l.user_id === currentUserId);
+    if (existing) {
+      setLikesMap(prev => ({ ...prev, [entryId]: prev[entryId].filter(l => l.id !== existing.id) }));
+      await supabase.from('entry_likes').delete().eq('id', existing.id);
+    } else {
+      const temp = { id: 'tmp-' + Date.now(), entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '' };
+      setLikesMap(prev => ({ ...prev, [entryId]: [...(prev[entryId] || []), temp] }));
+      const { data } = await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '' }).select('id, entry_id, user_id, display_name').single();
+      if (data) setLikesMap(prev => ({ ...prev, [entryId]: (prev[entryId] || []).map(l => l.id === temp.id ? data : l) }));
+    }
+  }
+
+  async function handleSubmitComment(entryId) {
+    const body = (commentDrafts[entryId] || '').trim();
+    if (!body || !supabase || !currentUserId) return;
+    setCommentDrafts(prev => ({ ...prev, [entryId]: '' }));
+    const temp = { id: 'tmp-' + Date.now(), entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '', body, created_at: new Date().toISOString() };
+    setCommentsMap(prev => ({ ...prev, [entryId]: [...(prev[entryId] || []), temp] }));
+    const { data } = await supabase.from('entry_comments').insert({ entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '', body }).select('id, entry_id, user_id, display_name, body, created_at').single();
+    if (data) setCommentsMap(prev => ({ ...prev, [entryId]: (prev[entryId] || []).map(c => c.id === temp.id ? data : c) }));
+  }
+
+  const displayedEntries = useMemo(() => {
+    let pool = profileFamilyId
+      ? feedEntries.filter(e => e.familyId === profileFamilyId)
+      : feedEntries;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      pool = pool.filter(e => {
+        const entryKids = friendKids.filter(k => e.kids.includes(k.id));
+        const friendInfo = friendFamilyMap[e.familyId] || {};
+        return (friendInfo.name || '').toLowerCase().includes(q)
+          || entryKids.some(k => k.name.toLowerCase().includes(q));
+      });
+    }
+    return pool;
+  }, [feedEntries, searchQuery, profileFamilyId, friendKids, friendFamilyMap]);
+
+  const profileInfo = profileFamilyId ? friendFamilyMap[profileFamilyId] : null;
+
+  function renderPost(entry) {
+    const entryKids = friendKids.filter(k => entry.kids.includes(k.id));
+    const friendInfo = friendFamilyMap[entry.familyId] || {};
+    const likes = likesMap[entry.id] || [];
+    const comments = commentsMap[entry.id] || [];
+    const iLiked = likes.some(l => l.user_id === currentUserId);
+    const entryDate = new Date(entry.createdAt || (entry.date + 'T12:00:00'));
+    const daysAgo = Math.round((Date.now() - entryDate.getTime()) / 86400000);
+    const dateLabel = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d ago`;
+    const photoDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    return (
+      <div key={entry.id} style={{ background: 'var(--bg-card)' }}>
+        {/* Poster row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px 10px' }}>
+          {/* Avatar with accent ring */}
+          <div style={{ width: 48, height: 48, borderRadius: '50%', padding: 2, background: 'var(--accent)', flexShrink: 0 }}>
+            {friendInfo.avatar
+              ? <img src={cloudinaryTransform(friendInfo.avatar, 'w_88,h_88,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', display: 'block', border: '2px solid var(--bg)' }} alt="" />
+              : <span style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--bg-elevated)', border: '2px solid var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 700, color: 'var(--accent)' }}>
+                  {(friendInfo.name || '?')[0]}
+                </span>
+            }
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <button
+              onClick={() => !profileFamilyId && setProfileFamilyId(entry.familyId)}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: profileFamilyId ? 'default' : 'pointer', fontFamily: "'Urbanist', sans-serif", fontSize: 15, fontWeight: 800, color: 'var(--text)', display: 'block', textAlign: 'left', letterSpacing: '-0.1px' }}
+            >
+              {friendInfo.name || 'Friend'}
+            </button>
+            <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>{dateLabel}</p>
+          </div>
+        </div>
+
+        {/* Photo with rounded corners, side margin, and kid overlay */}
+        {entry.media.length > 0 && (
+          <div style={{ position: 'relative', margin: '0 14px', borderRadius: 16, overflow: 'hidden', aspectRatio: '4/5', background: 'var(--border)' }}>
+            {entry.media[0].type === 'video'
+              ? <video src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} preload="metadata" playsInline controls />
+              : <img src={cloudinaryTransform(entry.media[0].url, 'w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+            }
+            {/* Kid info gradient overlay */}
+            {entryKids.length > 0 && (
+              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.3) 50%, transparent 100%)', padding: '48px 14px 14px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ display: 'flex', flexShrink: 0 }}>
+                    {entryKids.map((k, i) => (
+                      <span key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, display: 'inline-block', width: 26, height: 26, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.6)', background: k.accent || '#888', flexShrink: 0 }}>
+                        {k.avatar
+                          ? <img src={cloudinaryTransform(k.avatar, 'w_52,h_52,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                          : <span style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff' }}>{k.name[0]}</span>
+                        }
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: "'Urbanist', sans-serif", textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
+                      {entryKids.map(k => k.name.split(' ')[0]).join(' & ')}
+                    </p>
+                    {entryKids[0]?.birthdate && (
+                      <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.8)', fontFamily: 'Inter, sans-serif' }}>
+                        {exactAgeLabel(entryKids[0].birthdate, entry.date)} · {photoDate}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '10px 16px 6px' }}>
+          <button
+            onClick={() => handleToggleLike(entry.id)}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px 4px 0', color: iLiked ? '#D4856A' : 'var(--text-muted)' }}
+          >
+            <i className={`ti ti-heart${iLiked ? '-filled' : ''}`} style={{ fontSize: 22 }} />
+            {likes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{likes.length}</span>}
+          </button>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 6px', color: 'var(--text-muted)', marginLeft: 6 }}>
+            <i className="ti ti-message-circle" style={{ fontSize: 22 }} />
+            {comments.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{comments.length}</span>}
+          </span>
+        </div>
+
+        {/* Comments */}
+        {comments.length > 0 && (
+          <div style={{ padding: '2px 16px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {comments.map(c => (
+              <p key={c.id} style={{ margin: 0, fontSize: 13, color: 'var(--text-2)', fontFamily: 'Inter, sans-serif', lineHeight: 1.55 }}>
+                <span style={{ fontWeight: 700, color: 'var(--text)' }}>{c.display_name || 'Someone'}</span>
+                {' '}{c.body}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* Comment input */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 16px' }}>
+          <input
+            value={commentDrafts[entry.id] || ''}
+            onChange={e => setCommentDrafts(prev => ({ ...prev, [entry.id]: e.target.value }))}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSubmitComment(entry.id); } }}
+            placeholder="Add a comment…"
+            style={{ flex: 1, border: 'none', padding: '2px 0', fontSize: 13, background: 'transparent', color: 'var(--text)', fontFamily: 'Inter, sans-serif', outline: 'none' }}
+          />
+          <button
+            onClick={() => handleSubmitComment(entry.id)}
+            disabled={!(commentDrafts[entry.id] || '').trim()}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: (commentDrafts[entry.id] || '').trim() ? 'var(--accent)' : 'var(--border)', fontSize: 18, display: 'flex', alignItems: 'center', padding: 0, flexShrink: 0 }}
+          >
+            <i className="ti ti-send" />
+          </button>
+        </div>
+
+        {/* Post separator */}
+        <div style={{ height: 10, background: 'var(--bg)' }} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen">
+      <div className="scroll-area">
+        {profileFamilyId ? (
+          /* ── Profile grid view ── */
+          <div>
+            <div style={{ padding: '16px 16px 0', marginBottom: 16 }}>
+              <button className="icon-btn" onClick={() => { setProfileFamilyId(null); setSelectedEntry(null); }}>
+                <i className="ti ti-arrow-left" />
+              </button>
+            </div>
+
+            {/* Profile header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '0 20px 20px' }}>
+              {profileInfo?.avatar
+                ? <img src={cloudinaryTransform(profileInfo.avatar, 'w_128,h_128,c_fill,q_auto,f_auto')} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} alt="" />
+                : <span style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                    {(profileInfo?.name || '?')[0]}
+                  </span>
+              }
+              <div>
+                <p style={{ margin: 0, fontSize: 19, fontWeight: 800, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", letterSpacing: '-0.2px' }}>{profileInfo?.name || 'Friend'}</p>
+                <p style={{ margin: '3px 0 0', fontSize: 13, color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>{displayedEntries.length} {displayedEntries.length === 1 ? 'post' : 'posts'}</p>
+              </div>
+            </div>
+
+            {/* Photo grid */}
+            {loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
+                <i className="ti ti-loader-2" style={{ fontSize: 28, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+              </div>
+            ) : displayedEntries.length === 0 ? (
+              <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, paddingTop: 40 }}>Nothing shared yet.</p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 2 }}>
+                {displayedEntries.map(entry => {
+                  const thumb = entry.media[0];
+                  return (
+                    <div key={entry.id} onClick={() => setSelectedEntry(entry)} style={{ aspectRatio: '1', background: 'var(--border)', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}>
+                      {thumb ? (
+                        thumb.type === 'video'
+                          ? <img src={videoThumbUrl(thumb.url, 'so_0,w_400,h_400,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                          : <img src={cloudinaryTransform(thumb.url, 'w_400,h_400,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <i className="ti ti-letter" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                        </div>
+                      )}
+                      {entry.media.length > 1 && (
+                        <i className="ti ti-copy" style={{ position: 'absolute', top: 6, right: 6, fontSize: 13, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ── Feed view ── */
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 16px 16px' }}>
+              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>From your circle</h2>
+              <div style={{ width: 36 }} />
+            </div>
+
+            <div style={{ position: 'relative', margin: '0 16px 16px' }}>
+              <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 14, pointerEvents: 'none' }} />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search by name…"
+                style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, border: '1px solid var(--border)', borderRadius: 12, fontSize: 14, background: 'var(--bg-input)', color: 'var(--text)', fontFamily: 'Inter, sans-serif', outline: 'none' }}
+              />
+            </div>
+
+            {loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
+                <i className="ti ti-loader-2" style={{ fontSize: 28, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+              </div>
+            ) : displayedEntries.length === 0 ? (
+              <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, paddingTop: 40 }}>
+                {familyIds.length === 0 ? 'Add friends to see their moments here.' : searchQuery ? 'No matches.' : 'Nothing shared yet.'}
+              </p>
+            ) : (
+              <div>
+                <div style={{ height: 1, background: 'var(--border)' }} />
+                {displayedEntries.map(entry => renderPost(entry))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Entry detail modal (from profile grid tap) */}
+      {selectedEntry && (() => {
+        const entry = selectedEntry;
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'flex-end' }} onClick={() => setSelectedEntry(null)}>
+            <div style={{ background: 'var(--bg)', borderRadius: '24px 24px 0 0', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 0' }} />
+              {renderPost(entry)}
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
 // ─── Compare screen ──────────────────────────────────────────────────────
 
 function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], friends = [], currentUserId, onBack, onOpenEntry, initialFriendKidId = null, initialCompareAge = null }) {
@@ -3873,18 +4245,19 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
     if (scrollRef.current && scrollPos) scrollPos.current = scrollRef.current.scrollTop;
     onOpenEntry(entry);
   }
+  const showAll = authorId === null;
   const unseenEntries = useMemo(
-    () => isSelf ? [] : entries.filter(e => unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [entries, unseenIds, isSelf]
+    () => (isSelf || showAll) ? [] : entries.filter(e => unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [entries, unseenIds, isSelf, showAll]
   );
   const earlierEntries = useMemo(
     () => entries
-      .filter(e => authorId && e.authorId === authorId && (isSelf || !unseenIds.includes(e.id)))
+      .filter(e => showAll ? true : (authorId && e.authorId === authorId && (isSelf || !unseenIds.includes(e.id))))
       .sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [entries, authorId, unseenIds, isSelf]
+    [entries, authorId, unseenIds, isSelf, showAll]
   );
   const hasAny = unseenEntries.length > 0 || earlierEntries.length > 0;
-  const title = isSelf ? 'My letters' : (authorName ? `${authorName}'s letters` : "Partner's letters");
+  const title = showAll ? 'Our letters' : isSelf ? 'My letters' : (authorName ? `${authorName}'s letters` : "Partner's letters");
 
   return (
     <div className="screen">
@@ -7383,6 +7756,8 @@ export default function App() {
             }}
             onBirthdayTodayClick={kid => setBirthdaySlideshow(kid)}
             onFriendBirthdayClick={kid => setBirthdaySlideshowFriend({ kid, entries: friendEntries })}
+            onSeeLetters={() => { setLetterAuthorId(null); setScreen('partner-letters'); }}
+            onSeeCircle={() => setScreen('circle-feed')}
           />
         );
       })()}
@@ -7473,6 +7848,14 @@ export default function App() {
             onSeeAll={() => { setJournalBackScreen('recap'); setScreen('journal'); }}
           />
         </Suspense>
+      )}
+
+      {screen === 'circle-feed' && (
+        <CircleFeedScreen
+          onBack={() => setScreen('home')}
+          friendKids={friendKids}
+          friendFamilyMap={friendFamilyMap}
+        />
       )}
 
       {screen === 'compare' && (
