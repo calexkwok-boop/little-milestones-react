@@ -10,7 +10,7 @@ const LazyBirthdaySlideshowScreen = lazy(() => import('./screens/BirthdaySlidesh
 const LazyRecapScreen = lazy(() => import('./screens/RecapScreen'));
 const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
 const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
-import BookBuilderScreen from './screens/BookBuilderScreen.jsx';
+const LazyBookBuilderScreen = lazy(() => import('./screens/BookBuilderScreen'));
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY,
@@ -7999,14 +7999,16 @@ export default function App() {
       )}
 
       {screen === 'book-builder' && (
-        <BookBuilderScreen
-          kids={kids}
-          entries={entries}
-          familyMembers={familyMembers}
-          myDisplayName={myDisplayName}
-          onBack={() => setScreen('profile')}
-          onPreview={config => { setBookConfig(config); setScreen('book-preview'); }}
-        />
+        <Suspense fallback={null}>
+          <LazyBookBuilderScreen
+            kids={kids}
+            entries={entries}
+            familyMembers={familyMembers}
+            myDisplayName={myDisplayName}
+            onBack={() => setScreen('profile')}
+            onPreview={config => { setBookConfig(config); setScreen('book-preview'); }}
+          />
+        </Suspense>
       )}
 
       {screen === 'book-preview' && bookConfig && (
