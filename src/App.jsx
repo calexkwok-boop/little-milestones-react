@@ -10,6 +10,7 @@ const LazyBirthdaySlideshowScreen = lazy(() => import('./screens/BirthdaySlidesh
 const LazyRecapScreen = lazy(() => import('./screens/RecapScreen'));
 const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
 const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
+import BookBuilderScreen from './screens/BookBuilderScreen.jsx';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY,
@@ -1662,7 +1663,7 @@ function HomeScreen({ onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, 
                         <button onClick={() => setReplyTarget({ id: c.id, display_name: c.display_name || 'Someone', user_id: c.user_id })} style={{ display: 'block', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, padding: '3px 0 0', fontFamily: 'Inter, sans-serif' }}>Reply</button>
                       </div>
                       {c.user_id === session?.user?.id && (
-                        <button onClick={async () => { setViewerComments(prev => prev.filter(x => x.id !== c.id && x.parent_id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                        <button onClick={async () => { setViewerComments(prev => prev.filter(x => x.id !== c.id && x.parent_id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id).eq('user_id', session.user.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
                           <i className="ti ti-trash" style={{ fontSize: 13 }} />
                         </button>
                       )}
@@ -1676,7 +1677,7 @@ function HomeScreen({ onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, 
                             <span style={{ fontSize: 12, color: 'var(--text-2)', fontFamily: 'Inter, sans-serif' }}>{r.body}</span>
                           </div>
                           {r.user_id === session?.user?.id && (
-                            <button onClick={async () => { setViewerComments(prev => prev.filter(x => x.id !== r.id)); await supabase.from('entry_comments').delete().eq('id', r.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                            <button onClick={async () => { setViewerComments(prev => prev.filter(x => x.id !== r.id)); await supabase.from('entry_comments').delete().eq('id', r.id).eq('user_id', session.user.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
                               <i className="ti ti-trash" style={{ fontSize: 12 }} />
                             </button>
                           )}
@@ -2244,7 +2245,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                         <button onClick={() => setDetailReplyTarget({ id: c.id, display_name: c.display_name || 'Someone', user_id: c.user_id })} style={{ display: 'block', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 11, fontWeight: 600, padding: '3px 0 0', fontFamily: 'Inter, sans-serif' }}>Reply</button>
                       </div>
                       {c.user_id === session?.user?.id && (
-                        <button onClick={async () => { setDetailComments(prev => prev.filter(x => x.id !== c.id && x.parent_id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                        <button onClick={async () => { setDetailComments(prev => prev.filter(x => x.id !== c.id && x.parent_id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id).eq('user_id', session.user.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
                           <i className="ti ti-trash" style={{ fontSize: 13 }} />
                         </button>
                       )}
@@ -2258,7 +2259,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                             <span style={{ fontSize: 12, color: 'var(--text-2)' }}>{r.body}</span>
                           </div>
                           {r.user_id === session?.user?.id && (
-                            <button onClick={async () => { setDetailComments(prev => prev.filter(x => x.id !== r.id)); await supabase.from('entry_comments').delete().eq('id', r.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                            <button onClick={async () => { setDetailComments(prev => prev.filter(x => x.id !== r.id)); await supabase.from('entry_comments').delete().eq('id', r.id).eq('user_id', session.user.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
                               <i className="ti ti-trash" style={{ fontSize: 12 }} />
                             </button>
                           )}
@@ -3527,7 +3528,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     const existing = (likesMap[entryId] || []).find(l => l.user_id === currentUserId);
     if (existing) {
       setLikesMap(prev => ({ ...prev, [entryId]: prev[entryId].filter(l => l.id !== existing.id) }));
-      await supabase.from('entry_likes').delete().eq('id', existing.id);
+      await supabase.from('entry_likes').delete().eq('id', existing.id).eq('user_id', currentUserId);
     } else {
       const temp = { id: 'tmp-' + Date.now(), entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '' };
       setLikesMap(prev => ({ ...prev, [entryId]: [...(prev[entryId] || []), temp] }));
@@ -5545,7 +5546,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                     <span style={{ fontSize: 13, color: 'var(--text-2)' }}>{c.body}</span>
                   </div>
                   {c.user_id === session?.user?.id && (
-                    <button onClick={async () => { setViewerComments(p => p.filter(x => x.id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
+                    <button onClick={async () => { setViewerComments(p => p.filter(x => x.id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id).eq('user_id', session.user.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
                       <i className="ti ti-trash" style={{ fontSize: 13 }} />
                     </button>
                   )}
