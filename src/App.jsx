@@ -6570,7 +6570,7 @@ export default function App() {
         const { data: membersData } = await supabase.from('family_members').select('id, user_id, family_id, display_name, avatar_url').eq('family_id', currentFamilyId);
         if (membersData) {
           const memberUserIds = membersData.map(m => m.user_id).filter(Boolean);
-          familyUserIds = memberUserIds.length > 0 ? memberUserIds : [session.user.id];
+          familyUserIds = memberUserIds.length > 0 ? [...new Set([session.user.id, ...memberUserIds])] : [session.user.id];
           familyUserIdsRef.current = familyUserIds;
           const { data: memberProfiles } = await supabase.from('profiles').select('id, display_name').in('id', memberUserIds);
           const profileMap = {};
@@ -6918,7 +6918,7 @@ export default function App() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_likes' }, payload => {
         const { entry_id, user_id } = payload.new;
-        if (familyUserIdsRef.current.includes(user_id)) return;
+        if (user_id === currentUserIdRef.current || familyUserIdsRef.current.includes(user_id)) return;
         if (!ownEntryIdsRef.current.has(entry_id)) return;
         setReactionCounts(prev => {
           const cur = prev[entry_id] || { likes: 0, comments: 0 };
@@ -7707,7 +7707,7 @@ export default function App() {
   const handleClearReactions = useCallback(() => {
     localStorage.setItem('notifClearedAt', Date.now().toString());
     setReactionNotifications([]);
-    if (supabase && session?.user?.id) supabase.from('birthday_notifications').update({ dismissed: true }).eq('user_id', session.user.id);
+    if (supabase && session?.user?.id) supabase.from('birthday_notifications').delete().eq('user_id', session.user.id);
     setBirthdayNotifications([]);
   }, [session?.user?.id]);
 
@@ -7718,7 +7718,7 @@ export default function App() {
   }, []);
 
   const handleDismissBirthday = useCallback(id => {
-    if (supabase && session?.user?.id) supabase.from('birthday_notifications').update({ dismissed: true }).eq('id', id).eq('user_id', session.user.id);
+    if (supabase && session?.user?.id) supabase.from('birthday_notifications').delete().eq('id', id).eq('user_id', session.user.id);
     setBirthdayNotifications(p => p.filter(n => n.id !== id));
   }, [session?.user?.id]);
 
@@ -8144,7 +8144,7 @@ export default function App() {
       {monthlyRecap && (
         <div style={{ position: 'absolute', inset: 0, background: '#1E2A1E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 32px' }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px' }}>{monthlyRecap.label}</p>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#fff', textAlign: 'center', margin: '0 0 6px', lineHeight: 1.25 }}>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: '#fff', textAlign: 'center', margin: '0 0 6px', lineHeight: 1.35 }}>
             "Isn't it funny how day by day nothing changes, but when you look back, everything is different."
           </h1>
           <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.3)', textAlign: 'center', margin: '0 0 32px', letterSpacing: 0.5 }}>
