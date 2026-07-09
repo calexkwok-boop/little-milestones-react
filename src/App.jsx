@@ -5844,8 +5844,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
   const fromOptions = Array.from(new Set(
     [
       kids.length > 1 ? 'Our family' : null,
-      myDisplayName,
-      ...(familyMembers || []).map(m => m.real_name || m.display_name),
+      ...(familyMembers || []).map(m => m.display_name || m.real_name),
     ].filter(Boolean)
   ));
   const [authorLabel, setAuthorLabel] = useState(fromOptions[0] || 'Our family');
@@ -5856,7 +5855,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
 
   // Resolve the chosen author to a user_id so we can filter by who wrote each entry
   const isAllAuthors = authorLabel.toLowerCase() === 'our family';
-  const authorMember = isAllAuthors ? null : (familyMembers || []).find(m => (m.real_name || m.display_name) === authorLabel);
+  const authorMember = isAllAuthors ? null : (familyMembers || []).find(m => (m.display_name || m.real_name) === authorLabel);
   const authorUserId = authorMember?.user_id || null;
 
   const filtered = entries.filter(e => {
@@ -5887,7 +5886,7 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
 
   const maternalNames = new Set(['mom', 'mama', 'mommy', 'mother', 'mum', 'mummy', 'nana', 'grandma', 'grandmother']);
   const allMemberNames = (familyMembers || [])
-    .map(m => m.real_name || m.display_name)
+    .map(m => m.display_name || m.real_name)
     .sort((a, b) => {
       const aM = maternalNames.has(a.toLowerCase());
       const bM = maternalNames.has(b.toLowerCase());
@@ -5915,46 +5914,61 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
           </div>
 
 
-          <div style={{ width: '100%', height: 1, background: 'var(--bg-card)' }} />
+          <div style={{ border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
 
-          <div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Who's it for?</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-              {kids.length > 1 && (
-                <button className={`chip ${selectedKids.length >= kids.length ? 'selected' : ''}`} onClick={() => setSelectedKids(kids.map(k => k.id))}>
-                  Everyone
-                </button>
-              )}
-              {kids.map(k => (
-                <button key={k.id} className={`chip ${selectedKids.length === 1 && selectedKids[0] === k.id ? 'selected' : ''}`} onClick={() => setSelectedKids([k.id])}>
-                  {k.name.split(' ')[0]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {fromOptions.length > 1 && (
-            <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Who's it from?</p>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {fromOptions.map(name => (
-                  <button key={name} className={`chip ${authorLabel === name ? 'selected' : ''}`} onClick={() => setAuthorLabel(name)}>
-                    {name}
-                  </button>
-                ))}
+            {/* For */}
+            <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, flexShrink: 0 }}>For</p>
+              <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                {kids.length > 1 && (
+                  <button onClick={() => setSelectedKids(kids.map(k => k.id))}
+                    style={{ padding: '7px 13px', fontSize: 13, fontWeight: 600, border: 'none', borderRight: '1px solid var(--border)', cursor: 'pointer', background: selectedKids.length >= kids.length ? 'var(--accent)' : 'transparent', color: selectedKids.length >= kids.length ? '#fff' : 'var(--text-2)', transition: 'background 0.15s, color 0.15s' }}
+                  >Everyone</button>
+                )}
+                {kids.map((k, i) => {
+                  const sel = selectedKids.length === 1 && selectedKids[0] === k.id;
+                  return (
+                    <button key={k.id} onClick={() => setSelectedKids([k.id])}
+                      style={{ padding: '7px 13px', fontSize: 13, fontWeight: 600, border: 'none', borderRight: i < kids.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: sel ? 'var(--accent)' : 'transparent', color: sel ? '#fff' : 'var(--text-2)', transition: 'background 0.15s, color 0.15s' }}
+                    >{k.name.split(' ')[0]}</button>
+                  );
+                })}
               </div>
             </div>
-          )}
 
-          <div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.3, textTransform: 'uppercase', margin: '0 0 12px' }}>Which years?</p>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {[{ id: 'all', label: 'All time' }, { id: 'year', label: String(currentYear) }, { id: 'custom', label: 'Custom' }].map(opt => (
-                <button key={opt.id} className={`chip ${dateRange === opt.id ? 'selected' : ''}`} onClick={() => setDateRange(opt.id)}>{opt.label}</button>
-              ))}
+            {/* From */}
+            {fromOptions.length > 1 && (
+              <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, flexShrink: 0 }}>From</p>
+                <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                  {fromOptions.map((name, i) => {
+                    const sel = authorLabel === name;
+                    return (
+                      <button key={name} onClick={() => setAuthorLabel(name)}
+                        style={{ padding: '7px 13px', fontSize: 13, fontWeight: 600, border: 'none', borderRight: i < fromOptions.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: sel ? 'var(--accent)' : 'transparent', color: sel ? '#fff' : 'var(--text-2)', transition: 'background 0.15s, color 0.15s', whiteSpace: 'nowrap' }}
+                      >{name}</button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Years */}
+            <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, flexShrink: 0 }}>Years</p>
+              <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                {[{ id: 'all', label: 'All time' }, { id: 'year', label: String(currentYear) }, { id: 'custom', label: 'Custom' }].map((opt, i, arr) => {
+                  const sel = dateRange === opt.id;
+                  return (
+                    <button key={opt.id} onClick={() => setDateRange(opt.id)}
+                      style={{ padding: '7px 13px', fontSize: 13, fontWeight: 600, border: 'none', borderRight: i < arr.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: sel ? 'var(--accent)' : 'transparent', color: sel ? '#fff' : 'var(--text-2)', transition: 'background 0.15s, color 0.15s' }}
+                    >{opt.label}</button>
+                  );
+                })}
+              </div>
             </div>
             {dateRange === 'custom' && (
-              <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              <div style={{ padding: '0 16px 13px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 10 }}>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 6px', fontWeight: 600 }}>From</p>
                   <select value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input-field" style={{ padding: '10px 12px', fontSize: 14 }}>
@@ -5969,29 +5983,16 @@ function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack
                 </div>
               </div>
             )}
-          </div>
 
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-              onClick={() => setFavoritesOnly(v => !v)}>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>Favorites only</p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>Only include entries you've hearted</p>
-              </div>
-              <div style={{
-                width: 44, height: 26, borderRadius: 13, background: favoritesOnly ? 'var(--accent)' : 'var(--bg-card)',
-                position: 'relative', transition: 'background 0.2s', flexShrink: 0, cursor: 'pointer'
-              }}>
-                <div style={{
-                  position: 'absolute', top: 3, left: favoritesOnly ? 21 : 3, width: 20, height: 20,
-                  borderRadius: '50%', background: '#fff', transition: 'left 0.2s',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)'
-                }} />
+            {/* Favorites toggle */}
+            <div style={{ padding: '13px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setFavoritesOnly(v => !v)}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0 }}>Favorites only</p>
+              <div style={{ width: 44, height: 26, borderRadius: 13, background: favoritesOnly ? 'var(--accent)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: favoritesOnly ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
               </div>
             </div>
-          </div>
 
-          <div style={{ width: '100%', height: 1, background: 'var(--bg-card)' }} />
+          </div>
 
           <div style={{ background: '#1E2C1E', borderRadius: 18, padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
             {filtered.length === 0 ? (
