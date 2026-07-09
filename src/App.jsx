@@ -7,10 +7,10 @@ import { supabase, supabaseConfigured } from './supabase.js';
 import { SessionCtx, DataCtx, NotifCtx, useSession, useData, useNotif } from './contexts.js';
 import KidThumb from './KidThumb.jsx';
 const LazyBirthdaySlideshowScreen = lazy(() => import('./screens/BirthdaySlideshowScreen'));
-const LazyRecapScreen = lazy(() => import('./screens/RecapScreen'));
+import RecapScreen from './screens/RecapScreen';
 const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
 const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
-const LazyBookBuilderScreen = lazy(() => import('./screens/BookBuilderScreen'));
+import BookBuilderScreen from './screens/BookBuilderScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY,
@@ -7959,16 +7959,14 @@ export default function App() {
 
       {screen === 'recap' && (
         <ScreenErrorBoundary onBack={() => setScreen('home')}>
-          <Suspense fallback={<div className="screen" />}>
-            <LazyRecapScreen
-              entries={entries}
-              kids={kids}
-              onBack={() => setScreen('home')}
-              onOpenEntry={openEntry}
-              onCompare={() => setScreen('compare')}
-              onSeeAll={() => { setJournalBackScreen('recap'); setScreen('journal'); }}
-            />
-          </Suspense>
+          <RecapScreen
+            entries={entries}
+            kids={kids}
+            onBack={() => setScreen('home')}
+            onOpenEntry={openEntry}
+            onCompare={() => setScreen('compare')}
+            onSeeAll={() => { setJournalBackScreen('recap'); setScreen('journal'); }}
+          />
         </ScreenErrorBoundary>
       )}
 
@@ -8035,16 +8033,14 @@ export default function App() {
 
       {screen === 'book-builder' && (
         <ScreenErrorBoundary onBack={() => setScreen('profile')}>
-          <Suspense fallback={<div className="screen" />}>
-            <LazyBookBuilderScreen
-              kids={kids}
-              entries={entries}
-              familyMembers={familyMembers}
-              myDisplayName={myDisplayName}
-              onBack={() => setScreen('profile')}
-              onPreview={config => { setBookConfig(config); setScreen('book-preview'); }}
-            />
-          </Suspense>
+          <BookBuilderScreen
+            kids={kids}
+            entries={entries}
+            familyMembers={familyMembers}
+            myDisplayName={myDisplayName}
+            onBack={() => setScreen('profile')}
+            onPreview={config => { setBookConfig(config); setScreen('book-preview'); }}
+          />
         </ScreenErrorBoundary>
       )}
 
