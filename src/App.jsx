@@ -26,8 +26,9 @@ class ScreenErrorBoundary extends React.Component {
   render() {
     if (this.state.error) {
       return (
-        <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', gap: 12 }}>
-          <p style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center', padding: '0 32px' }}>Something went wrong loading this screen.</p>
+        <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', gap: 12, padding: '0 24px' }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center' }}>Something went wrong.</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 11, textAlign: 'center', fontFamily: 'monospace', background: 'var(--bg-elevated)', padding: '8px 12px', borderRadius: 8, wordBreak: 'break-all' }}>{String(this.state.error)}</p>
           <button className="icon-btn" onClick={() => { this.setState({ error: null }); this.props.onBack?.(); }}>Go back</button>
         </div>
       );
@@ -371,7 +372,7 @@ function AuthorChip({ member, onClick }) {
   );
 }
 
-function KidSelector({ kids, selected, onSelect, onManage, showBoth, partner, onPartner, self, onSelf }) {
+function KidSelector({ kids, selected, onSelect, showBoth, partner, onPartner, self, onSelf }) {
   return (
     <div className="scrollx">
       <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-layout-list" label="All" />
@@ -393,7 +394,6 @@ function KidSelector({ kids, selected, onSelect, onManage, showBoth, partner, on
       ))}
       {self && <AuthorChip member={self} onClick={onSelf} />}
       {partner && <AuthorChip member={partner} onClick={onPartner} />}
-      {onManage && <KidChip icon="ti-home-heart" label="Family" onClick={onManage} />}
     </div>
   );
 }
@@ -985,7 +985,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onSeeLetters, onSeeCircle }) {
+function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onSeeLetters, onSeeCircle }) {
   const { entries, kids } = useData() ?? {};
   const { unseenPartnerIds = [], reactionCounts = {} } = useNotif() ?? {};
   const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
@@ -7823,7 +7823,6 @@ export default function App() {
             setKidFilter={setKidFilter}
             onOpenEntry={openEntry}
             onSearch={() => setScreen('search')}
-            onManage={() => openProfile(kids[0].id)}
             onAddMoment={() => setScreen('new-entry')}
             onSeeAll={() => { setJournalBackScreen('home'); setScreen('journal'); }}
             onCompare={() => setScreen('compare')}
