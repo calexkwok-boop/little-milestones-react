@@ -7959,7 +7959,7 @@ export default function App() {
 
       {screen === 'recap' && (
         <ScreenErrorBoundary onBack={() => setScreen('home')}>
-          <Suspense fallback={null}>
+          <Suspense fallback={<div className="screen" />}>
             <LazyRecapScreen
               entries={entries}
               kids={kids}
@@ -8035,7 +8035,7 @@ export default function App() {
 
       {screen === 'book-builder' && (
         <ScreenErrorBoundary onBack={() => setScreen('profile')}>
-          <Suspense fallback={null}>
+          <Suspense fallback={<div className="screen" />}>
             <LazyBookBuilderScreen
               kids={kids}
               entries={entries}
@@ -8050,7 +8050,7 @@ export default function App() {
 
       {screen === 'book-preview' && bookConfig && (
         <ScreenErrorBoundary onBack={() => setScreen('book-builder')}>
-          <Suspense fallback={null}>
+          <Suspense fallback={<div className="screen" />}>
             <LazyBookPreviewScreen
               kids={kids}
               bookConfig={bookConfig}
@@ -8118,7 +8118,7 @@ export default function App() {
         const kid = kids.find(k => k.id === growthKidId);
         return kid ? (
           <ScreenErrorBoundary onBack={() => setScreen('profile')}>
-            <Suspense fallback={null}>
+            <Suspense fallback={<div className="screen" />}>
               <LazyGrowthScreen
                 kid={kid}
                 onBack={() => setScreen('profile')}
@@ -8162,7 +8162,7 @@ export default function App() {
       {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={handleNavigate} />}
 
       {birthdaySlideshow && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<div className="screen" />}>
           <LazyBirthdaySlideshowScreen
             kid={birthdaySlideshow}
             age={turningAge(birthdaySlideshow.birthdate)}
@@ -8172,7 +8172,7 @@ export default function App() {
         </Suspense>
       )}
       {birthdaySlideshowFriend && (
-        <Suspense fallback={null}>
+        <Suspense fallback={<div className="screen" />}>
           <LazyBirthdaySlideshowScreen
             kid={birthdaySlideshowFriend.kid}
             age={turningAge(birthdaySlideshowFriend.kid.birthdate)}
