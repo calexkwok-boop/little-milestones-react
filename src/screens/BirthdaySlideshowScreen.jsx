@@ -21,7 +21,7 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
+function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false, viewerEntries = [], viewerKids = [] }) {
   const slides = useMemo(() => {
     const result = [];
     const seen = new Set();
@@ -59,6 +59,31 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
       milestones: yearEntries.filter(e => e.milestone).length,
     };
   }, [entries, kid.id]);
+
+  const sharedPhotos = useMemo(() => {
+    if (!isFriend || !viewerEntries.length || !viewerKids.length) return [];
+    const viewerKidIds = new Set(viewerKids.map(k => k.id));
+    return viewerEntries
+      .filter(e => e.kids.includes(kid.id) && e.media?.length > 0 && e.kids.some(id => viewerKidIds.has(id)))
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .flatMap(e => e.media.filter(m => m.type !== 'video').map(m => ({ url: m.url, date: e.date })))
+      .slice(0, 10);
+  }, [isFriend, viewerEntries, viewerKids, kid.id]);
+
+  const sharedLabel = useMemo(() => {
+    if (!isFriend || !viewerEntries.length || !viewerKids.length) return '';
+    const viewerKidIds = new Set(viewerKids.map(k => k.id));
+    const appearedIds = new Set();
+    viewerEntries
+      .filter(e => e.kids.includes(kid.id) && e.media?.length > 0 && e.kids.some(id => viewerKidIds.has(id)))
+      .forEach(e => e.kids.forEach(id => { if (viewerKidIds.has(id)) appearedIds.add(id); }));
+    const viewerNames = viewerKids.filter(k => appearedIds.has(k.id)).map(k => k.name.split(' ')[0]);
+    const allNames = [...viewerNames, kid.name.split(' ')[0]];
+    if (allNames.length <= 1) return `${allNames[0]} is growing up so fast.`;
+    const last = allNames[allNames.length - 1];
+    const rest = allNames.slice(0, -1);
+    return `${rest.join(', ')} & ${last} are growing up so fast.`;
+  }, [isFriend, viewerEntries, viewerKids, kid]);
 
   const [index, setIndex] = useState(0);
   const [ended, setEnded] = useState(false);
@@ -407,27 +432,42 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
             }
           </div>
           <p className="fade-up" style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'rgba(255,255,255,0.45)', margin: '0 0 36px', textAlign: 'center', lineHeight: 1.7, animationDelay: '120ms' }}>
-            They might not always show it, but they're lucky to have you.
+            {isFriend
+              ? "They're growing up so fast. So is yours. These moments together — hold on to every one."
+              : "They might not always show it, but they're lucky to have you."
+            }
           </p>
           <p className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 28px', textAlign: 'center', lineHeight: 1.2, animationDelay: '260ms' }}>
             Happy {ordinal(age)} birthday to {kid.name}.
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 48 }}>
-            {[
-              { n: countedStats.photos, real: yearStats.photos, singular: 'moment captured', plural: 'moments captured', icon: 'ti-camera' },
-              { n: countedStats.letters, real: yearStats.letters, singular: 'letter written', plural: 'letters written', icon: 'ti-feather' },
-              { n: countedStats.milestones, real: yearStats.milestones, singular: 'milestone celebrated', plural: 'milestones celebrated', icon: 'ti-star' },
-            ].filter(s => s.real > 0).map(({ n, real, singular, plural, icon }, idx) => (
-              <div key={icon} className="fade-up" style={{ display: 'flex', alignItems: 'center', gap: 12, animationDelay: `${400 + idx * 100}ms` }}>
-                <i className={`ti ${icon}`} style={{ fontSize: 18, color: '#C8993E', flexShrink: 0, width: 22, textAlign: 'center' }} />
-                <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, color: 'rgba(255,255,255,0.75)', margin: 0 }}>
-                  {n} {n === 1 ? singular : plural}.
-                </p>
+          {!isFriend && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 48 }}>
+              {[
+                { n: countedStats.photos, real: yearStats.photos, singular: 'moment captured', plural: 'moments captured', icon: 'ti-camera' },
+                { n: countedStats.letters, real: yearStats.letters, singular: 'letter written', plural: 'letters written', icon: 'ti-feather' },
+                { n: countedStats.milestones, real: yearStats.milestones, singular: 'milestone celebrated', plural: 'milestones celebrated', icon: 'ti-star' },
+              ].filter(s => s.real > 0).map(({ n, real, singular, plural, icon }, idx) => (
+                <div key={icon} className="fade-up" style={{ display: 'flex', alignItems: 'center', gap: 12, animationDelay: `${400 + idx * 100}ms` }}>
+                  <i className={`ti ${icon}`} style={{ fontSize: 18, color: '#C8993E', flexShrink: 0, width: 22, textAlign: 'center' }} />
+                  <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, color: 'rgba(255,255,255,0.75)', margin: 0 }}>
+                    {n} {n === 1 ? singular : plural}.
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+          {sharedPhotos.length > 0 && (
+            <div className="fade-up" style={{ marginBottom: 32, animationDelay: '700ms', width: '64%', overflow: 'hidden' }}>
+              <p style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, fontStyle: 'italic', color: 'rgba(255,255,255,0.45)', textAlign: 'center', margin: '0 0 10px' }}>{sharedLabel}</p>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'scroll', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch', paddingBottom: 4, justifyContent: sharedPhotos.length <= 2 ? 'center' : 'flex-start' }}>
+                {sharedPhotos.map((p, i) => (
+                  <img key={i} src={p.url} alt="" style={{ width: 260, height: 260, flexShrink: 0, borderRadius: 10, objectFit: 'cover', display: 'block', scrollSnapAlign: 'start' }} loading="lazy" />
+                ))}
               </div>
-            ))}
-          </div>
-          <button className="fade-up" onClick={replay} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 999, color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.8, textTransform: 'uppercase', padding: '10px 24px', animationDelay: '700ms' }}>
-            Watch again
+            </div>
+          )}
+          <button className="fade-up" onClick={replay} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 26, animationDelay: sharedPhotos.length > 0 ? '900ms' : '700ms', marginBottom: 48 }}>
+            <i className="ti ti-player-play-filled" style={{ marginLeft: 3 }} />
           </button>
           <div style={{ position: 'absolute', bottom: 28, display: 'flex', alignItems: 'center', gap: 6 }}>
             <img src="/quill-no-background.png" style={{ width: 15, height: 15, objectFit: 'contain', opacity: 0.25 }} alt="" />

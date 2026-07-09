@@ -2033,7 +2033,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onToggleShared, allPeople = [], supabase, session, socialName = '' }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, allPeople = [], friendKids = [], supabase, session, socialName = '' }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
@@ -2150,7 +2150,11 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   >
                     <i className="ti ti-user-plus" style={{ fontSize: 12, color: '#fff' }} />
                     <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>
-                      {people.length > 0 ? people.join(', ') : 'Tag people'}
+                      {(() => {
+                        const taggedFriendNames = friendKids.filter(k => entry.kids.includes(k.id)).map(k => k.name.split(' ')[0]);
+                        const all = [...taggedFriendNames, ...people];
+                        return all.length > 0 ? all.join(', ') : 'Tag people';
+                      })()}
                     </span>
                   </button>
                 )}
@@ -2358,6 +2362,10 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           setPeople(next);
           onUpdatePeople?.(entry.id, next);
         }
+        function addKid(kidId) {
+          if (entry.kids.includes(kidId)) return;
+          onUpdateKids?.(entry.id, [...entry.kids, kidId]);
+        }
         function closeTagger() {
           if (peopleInput.trim()) addPerson(peopleInput.trim());
           setPeopleInput('');
@@ -2396,16 +2404,28 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                     placeholder={people.length === 0 ? 'Add a name…' : '+'}
                     style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 16, color: 'var(--text)', fontFamily: 'Inter, sans-serif', width: peopleInput ? `${Math.max(peopleInput.length + 2, 4)}ch` : people.length === 0 ? '12ch' : '3ch', minWidth: '2ch' }}
                   />
-                  {peopleInput.trim().length > 0 && allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).length > 0 && (
-                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 150 }}>
-                      {allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).slice(0, 5).map(p => (
-                        <button key={p} onMouseDown={e => { e.preventDefault(); addPerson(p); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                          <i className="ti ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
-                          {p}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {peopleInput.trim().length > 0 && (() => {
+                    const q = peopleInput.toLowerCase();
+                    const peopleSuggestions = allPeople.filter(p => p.toLowerCase().includes(q) && !people.includes(p)).slice(0, 5);
+                    const kidSuggestions = friendKids.filter(k => k.name.toLowerCase().includes(q) && !entry.kids.includes(k.id));
+                    if (peopleSuggestions.length === 0 && kidSuggestions.length === 0) return null;
+                    return (
+                      <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 150 }}>
+                        {kidSuggestions.map(k => (
+                          <button key={k.id} onMouseDown={e => { e.preventDefault(); addKid(k.id); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                            <KidThumb kid={k} size={20} />
+                            {k.name}
+                          </button>
+                        ))}
+                        {peopleSuggestions.map(p => (
+                          <button key={p} onMouseDown={e => { e.preventDefault(); addPerson(p); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                            <i className="ti ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -2436,7 +2456,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone }) {
+function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone }) {
   const [selectedKids, setSelectedKids] = useState(
     existingEntry ? existingEntry.kids : (initialKidIds?.length ? initialKidIds : (kids.length === 1 ? [kids[0].id] : []))
   );
@@ -2474,6 +2494,15 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
     !!(existingEntry?.mood || existingEntry?.milestone || existingEntry?.song || existingEntry?.people?.length || existingEntry?.voiceMemoUrl || initialMilestone)
   );
   const [showKidPicker, setShowKidPicker] = useState(false);
+  const [kidPickerSearch, setKidPickerSearch] = useState('');
+  const kidPickerFiltered = useMemo(() => {
+    const q = kidPickerSearch.toLowerCase();
+    return {
+      own: kids.filter(k => !q || k.name.toLowerCase().includes(q)),
+      friends: friendKids.filter(k => !q || k.name.toLowerCase().includes(q)),
+      hasQuery: q.length > 0,
+    };
+  }, [kidPickerSearch, kids, friendKids]);
   const [showMediaMenu, setShowMediaMenu] = useState(false);
   const [editingDate, setEditingDate] = useState(false);
   const [editMonth, setEditMonth] = useState('');
@@ -2608,7 +2637,8 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
   const dateDisplay = new Date(entryDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const salutationName = useMemo(() => {
     if (selectedKids.length === 0) return null;
-    const names = selectedKids.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean);
+    const allTaggableKids = [...kids, ...friendKids];
+    const names = selectedKids.map(id => allTaggableKids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean);
     if (names.length === 1) return names[0];
     if (names.length === 2) return `${names[0]} & ${names[1]}`;
     return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
@@ -2727,10 +2757,11 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         });
         imagePayloads.push({ data: base64, mediaType: file.type || 'image/jpeg' });
       }
+      const _allTaggable = [...kids, ...friendKids];
       const kidNames = selectedKids
-        .map(id => kids.find(k => k.id === id)?.name.split(' ')[0])
+        .map(id => _allTaggable.find(k => k.id === id)?.name.split(' ')[0])
         .filter(Boolean).join(' and ');
-      const primaryKid = kids.find(k => k.id === selectedKids[0]);
+      const primaryKid = kids.find(k => selectedKids.includes(k.id)) ?? friendKids.find(k => selectedKids.includes(k.id));
       const ageMonths = primaryKid ? Math.max(0,
         (new Date(entryDate + 'T12:00:00').getFullYear() - new Date(primaryKid.birthdate + 'T12:00:00').getFullYear()) * 12 +
         (new Date(entryDate + 'T12:00:00').getMonth() - new Date(primaryKid.birthdate + 'T12:00:00').getMonth())
@@ -2852,11 +2883,11 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
           {selectedKids.length > 0 ? (
             <>
               <div
-                style={{ display: 'flex', justifyContent: 'center', cursor: kids.length > 1 ? 'pointer' : 'default' }}
-                onClick={kids.length > 1 ? () => setShowKidPicker(true) : undefined}
+                style={{ display: 'flex', justifyContent: 'center', cursor: 'pointer' }}
+                onClick={() => { setShowKidPicker(true); setKidPickerSearch(''); }}
               >
                 {selectedKids.map((id, i) => {
-                  const k = kids.find(kid => kid.id === id);
+                  const k = kids.find(kid => kid.id === id) ?? friendKids.find(kid => kid.id === id);
                   if (!k) return null;
                   return (
                     <div key={id} style={{ width: 68, height: 68, borderRadius: '50%', background: k.accent || 'var(--border)', border: '3px solid var(--bg-card)', marginLeft: i > 0 ? -18 : 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -2880,7 +2911,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
             </>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <button onClick={() => setShowKidPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: 'var(--border)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={() => { setShowKidPicker(true); setKidPickerSearch(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: 'var(--border)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                 Who is this for?
                 <i className="ti ti-chevron-down" style={{ fontSize: 13 }} />
               </button>
@@ -3333,20 +3364,48 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       {showKidPicker && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: '0 16px' }} onClick={() => setShowKidPicker(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px' }}>Who are you writing to?</p>
-            {kids.map(k => {
-              const selected = selectedKids.includes(k.id);
-              return (
-                <div key={k.id} onClick={() => setSelectedKids(prev => selected ? prev.filter(id => id !== k.id) : [...prev, k.id])} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
-                  <KidThumb kid={k} size={36} />
-                  <span style={{ fontSize: 16, color: 'var(--text)', fontWeight: 600 }}>{k.name}</span>
-                  <div style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: '50%', border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {selected && <i className="ti ti-check" style={{ color: '#fff', fontSize: 12 }} />}
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 12px' }}>Who's in this entry?</p>
+            {friendKids.length > 0 && (
+              <input
+                autoFocus
+                placeholder="Search by name…"
+                style={{ width: '100%', boxSizing: 'border-box', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '6px 0 10px', fontSize: 14, color: 'var(--text)', fontFamily: 'Inter, sans-serif', outline: 'none', marginBottom: 4 }}
+                value={kidPickerSearch ?? ''}
+                onChange={e => setKidPickerSearch(e.target.value)}
+              />
+            )}
+            <>
+              {kidPickerFiltered.own.map(k => {
+                const selected = selectedKids.includes(k.id);
+                return (
+                  <div key={k.id} onClick={() => setSelectedKids(prev => selected ? prev.filter(id => id !== k.id) : [...prev, k.id])} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                    <KidThumb kid={k} size={36} />
+                    <span style={{ fontSize: 16, color: 'var(--text)', fontWeight: 600 }}>{k.name}</span>
+                    <div style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: '50%', border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {selected && <i className="ti ti-check" style={{ color: '#fff', fontSize: 12 }} />}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} onClick={() => setShowKidPicker(false)}>Done</button>
+                );
+              })}
+              {kidPickerFiltered.friends.length > 0 && (
+                <>
+                  {!kidPickerFiltered.hasQuery && <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', margin: '16px 0 8px', fontFamily: 'Inter, sans-serif' }}>Friends' kids</p>}
+                  {kidPickerFiltered.friends.map(k => {
+                    const selected = selectedKids.includes(k.id);
+                    return (
+                      <div key={k.id} onClick={() => setSelectedKids(prev => selected ? prev.filter(id => id !== k.id) : [...prev, k.id])} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
+                        <KidThumb kid={k} size={36} />
+                        <span style={{ fontSize: 16, color: 'var(--text)', fontWeight: 600 }}>{k.name}</span>
+                        <div style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: '50%', border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          {selected && <i className="ti ti-check" style={{ color: '#fff', fontSize: 12 }} />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </>
+            <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} onClick={() => { setShowKidPicker(false); setKidPickerSearch(''); }}>Done</button>
           </div>
         </div>
       )}
@@ -3398,7 +3457,7 @@ function CelebrationOverlay({ kid, milestoneType, onDone }) {
 
 // ─── Circle feed screen ───────────────────────────────────────────────────
 
-function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {} }) {
+function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCompareAtAge }) {
   const { userId: currentUserId, myDisplayName } = useSession() ?? {};
   const [loading, setLoading] = useState(true);
   const [feedEntries, setFeedEntries] = useState([]);
@@ -3535,6 +3594,15 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {} }) {
             </button>
             <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>{dateLabel}</p>
           </div>
+          {onCompareAtAge && entry.ageMonths != null && (
+            <button
+              onClick={() => onCompareAtAge(entryKids[0]?.id ?? null, entry.ageMonths)}
+              title="At the same age"
+              style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--accent)', fontSize: 16, flexShrink: 0 }}
+            >
+              <i className="ti ti-arrows-diff" />
+            </button>
+          )}
         </div>
 
         {/* Photo with rounded corners, side margin, and kid overlay */}
@@ -7065,7 +7133,7 @@ export default function App() {
 
   async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl }) {
     const shared = Object.values(sharedWith).some(Boolean);
-    const primaryKid = kids.find(k => k.id === kidIds[0]);
+    const primaryKid = kids.find(k => kidIds.includes(k.id)) ?? friendKids.find(k => kidIds.includes(k.id));
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
     const { years, months } = exactAge(primaryKid.birthdate, date);
     const ageMonths = years * 12 + months;
@@ -7248,6 +7316,13 @@ export default function App() {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, people: people || [] } : e));
     if (!localMode && supabase && session) {
       await supabase.from('entries').update({ people: people || [] }).eq('id', entryId);
+    }
+  }
+
+  async function handleUpdateKids(entryId, kidIds) {
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds } : e));
+    if (!localMode && supabase && session) {
+      await supabase.from('entries').update({ kid_ids: kidIds }).eq('id', entryId);
     }
   }
 
@@ -7811,8 +7886,10 @@ export default function App() {
           onUpdateCrop={handleUpdateCrop}
           onUpdateLocation={handleUpdateLocation}
           onUpdatePeople={handleUpdatePeople}
+          onUpdateKids={handleUpdateKids}
           onToggleShared={!localMode ? handleToggleEntryShared : undefined}
           allPeople={allPeople}
+          friendKids={friendKids}
           supabase={supabase}
           session={session}
           socialName={myDisplayName || ''}
@@ -7820,12 +7897,13 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} onCancel={() => { setScreen('home'); setNewEntryInitial(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${session.user.id}` : 'patina-new-draft')} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
+        <NewEntryScreen kids={kids} friendKids={friendKids} onCancel={() => { setScreen('home'); setNewEntryInitial(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${session.user.id}` : 'patina-new-draft')} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
         <NewEntryScreen
           kids={kids}
+          friendKids={friendKids}
           existingEntry={activeEntry}
           onCancel={() => setScreen('entry-detail')}
           onSave={handleSaveEntry}
@@ -7855,6 +7933,12 @@ export default function App() {
           onBack={() => setScreen('home')}
           friendKids={friendKids}
           friendFamilyMap={friendFamilyMap}
+          onCompareAtAge={(kidId, ageMonths) => {
+            const ages = [12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
+            const bucket = ages.reduce((best, a) => ageMonths >= a ? a : best, ages[0]);
+            setCompareTarget({ kidId, compareAge: bucket });
+            setScreen('compare');
+          }}
         />
       )}
 
@@ -8042,6 +8126,9 @@ export default function App() {
             age={turningAge(birthdaySlideshowFriend.kid.birthdate)}
             entries={birthdaySlideshowFriend.entries}
             onClose={() => setBirthdaySlideshowFriend(null)}
+            isFriend
+            viewerEntries={entries}
+            viewerKids={kids}
           />
         </Suspense>
       )}
