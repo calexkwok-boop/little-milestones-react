@@ -1,7 +1,15 @@
-﻿import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react';
 import './App.css';
-import exifr from 'exifr';
+// exifr is only needed when reading photo metadata — lazy-load so it's excluded from the initial bundle
+let _exifr = null;
+const loadExifr = () => _exifr ?? (_exifr = import('exifr').then(m => m.default));
 import { supabase, supabaseConfigured } from './supabase.js';
+import { SessionCtx, DataCtx, NotifCtx, useSession, useData, useNotif } from './contexts.js';
+import KidThumb from './KidThumb.jsx';
+const LazyBirthdaySlideshowScreen = lazy(() => import('./screens/BirthdaySlideshowScreen'));
+const LazyRecapScreen = lazy(() => import('./screens/RecapScreen'));
+const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
+const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY,
@@ -14,63 +22,6 @@ const LOCAL_STORAGE_KEY = 'patina-local-data';
 
 function isDarkTime() { const h = new Date().getHours(); return h < 6 || h >= 18; }
 
-// ─── Growth chart reference data (CDC 2000) ───────────────────────────────
-// [ageMonths, p5, p25, p50, p75, p95]  height = inches, weight = lbs
-const GROWTH_REF = {
-  height: {
-    M: [
-      [0,18.5,19.2,19.7,20.3,21.0],[3,22.7,23.4,24.1,24.8,25.7],
-      [6,25.1,25.9,26.7,27.4,28.2],[9,27.0,27.8,28.6,29.5,30.3],
-      [12,28.5,29.3,30.2,31.0,32.0],[18,31.0,32.0,32.9,33.8,34.9],
-      [24,33.0,34.0,35.1,36.1,37.4],[30,34.9,36.0,37.0,38.0,39.2],
-      [36,36.5,37.6,38.6,39.6,40.8],[48,39.1,40.3,41.5,42.6,44.0],
-      [60,41.7,43.0,44.1,45.4,46.9],[72,43.9,45.4,46.7,48.1,49.7],
-      [84,46.2,47.8,49.2,50.6,52.2],[96,48.3,50.0,51.5,53.0,54.8],
-      [108,50.3,52.0,53.6,55.2,57.2],[120,52.2,54.1,55.7,57.5,59.7],
-    ],
-    F: [
-      [0,18.3,18.9,19.4,20.0,20.7],[3,22.1,22.8,23.5,24.2,25.1],
-      [6,24.7,25.5,26.2,27.0,27.9],[9,26.6,27.4,28.2,29.0,30.0],
-      [12,28.2,29.0,29.9,30.8,31.8],[18,30.7,31.7,32.6,33.6,34.7],
-      [24,32.8,33.8,34.8,35.8,37.0],[30,34.6,35.7,36.7,37.8,39.0],
-      [36,36.1,37.3,38.3,39.4,40.7],[48,38.8,40.1,41.2,42.4,43.9],
-      [60,41.4,42.8,44.0,45.3,46.9],[72,43.9,45.3,46.5,47.8,49.4],
-      [84,46.2,47.6,48.9,50.3,52.1],[96,48.3,49.8,51.2,52.7,54.6],
-      [108,50.3,52.0,53.5,55.3,57.5],[120,52.4,54.3,56.0,58.0,60.5],
-    ],
-  },
-  weight: {
-    M: [
-      [0,5.5,6.4,7.3,8.3,9.7],[3,11.0,12.8,14.1,15.6,17.5],
-      [6,14.3,16.1,17.6,19.3,21.5],[9,16.2,18.1,19.8,21.8,24.3],
-      [12,18.0,20.1,22.0,24.2,27.0],[18,21.0,23.5,25.7,28.3,31.5],
-      [24,23.5,26.2,28.7,31.7,35.5],[30,25.8,28.9,31.7,35.1,39.5],
-      [36,27.7,31.1,34.2,37.9,42.8],[48,31.3,35.4,39.1,43.7,50.0],
-      [60,34.6,39.4,44.0,49.6,57.7],[72,38.2,43.7,49.5,56.7,67.3],
-      [84,41.9,48.7,55.9,65.1,79.2],[96,46.1,54.3,63.2,75.0,94.1],
-      [108,50.9,61.0,72.1,87.2,111.8],[120,56.2,68.5,82.0,100.8,131.5],
-    ],
-    F: [
-      [0,5.4,6.2,7.3,8.3,9.6],[3,10.4,12.1,13.4,15.0,17.0],
-      [6,13.2,15.0,16.5,18.3,20.7],[9,15.1,17.0,18.8,21.0,23.8],
-      [12,16.9,19.1,21.2,23.7,27.0],[18,19.6,22.2,24.7,27.7,31.7],
-      [24,22.3,25.1,28.0,31.6,36.6],[30,24.7,28.0,31.3,35.5,41.5],
-      [36,26.6,30.2,33.9,38.6,45.5],[48,30.3,34.7,39.4,45.3,54.0],
-      [60,33.5,38.8,44.5,51.8,62.8],[72,36.7,43.2,50.4,59.8,74.2],
-      [84,40.3,48.2,57.5,69.5,88.4],[96,44.2,53.8,65.5,80.9,105.5],
-      [108,48.8,60.4,75.0,94.5,125.7],[120,54.1,68.3,86.0,110.5,148.1],
-    ],
-  },
-};
-
-function lerpRef(table, ageMo) {
-  if (ageMo <= table[0][0]) return table[0].slice(1);
-  if (ageMo >= table[table.length - 1][0]) return table[table.length - 1].slice(1);
-  let i = 0;
-  while (i < table.length - 1 && table[i + 1][0] < ageMo) i++;
-  const t = (ageMo - table[i][0]) / (table[i + 1][0] - table[i][0]);
-  return table[i].slice(1).map((v, j) => v + (table[i + 1][j + 1] - v) * t);
-}
 
 function generateVideoThumbnail(file) {
   return new Promise(resolve => {
@@ -314,31 +265,7 @@ function compressImage(file, maxDim = 2400, quality = 0.88) {
   });
 }
 
-function avgTable(tM, tF) {
-  return tM.map((rowM, i) => [rowM[0], ...rowM.slice(1).map((v, j) => (v + tF[i][j + 1]) / 2)]);
-}
 
-function ageInMonthsAt(birthdate, date) {
-  const b = new Date(birthdate + 'T12:00:00');
-  const d = new Date(date + 'T12:00:00');
-  return Math.max(0, (d.getFullYear() - b.getFullYear()) * 12 + (d.getMonth() - b.getMonth()) + (d.getDate() - b.getDate()) / 30.5);
-}
-
-function fmtHeight(inches) {
-  if (!inches) return '—';
-  const ft = Math.floor(inches / 12);
-  const remIn = inches % 12;
-  const remStr = Number.isInteger(remIn) ? String(remIn) : remIn.toFixed(1);
-  return ft > 0 ? `${ft}′ ${remStr}″` : `${remStr}″`;
-}
-
-function fmtWeight(lbs) {
-  if (!lbs) return '—';
-  const lb = Math.floor(lbs);
-  const oz = Math.round((lbs - lb) * 16);
-  if (lbs < 25 && oz > 0) return `${lb} lb ${oz} oz`;
-  return `${lbs % 1 === 0 ? lb : lbs.toFixed(1)} lb`;
-}
 const PROD_APP_URL = 'https://patina-react.vercel.app';
 
 let googleMapsPromise = null;
@@ -383,26 +310,6 @@ function loadLocalData() {
 }
 
 // ─── Shared bits ─────────────────────────────────────────────────────────
-
-const KidThumb = memo(function KidThumb({ kid, size = 24 }) {
-  const [broken, setBroken] = useState(false);
-  useEffect(() => { setBroken(false); }, [kid.avatar]);
-  if (kid.avatar && !broken) {
-    return (
-      <span className="thumb" style={{ width: size, height: size }}>
-        <img src={cloudinaryTransform(kid.avatar, 'w_100,h_100,c_fill,q_auto,f_auto')} alt={kid.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} />
-      </span>
-    );
-  }
-  return (
-    <span
-      className="thumb"
-      style={{ width: size, height: size, background: kid.accent, color: '#fff', fontSize: Math.round(size * 0.42) }}
-    >
-      {kid.name[0]}
-    </span>
-  );
-});
 
 function FadeImg({ src, style, loading = 'lazy', ...props }) {
   const [loaded, setLoaded] = useState(false);
@@ -880,7 +787,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
                 <video src={entry.media[0].url} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
               ) : (
                 <>
-                  <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+                  <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
@@ -889,7 +796,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
                 </>
               )}
             </div>
-          ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+          ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
           }
         </div>
       )}
@@ -958,7 +865,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
                   </>
                 )}
               </div>
-            ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+            ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
             }
           </div>
         )}
@@ -1061,497 +968,10 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-const SLIDESHOW_DURATION = 50700;
-
-function BirthdaySlideshowScreen({ kid, age, entries, onClose }) {
-  const slides = useMemo(() => {
-    const result = [];
-    const seen = new Set();
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    const uniqueEntries = [...new Map(entries.map(e => [e.id, e])).values()];
-    for (const e of uniqueEntries) {
-      if (!e.kids.includes(kid.id) || !e.media?.length) continue;
-      if (new Date(e.date + 'T12:00:00') < oneYearAgo) continue;
-      for (const m of e.media) {
-        if (seen.has(m.url)) continue;
-        seen.add(m.url);
-        result.push({ url: m.url, type: m.type, date: e.date, cropY: e.cropY ?? 50 });
-      }
-    }
-    for (let i = result.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [result[i], result[j]] = [result[j], result[i]];
-    }
-    // TEST VIDEO — remove after testing
-    const testVideo = uniqueEntries.flatMap(e => (e.kids.includes(kid.id) ? (e.media || []).filter(m => m.type === 'video').map(m => ({ url: m.url, type: 'video', date: e.date, cropY: e.cropY ?? 50 })) : [])).sort((a, b) => a.date.localeCompare(b.date))[0];
-    if (testVideo && !seen.has(testVideo.url)) result.unshift(testVideo);
-    return result.slice(0, 9);
-  }, [entries, kid.id]);
-
-  const slideInterval = slides.length > 0 ? Math.floor(SLIDESHOW_DURATION / slides.length) : SLIDESHOW_DURATION;
-
-  const yearStats = useMemo(() => {
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    const yearEntries = entries.filter(e => e.kids.includes(kid.id) && new Date(e.date + 'T12:00:00') >= oneYearAgo);
-    return {
-      photos: yearEntries.reduce((n, e) => n + (e.media?.filter(m => m.type !== 'video').length || 0), 0),
-      letters: yearEntries.filter(e => e.text?.trim()).length,
-      milestones: yearEntries.filter(e => e.milestone).length,
-    };
-  }, [entries, kid.id]);
-
-  const [index, setIndex] = useState(0);
-  const [ended, setEnded] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [countedStats, setCountedStats] = useState({ photos: 0, letters: 0, milestones: 0 });
-  const [song, setSong] = useState(null);
-  const [playing, setPlaying] = useState(false);
-  const [showIntro, setShowIntro] = useState(true);
-  const [introFading, setIntroFading] = useState(false);
-  const [slideshowPaused, setSlideshowPaused] = useState(false);
-  const [showPauseHint, setShowPauseHint] = useState(false);
-  const [slideResetKey, setSlideResetKey] = useState(0);
-  const audioRef = useRef(null);
-  const audioRef2 = useRef(null);
-  const crossfadeTriggeredRef = useRef(false);
-  const touchStartX = useRef(null);
-  const touchStartY = useRef(null);
-  const [song2, setSong2] = useState(null);
-  const [showingSong2, setShowingSong2] = useState(false);
-  const [slideProgress, setSlideProgress] = useState(0);
-  const slideElapsedMsRef = useRef(0);
-  const [freezeFrame, setFreezeFrame] = useState(false);
-  const videoRefs = useRef({});
-  const endingRef = useRef(false);
-
-  const confettiParticles = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
-    left: `${6 + (i * 37 + 13) % 84}%`,
-    bottom: `${8 + (i * 53 + 7) % 42}%`,
-    size: 4 + (i * 3) % 7,
-    color: ['#C8993E','#E5C97E','#EAD9BE','rgba(255,255,255,0.85)','#B8D4B8'][i % 5],
-    delay: `${((i * 0.17) % 1.4).toFixed(2)}s`,
-    dur: `${(1.8 + (i * 0.13) % 1.4).toFixed(2)}s`,
-  })), []);
-
-  // Unlock audio context during the mount gesture, then fetch and autoplay
-  useEffect(() => {
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const buf = ctx.createBuffer(1, 1, 22050);
-      const src = ctx.createBufferSource();
-      src.buffer = buf;
-      src.connect(ctx.destination);
-      src.start(0);
-      ctx.resume();
-    } catch {}
-
-    // Preload all slide images so they're cached before display
-    slides.forEach(s => {
-      const src = s.type === 'video'
-        ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto')
-        : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
-      const img = new Image();
-      img.src = src;
-    });
-
-    async function loadDefault() {
-      try {
-        const res = await fetch('https://itunes.apple.com/search?term=photograph+ed+sheeran&entity=song&limit=10');
-        const data = await res.json();
-        const results = (data.results || []).filter(r => r.previewUrl);
-        if (results.length > 0) {
-          const r = results[0];
-          setSong({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100, previewUrl: r.previewUrl });
-        }
-      } catch {}
-    }
-    async function loadSong2() {
-      try {
-        const res = await fetch('https://itunes.apple.com/search?term=what+a+wonderful+world&entity=song&limit=10');
-        const data = await res.json();
-        const results = (data.results || []).filter(r => r.previewUrl);
-        if (results.length > 0) {
-          const r = results[0];
-          setSong2({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100, previewUrl: r.previewUrl });
-        }
-      } catch {}
-    }
-    loadDefault();
-    loadSong2();
-  }, []);
-
-  // Intro card: fade in, hold, fade out, then unmount
-  useEffect(() => {
-    const t1 = setTimeout(() => setIntroFading(true), 4500);
-    const t2 = setTimeout(() => setShowIntro(false), 5300);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, []);
-
-  // Auto-advance slides, show stats card after last one
-  useEffect(() => {
-    if (slides.length <= 1 || ended || showIntro || slideshowPaused) return;
-    const t = setInterval(() => {
-      try { navigator.vibrate?.(8); } catch {}
-      setIndex(i => {
-        if (i + 1 >= slides.length) {
-          setEnded(true);
-          setFreezeFrame(true);
-          setTimeout(() => { setFreezeFrame(false); setShowStats(true); }, 2400);
-          return i;
-        }
-        return i + 1;
-      });
-    }, slideInterval);
-    return () => clearInterval(t);
-  }, [slides.length, slideInterval, ended, showIntro, slideshowPaused, slideResetKey]);
-
-  // Set src and autoplay when song loads
-  useEffect(() => {
-    if (song && audioRef.current) {
-      audioRef.current.src = song.previewUrl;
-      audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
-    }
-  }, [song]);
-
-  function togglePlay() {
-    const a = audioRef.current;
-    if (!a || !song) return;
-    if (playing) {
-      a.pause();
-      setPlaying(false);
-    } else {
-      a.play().then(() => setPlaying(true)).catch(() => {});
-    }
-  }
-
-  // Begin fading audio as the last slide appears — long gradual fade over the full slide duration
-  useEffect(() => {
-    if (index !== slides.length - 1 || slides.length <= 1 || showIntro || ended) return;
-    endingRef.current = true;
-    const fadeDuration = slideInterval + 2400; // slide duration + freeze-frame
-    const STEPS = 60;
-    const intervalMs = fadeDuration / STEPS;
-    let step = 0;
-    const a1 = audioRef.current;
-    const a2 = audioRef2.current;
-    const vol1 = (a1 && !a1.ended) ? a1.volume : 0;
-    const vol2 = (a2 && !a2.ended) ? (a2.volume || 1) : 0;
-    const id = setInterval(() => {
-      step++;
-      const ratio = Math.max(0, 1 - step / STEPS);
-      if (a1 && !a1.ended) a1.volume = vol1 * ratio;
-      if (a2 && !a2.ended) a2.volume = vol2 * ratio;
-      if (step >= STEPS) {
-        clearInterval(id);
-        a1?.pause();
-        a2?.pause();
-      }
-    }, intervalMs);
-    return () => clearInterval(id);
-  }, [index, slides.length, showIntro, ended, slideInterval]);
-
-  // Count-up animation when stats card appears
-  useEffect(() => {
-    if (!showStats) return;
-    const DURATION = 1400;
-    const STEPS = 40;
-    const interval = DURATION / STEPS;
-    let step = 0;
-    const t = setInterval(() => {
-      step++;
-      const progress = Math.min(step / STEPS, 1);
-      const ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-      setCountedStats({
-        photos: Math.round(yearStats.photos * ease),
-        letters: Math.round(yearStats.letters * ease),
-        milestones: Math.round(yearStats.milestones * ease),
-      });
-      if (step >= STEPS) clearInterval(t);
-    }, interval);
-    return () => clearInterval(t);
-  }, [showStats, yearStats.photos, yearStats.letters, yearStats.milestones]);
-
-
-  // Control video playback for active slide
-  useEffect(() => {
-    Object.entries(videoRefs.current).forEach(([idx, el]) => {
-      if (parseInt(idx) === index && !showIntro) {
-        if (slideshowPaused) el.pause();
-        else el.play().catch(() => {});
-      } else {
-        el.pause();
-        el.currentTime = 0;
-      }
-    });
-  }, [index, slideshowPaused, showIntro]);
-
-  // Reset progress bar when slide changes
-  useEffect(() => {
-    slideElapsedMsRef.current = 0;
-    setSlideProgress(0);
-  }, [index, slideResetKey]);
-
-  // Drive progress bar (pauses correctly with slideshowPaused)
-  useEffect(() => {
-    if (ended || showIntro || slideshowPaused) return;
-    const startTime = Date.now();
-    const baseElapsed = slideElapsedMsRef.current;
-    const id = setInterval(() => {
-      const total = baseElapsed + (Date.now() - startTime);
-      slideElapsedMsRef.current = total;
-      setSlideProgress(Math.min(1, total / slideInterval));
-    }, 50);
-    return () => clearInterval(id);
-  }, [index, slideResetKey, ended, showIntro, slideshowPaused, slideInterval]);
-
-  function handleTapPause() {
-    const nowPaused = !slideshowPaused;
-    setSlideshowPaused(nowPaused);
-    if (nowPaused) {
-      audioRef.current?.pause();
-      audioRef2.current?.pause();
-    } else {
-      const a = audioRef.current;
-      if (a && !a.ended) a.play().catch(() => {});
-      if (crossfadeTriggeredRef.current && audioRef2.current) audioRef2.current.play().catch(() => {});
-    }
-    setShowPauseHint(true);
-    setTimeout(() => setShowPauseHint(false), 900);
-  }
-
-  function handleTouchStart(e) {
-    if (e.target.closest('button, input, a')) return;
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  }
-
-  function handleTouchEnd(e) {
-    if (touchStartX.current === null || e.target.closest('button, input, a')) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-    touchStartX.current = null;
-    if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
-      setIndex(i => Math.max(0, Math.min(slides.length - 1, i + (dx < 0 ? 1 : -1))));
-      setSlideResetKey(k => k + 1);
-    } else if (Math.abs(dx) < 12 && Math.abs(dy) < 12) {
-      handleTapPause();
-    }
-  }
-
-  function replay() {
-    setIndex(0);
-    setEnded(false);
-    setShowStats(false);
-    setCountedStats({ photos: 0, letters: 0, milestones: 0 });
-    crossfadeTriggeredRef.current = false;
-    endingRef.current = false;
-    setShowingSong2(false);
-    setSlideshowPaused(false);
-    setShowPauseHint(false);
-    setSlideResetKey(0);
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.volume = 1;
-      audioRef.current.play().then(() => setPlaying(true)).catch(() => {});
-    }
-    if (audioRef2.current) {
-      audioRef2.current.pause();
-      audioRef2.current.src = '';
-      audioRef2.current.volume = 0;
-    }
-  }
-
-  function ageAtDate(birthdate, photoDate) {
-    const [by, bm, bd] = birthdate.split('-').map(Number);
-    const [py, pm, pd] = photoDate.split('-').map(Number);
-    let years = py - by, months = pm - bm, days = pd - bd;
-    if (days < 0) { months--; days += new Date(py, pm - 1, 0).getDate(); }
-    if (months < 0) { years--; months += 12; }
-    if (years < 0) return null;
-    return `${years}y ${months}m ${days}d`;
-  }
-
-  if (slides.length === 0) {
-    return (
-      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.94)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-        <i className="ti ti-camera-off" style={{ fontSize: 48, color: 'rgba(255,255,255,0.3)' }} />
-        <p style={{ color: '#fff', fontSize: 18, fontFamily: "'Playfair Display', serif", textAlign: 'center', padding: '0 32px' }}>No photos yet for {kid.name}</p>
-        <button onClick={onClose} className="btn btn-outline" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)' }}>Close</button>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ position: 'absolute', inset: 0, background: '#000', zIndex: 100, display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      {slides.map((s, i) => {
-        const isVideo = s.type === 'video';
-        const thumbSrc = videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto');
-        const imgSrc = cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
-        const bgSrc = isVideo ? thumbSrc : imgSrc;
-        const kbAnim = `kb${(i % 4) + 1} ${slideInterval}ms ease-in-out forwards`;
-        const isActive = !showIntro && i === index;
-        return (
-          <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 1.4s ease' }}>
-            {/* Blurred background fill */}
-            <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${bgSrc}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
-            {isVideo ? (
-              <video
-                ref={el => { if (el) videoRefs.current[i] = el; else delete videoRefs.current[i]; }}
-                src={s.url}
-                muted
-                playsInline
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
-              />
-            ) : (
-              <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${imgSrc}')`, backgroundSize: 'contain', backgroundPosition: 'center 38%', backgroundRepeat: 'no-repeat', animation: i === index ? kbAnim : 'none' }} />
-            )}
-          </div>
-        );
-      })}
-      {freezeFrame && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none', animation: 'freezeIn 2.4s ease forwards' }} />
-      )}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 28%, transparent 55%, rgba(0,0,0,0.75) 100%)' }} />
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")", opacity: 0.06 }} />
-      {/* Pause/play hint */}
-      {showPauseHint && (
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8, pointerEvents: 'none' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'introOut 0.9s ease forwards' }}>
-            <i className={`ti ${slideshowPaused ? 'ti-player-pause' : 'ti-player-play'}`} style={{ fontSize: 26, color: '#fff' }} />
-          </div>
-        </div>
-      )}
-
-
-      {/* Top bar — branding + actions */}
-      <div style={{ position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 0' }}>
-        {/* Patina branding */}
-        <div />
-        <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
-          <i className="ti ti-x" />
-        </button>
-      </div>
-
-      {/* Stats closing card */}
-      {showStats && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(38,58,44,0.97)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 36px' }}>
-          {/* Confetti particles */}
-          {confettiParticles.map((p, i) => (
-            <div key={i} style={{ position: 'absolute', left: p.left, bottom: p.bottom, width: p.size, height: p.size, borderRadius: '50%', background: p.color, animation: `confettiFloat ${p.dur} ease-out ${p.delay} both`, pointerEvents: 'none' }} />
-          ))}
-          {/* Kid avatar */}
-          <div className="fade-up" style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', marginBottom: 20, flexShrink: 0, background: kid.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', animationDelay: '0ms', animation: 'fadeUp 0.6s ease both 0ms, avatarGlow 2.2s ease-in-out 0.6s infinite' }}>
-            {kid.avatar
-              ? <img src={kid.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-              : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 28, color: '#fff' }}>{kid.name?.charAt(0)}</span>
-            }
-          </div>
-          <p className="fade-up" style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'rgba(255,255,255,0.45)', margin: '0 0 36px', textAlign: 'center', lineHeight: 1.7, animationDelay: '120ms' }}>
-            They might not always show it, but they're lucky to have you.
-          </p>
-          <p className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 28px', textAlign: 'center', lineHeight: 1.2, animationDelay: '260ms' }}>
-            Happy {ordinal(age)} birthday to {kid.name}.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 48 }}>
-            {[
-              { n: countedStats.photos, real: yearStats.photos, singular: 'moment captured', plural: 'moments captured', icon: 'ti-camera' },
-              { n: countedStats.letters, real: yearStats.letters, singular: 'letter written', plural: 'letters written', icon: 'ti-feather' },
-              { n: countedStats.milestones, real: yearStats.milestones, singular: 'milestone celebrated', plural: 'milestones celebrated', icon: 'ti-star' },
-            ].filter(s => s.real > 0).map(({ n, real, singular, plural, icon }, idx) => (
-              <div key={icon} className="fade-up" style={{ display: 'flex', alignItems: 'center', gap: 12, animationDelay: `${400 + idx * 100}ms` }}>
-                <i className={`ti ${icon}`} style={{ fontSize: 18, color: '#C8993E', flexShrink: 0, width: 22, textAlign: 'center' }} />
-                <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, color: 'rgba(255,255,255,0.75)', margin: 0 }}>
-                  {n} {n === 1 ? singular : plural}.
-                </p>
-              </div>
-            ))}
-          </div>
-          <button className="fade-up" onClick={replay} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 999, color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.8, textTransform: 'uppercase', padding: '10px 24px', animationDelay: '700ms' }}>
-            Watch again
-          </button>
-          <div style={{ position: 'absolute', bottom: 28, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <img src="/quill-no-background.png" style={{ width: 15, height: 15, objectFit: 'contain', opacity: 0.25 }} alt="" />
-            <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 12, color: 'rgba(255,255,255,0.25)', letterSpacing: 0.5 }}>Patina</span>
-          </div>
-        </div>
-      )}
-
-      {/* Bottom */}
-      {!showStats && (
-        <div style={{ position: 'relative', zIndex: 1, marginTop: 'auto', padding: '0 20px 32px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ textAlign: 'center' }}>
-            {slides[index]?.date && (
-              <p key={index} style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', margin: '0 0 10px', letterSpacing: 1, textTransform: 'uppercase', animation: 'captionIn 0.5s ease forwards' }}>
-                {(() => {
-                  const a = ageAtDate(kid.birthdate, slides[index].date);
-                  const my = new Date(slides[index].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                  return a ? `${a} · ${my}` : my;
-                })()}
-              </p>
-            )}
-            {(song || song2) && (() => { const s = showingSong2 && song2 ? song2 : song; return s ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: 8 }}>
-                <img src={s.artworkUrl} style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0 }} alt="" />
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{s.name} — {s.artist}</p>
-              </div>
-            ) : null; })()}
-          </div>
-
-          {/* Progress bar */}
-          <div style={{ height: 3, background: 'rgba(255,255,255,0.2)', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', background: '#fff', borderRadius: 2, width: `${((index + slideProgress) / slides.length) * 100}%` }} />
-          </div>
-
-        </div>
-      )}
-
-      {/* Opening title card */}
-      {showIntro && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 9, background: 'rgba(38,58,44,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', animation: introFading ? 'introOut 0.7s ease forwards' : 'introIn 0.8s ease forwards' }}>
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'rgba(200,153,62,0.75)', margin: '0 0 16px', letterSpacing: 0.5 }}>
-            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-          </p>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 56, fontWeight: 700, margin: 0, lineHeight: 1, textAlign: 'center', padding: '0 24px', background: 'linear-gradient(90deg, #fff 20%, rgba(200,153,62,0.95) 50%, #fff 80%)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'shimmer 2.8s linear infinite' }}>
-            {kid.name}
-          </p>
-          <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 15, fontWeight: 500, color: 'rgba(255,255,255,0.45)', margin: '18px 0 0', letterSpacing: 2, textTransform: 'uppercase' }}>
-            turns {age} today
-          </p>
-        </div>
-      )}
-
-      <audio ref={audioRef2} />
-      <audio
-        ref={audioRef}
-        onPlay={() => { if (audioRef.current) audioRef.current.volume = 1; setPlaying(true); }}
-        onPause={() => setPlaying(false)}
-        onEnded={() => setPlaying(false)}
-        onTimeUpdate={() => {
-          if (endingRef.current) return;
-          const a = audioRef.current;
-          const a2 = audioRef2.current;
-          if (!a || !a.duration) return;
-          const remaining = a.duration - a.currentTime;
-          if (remaining <= 1 && !crossfadeTriggeredRef.current && a2 && song2) {
-            crossfadeTriggeredRef.current = true;
-            setShowingSong2(true);
-            a2.src = song2.previewUrl;
-            a2.volume = 0;
-            a2.play().catch(() => {});
-          }
-          if (crossfadeTriggeredRef.current && a2) {
-            a2.volume = Math.min(1, Math.max(0, 1 - remaining));
-          }
-          if (remaining <= 1) a.volume = Math.max(0, remaining);
-        }}
-      />
-    </div>
-  );
-}
-
-function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, unseenPartnerIds = [], familyMembers = [], currentUserId, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, reactionCounts = {}, session, myDisplayName, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick }) {
+function HomeScreen({ onOpenEntry, onSearch, onManage, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick }) {
+  const { entries, kids } = useData() ?? {};
+  const { unseenPartnerIds = [], reactionCounts = {} } = useNotif() ?? {};
+  const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
   const [longPressEntry, setLongPressEntry] = useState(null);
@@ -1687,12 +1107,17 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
       byFamily.get(e.familyId).push(e);
     }
     const result = [];
-    for (const pool of byFamily.values()) {
-      const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    for (const [fid, pool] of byFamily.entries()) {
+      // Stable daily shuffle — seeded so it doesn't reshuffle on every rerender
+      let h = parseInt(todayMMDD.replace('-', ''), 10) ^ parseInt(fid.replace(/-/g, '').slice(0, 8), 16);
+      const shuffled = [...pool].sort((a, b) => {
+        h ^= h << 13; h ^= h >> 17; h ^= h << 5; h &= 0x7fffffff;
+        return (h & 1) ? 1 : -1;
+      });
       result.push(...shuffled.slice(0, 2));
     }
     return result;
-  }, [friendEntries]);
+  }, [friendEntries, todayMMDD]);
 
   const friendUserMap = useMemo(() => {
     const map = {};
@@ -2315,7 +1740,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
       {heroMedia && (
         <div style={{ margin: 0, borderRadius: '13px 13px 0 0', overflow: 'hidden', aspectRatio: '4/3', position: 'relative' }}>
           {heroMedia.type === 'video'
-            ? <img src={videoThumbUrl(heroMedia.url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+            ? <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
             : <FadeImg src={cloudinaryTransform(heroMedia.url, 'w_1200,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%`, display: 'block' }} />
           }
           {heroMedia.type === 'video' && (
@@ -2670,7 +2095,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 style={{ cursor: media[activeSlide]?.type !== 'video' ? 'pointer' : 'default' }}
               >
                 {media.map((item, i) => (
-                  <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${cloudinaryTransform(item.url, 'w_1600,e_sharpen:60,q_auto,f_auto')}')`, backgroundPosition: `center ${cropY}%` }}>
+                  <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${cloudinaryTransform(item.url, 'w_1200,e_sharpen:60,q_auto,f_auto')}')`, backgroundPosition: `center ${cropY}%` }}>
                     {item.type === 'video'
                       ? <video src={item.url} poster={videoThumbUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" playsInline controls onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />
                       : <div className="video-play-overlay" style={{ display: 'none' }} />
@@ -2881,7 +2306,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <i className="ti ti-x" />
           </button>
           <img
-            src={cloudinaryTransform(media[activeSlide].url, 'w_1600,q_auto,f_auto')}
+            src={cloudinaryTransform(media[activeSlide].url, 'w_1200,q_auto,f_auto')}
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
             alt=""
           />
@@ -3200,6 +2625,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       for (const file of files) {
         if (file.type.startsWith('image')) {
           try {
+            const exifr = await loadExifr();
             const tags = await exifr.parse(file, ['DateTimeOriginal']);
             if (tags?.DateTimeOriginal) {
               const d = new Date(tags.DateTimeOriginal);
@@ -3220,6 +2646,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
       for (const file of files) {
         if (!file.type.startsWith('image')) continue;
         try {
+          const exifr = await loadExifr();
           const tags = await exifr.parse(file, ['GPSLatitude', 'GPSLongitude']);
           if (tags?.GPSLatitude && tags?.GPSLongitude) {
             const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${tags.GPSLatitude},${tags.GPSLongitude}&key=${import.meta.env.VITE_GOOGLE_PLACES_KEY}`);
@@ -3247,6 +2674,7 @@ function NewEntryScreen({ kids, onCancel, onSave, onDelete, existingEntry, signe
         // Extract GPS from first image
         if (!location) {
           try {
+            const exifr = await loadExifr();
             const tags = await exifr.parse(file, ['GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef']);
             if (tags?.GPSLatitude && tags?.GPSLongitude) {
               const lat = tags.GPSLatitude;
@@ -3935,278 +3363,6 @@ function CelebrationOverlay({ kid, milestoneType, onDone }) {
   );
 }
 
-// ─── Recap screen ──────────────────────────────────────────────────────────
-
-function RecapEntryRow({ entry, kids, onOpenEntry }) {
-  const entryKids = (entry.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
-  if (entryKids.length === 0) return null;
-  const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
-  const dayLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const snippet = (entry.text || '').slice(0, 120) + (entry.text?.length > 120 ? '…' : '');
-  const nameLabel = entryKids.map(k => k.name).join(' & ');
-  return (
-    <div
-      onClick={() => onOpenEntry(entry)}
-      className={m ? 'journal-entry milestone-entry' : undefined}
-      style={m ? { cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' } : { cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start', padding: '13px 0', borderBottom: '1px solid #EEF2EA' }}
-    >
-      <div style={{ display: 'flex', flexShrink: 0 }}>
-        {entryKids.map((kid, i) => (
-          <div key={kid.id} style={{ marginLeft: i > 0 ? -8 : 0, zIndex: entryKids.length - i, position: 'relative' }}>
-            <KidThumb kid={kid} size={30} />
-          </div>
-        ))}
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: snippet ? 3 : 0 }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{nameLabel}</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 8 }}>
-            {entry.favorited && <i className="ti ti-star-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
-            <span style={{ fontSize: 11, color: 'var(--border-light)' }}>{dayLabel}</span>
-          </div>
-        </div>
-        {snippet && (
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-            {snippet}
-          </p>
-        )}
-        {m && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 5, fontSize: 10, fontWeight: 700, color: '#C8993E' }}>
-            {m.label}
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare, onSeeAll }) {
-  const [viewMode, setViewMode] = useState('month');
-  const [selectedMonth, setSelectedMonth] = useState(TODAY.slice(0, 7));
-  const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
-  const [recapFilter, setRecapFilter] = useState(null);
-  const [kidFilter, setKidFilter] = useState(null);
-
-  const segTabStyle = (tab) => ({
-    border: 'none', borderRadius: 7, padding: '6px 14px',
-    fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-    background: viewMode === tab ? 'var(--bg-input)' : 'transparent',
-    color: viewMode === tab ? 'var(--accent)' : 'var(--text-muted)',
-    boxShadow: viewMode === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-  });
-
-  const monthLabel = new Date(selectedMonth + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  const canGoNextMonth = selectedMonth < TODAY.slice(0, 7);
-  const canGoNextYear = selectedYear < TODAY.slice(0, 4);
-
-  function prevMonth() {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const d = new Date(y, m - 2, 1);
-    setSelectedMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  }
-  function nextMonth() {
-    const [y, m] = selectedMonth.split('-').map(Number);
-    const d = new Date(y, m, 1);
-    const next = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    if (next <= TODAY.slice(0, 7)) setSelectedMonth(next);
-  }
-
-  const monthEntries = useMemo(() => {
-    const filtered = kidFilter ? entries.filter(e => e.date.startsWith(selectedMonth) && e.kids.includes(kidFilter)) : entries.filter(e => e.date.startsWith(selectedMonth));
-    return [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [entries, selectedMonth, kidFilter]);
-
-  const { yearEntries, yearGroups } = useMemo(() => {
-    const filtered = kidFilter ? entries.filter(e => e.date.startsWith(selectedYear) && e.kids.includes(kidFilter)) : entries.filter(e => e.date.startsWith(selectedYear));
-    const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
-    const groups = [];
-    let cur = null;
-    for (const e of sorted) {
-      const label = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long' });
-      if (label !== cur) { cur = label; groups.push({ label, entries: [] }); }
-      groups[groups.length - 1].entries.push(e);
-    }
-    return { yearEntries: sorted, yearGroups: groups };
-  }, [entries, selectedYear, kidFilter]);
-
-  const { allEntries, allGroups } = useMemo(() => {
-    const sorted = kidFilter ? [...entries].filter(e => e.kids.includes(kidFilter)) : [...entries];
-    sorted.sort((a, b) => new Date(b.date) - new Date(a.date));
-    const groups = [];
-    let cur = null;
-    for (const e of sorted) {
-      const label = new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      if (label !== cur) { cur = label; groups.push({ label, entries: [] }); }
-      groups[groups.length - 1].entries.push(e);
-    }
-    return { allEntries: sorted, allGroups: groups };
-  }, [entries, kidFilter]);
-
-  const periodEntries = viewMode === 'month' ? monthEntries : viewMode === 'year' ? yearEntries : allEntries;
-
-  const { momentCount, milestoneCount, photoCount, favoriteCount } = useMemo(() => {
-    let milestoneCount = 0, photoCount = 0, favoriteCount = 0;
-    for (const e of periodEntries) {
-      if (e.milestone) milestoneCount++;
-      if (e.favorited) favoriteCount++;
-      photoCount += e.media?.length || 0;
-    }
-    return { momentCount: periodEntries.length, milestoneCount, photoCount, favoriteCount };
-  }, [periodEntries]);
-  const periodEmpty = viewMode === 'month' ? `No moments logged in ${monthLabel}.` : viewMode === 'year' ? `No moments logged in ${selectedYear}.` : 'No moments logged yet.';
-
-  return (
-    <div className="screen">
-      <div className="scroll-area">
-        <div className="scrollpad">
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 9, padding: 3 }}>
-              <button style={segTabStyle('month')} onClick={() => setViewMode('month')}>Month</button>
-              <button style={segTabStyle('year')} onClick={() => setViewMode('year')}>Year</button>
-              <button style={segTabStyle('all')} onClick={() => setViewMode('all')}>All</button>
-            </div>
-            <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, color: 'var(--text-muted)', padding: 0 }}>
-              <i className="ti ti-layout-list" style={{ fontSize: 18 }} />
-              <span style={{ fontSize: 9, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.3 }}>All</span>
-            </button>
-          </div>
-
-          {viewMode !== 'all' && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <button
-                onClick={viewMode === 'month' ? prevMonth : () => setSelectedYear(y => String(Number(y) - 1))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}
-              >
-                <i className="ti ti-chevron-left" />
-              </button>
-              <h2 style={{ fontSize: 17, color: 'var(--accent)', margin: 0, fontWeight: 700, minWidth: 150, textAlign: 'center' }}>
-                {viewMode === 'month' ? monthLabel : selectedYear}
-              </h2>
-              <button
-                onClick={viewMode === 'month' ? nextMonth : () => { if (canGoNextYear) setSelectedYear(y => String(Number(y) + 1)); }}
-                style={{ background: 'none', border: 'none', cursor: (viewMode === 'month' ? canGoNextMonth : canGoNextYear) ? 'pointer' : 'default', color: (viewMode === 'month' ? canGoNextMonth : canGoNextYear) ? 'var(--text-muted)' : 'transparent', fontSize: 16, padding: 4, display: 'flex' }}
-              >
-                <i className="ti ti-chevron-right" />
-              </button>
-            </div>
-          )}
-
-          {kids.length > 1 && (
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
-              <button
-                onClick={() => setKidFilter(null)}
-                style={{ width: 48, height: 48, borderRadius: '50%', border: kidFilter === null ? '2.5px solid var(--accent)' : '2px solid var(--border)', background: kidFilter === null ? 'var(--accent)' : 'var(--bg-input)', color: kidFilter === null ? '#fff' : 'var(--text-muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}
-              >All</button>
-              {kids.map(kid => (
-                <button
-                  key={kid.id}
-                  onClick={() => setKidFilter(f => f === kid.id ? null : kid.id)}
-                  style={{ width: 48, height: 48, borderRadius: '50%', border: kidFilter === kid.id ? '2.5px solid var(--accent)' : '2px solid transparent', padding: 0, cursor: 'pointer', overflow: 'hidden', flexShrink: 0, opacity: kidFilter !== null && kidFilter !== kid.id ? 0.4 : 1, transition: 'opacity 0.15s, border-color 0.15s' }}
-                >
-                  <KidThumb kid={kid} size={48} />
-                </button>
-              ))}
-            </div>
-          )}
-
-          {momentCount === 0 ? (
-            <div className="empty-state">
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <i className="ti ti-calendar" style={{ fontSize: 22, color: 'var(--text-muted)' }} />
-              </div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>Nothing written</p>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{periodEmpty}</p>
-            </div>
-          ) : (
-            <>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <div onClick={() => setRecapFilter(null)} style={{ background: 'var(--accent)', borderRadius: 14, padding: '14px 16px', opacity: recapFilter !== null ? 0.65 : 1, transition: 'opacity 0.15s', cursor: recapFilter !== null ? 'pointer' : 'default' }}>
-                  <p style={{ fontSize: 32, fontWeight: 800, color: '#C8993E', margin: 0, lineHeight: 1 }}>{momentCount}</p>
-                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: '5px 0 0', fontWeight: 600 }}>moment{momentCount !== 1 ? 's' : ''} logged</p>
-                </div>
-                <div
-                  onClick={() => setRecapFilter(f => f === 'milestones' ? null : 'milestones')}
-                  style={{ background: recapFilter === 'milestones' ? '#D4856A' : '#FAF0ED', borderRadius: 14, padding: '14px 16px', cursor: milestoneCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'milestones' ? 0.65 : 1, transition: 'opacity 0.15s' }}
-                >
-                  <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'milestones' ? '#fff' : '#D4856A', margin: 0, lineHeight: 1 }}>{milestoneCount}</p>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'milestones' ? 'rgba(255,255,255,0.75)' : '#D4856A', margin: '5px 0 0' }}>milestones</p>
-                </div>
-                <div
-                  onClick={() => setRecapFilter(f => f === 'photos' ? null : 'photos')}
-                  style={{ background: recapFilter === 'photos' ? '#A09080' : '#F0ECE8', borderRadius: 14, padding: '14px 16px', cursor: photoCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'photos' ? 0.65 : 1, transition: 'opacity 0.15s' }}
-                >
-                  <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'photos' ? '#fff' : '#A09080', margin: 0, lineHeight: 1 }}>{photoCount}</p>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'photos' ? 'rgba(255,255,255,0.75)' : '#A09080', margin: '5px 0 0' }}>photos</p>
-                </div>
-                <div
-                  onClick={() => setRecapFilter(f => f === 'favorites' ? null : 'favorites')}
-                  style={{ background: recapFilter === 'favorites' ? '#C8993E' : '#FDF3E0', borderRadius: 14, padding: '14px 16px', cursor: favoriteCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'favorites' ? 0.65 : 1, transition: 'opacity 0.15s' }}
-                >
-                  <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'favorites' ? '#fff' : '#C8993E', margin: 0, lineHeight: 1 }}>{favoriteCount}</p>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'favorites' ? 'rgba(255,255,255,0.75)' : '#C8993E', margin: '5px 0 0' }}>favorites</p>
-                </div>
-              </div>
-
-              {recapFilter === 'photos' ? (
-                (() => {
-                  const allPhotos = periodEntries.flatMap(e => (e.media || []).map(m => ({ ...m, entry: e })));
-                  return (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                      {allPhotos.map((item, i) => (
-                        <div
-                          key={i}
-                          onClick={() => onOpenEntry(item.entry)}
-                          style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-card)' }}
-                        >
-                          <img src={item.url} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()
-              ) : recapFilter === 'favorites' ? (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {periodEntries.filter(e => e.favorited).map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
-                </div>
-              ) : recapFilter === 'milestones' ? (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {periodEntries.filter(e => e.milestone).map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
-                </div>
-              ) : viewMode === 'month' ? (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {monthEntries.map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {(viewMode === 'year' ? yearGroups : allGroups).map(group => (
-                    <div key={group.label} style={{ display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 6 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.4, textTransform: 'uppercase' }}>{group.label}</span>
-                        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                        <span style={{ fontSize: 11, color: 'var(--border-light)', fontWeight: 600 }}>{group.entries.length}</span>
-                      </div>
-                      {group.entries.map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>At the same age</span>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#fff' }} />
-            </div>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Compare screen ──────────────────────────────────────────────────────
 
 function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], friends = [], currentUserId, onBack, onOpenEntry, initialFriendKidId = null, initialCompareAge = null }) {
@@ -4861,321 +4017,6 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
 }
 
 
-// ─── Growth chart ─────────────────────────────────────────────────────────
-
-function GrowthChart({ measurements, refTable, color }) {
-  const W = 320, H = 200;
-  const PL = 38, PR = 12, PT = 14, PB = 30;
-  const cW = W - PL - PR, cH = H - PT - PB;
-
-  const hasMeasurements = measurements && measurements.length > 0;
-  const refMax = refTable ? refTable[refTable.length - 1][0] : 120;
-  const maxAgeMo = hasMeasurements
-    ? Math.min(refMax, Math.max(...measurements.map(m => m.age)) + 12)
-    : 36;
-
-  const allVals = [
-    ...(hasMeasurements ? measurements.map(m => m.value) : []),
-    ...(refTable ? refTable.map(r => r[1]) : []),
-    ...(refTable ? refTable.map(r => r[5]) : []),
-  ];
-  if (allVals.length === 0) return null;
-  const minVal = Math.floor(Math.min(...allVals) * 0.97);
-  const maxVal = Math.ceil(Math.max(...allVals) * 1.03);
-
-  const tx = age => PL + (age / maxAgeMo) * cW;
-  const ty = val => PT + (1 - (val - minVal) / (maxVal - minVal)) * cH;
-
-  const refPts = i => refTable ? refTable.map(r => `${tx(r[0]).toFixed(1)},${ty(r[i]).toFixed(1)}`).join(' ') : '';
-  const bandPoly = refTable ? [
-    ...refTable.map(r => `${tx(r[0]).toFixed(1)},${ty(r[2]).toFixed(1)}`),
-    ...refTable.slice().reverse().map(r => `${tx(r[0]).toFixed(1)},${ty(r[4]).toFixed(1)}`),
-  ].join(' ') : '';
-  const kidLine = hasMeasurements ? measurements.map(m => `${tx(m.age).toFixed(1)},${ty(m.value).toFixed(1)}`).join(' ') : '';
-
-  const xTicks = [];
-  for (let mo = 0; mo <= maxAgeMo; mo += (maxAgeMo > 36 ? 12 : 6)) xTicks.push(mo);
-  const yRange = maxVal - minVal;
-  const yStep = yRange <= 12 ? 2 : yRange <= 30 ? 5 : yRange <= 60 ? 10 : 15;
-  const yTicks = [];
-  for (let v = Math.ceil(minVal / yStep) * yStep; v <= maxVal; v += yStep) yTicks.push(v);
-
-  return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
-      {yTicks.map(v => (
-        <line key={v} x1={PL} y1={ty(v)} x2={PL + cW} y2={ty(v)} stroke="#EEF2EA" strokeWidth={1} />
-      ))}
-      {refTable && bandPoly && <polygon points={bandPoly} fill={color} opacity={0.13} />}
-      {refTable && <polyline points={refPts(1)} fill="none" stroke={color} strokeWidth={0.8} strokeOpacity={0.25} strokeDasharray="3,3" />}
-      {refTable && <polyline points={refPts(5)} fill="none" stroke={color} strokeWidth={0.8} strokeOpacity={0.25} strokeDasharray="3,3" />}
-      {refTable && <polyline points={refPts(3)} fill="none" stroke={color} strokeWidth={1.5} strokeOpacity={0.45} strokeDasharray="5,4" />}
-      {hasMeasurements && measurements.length > 1 && (
-        <polyline points={kidLine} fill="none" stroke={color} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
-      )}
-      {hasMeasurements && measurements.map((m, i) => (
-        <circle key={i} cx={tx(m.age)} cy={ty(m.value)} r={4.5} fill={color} stroke="#fff" strokeWidth={1.5} />
-      ))}
-      <line x1={PL} y1={PT + cH} x2={PL + cW} y2={PT + cH} stroke="#CCDAC8" strokeWidth={1} />
-      <line x1={PL} y1={PT} x2={PL} y2={PT + cH} stroke="#CCDAC8" strokeWidth={1} />
-      {xTicks.map(mo => (
-        <text key={mo} x={tx(mo)} y={PT + cH + 14} fontSize={8.5} fill="#9AA89C" textAnchor="middle" fontFamily="Inter,sans-serif">
-          {mo === 0 ? 'birth' : mo >= 24 ? `${mo / 12}y` : `${mo}m`}
-        </text>
-      ))}
-      {yTicks.map(v => (
-        <text key={v} x={PL - 5} y={ty(v) + 3} fontSize={8.5} fill="#9AA89C" textAnchor="end" fontFamily="Inter,sans-serif">{v}</text>
-      ))}
-    </svg>
-  );
-}
-
-function GrowthScreen({ kid, onBack, onSave, onDelete }) {
-  const [metric, setMetric] = useState('height');
-  const [addingEntry, setAddingEntry] = useState(false);
-  const [editingEntry, setEditingEntry] = useState(null);
-  const [entryDate, setEntryDate] = useState(TODAY);
-  const [editMonth, setEditMonth] = useState('');
-  const [editDay, setEditDay] = useState('');
-  const [editYear, setEditYear] = useState('');
-  const [editingDate, setEditingDate] = useState(false);
-  const [newFt, setNewFt] = useState('');
-  const [newIn, setNewIn] = useState('');
-  const [newLb, setNewLb] = useState('');
-  const [newOz, setNewOz] = useState('');
-
-  const growthLog = [...(kid.growthLog || [])].sort((a, b) => a.date.localeCompare(b.date));
-  const refH = GROWTH_REF.height[kid.sex] || avgTable(GROWTH_REF.height.M, GROWTH_REF.height.F);
-  const refW = GROWTH_REF.weight[kid.sex] || avgTable(GROWTH_REF.weight.M, GROWTH_REF.weight.F);
-  const heightPts = growthLog.filter(e => e.height).map(e => ({ age: ageInMonthsAt(kid.birthdate, e.date), value: e.height }));
-  const weightPts = growthLog.filter(e => e.weight).map(e => ({ age: ageInMonthsAt(kid.birthdate, e.date), value: e.weight }));
-  const latest = growthLog[growthLog.length - 1];
-  const color = kid.accent || 'var(--accent)';
-
-  function openDateEdit() {
-    const [y, m, d] = entryDate.split('-');
-    setEditYear(y); setEditMonth(m); setEditDay(String(parseInt(d)));
-    setEditingDate(true);
-  }
-  function applyDate() {
-    if (editMonth && editDay && editYear && editYear.length === 4)
-      setEntryDate(`${editYear}-${editMonth}-${editDay.padStart(2, '0')}`);
-    setEditingDate(false);
-  }
-
-  function closeSheet() {
-    setAddingEntry(false);
-    setEditingEntry(null);
-    setNewFt(''); setNewIn(''); setNewLb(''); setNewOz('');
-    setEntryDate(TODAY);
-  }
-
-  function openEdit(entry) {
-    setEditingEntry(entry);
-    setEntryDate(entry.date);
-    if (entry.height != null) {
-      setNewFt(String(Math.floor(entry.height / 12)));
-      setNewIn(String(parseFloat((entry.height % 12).toFixed(2))));
-    } else { setNewFt(''); setNewIn(''); }
-    if (entry.weight != null) {
-      const lb = Math.floor(entry.weight);
-      const oz = parseFloat(((entry.weight - lb) * 16).toFixed(1));
-      setNewLb(String(lb));
-      setNewOz(oz > 0 ? String(oz) : '');
-    } else { setNewLb(''); setNewOz(''); }
-    setAddingEntry(true);
-  }
-
-  function handleAdd() {
-    const height = (newFt || newIn) ? parseFloat(newFt || 0) * 12 + parseFloat(newIn || 0) : null;
-    const weight = (newLb || newOz) ? parseFloat(newLb || 0) + parseFloat(newOz || 0) / 16 : null;
-    if (!height && !weight) return;
-    onSave({ date: entryDate, height: height || null, weight: weight || null });
-    closeSheet();
-  }
-
-  function handleDelete() {
-    if (editingEntry) onDelete(editingEntry.date);
-    closeSheet();
-  }
-
-  const canSave = newFt || newIn || newLb || newOz;
-  const dateDisplay = new Date(entryDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const segBtn = (tab) => ({
-    flex: 1, border: 'none', borderRadius: 7, padding: '7px 0',
-    fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-    background: metric === tab ? 'var(--bg-input)' : 'transparent',
-    color: metric === tab ? 'var(--accent)' : 'var(--text-muted)',
-    boxShadow: metric === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-  });
-
-  return (
-    <div className="screen">
-      <div className="scroll-area">
-        <div className="scrollpad">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <KidThumb kid={kid} size={22} />
-              <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{kid.name}'s growth</h2>
-            </div>
-            <button className="icon-btn" onClick={() => setAddingEntry(true)}><i className="ti ti-plus" /></button>
-          </div>
-
-          {latest && (
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div className="stat-tile">
-                <p style={{ fontSize: 17, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{fmtHeight(latest.height)}</p>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '3px 0 0' }}>height</p>
-              </div>
-              <div className="stat-tile">
-                <p style={{ fontSize: 17, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{fmtWeight(latest.weight)}</p>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '3px 0 0' }}>weight</p>
-              </div>
-            </div>
-          )}
-
-          {growthLog.length > 0 && (
-            <>
-              <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 9, padding: 3 }}>
-                <button style={segBtn('height')} onClick={() => setMetric('height')}>Height</button>
-                <button style={segBtn('weight')} onClick={() => setMetric('weight')}>Weight</button>
-              </div>
-              <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 8px 8px' }}>
-                <GrowthChart
-                  measurements={metric === 'height' ? heightPts : weightPts}
-                  refTable={metric === 'height' ? refH : refW}
-                  color={color}
-                />
-                <p style={{ fontSize: 10, color: 'var(--border-light)', textAlign: 'center', margin: '4px 0 2px', fontFamily: 'Inter, sans-serif' }}>
-                  {kid.sex ? 'Shaded = 25th–75th · Dashed = 50th percentile' : 'Average of all children'} · CDC 2000
-                </p>
-              </div>
-            </>
-          )}
-
-          {growthLog.length === 0 ? (
-            <div className="empty-state">
-              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <i className="ti ti-ruler" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
-              </div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No measurements yet</p>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.5 }}>Tap + to log {kid.name}'s first height and weight.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: 0 }}>Log</p>
-              {[...growthLog].reverse().map((entry, i) => {
-                const ageMo = ageInMonthsAt(kid.birthdate, entry.date);
-                const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-                const [p5H, , p50H, , p95H] = lerpRef(refH, ageMo);
-                const [p5W, , p50W, , p95W] = lerpRef(refW, ageMo);
-                const hPct = entry.height ? Math.round(((entry.height - p5H) / (p95H - p5H)) * 90 + 5) : null;
-                const wPct = entry.weight ? Math.round(((entry.weight - p5W) / (p95W - p5W)) * 90 + 5) : null;
-                return (
-                  <div key={i} style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <div>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)', margin: 0 }}>{dateStr}</p>
-                        <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{ageLabel(Math.round(ageMo))} old</p>
-                      </div>
-                      <button onClick={() => openEdit(entry)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 15, padding: 4, display: 'flex' }}>
-                        <i className="ti ti-pencil" />
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      {entry.height && (
-                        <div style={{ flex: 1, background: 'var(--bg-card)', borderRadius: 9, padding: '8px 10px' }}>
-                          <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 2px' }}>{fmtHeight(entry.height)}</p>
-                          {hPct !== null && <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>~{Math.min(99, Math.max(1, hPct))}th percentile</p>}
-                        </div>
-                      )}
-                      {entry.weight && (
-                        <div style={{ flex: 1, background: 'var(--bg-card)', borderRadius: 9, padding: '8px 10px' }}>
-                          <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 2px' }}>{fmtWeight(entry.weight)}</p>
-                          {wPct !== null && <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>~{Math.min(99, Math.max(1, wPct))}th percentile</p>}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Add / edit measurement sheet */}
-      {addingEntry && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 20 }} onClick={closeSheet}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', padding: '24px 20px 40px', width: '100%', maxWidth: 480 }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{editingEntry ? 'Edit measurement' : 'Add measurement'}</p>
-              {editingEntry ? (
-                <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <i className="ti ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
-                </span>
-              ) : (
-                <button onClick={openDateEdit} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-2)', fontFamily: "'Urbanist', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
-                  <i className="ti ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
-                </button>
-              )}
-            </div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>Height</p>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <input type="number" placeholder="0" value={newFt} onChange={e => setNewFt(e.target.value)} className="input-field" style={{ paddingRight: 30 }} />
-                <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text-muted)', pointerEvents: 'none' }}>ft</span>
-              </div>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <input type="number" placeholder="0" step="0.1" value={newIn} onChange={e => setNewIn(e.target.value)} className="input-field" style={{ paddingRight: 30 }} />
-                <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text-muted)', pointerEvents: 'none' }}>in</span>
-              </div>
-            </div>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>Weight</p>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <input type="number" placeholder="0" value={newLb} onChange={e => setNewLb(e.target.value)} className="input-field" style={{ paddingRight: 30 }} />
-                <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text-muted)', pointerEvents: 'none' }}>lb</span>
-              </div>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <input type="number" placeholder="0" value={newOz} onChange={e => setNewOz(e.target.value)} className="input-field" style={{ paddingRight: 30 }} />
-                <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, color: 'var(--text-muted)', pointerEvents: 'none' }}>oz</span>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              {editingEntry && (
-                <button className="btn btn-outline" style={{ flex: 1, color: '#C0523A', borderColor: '#F0C4BA' }} onClick={handleDelete}>Delete</button>
-              )}
-              <button className="btn btn-primary" style={{ flex: editingEntry ? 2 : 1, opacity: canSave ? 1 : 0.4 }} disabled={!canSave} onClick={handleAdd}>Save</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Date sheet */}
-      {editingDate && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 30, padding: '0 16px' }} onClick={() => setEditingDate(false)}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px' }}>When was this measured?</p>
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <div style={{ position: 'relative', flex: 2.2 }}>
-                <select value={editMonth} onChange={e => setEditMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 36px 14px 14px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: editMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
-                  <option value="" disabled>Month</option>
-                  {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
-                </select>
-                <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13, pointerEvents: 'none' }} />
-              </div>
-              <input type="number" placeholder="Day" value={editDay} min={1} max={31} onChange={e => setEditDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
-              <input type="number" placeholder="Year" value={editYear} min={2000} max={2030} onChange={e => setEditYear(e.target.value)} style={{ flex: 1.5, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
-            </div>
-            <button className="btn btn-primary" style={{ width: '100%' }} onClick={applyDate}>Done</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
 function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, sharingDefaults = { partner: true, family: false, friends: false }, onToggleSharingDefault, onShowPrivacy, onShowTerms }) {
@@ -5823,593 +4664,6 @@ function JoinFamilyScreen({ onJoin, onBack }) {
 
 // ─── Nav bar ────────────────────────────────────────────────────────────
 
-// ─── Cropped photo (book / anywhere needing scroll-accurate crop) ──────────
-
-function CroppedPhoto({ src, cropY = 50, height = 200 }) {
-  return (
-    <div style={{ height, overflow: 'hidden', flexShrink: 0 }}>
-      <img src={src} style={{ width: '100%', height: `${height}px`, objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
-    </div>
-  );
-}
-
-// ─── Book builder ──────────────────────────────────────────────────────────
-
-function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack, onPreview }) {
-  const currentYear = new Date().getFullYear();
-  const [selectedKids, setSelectedKids] = useState(kids.map(k => k.id));
-  const [dateRange, setDateRange] = useState('all');
-  const [customFrom, setCustomFrom] = useState(String(currentYear - 1));
-  const [customTo, setCustomTo] = useState(String(currentYear));
-  const fromOptions = Array.from(new Set(
-    [
-      kids.length > 1 ? 'Our family' : null,
-      ...(familyMembers || []).map(m => m.display_name || m.real_name),
-    ].filter(Boolean)
-  ));
-  const [authorLabel, setAuthorLabel] = useState(fromOptions[0] || 'Our family');
-  const [favoritesOnly, setFavoritesOnly] = useState(true);
-
-  const fromDate = dateRange === 'year' ? `${currentYear}-01-01` : dateRange === 'custom' ? `${customFrom}-01-01` : null;
-  const toDate   = dateRange === 'year' ? `${currentYear}-12-31` : dateRange === 'custom' ? `${customTo}-12-31`   : null;
-
-  // Resolve the chosen author to a user_id so we can filter by who wrote each entry
-  const isAllAuthors = authorLabel.toLowerCase() === 'our family';
-  const authorMember = isAllAuthors ? null : (familyMembers || []).find(m => (m.display_name || m.real_name) === authorLabel);
-  const authorUserId = authorMember?.user_id || null;
-
-  const filtered = entries.filter(e => {
-    // Recipient: all selected kids must appear in the entry's kid list
-    const kidMatch = selectedKids.length >= kids.length
-      ? true
-      : e.kids.some(id => selectedKids.includes(id));
-    // Author: if a specific author is chosen, only include entries they wrote
-    // Entries with no author_id (written before tracking) are included to avoid hiding old content
-    const authorMatch = !authorUserId || !e.authorId || e.authorId === authorUserId;
-    const afterFrom = !fromDate || e.date >= fromDate;
-    const beforeTo  = !toDate   || e.date <= toDate;
-    const favoriteMatch = !favoritesOnly || e.favorited;
-    return kidMatch && authorMatch && afterFrom && beforeTo && favoriteMatch;
-  });
-
-  const kidLabel = selectedKids.length === 0 ? 'nobody'
-    : selectedKids.length >= kids.length ? (kids.length > 1 ? 'the family' : kids[0]?.name.split(' ')[0])
-    : selectedKids.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & ');
-
-  const years = Array.from({ length: 11 }, (_, i) => currentYear - i);
-  const allKidNames = kids.map(k => k.name.split(' ')[0]);
-  const recipientSummary = selectedKids.length >= kids.length
-    ? (kids.length > 1
-        ? allKidNames.slice(0, -1).join(', ') + ' and ' + allKidNames[allKidNames.length - 1]
-        : kids[0]?.name.split(' ')[0] || 'Your child')
-    : selectedKids.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & ');
-
-  const maternalNames = new Set(['mom', 'mama', 'mommy', 'mother', 'mum', 'mummy', 'nana', 'grandma', 'grandmother']);
-  const allMemberNames = (familyMembers || [])
-    .map(m => m.display_name || m.real_name)
-    .sort((a, b) => {
-      const aM = maternalNames.has(a.toLowerCase());
-      const bM = maternalNames.has(b.toLowerCase());
-      if (aM && !bM) return -1;
-      if (!aM && bM) return 1;
-      return 0;
-    });
-  const authorSummary = isAllAuthors && allMemberNames.length > 1
-    ? allMemberNames.slice(0, -1).join(', ') + ' and ' + allMemberNames[allMemberNames.length - 1]
-    : authorLabel;
-  const dateSummary = dateRange === 'all'
-    ? ''
-    : dateRange === 'year'
-      ? `Just the letters from ${currentYear}`
-      : `${customFrom} through ${customTo}`;
-
-  return (
-    <div className="screen" style={{ background: 'var(--bg-card)' }}>
-      <div className="scroll-area">
-        <div className="scrollpad">
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-x" /></button>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, fontWeight: 600, letterSpacing: 0.3 }}>Create a book</p>
-          </div>
-
-
-          <div style={{ border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-
-            {/* For */}
-            <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, flexShrink: 0 }}>For</p>
-              <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                {kids.length > 1 && (
-                  <button onClick={() => setSelectedKids(kids.map(k => k.id))}
-                    style={{ padding: '7px 13px', fontSize: 13, fontWeight: 600, border: 'none', borderRight: '1px solid var(--border)', cursor: 'pointer', background: selectedKids.length >= kids.length ? 'var(--accent)' : 'transparent', color: selectedKids.length >= kids.length ? '#fff' : 'var(--text-2)', transition: 'background 0.15s, color 0.15s' }}
-                  >Everyone</button>
-                )}
-                {kids.map((k, i) => {
-                  const sel = selectedKids.length === 1 && selectedKids[0] === k.id;
-                  return (
-                    <button key={k.id} onClick={() => setSelectedKids([k.id])}
-                      style={{ padding: '7px 13px', fontSize: 13, fontWeight: 600, border: 'none', borderRight: i < kids.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: sel ? 'var(--accent)' : 'transparent', color: sel ? '#fff' : 'var(--text-2)', transition: 'background 0.15s, color 0.15s' }}
-                    >{k.name.split(' ')[0]}</button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* From */}
-            {fromOptions.length > 1 && (
-              <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, flexShrink: 0 }}>From</p>
-                <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  {fromOptions.map((name, i) => {
-                    const sel = authorLabel === name;
-                    return (
-                      <button key={name} onClick={() => setAuthorLabel(name)}
-                        style={{ padding: '7px 13px', fontSize: 13, fontWeight: 600, border: 'none', borderRight: i < fromOptions.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: sel ? 'var(--accent)' : 'transparent', color: sel ? '#fff' : 'var(--text-2)', transition: 'background 0.15s, color 0.15s', whiteSpace: 'nowrap' }}
-                      >{name}</button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Years */}
-            <div style={{ padding: '13px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, flexShrink: 0 }}>Years</p>
-              <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                {[{ id: 'all', label: 'All time' }, { id: 'year', label: String(currentYear) }, { id: 'custom', label: 'Custom' }].map((opt, i, arr) => {
-                  const sel = dateRange === opt.id;
-                  return (
-                    <button key={opt.id} onClick={() => setDateRange(opt.id)}
-                      style={{ padding: '7px 13px', fontSize: 13, fontWeight: 600, border: 'none', borderRight: i < arr.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: sel ? 'var(--accent)' : 'transparent', color: sel ? '#fff' : 'var(--text-2)', transition: 'background 0.15s, color 0.15s' }}
-                    >{opt.label}</button>
-                  );
-                })}
-              </div>
-            </div>
-            {dateRange === 'custom' && (
-              <div style={{ padding: '0 16px 13px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 6px', fontWeight: 600 }}>From</p>
-                  <select value={customFrom} onChange={e => setCustomFrom(e.target.value)} className="input-field" style={{ padding: '10px 12px', fontSize: 14 }}>
-                    {years.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 6px', fontWeight: 600 }}>To</p>
-                  <select value={customTo} onChange={e => setCustomTo(e.target.value)} className="input-field" style={{ padding: '10px 12px', fontSize: 14 }}>
-                    {years.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Favorites toggle */}
-            <div style={{ padding: '13px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setFavoritesOnly(v => !v)}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0 }}>Favorites only</p>
-              <div style={{ width: 44, height: 26, borderRadius: 13, background: favoritesOnly ? 'var(--accent)' : 'var(--border)', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: 3, left: favoritesOnly ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-              </div>
-            </div>
-
-          </div>
-
-          <div style={{ background: '#1E2C1E', borderRadius: 18, padding: '22px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {filtered.length === 0 ? (
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'rgba(255,255,255,0.45)', margin: 0, lineHeight: 1.6 }}>
-                {favoritesOnly ? 'No favorited letters match that selection yet.' : 'No letters match that selection yet.'}
-              </p>
-            ) : (
-              <div>
-                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: '#fff', margin: '0 0 5px', lineHeight: 1.55 }}>
-                  {filtered.length} {favoritesOnly ? 'favorite ' : ''}letter{filtered.length !== 1 ? 's' : ''} from {authorSummary} to {recipientSummary}.
-                </p>
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', margin: 0 }}>
-                  {dateSummary}
-                </p>
-              </div>
-            )}
-            <button
-              className="btn"
-              className={filtered.length === 0 ? 'btn' : 'btn btn-gold'}
-              style={{ width: '100%', background: filtered.length === 0 ? 'rgba(255,255,255,0.08)' : undefined, color: filtered.length === 0 ? 'rgba(255,255,255,0.25)' : undefined, borderRadius: 14 }}
-              disabled={filtered.length === 0}
-              onClick={() => onPreview({ kidIds: selectedKids, fromDate, toDate, bookEntries: filtered, authorLabel, authorSummary, recipientSummary })}
-            >
-              <i className="ti ti-eye" style={{ fontSize: 16 }} />
-              Preview your book
-            </button>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-function letterFontSize(charCount, hasPhoto) {
-  if (hasPhoto) return charCount < 300 ? 11.5 : charCount < 500 ? 10.5 : 9;
-  return charCount < 600 ? 11.5 : charCount < 950 ? 10.5 : charCount < 1250 ? 9.5 : 9;
-}
-
-function charsPerPage(fontSize, hasPhoto) {
-  return Math.round((hasPhoto ? 700 : 1900) * (9 / fontSize));
-}
-
-function breakAt(text, max) {
-  if (text.length <= max) return text;
-  let i = max;
-  while (i > 0 && !/\s/.test(text[i])) i--;
-  if (i === 0) return text.slice(0, max);
-  // Only avoid orphan if the last newline is within 40 chars of the split point
-  const lastNl = text.lastIndexOf('\n', i - 1);
-  if (lastNl > 0 && i - lastNl <= 40) {
-    const lastLine = text.slice(lastNl + 1, i).trim();
-    if (lastLine.split(/\s+/).filter(Boolean).length <= 2) {
-      return text.slice(0, lastNl).trimEnd();
-    }
-  }
-  return text.slice(0, i);
-}
-
-function splitLetterText(text, fontSize, hasPhoto) {
-  if (!text) return [''];
-  const firstCap = charsPerPage(fontSize, hasPhoto);
-  const contCap = charsPerPage(fontSize, false);
-  if (text.length <= firstCap) return [text];
-  const chunks = [];
-  const first = breakAt(text, firstCap);
-  chunks.push(first);
-  let rest = text.slice(first.length).trimStart();
-  while (rest.length > 0) {
-    if (rest.length <= contCap) { chunks.push(rest); break; }
-    const chunk = breakAt(rest, contCap);
-    chunks.push(chunk);
-    rest = rest.slice(chunk.length).trimStart();
-  }
-  return chunks;
-}
-
-function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, hasMore, fontSize }) {
-  const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
-  const salutation = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
-  const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const photo = !isContinued && entry.media?.length > 0 && entry.media[0].type !== 'video' ? entry.media[0] : null;
-  const cropY = entry.cropY ?? 50;
-  const photoHeight = 176;
-  return (
-    <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {photo && <CroppedPhoto src={cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto')} cropY={cropY} height={photoHeight} />}
-      <div style={{ flex: 1, padding: '18px 24px 12px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, fontWeight: 700, color: '#B8C8B4', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>
-          {dateLabel}{isContinued ? ' — cont\'d' : ''}
-        </p>
-        {!isContinued && (
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: '#4A5E50', margin: '0 0 8px' }}>Dear {salutation},</p>
-        )}
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: fontSize, color: '#2C3828', lineHeight: 1.72, margin: 0, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
-          {pageText}
-        </p>
-        {!hasMore && entry.signedAs && (
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10.5, color: '#9AA89C', margin: '10px 0 0', textAlign: 'right' }}>
-            Love, {entry.signedAs}
-          </p>
-        )}
-        <div style={{ marginTop: 'auto', paddingTop: 8 }}>
-          {hasMore ? (
-            <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#B8C8B4', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>continued →</p>
-          ) : (
-            <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#C4D8C0', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>
-              {index + 1} / {sortedLength}
-            </p>
-          )}
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#B8C8B4', margin: 0, textAlign: 'center' }}>Patina</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-// ─── Book preview ──────────────────────────────────────────────────────────
-
-function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUserId, onNotifyMe, userEmail }) {
-  const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
-  const sorted = [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1);
-
-  // Build pages array with chapter dividers inserted at year boundaries
-  const { contentPages, yearTOC } = useMemo(() => {
-    const pages = [];
-    const toc = []; // [{ year, pageIndex }]  pageIndex = index within contentPages
-    let currentYear = null;
-    let letterNum = 0;
-    sorted.forEach(entry => {
-      const year = entry.date.slice(0, 4);
-      if (year !== currentYear) {
-        currentYear = year;
-        toc.push({ year, pageIndex: pages.length });
-        pages.push({ type: 'chapter', year });
-      }
-      const hasPhoto = entry.media?.length > 0 && entry.media[0].type !== 'video';
-      const fs = letterFontSize((entry.text || '').length, hasPhoto);
-      const chunks = splitLetterText(entry.text || '', fs, hasPhoto);
-      const thisNum = letterNum++;
-      chunks.forEach((chunk, i) => {
-        pages.push({ type: 'letter', entry, pageText: chunk, letterNum: thisNum, isContinued: i > 0, hasMore: i < chunks.length - 1, fontSize: fs });
-      });
-    });
-    return { contentPages: pages, yearTOC: toc };
-  }, [sorted]);
-
-  // page 0 = cover, page 1 = TOC, pages 2..N = content, last = back cover
-  const totalPages = contentPages.length + 3;
-  const [page, setPage] = useState(0);
-  const swipeStart = useRef(null);
-  const pageDir = useRef(1);
-  const [showWaitlist, setShowWaitlist] = useState(false);
-  const [waitlistEmail, setWaitlistEmail] = useState(userEmail || '');
-  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
-  const [waitlistDone, setWaitlistDone] = useState(false);
-
-  function goNext() { pageDir.current = 1;  setPage(p => Math.min(p + 1, totalPages - 1)); }
-  function goPrev() { pageDir.current = -1; setPage(p => Math.max(p - 1, 0)); }
-
-  function handleSwipeStart(e) {
-    const t = e.touches[0];
-    swipeStart.current = { x: t.clientX, y: t.clientY };
-  }
-
-  function handleSwipeEnd(e) {
-    if (!swipeStart.current) return;
-    const dx = e.changedTouches[0].clientX - swipeStart.current.x;
-    const dy = e.changedTouches[0].clientY - swipeStart.current.y;
-    swipeStart.current = null;
-    if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy)) return;
-    if (dx < 0) goNext(); else goPrev();
-  }
-
-  useEffect(() => {
-    [-1, 1].forEach(offset => {
-      const content = contentPages[page - 2 + offset];
-      if (content?.type !== 'letter' || content.isContinued) return;
-      const photo = content.entry.media?.[0];
-      if (photo && photo.type !== 'video') {
-        const img = new Image();
-        img.src = cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto');
-      }
-    });
-  }, [page, contentPages]);
-
-
-  const kidNameDisplay = recipientSummary || (kidIds.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & '));
-
-  const dateRangeLabel = (() => {
-    if (!fromDate && !toDate && sorted.length > 0) {
-      const first = new Date(sorted[0].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      const last  = new Date(sorted[sorted.length - 1].date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      return first === last ? first : `${first} – ${last}`;
-    }
-    if (fromDate && toDate) return `${fromDate.slice(0, 4)} – ${toDate.slice(0, 4)}`;
-    return fromDate?.slice(0, 4) || toDate?.slice(0, 4) || '';
-  })();
-
-
-  const renderCoverPage = () => {
-    return (
-      <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.1) 100%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-          <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.22)' }} />
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, letterSpacing: 0.5, color: '#C8993E', margin: 0, lineHeight: 1 }}>Patina</p>
-          <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.22)' }} />
-          <h1 style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 30, color: '#F8F4EC', margin: 0, lineHeight: 1.25, textAlign: 'center' }}>
-            Letters to<br />{kidNameDisplay}
-          </h1>
-          {authorSummary && authorSummary.toLowerCase() !== kidNameDisplay.toLowerCase() && (
-            <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.7)', margin: 0, letterSpacing: 1.2, textTransform: 'uppercase' }}>
-              Love, {authorSummary}
-            </p>
-          )}
-          <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.62)', margin: 0, lineHeight: 1.7, textAlign: 'center', maxWidth: 240 }}>
-            For all the moments you may have forgotten, and all the things I never want you to forget
-          </p>
-          {dateRangeLabel && <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 11, color: 'rgba(255,255,255,0.48)', margin: 0, letterSpacing: 1 }}>{dateRangeLabel.toUpperCase()}</p>}
-        </div>
-      </div>
-    );
-  };
-
-  const renderTOCPage = () => (
-    <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '40px 36px 32px' }}>
-      <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, fontWeight: 700, color: '#B8C8B4', letterSpacing: 1.8, textTransform: 'uppercase', margin: '0 0 28px' }}>Contents</p>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 0 }}>
-        {yearTOC.map(({ year, pageIndex }) => {
-          const displayPage = pageIndex + 2 + 1; // +2 for cover+TOC, +1 for 1-based
-          return (
-            <div
-              key={year}
-              onClick={() => setPage(pageIndex + 2)}
-              style={{ display: 'flex', alignItems: 'baseline', gap: 6, padding: '10px 0', borderBottom: '1px solid #EEF2EE', cursor: 'pointer' }}
-            >
-              <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, color: '#2C3828', fontWeight: 700 }}>{year}</span>
-              <span style={{ flex: 1, borderBottom: '1px dotted #C4D8C0', margin: '0 8px 4px' }} />
-              <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 11, color: '#9AA89C', fontWeight: 600 }}>{displayPage}</span>
-            </div>
-          );
-        })}
-      </div>
-      <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#B8C8B4', margin: '20px 0 0', textAlign: 'center' }}>Patina</p>
-    </div>
-  );
-
-  const renderChapterPage = (year) => (
-    <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
-      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-        <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,0.3)', margin: '0 auto 20px' }} />
-        <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 52, color: '#F8F4EC', margin: 0, lineHeight: 1, letterSpacing: -1 }}>{year}</p>
-        <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,0.3)', margin: '20px auto 0' }} />
-      </div>
-      <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" />
-      </div>
-    </div>
-  );
-
-
-  const renderBackCover = () => {
-    const weOrI = authorLabel?.toLowerCase() === 'our family' || (authorSummary || '').includes(' and ') ? 'We' : 'I';
-    return (
-      <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.1) 100%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%' }}>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: 'rgba(255,255,255,0.85)', margin: 0 }}>Patina</p>
-          <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.9, textAlign: 'center' }}>
-            Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet attempt to slow down time—a gift for you to one day hold, and an anchor for us to inhabit today.
-          </p>
-          <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
-        </div>
-        <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
-          <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" />
-        </div>
-      </div>
-    );
-  };
-
-  const renderPage = () => {
-    if (page === 0) return renderCoverPage();
-    if (page === 1) return renderTOCPage();
-    if (page === totalPages - 1) return renderBackCover();
-    const content = contentPages[page - 2];
-    if (!content) return null;
-    if (content.type === 'chapter') return renderChapterPage(content.year);
-    return <LetterPage entry={content.entry} pageText={content.pageText} index={content.letterNum} sortedLength={sorted.length} kids={kids} isContinued={content.isContinued} hasMore={content.hasMore} fontSize={content.fontSize} />;
-  };
-
-  const pageLabel = (() => {
-    if (page === 0) return 'Cover';
-    if (page === 1) return 'Contents';
-    if (page === totalPages - 1) return 'Back cover';
-    const content = contentPages[page - 2];
-    if (!content) return '';
-    if (content.type === 'chapter') return content.year;
-    return `Letter ${content.letterNum + 1} of ${sorted.length}`;
-  })();
-
-  return (
-    <div className="screen" style={{ background: '#1E2820' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', flexShrink: 0 }}>
-        <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-x" /></button>
-        <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, fontWeight: 600 }}>{pageLabel}</p>
-        <div style={{ width: 36 }} />
-      </div>
-
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px', minHeight: 0 }}
-        onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd}>
-        <div style={{ width: '100%', aspectRatio: '3/4', borderRadius: 6, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.6), 4px 0 0 rgba(0,0,0,0.3)', maxHeight: '100%' }}>
-          <div key={page} className={pageDir.current > 0 ? 'page-enter-right' : 'page-enter-left'} style={{ width: '100%', height: '100%' }}>
-            {renderPage()}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ padding: '16px 20px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={goPrev}
-          style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
-          <i className="ti ti-chevron-left" />
-        </button>
-        <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
-          <div style={{ height: '100%', background: 'rgba(255,255,255,0.4)', borderRadius: 99, width: `${((page + 1) / totalPages) * 100}%`, transition: 'width 0.2s' }} />
-        </div>
-        <button onClick={goNext}
-          style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
-          <i className="ti ti-chevron-right" />
-        </button>
-      </div>
-
-      <div style={{ padding: '0 20px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: "'Urbanist', sans-serif" }}>Page</span>
-        <input
-          type="number"
-          min={1}
-          max={totalPages}
-          placeholder={page + 1}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              const val = parseInt(e.target.value);
-              if (!isNaN(val) && val >= 1 && val <= totalPages) setPage(val - 1);
-              e.target.value = '';
-              e.target.blur();
-            }
-          }}
-          style={{ width: 52, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: 8, padding: '5px 8px', fontSize: 12, color: '#fff', fontFamily: "'Urbanist', sans-serif", textAlign: 'center', outline: 'none' }}
-        />
-        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontFamily: "'Urbanist', sans-serif" }}>of {totalPages}</span>
-      </div>
-
-      <div style={{ padding: '8px 20px 28px', flexShrink: 0 }}>
-        <button className="btn btn-gold" style={{ width: '100%', borderRadius: 14 }}
-          onClick={() => setShowWaitlist(true)}>
-          <i className="ti ti-shopping-cart" style={{ fontSize: 16 }} />
-          Order this book
-        </button>
-      </div>
-
-      {showWaitlist && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 30, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end' }}
-          onClick={() => setShowWaitlist(false)}>
-          <div style={{ background: 'var(--bg)', borderRadius: '22px 22px 0 0', padding: '28px 24px 40px', width: '100%' }}
-            onClick={e => e.stopPropagation()}>
-            {!waitlistDone ? (
-              <>
-                <img src="/icon-192.png" style={{ width: 48, height: 48, borderRadius: 12, display: 'block', marginBottom: 16 }} alt="Patina" />
-                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.25 }}>Print ordering<br />is coming soon</h3>
-                <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.6 }}>
-                  Your book is ready to go. Leave your email and we'll let you know the moment print ordering opens.
-                </p>
-                <input
-                  className="input-field"
-                  type="email"
-                  placeholder="your@email.com"
-                  value={waitlistEmail}
-                  onChange={e => setWaitlistEmail(e.target.value)}
-                  style={{ marginBottom: 12 }}
-                />
-                <button
-                  className="btn btn-gold"
-                  style={{ width: '100%', opacity: (!waitlistEmail.trim() || waitlistSubmitting) ? 0.5 : 1 }}
-                  disabled={!waitlistEmail.trim() || waitlistSubmitting}
-                  onClick={async () => {
-                    setWaitlistSubmitting(true);
-                    await onNotifyMe?.(waitlistEmail.trim());
-                    setWaitlistSubmitting(false);
-                    setWaitlistDone(true);
-                  }}
-                >
-                  {waitlistSubmitting ? 'Saving…' : 'Notify me when it\'s ready'}
-                </button>
-                <button onClick={() => setShowWaitlist(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: '100%', marginTop: 14, fontSize: 13, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>
-                  Maybe later
-                </button>
-              </>
-            ) : (
-              <div style={{ textAlign: 'center', padding: '12px 0' }}>
-                <i className="ti ti-circle-check" style={{ fontSize: 40, color: '#C8993E', display: 'block', marginBottom: 14 }} />
-                <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: 'var(--text)', margin: '0 0 8px' }}>You're on the list</h3>
-                <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 28px', lineHeight: 1.6 }}>We'll email you at <strong>{waitlistEmail}</strong> when print ordering is available.</p>
-                <button className="btn btn-outline" style={{ width: '100%' }} onClick={() => setShowWaitlist(false)}>Done</button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
 // ──────────────────────────────────────────────────────────────────────────
 
 // ─── Friends screen ────────────────────────────────────────────────────────
@@ -6430,7 +4684,9 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = [], currentUserId, familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, reactionNotifications = [], onClearReactions, onOpenFriendEntry, onDismissReaction, onFriendBirthdayClick, onDismissBirthday, birthdayNotifications = [], supabase, session, socialName, friendUserFamilyMap = {} }) {
+function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, onOpenFriendEntry, onFriendBirthdayClick, socialName, friendUserFamilyMap = {} }) {
+  const { reactionNotifications = [], birthdayNotifications = [], friendRequests = [], onClearReactions, onDismissReaction, onDismissBirthday } = useNotif() ?? {};
+  const { userId: currentUserId, session } = useSession() ?? {};
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -6864,7 +5120,8 @@ function FriendsScreen({ friends, friendRequests, friendKids, friendEntries = []
   );
 }
 
-function NavBar({ active, onNavigate, friendBadge = 0, reactionBadge = 0 }) {
+const NavBar = memo(function NavBar({ active, onNavigate }) {
+  const { friendBadge = 0, reactionBadge = 0 } = useNotif() ?? {};
 
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
@@ -6913,7 +5170,7 @@ function NavBar({ active, onNavigate, friendBadge = 0, reactionBadge = 0 }) {
       </div>
     </>
   );
-}
+});
 
 // ─── Auth screen ───────────────────────────────────────────────────────────
 
@@ -7742,14 +5999,17 @@ export default function App() {
     setDarkModeValue(darkMode === 'light' ? 'dark' : darkMode === 'dark' ? 'auto' : 'light');
   }, [darkMode, setDarkModeValue]);
 
-  const [, setAutoTick] = useState(0);
+  const [effectiveDarkAuto, setEffectiveDarkAuto] = useState(() => isDarkTime());
   useEffect(() => {
     if (darkMode !== 'auto') return;
-    const id = setInterval(() => setAutoTick(t => t + 1), 60_000);
+    const id = setInterval(() => {
+      const now = isDarkTime();
+      setEffectiveDarkAuto(prev => prev === now ? prev : now);
+    }, 60_000);
     return () => clearInterval(id);
   }, [darkMode]);
 
-  const effectiveDark = darkMode === 'dark' || (darkMode === 'auto' && isDarkTime());
+  const effectiveDark = darkMode === 'dark' || (darkMode === 'auto' && effectiveDarkAuto);
 
   // Auth listener
   useEffect(() => {
@@ -8163,17 +6423,17 @@ export default function App() {
 
   // ── Partner activity: real-time toast (option 2) ───────────────────────────
   const familyMembersRef = useRef(familyMembers);
-  useEffect(() => { familyMembersRef.current = familyMembers; }, [familyMembers]);
+  familyMembersRef.current = familyMembers;
 
   // Keep a ref of own entry IDs so realtime handlers can check without stale closure
   const ownEntryIdsRef = useRef(new Set());
   useEffect(() => { ownEntryIdsRef.current = new Set(entries.map(e => e.id)); }, [entries]);
   const entriesRef = useRef(entries);
-  useEffect(() => { entriesRef.current = entries; }, [entries]);
+  entriesRef.current = entries;
   const kidsRef = useRef(kids);
-  useEffect(() => { kidsRef.current = kids; }, [kids]);
+  kidsRef.current = kids;
   const currentUserIdRef = useRef(session?.user?.id);
-  useEffect(() => { currentUserIdRef.current = session?.user?.id; }, [session?.user?.id]);
+  currentUserIdRef.current = session?.user?.id;
   const familyUserIdsRef = useRef([session?.user?.id].filter(Boolean));
 
   const [installBannerType, setInstallBannerType] = useState(null); // 'ios-safari' | 'ios-other' | 'android'
@@ -8308,6 +6568,8 @@ export default function App() {
 
   const screenRef = useRef(screen);
   useEffect(() => { screenRef.current = screen; }, [screen]);
+
+  const handleNavigate = useCallback((s) => setScreen(s), []);
 
   const openEntry = useCallback((entry) => {
     setEntrySource(screenRef.current);
@@ -9028,7 +7290,46 @@ export default function App() {
     );
   }
 
+  const handleClearReactions = useCallback(() => {
+    localStorage.setItem('notifClearedAt', Date.now().toString());
+    setReactionNotifications([]);
+    if (supabase && session?.user?.id) supabase.from('birthday_notifications').update({ dismissed: true }).eq('user_id', session.user.id);
+    setBirthdayNotifications([]);
+  }, [session?.user?.id]);
+
+  const handleDismissReaction = useCallback(id => {
+    const prev = JSON.parse(localStorage.getItem('notifDismissedIds') || '[]');
+    localStorage.setItem('notifDismissedIds', JSON.stringify([...new Set([...prev, id])]));
+    setReactionNotifications(p => p.filter(n => n.id !== id));
+  }, []);
+
+  const handleDismissBirthday = useCallback(id => {
+    if (supabase && session?.user?.id) supabase.from('birthday_notifications').update({ dismissed: true }).eq('id', id).eq('user_id', session.user.id);
+    setBirthdayNotifications(p => p.filter(n => n.id !== id));
+  }, [session?.user?.id]);
+
+  const sessionValue = useMemo(() => ({
+    session, userId: session?.user?.id, familyId, familyMembers, myDisplayName, localMode,
+  }), [session, familyId, familyMembers, myDisplayName]);
+
+  const dataValue = useMemo(() => ({
+    entries, kids,
+  }), [entries, kids]);
+
+  const notifValue = useMemo(() => ({
+    reactionNotifications, birthdayNotifications, reactionCounts,
+    partnerToast, reactionToast, unseenPartnerIds, friendRequests,
+    friendBadge: friendRequests.filter(r => r.addressee_id === session?.user?.id).length + birthdayNotifications.length,
+    reactionBadge: reactionNotifications.length,
+    onClearReactions: handleClearReactions,
+    onDismissReaction: handleDismissReaction,
+    onDismissBirthday: handleDismissBirthday,
+  }), [reactionNotifications, birthdayNotifications, reactionCounts, partnerToast, reactionToast, unseenPartnerIds, friendRequests, session?.user?.id, handleClearReactions, handleDismissReaction, handleDismissBirthday]);
+
   return (
+    <SessionCtx.Provider value={sessionValue}>
+    <DataCtx.Provider value={dataValue}>
+    <NotifCtx.Provider value={notifValue}>
     <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined}>
       {partnerToast && (
         <PartnerToast
@@ -9045,8 +7346,6 @@ export default function App() {
         const selfMember = familyMembers.find(m => m.user_id === session?.user?.id) || null;
         return (
           <HomeScreen
-            entries={entries}
-            kids={kids}
             kidFilter={kidFilter}
             setKidFilter={setKidFilter}
             onOpenEntry={openEntry}
@@ -9056,9 +7355,6 @@ export default function App() {
             onSeeAll={() => { setJournalBackScreen('home'); setScreen('journal'); }}
             onCompare={() => setScreen('compare')}
             onUpdateCrop={handleUpdateCrop}
-            unseenPartnerIds={unseenPartnerIds}
-            familyMembers={familyMembers}
-            currentUserId={session?.user?.id}
             onSeePartnerLetters={() => { setLetterAuthorId(partnerMember?.user_id || null); setScreen('partner-letters'); }}
             onSeeMyLetters={() => { setLetterAuthorId(session?.user?.id || null); setScreen('partner-letters'); }}
             partner={partnerMember}
@@ -9076,13 +7372,10 @@ export default function App() {
               setCompareTarget({ kidId, compareAge: bucket });
               setScreen('compare');
             }}
-            reactionCounts={reactionCounts}
             pendingOpenEntryId={pendingOpenEntryId}
             onClearPendingOpen={() => setPendingOpenEntryId(null)}
             initialCircleViewer={circleViewerEntry}
             onClearInitialCircleViewer={() => setCircleViewerEntry(null)}
-            session={session}
-            myDisplayName={myDisplayName}
             onAvatarUpload={handleAvatarUpload}
             onBirthdayNextWeekClick={(kid, age) => {
               setNewEntryInitial({ kidIds: [kid.id], milestone: 'custom', customMilestone: `${ordinal(age)} Birthday` });
@@ -9170,14 +7463,16 @@ export default function App() {
       )}
 
       {screen === 'recap' && (
-        <RecapScreen
-          entries={entries}
-          kids={kids}
-          onBack={() => setScreen('home')}
-          onOpenEntry={openEntry}
-          onCompare={() => setScreen('compare')}
-          onSeeAll={() => { setJournalBackScreen('recap'); setScreen('journal'); }}
-        />
+        <Suspense fallback={null}>
+          <LazyRecapScreen
+            entries={entries}
+            kids={kids}
+            onBack={() => setScreen('home')}
+            onOpenEntry={openEntry}
+            onCompare={() => setScreen('compare')}
+            onSeeAll={() => { setJournalBackScreen('recap'); setScreen('journal'); }}
+          />
+        </Suspense>
       )}
 
       {screen === 'compare' && (
@@ -9198,24 +7493,14 @@ export default function App() {
       {screen === 'friends' && (
         <FriendsScreen
           friends={friends}
-          friendRequests={friendRequests}
           friendKids={friendKids}
           friendEntries={friendEntries}
-          currentUserId={session?.user?.id}
           familyMemberIds={familyMembers.filter(m => m.user_id !== session?.user?.id).map(m => m.user_id)}
           onBack={() => setScreen('home')}
           onSearch={handleSearchUsers}
           onSendRequest={handleSendFriendRequest}
           onRespond={handleRespondFriendRequest}
           onUnfriend={handleUnfriend}
-          reactionNotifications={reactionNotifications}
-          onClearReactions={() => {
-            localStorage.setItem('notifClearedAt', Date.now().toString());
-            setReactionNotifications([]);
-            if (supabase && session?.user?.id) supabase.from('birthday_notifications').update({ dismissed: true }).eq('user_id', session.user.id);
-            setBirthdayNotifications([]);
-          }}
-          onDismissReaction={id => { const prev = JSON.parse(localStorage.getItem('notifDismissedIds') || '[]'); localStorage.setItem('notifDismissedIds', JSON.stringify([...new Set([...prev, id])])); setReactionNotifications(p => p.filter(n => n.id !== id)); }}
           onOpenFriendEntry={(entryId) => {
             const entry = entries.find(e => e.id === entryId);
             if (!entry) return;
@@ -9228,13 +7513,6 @@ export default function App() {
             setScreen('home');
           }}
           onFriendBirthdayClick={kid => setBirthdaySlideshowFriend({ kid, entries: friendEntries })}
-          birthdayNotifications={birthdayNotifications}
-          onDismissBirthday={id => {
-            if (supabase && session?.user?.id) supabase.from('birthday_notifications').update({ dismissed: true }).eq('id', id).eq('user_id', session.user.id);
-            setBirthdayNotifications(p => p.filter(n => n.id !== id));
-          }}
-          supabase={supabase}
-          session={session}
           socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName}
           friendUserFamilyMap={friendUserFamilyMap}
         />
@@ -9256,15 +7534,17 @@ export default function App() {
       )}
 
       {screen === 'book-preview' && bookConfig && (
-        <BookPreviewScreen
-          kids={kids}
-          bookConfig={bookConfig}
-          onBack={() => setScreen('book-builder')}
-          onUpdateCrop={handleUpdateCrop}
-          currentUserId={session?.user?.id}
-          onNotifyMe={handleBookWaitlist}
-          userEmail={session?.user?.email}
-        />
+        <Suspense fallback={null}>
+          <LazyBookPreviewScreen
+            kids={kids}
+            bookConfig={bookConfig}
+            onBack={() => setScreen('book-builder')}
+            onUpdateCrop={handleUpdateCrop}
+            currentUserId={session?.user?.id}
+            onNotifyMe={handleBookWaitlist}
+            userEmail={session?.user?.email}
+          />
+        </Suspense>
       )}
 
 {screen === 'profile' && (
@@ -9320,12 +7600,14 @@ export default function App() {
       {screen === 'growth' && growthKidId && (() => {
         const kid = kids.find(k => k.id === growthKidId);
         return kid ? (
-          <GrowthScreen
-            kid={kid}
-            onBack={() => setScreen('profile')}
-            onSave={entry => handleSaveGrowthEntry(growthKidId, entry)}
-            onDelete={date => handleDeleteGrowthEntry(growthKidId, date)}
-          />
+          <Suspense fallback={null}>
+            <LazyGrowthScreen
+              kid={kid}
+              onBack={() => setScreen('profile')}
+              onSave={entry => handleSaveGrowthEntry(growthKidId, entry)}
+              onDelete={date => handleDeleteGrowthEntry(growthKidId, date)}
+            />
+          </Suspense>
         ) : null;
       })()}
 
@@ -9356,25 +7638,29 @@ export default function App() {
       )}
 
       {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'growth' && screen !== 'book-builder' && screen !== 'book-preview' && (
-        <NavBar active={screen} onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length + birthdayNotifications.length} reactionBadge={reactionNotifications.length} />
+        <NavBar active={screen} onNavigate={handleNavigate} />
       )}
-      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={s => setScreen(s)} friendBadge={friendRequests.filter(r => r.addressee_id === session?.user?.id).length + birthdayNotifications.length} reactionBadge={reactionNotifications.length} />}
+      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={handleNavigate} />}
 
       {birthdaySlideshow && (
-        <BirthdaySlideshowScreen
-          kid={birthdaySlideshow}
-          age={turningAge(birthdaySlideshow.birthdate)}
-          entries={entries}
-          onClose={() => setBirthdaySlideshow(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyBirthdaySlideshowScreen
+            kid={birthdaySlideshow}
+            age={turningAge(birthdaySlideshow.birthdate)}
+            entries={entries}
+            onClose={() => setBirthdaySlideshow(null)}
+          />
+        </Suspense>
       )}
       {birthdaySlideshowFriend && (
-        <BirthdaySlideshowScreen
-          kid={birthdaySlideshowFriend.kid}
-          age={turningAge(birthdaySlideshowFriend.kid.birthdate)}
-          entries={birthdaySlideshowFriend.entries}
-          onClose={() => setBirthdaySlideshowFriend(null)}
-        />
+        <Suspense fallback={null}>
+          <LazyBirthdaySlideshowScreen
+            kid={birthdaySlideshowFriend.kid}
+            age={turningAge(birthdaySlideshowFriend.kid.birthdate)}
+            entries={birthdaySlideshowFriend.entries}
+            onClose={() => setBirthdaySlideshowFriend(null)}
+          />
+        </Suspense>
       )}
 
       {celebration && (
@@ -9424,5 +7710,8 @@ export default function App() {
         </div>
       )}
     </div>
+    </NotifCtx.Provider>
+    </DataCtx.Provider>
+    </SessionCtx.Provider>
   );
 }

@@ -37,10 +37,19 @@
         height: 100%;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-Cdhi5mgX.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DwCPNTeV.css">
+    <script type="module" crossorigin src="/assets/index-D7hiAy9w.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/vendor-react-SIwY82C9.js">
+    <link rel="modulepreload" crossorigin href="/assets/vendor-supabase-Be25SE7n.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-VlKELnjk.css">
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>
