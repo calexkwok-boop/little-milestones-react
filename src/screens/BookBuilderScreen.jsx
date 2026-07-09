@@ -117,13 +117,15 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
         )}
       </div>
 
-      {/* Favorites only — card row matching app's settings-row style */}
-      <button onClick={() => setFavoritesOnly(f => !f)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: favoritesOnly ? 'var(--bg-elevated)' : 'var(--bg-card)', border: 'none', borderRadius: 14, padding: '14px 16px', cursor: 'pointer', transition: 'background 0.15s' }}>
+      {/* Favorites only */}
+      <button onClick={() => setFavoritesOnly(f => !f)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'var(--bg-card)', border: 'none', borderRadius: 14, padding: '14px 16px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <i className="ti ti-star-filled" style={{ fontSize: 17, color: favoritesOnly ? '#C8993E' : 'var(--text-muted)' }} />
           <span style={{ fontSize: 14, fontWeight: 600, color: favoritesOnly ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>Favorites only</span>
         </div>
-        <i className={`ti ${favoritesOnly ? 'ti-check' : 'ti-circle'}`} style={{ fontSize: 18, color: favoritesOnly ? 'var(--accent)' : 'var(--border)' }} />
+        <div style={{ width: 46, height: 27, borderRadius: 14, background: favoritesOnly ? 'var(--accent)' : 'var(--border)', position: 'relative', transition: 'background 0.22s', flexShrink: 0 }}>
+          <div style={{ position: 'absolute', top: 3, left: favoritesOnly ? 22 : 3, width: 21, height: 21, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.18)', transition: 'left 0.22s' }} />
+        </div>
       </button>
 
       {/* Written by */}
