@@ -7,7 +7,7 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
   const [rangeMode, setRangeMode] = useState('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState(TODAY);
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favoritesOnly, setFavoritesOnly] = useState(true);
 
   const authorMembers = useMemo(() => {
     return familyMembers.map(m => ({
@@ -168,8 +168,8 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
       )}
 
       {/* Preview button */}
-      <button onClick={handlePreview} disabled={!canPreview} className={canPreview ? 'btn btn-primary' : 'btn'} style={{ width: '100%', padding: '16px', borderRadius: 12, background: canPreview ? '#7A9E8C' : darkMode ? 'var(--bg-elevated)' : 'var(--border)', color: canPreview ? '#fff' : 'var(--text-muted)', cursor: canPreview ? 'pointer' : 'default', opacity: canPreview ? 1 : 0.5 }}>
-        Preview book
+      <button onClick={handlePreview} disabled={!canPreview} style={{ width: '100%', padding: '16px', borderRadius: 14, border: canPreview ? (darkMode ? '1px solid rgba(107,158,109,0.18)' : 'none') : 'none', background: canPreview ? (darkMode ? 'linear-gradient(180deg, #2E4A34 0%, #1E3425 100%)' : 'linear-gradient(180deg, #3A4D40 0%, #1E2E24 100%)') : darkMode ? 'var(--bg-elevated)' : 'var(--border)', boxShadow: canPreview ? (darkMode ? '0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 3px 10px rgba(20,35,25,0.38), inset 0 1px 0 rgba(255,255,255,0.08)') : 'none', color: canPreview ? '#fff' : 'var(--text-muted)', fontSize: 15, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", cursor: canPreview ? 'pointer' : 'default', opacity: canPreview ? 1 : 0.5, transition: 'all 0.15s' }}>
+        <i className="ti ti-book" style={{ fontSize: 16 }} /> Preview book
       </button>
 
     </div>
