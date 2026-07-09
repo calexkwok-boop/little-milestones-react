@@ -1318,7 +1318,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           <Header />
 
           {(kids.length > 1 || partner || self) && (
-            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} onManage={onManage} self={self} onSelf={onSeeMyLetters} partner={partner} onPartner={onSeePartnerLetters} />
+            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} self={self} onSelf={onSeeMyLetters} partner={partner} onPartner={onSeePartnerLetters} />
           )}
 
           {unseenPartnerIds.length > 0 && (() => {
