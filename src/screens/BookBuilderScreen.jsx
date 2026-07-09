@@ -3,8 +3,8 @@ import KidThumb from '../KidThumb.jsx';
 import { TODAY } from '../constants.js';
 
 export default function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack, onPreview }) {
-  const [selectedKids, setSelectedKids] = useState(kids.length === 1 ? [kids[0].id] : []);
-  const [rangeMode, setRangeMode] = useState('all'); // 'all' | 'year' | 'custom'
+  const [selectedKids, setSelectedKids] = useState(() => kids.map(k => k.id));
+  const [rangeMode, setRangeMode] = useState('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState(TODAY);
   const [authorLabel, setAuthorLabel] = useState(myDisplayName || '');
@@ -57,10 +57,10 @@ export default function BookBuilderScreen({ kids, entries, familyMembers, myDisp
   const canPreview = selectedKids.length > 0 && textEntries.length > 0;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'var(--bg)', overflowY: 'auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '54px 20px 16px' }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-muted)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '54px 20px 20px' }}>
+        <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-muted)', flexShrink: 0 }}>
           <i className="ti ti-arrow-left" style={{ fontSize: 22 }} />
         </button>
         <div>
@@ -69,17 +69,17 @@ export default function BookBuilderScreen({ kids, entries, familyMembers, myDisp
         </div>
       </div>
 
-      <div style={{ padding: '0 20px 40px', display: 'flex', flexDirection: 'column', gap: 28 }}>
+      <div style={{ padding: '0 20px 100px', display: 'flex', flexDirection: 'column', gap: 32 }}>
 
         {/* Kid selector */}
         <div>
-          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 12px' }}>Who is this book for?</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.2, textTransform: 'uppercase', margin: '0 0 12px' }}>Who is this book for?</p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {kids.map(kid => {
               const selected = selectedKids.includes(kid.id);
               return (
-                <button key={kid.id} onClick={() => toggleKid(kid.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 14px 8px 8px', borderRadius: 40, border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--bg-card)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s' }}>
-                  <KidThumb kid={kid} size={28} />
+                <button key={kid.id} onClick={() => toggleKid(kid.id)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--bg-elevated)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s' }}>
+                  <KidThumb kid={kid} size={30} />
                   <span style={{ fontSize: 14, fontWeight: 600, color: selected ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>{kid.name.split(' ')[0]}</span>
                 </button>
               );
@@ -89,57 +89,55 @@ export default function BookBuilderScreen({ kids, entries, familyMembers, myDisp
 
         {/* Date range */}
         <div>
-          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 12px' }}>Time period</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.2, textTransform: 'uppercase', margin: '0 0 12px' }}>Time period</p>
           <div style={{ display: 'flex', gap: 8 }}>
-            {[['all', 'All time'], ['year', `${currentYear}`], ['custom', 'Custom']].map(([mode, label]) => (
-              <button key={mode} onClick={() => setRangeMode(mode)} style={{ flex: 1, padding: '10px 0', borderRadius: 12, border: `2px solid ${rangeMode === mode ? 'var(--accent)' : 'var(--border)'}`, background: rangeMode === mode ? 'var(--bg-card)' : 'transparent', fontSize: 13, fontWeight: 600, color: rangeMode === mode ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", transition: 'all 0.15s' }}>
+            {[['all', 'All time'], ['year', currentYear], ['custom', 'Custom']].map(([mode, label]) => (
+              <button key={mode} onClick={() => setRangeMode(mode)} style={{ flex: 1, padding: '11px 0', borderRadius: 12, border: `2px solid ${rangeMode === mode ? 'var(--accent)' : 'var(--border)'}`, background: rangeMode === mode ? 'var(--bg-elevated)' : 'transparent', fontSize: 13, fontWeight: 600, color: rangeMode === mode ? 'var(--text)' : 'var(--text-muted)', cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", transition: 'all 0.15s' }}>
                 {label}
               </button>
             ))}
           </div>
           {rangeMode === 'custom' && (
             <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 4px', fontWeight: 600 }}>From</p>
-                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)} max={customTo || TODAY} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', fontSize: 14, fontFamily: "'Urbanist', sans-serif", boxSizing: 'border-box' }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 4px', fontWeight: 600 }}>To</p>
-                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)} min={customFrom} max={TODAY} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', fontSize: 14, fontFamily: "'Urbanist', sans-serif", boxSizing: 'border-box' }} />
-              </div>
+              {[['From', customFrom, v => setCustomFrom(v), '', customTo || TODAY], ['To', customTo, v => setCustomTo(v), customFrom, TODAY]].map(([lbl, val, set, min, max]) => (
+                <div key={lbl} style={{ flex: 1 }}>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 5px', fontWeight: 600 }}>{lbl}</p>
+                  <input type="date" value={val} onChange={e => set(e.target.value)} min={min} max={max} style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: '1.5px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', fontSize: 14, fontFamily: "'Urbanist', sans-serif", boxSizing: 'border-box' }} />
+                </div>
+              ))}
             </div>
           )}
         </div>
 
         {/* Author */}
         <div>
-          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase', margin: '0 0 12px' }}>Written by</p>
+          <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.2, textTransform: 'uppercase', margin: '0 0 12px' }}>Written by</p>
           <input
             type="text"
             value={authorLabel}
             onChange={e => setAuthorLabel(e.target.value)}
             placeholder={authorSummary || 'Mom, Dad…'}
-            style={{ width: '100%', padding: '12px 14px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', fontSize: 15, fontFamily: "'Urbanist', sans-serif", boxSizing: 'border-box', outline: 'none' }}
+            style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text)', fontSize: 15, fontFamily: "'Urbanist', sans-serif", boxSizing: 'border-box', outline: 'none' }}
           />
         </div>
 
-        {/* Entry count summary */}
+        {/* Entry count */}
         {selectedKids.length > 0 && (
-          <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '16px 18px' }}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '16px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ width: 42, height: 42, borderRadius: 10, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <i className="ti ti-book-2" style={{ fontSize: 20, color: 'var(--accent)' }} />
+            </div>
             {textEntries.length > 0 ? (
-              <>
-                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px', fontFamily: "'Urbanist', sans-serif" }}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0, fontFamily: "'Urbanist', sans-serif" }}>
                   {textEntries.length} letter{textEntries.length !== 1 ? 's' : ''}
                 </p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-                  {filteredEntries.length - textEntries.length > 0 && `+${filteredEntries.length - textEntries.length} photo-only entries excluded · `}
-                  Ready to preview
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
+                  {filteredEntries.length - textEntries.length > 0 ? `${filteredEntries.length - textEntries.length} photo-only entries excluded` : 'Ready to preview'}
                 </p>
-              </>
+              </div>
             ) : (
-              <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>
-                No entries with text found for this selection.
-              </p>
+              <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: 0 }}>No entries with text for this selection</p>
             )}
           </div>
         )}
@@ -148,7 +146,7 @@ export default function BookBuilderScreen({ kids, entries, familyMembers, myDisp
         <button
           onClick={handlePreview}
           disabled={!canPreview}
-          style={{ width: '100%', padding: '16px', borderRadius: 14, border: 'none', background: canPreview ? 'var(--accent)' : 'var(--border)', color: canPreview ? '#fff' : 'var(--text-muted)', fontSize: 16, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", cursor: canPreview ? 'pointer' : 'default', transition: 'all 0.15s' }}
+          style={{ width: '100%', padding: '17px', borderRadius: 14, border: 'none', background: canPreview ? 'var(--accent)' : 'var(--border)', color: canPreview ? '#fff' : 'var(--text-muted)', fontSize: 16, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", cursor: canPreview ? 'pointer' : 'default', opacity: canPreview ? 1 : 0.6, transition: 'all 0.15s' }}
         >
           Preview book
         </button>
