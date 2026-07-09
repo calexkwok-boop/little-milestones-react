@@ -1,4 +1,4 @@
-const CACHE = 'patina-v3';
+const CACHE = 'patina-v4';
 
 // Cache the app shell on install
 self.addEventListener('install', e => {
