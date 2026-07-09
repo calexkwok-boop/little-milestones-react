@@ -6794,11 +6794,13 @@ export default function App() {
     const toGeocode = entries.filter(e => e.location && e.locationLat == null && !geocodedIdsRef.current.has(e.id));
     if (toGeocode.length === 0) return;
     toGeocode.forEach(e => geocodedIdsRef.current.add(e.id));
+    const controller = new AbortController();
     const results = {};
     Promise.all(toGeocode.map(async e => {
       try {
         const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
           method: 'POST',
+          signal: controller.signal,
           headers: {
             'Content-Type': 'application/json',
             'X-Goog-Api-Key': import.meta.env.VITE_GOOGLE_PLACES_KEY,
@@ -6812,12 +6814,15 @@ export default function App() {
           results[e.id] = { lat: loc.latitude, lng: loc.longitude };
           supabase.from('entries').update({ location_lat: loc.latitude, location_lng: loc.longitude }).eq('id', e.id).then(() => {});
         }
-      } catch {}
+      } catch (err) {
+        if (err.name === 'AbortError') return;
+      }
     })).then(() => {
-      if (Object.keys(results).length > 0) {
+      if (!controller.signal.aborted && Object.keys(results).length > 0) {
         setEntries(prev => prev.map(en => results[en.id] ? { ...en, locationLat: results[en.id].lat, locationLng: results[en.id].lng } : en));
       }
     });
+    return () => controller.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries.length]);
 
