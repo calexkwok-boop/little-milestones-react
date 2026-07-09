@@ -997,6 +997,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   const avatarUploadKidIdRef = useRef(null);
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
   const [circleViewer, setCircleViewer] = useState(null);
+  const [viewerPlaying, setViewerPlaying] = useState(false);
   const [viewerLikes, setViewerLikes] = useState([]);
   const [viewerComments, setViewerComments] = useState([]);
   const [viewerCommentText, setViewerCommentText] = useState('');
@@ -1034,6 +1035,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
 
   // Load likes + comments when lightbox opens
   useEffect(() => {
+    setViewerPlaying(false);
     if (!circleViewer) { setViewerLikes([]); setViewerComments([]); setViewerCommentText(''); setReplyTarget(null); return; }
     Promise.all([
       supabase.from('entry_likes').select('id, user_id, display_name').eq('entry_id', circleViewer.entry.id),
@@ -1573,6 +1575,8 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
       {circleViewer && (() => {
         const { entry, kidLabel, age, friendName, friendAvatar, entryDate, isOwn } = circleViewer;
         const bgStyle = entryBgStyle(entry);
+        const heroMedia = entry.media?.[0] || null;
+        const isVideo = heroMedia?.type === 'video';
         const posterMember = familyMembers.find(m => m.user_id === entry.userId);
         const resolvedName = friendName || posterMember?.real_name || posterMember?.display_name || '';
         const resolvedAvatar = friendAvatar || posterMember?.avatar_url || null;
@@ -1604,11 +1608,12 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               </button>
             </div>
 
-            {/* Photo — fixed square, double-tap to like */}
+            {/* Photo/video — fixed square, double-tap to like */}
             <div
-              style={{ width: '100%', aspectRatio: '1', flexShrink: 0, ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', cursor: 'pointer' }}
+              style={{ width: '100%', aspectRatio: '1', flexShrink: 0, ...(isVideo && viewerPlaying ? {} : bgStyle), backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', cursor: 'pointer', overflow: 'hidden' }}
               onClick={e => {
                 e.stopPropagation();
+                if (isVideo && !viewerPlaying) { setViewerPlaying(true); return; }
                 const now = Date.now();
                 if (now - lastTapRef.current < 320) {
                   const alreadyLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
@@ -1619,6 +1624,14 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 lastTapRef.current = now;
               }}
             >
+              {isVideo && viewerPlaying && (
+                <video src={heroMedia.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+              )}
+              {isVideo && !viewerPlaying && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+                </div>
+              )}
               {showLikeAnim && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                   <i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
