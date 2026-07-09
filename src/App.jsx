@@ -2493,6 +2493,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   );
   const [media, setMedia] = useState(existingEntry?.media || []);
   const [fileObjects, setFileObjects] = useState(existingEntry?.media?.map(() => null) || []);
+  const [mediaError, setMediaError] = useState('');
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [polishing, setPolishing] = useState(false);
@@ -2679,8 +2680,17 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   }
 
   async function handleFileChange(e) {
-    const files = Array.from(e.target.files);
+    const raw = Array.from(e.target.files);
     e.target.value = '';
+
+    const oversized = raw.filter(f => f.type.startsWith('video') && f.size > 100 * 1024 * 1024);
+    const files = raw.filter(f => !oversized.includes(f));
+    if (oversized.length > 0) {
+      setMediaError(`Video too large (${Math.round(oversized[0].size / 1024 / 1024)}MB) — please trim it under 100MB before uploading.`);
+    } else {
+      setMediaError('');
+    }
+    if (files.length === 0) return;
 
     // Show previews immediately — don't wait for compression
     const fileEntries = files.map(file => ({
@@ -2945,6 +2955,14 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         </div>
 
         {/* Photo preview */}
+        {mediaError && (
+          <div style={{ background: 'rgba(196,160,156,0.15)', border: '1px solid rgba(196,160,156,0.4)', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <i className="ti ti-alert-circle" style={{ color: '#C4A09C', fontSize: 15, flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 13, color: '#C4A09C' }}>{mediaError}</span>
+            <button onClick={() => setMediaError('')} style={{ background: 'none', border: 'none', color: '#C4A09C', cursor: 'pointer', padding: 0, fontSize: 14 }}><i className="ti ti-x" /></button>
+          </div>
+        )}
+
         {media.length > 0 && (
           <div style={{ marginBottom: 20, display: 'flex', gap: 8, justifyContent: 'center', overflowX: 'auto', paddingBottom: 2 }}>
             {media.map((item, i) => (
