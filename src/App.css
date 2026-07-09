@@ -77,20 +77,20 @@
 }
 .app-root[data-theme="dark"] {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23noise)' opacity='0.08'/%3E%3C/svg%3E");
-  --bg: #16110C;
-  --bg-card: #1E1812;
-  --bg-elevated: #261E16;
-  --bg-nav: #120D08;
-  --bg-input: #1C1610;
-  --bg-overlay: rgba(22,17,12,0.98);
-  --text: #EAD9BE;
-  --text-2: #A89070;
-  --text-3: #7A6448;
-  --text-muted: #6A5438;
-  --border: #3A2C1C;
-  --border-light: #2E2216;
-  --accent: #5E7A60;
-  --nav-frame-bg: rgba(18,13,8,0.90);
+  --bg: #0D1410;
+  --bg-card: #131D16;
+  --bg-elevated: #1A2A1C;
+  --bg-nav: #0A0F0B;
+  --bg-input: #101810;
+  --bg-overlay: rgba(13,20,16,0.98);
+  --text: #DEE9DB;
+  --text-2: #8EAB90;
+  --text-3: #637F65;
+  --text-muted: #4E6A50;
+  --border: #243826;
+  --border-light: #1C2E1E;
+  --accent: #6B9E6D;
+  --nav-frame-bg: rgba(10,15,11,0.90);
 }
 .app-root[data-theme="dark"] .icon-btn {
   background: var(--bg-elevated);
