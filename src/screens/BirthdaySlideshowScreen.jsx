@@ -60,30 +60,33 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
     };
   }, [entries, kid.id]);
 
-  const sharedPhotos = useMemo(() => {
-    if (!isFriend || !viewerEntries.length || !viewerKids.length) return [];
-    const viewerKidIds = new Set(viewerKids.map(k => k.id));
-    return viewerEntries
-      .filter(e => e.kids.includes(kid.id) && e.media?.length > 0 && e.kids.some(id => viewerKidIds.has(id)))
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .flatMap(e => e.media.filter(m => m.type !== 'video').map(m => ({ url: m.url, date: e.date })))
-      .slice(0, 10);
-  }, [isFriend, viewerEntries, viewerKids, kid.id]);
-
   const sharedLabel = useMemo(() => {
-    if (!isFriend || !viewerEntries.length || !viewerKids.length) return '';
+    if (!isFriend || !viewerKids.length) return '';
     const viewerKidIds = new Set(viewerKids.map(k => k.id));
     const appearedIds = new Set();
-    viewerEntries
-      .filter(e => e.kids.includes(kid.id) && e.media?.length > 0 && e.kids.some(id => viewerKidIds.has(id)))
+    [...viewerEntries, ...entries]
+      .filter(e => e.media?.length > 0 && e.kids?.includes(kid.id) && e.kids?.some(id => viewerKidIds.has(id)))
       .forEach(e => e.kids.forEach(id => { if (viewerKidIds.has(id)) appearedIds.add(id); }));
     const viewerNames = viewerKids.filter(k => appearedIds.has(k.id)).map(k => k.name.split(' ')[0]);
     const allNames = [...viewerNames, kid.name.split(' ')[0]];
-    if (allNames.length <= 1) return `${allNames[0]} is growing up so fast.`;
     const last = allNames[allNames.length - 1];
     const rest = allNames.slice(0, -1);
-    return `${rest.join(', ')} & ${last} are growing up so fast.`;
-  }, [isFriend, viewerEntries, viewerKids, kid]);
+    const nameStr = rest.length > 0 ? `${rest.join(', ')} & ${last}` : last;
+    return `${nameStr} are growing up so fast.`;
+  }, [isFriend, viewerEntries, entries, viewerKids, kid]);
+
+  const sharedPhotos = useMemo(() => {
+    if (!isFriend || !viewerKids.length) return [];
+    const viewerKidIds = new Set(viewerKids.map(k => k.id));
+    const seen = new Set();
+    return [...viewerEntries, ...entries]
+      .filter(e => { if (seen.has(e.id)) return false; seen.add(e.id); return true; })
+      .filter(e => e.media?.length > 0 && e.kids?.includes(kid.id) && e.kids?.some(id => viewerKidIds.has(id)))
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .flatMap(e => e.media.filter(m => m.type !== 'video').map(m => ({ url: m.url, date: e.date })))
+      .slice(0, 10);
+  }, [isFriend, viewerEntries, entries, viewerKids, kid.id]);
+
 
   const [index, setIndex] = useState(0);
   const [ended, setEnded] = useState(false);
@@ -431,14 +434,13 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
               : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 28, color: '#fff' }}>{kid.name?.charAt(0)}</span>
             }
           </div>
-          <p className="fade-up" style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'rgba(255,255,255,0.45)', margin: '0 0 36px', textAlign: 'center', lineHeight: 1.7, animationDelay: '120ms' }}>
-            {isFriend
-              ? "They're growing up so fast. So is yours. These moments together — hold on to every one."
-              : "They might not always show it, but they're lucky to have you."
-            }
-          </p>
+          {!isFriend && (
+            <p className="fade-up" style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'rgba(255,255,255,0.45)', margin: '0 0 36px', textAlign: 'center', lineHeight: 1.7, animationDelay: '120ms' }}>
+              They might not always show it, but they're lucky to have you.
+            </p>
+          )}
           <p className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 28px', textAlign: 'center', lineHeight: 1.2, animationDelay: '260ms' }}>
-            Happy {ordinal(age)} birthday to {kid.name}.
+            Happy {ordinal(age)} birthday to {kid.name}!
           </p>
           {!isFriend && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 48 }}>
