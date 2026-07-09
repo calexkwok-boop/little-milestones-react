@@ -6773,6 +6773,10 @@ export default function App() {
         if (myName) {
           await supabase.from('profiles').upsert({ id: session.user.id, display_name: myName, family_id: currentFamilyId }, { onConflict: 'id', ignoreDuplicates: true });
         }
+        // Backfill family_id on profiles created before the family existed (never touches display_name)
+        if (currentFamilyId) {
+          await supabase.from('profiles').update({ family_id: currentFamilyId }).eq('id', session.user.id).is('family_id', null);
+        }
       } catch (e) { console.error('[friends] load error:', e); }
 
       setDataLoading(false);
