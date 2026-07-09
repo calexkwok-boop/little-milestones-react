@@ -7958,16 +7958,18 @@ export default function App() {
       )}
 
       {screen === 'recap' && (
-        <Suspense fallback={null}>
-          <LazyRecapScreen
-            entries={entries}
-            kids={kids}
-            onBack={() => setScreen('home')}
-            onOpenEntry={openEntry}
-            onCompare={() => setScreen('compare')}
-            onSeeAll={() => { setJournalBackScreen('recap'); setScreen('journal'); }}
-          />
-        </Suspense>
+        <ScreenErrorBoundary onBack={() => setScreen('home')}>
+          <Suspense fallback={null}>
+            <LazyRecapScreen
+              entries={entries}
+              kids={kids}
+              onBack={() => setScreen('home')}
+              onOpenEntry={openEntry}
+              onCompare={() => setScreen('compare')}
+              onSeeAll={() => { setJournalBackScreen('recap'); setScreen('journal'); }}
+            />
+          </Suspense>
+        </ScreenErrorBoundary>
       )}
 
       {screen === 'circle-feed' && (
@@ -8115,14 +8117,16 @@ export default function App() {
       {screen === 'growth' && growthKidId && (() => {
         const kid = kids.find(k => k.id === growthKidId);
         return kid ? (
-          <Suspense fallback={null}>
-            <LazyGrowthScreen
-              kid={kid}
-              onBack={() => setScreen('profile')}
-              onSave={entry => handleSaveGrowthEntry(growthKidId, entry)}
-              onDelete={date => handleDeleteGrowthEntry(growthKidId, date)}
-            />
-          </Suspense>
+          <ScreenErrorBoundary onBack={() => setScreen('profile')}>
+            <Suspense fallback={null}>
+              <LazyGrowthScreen
+                kid={kid}
+                onBack={() => setScreen('profile')}
+                onSave={entry => handleSaveGrowthEntry(growthKidId, entry)}
+                onDelete={date => handleDeleteGrowthEntry(growthKidId, date)}
+              />
+            </Suspense>
+          </ScreenErrorBoundary>
         ) : null;
       })()}
 
