@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react';
 import './App.css';
 // exifr is only needed when reading photo metadata — lazy-load so it's excluded from the initial bundle
 let _exifr = null;
@@ -19,6 +19,22 @@ import {
 
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
 let _pendingCircleViewer = null;
+
+class ScreenErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="screen" style={{ alignItems: 'center', justifyContent: 'center', gap: 12 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center', padding: '0 32px' }}>Something went wrong loading this screen.</p>
+          <button className="icon-btn" onClick={() => { this.setState({ error: null }); this.props.onBack?.(); }}>Go back</button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 const LOCAL_STORAGE_KEY = 'patina-local-data';
 
 function isDarkTime() { const h = new Date().getHours(); return h < 6 || h >= 18; }
@@ -7999,30 +8015,34 @@ export default function App() {
       )}
 
       {screen === 'book-builder' && (
-        <Suspense fallback={null}>
-          <LazyBookBuilderScreen
-            kids={kids}
-            entries={entries}
-            familyMembers={familyMembers}
-            myDisplayName={myDisplayName}
-            onBack={() => setScreen('profile')}
-            onPreview={config => { setBookConfig(config); setScreen('book-preview'); }}
-          />
-        </Suspense>
+        <ScreenErrorBoundary onBack={() => setScreen('profile')}>
+          <Suspense fallback={null}>
+            <LazyBookBuilderScreen
+              kids={kids}
+              entries={entries}
+              familyMembers={familyMembers}
+              myDisplayName={myDisplayName}
+              onBack={() => setScreen('profile')}
+              onPreview={config => { setBookConfig(config); setScreen('book-preview'); }}
+            />
+          </Suspense>
+        </ScreenErrorBoundary>
       )}
 
       {screen === 'book-preview' && bookConfig && (
-        <Suspense fallback={null}>
-          <LazyBookPreviewScreen
-            kids={kids}
-            bookConfig={bookConfig}
-            onBack={() => setScreen('book-builder')}
-            onUpdateCrop={handleUpdateCrop}
-            currentUserId={session?.user?.id}
-            onNotifyMe={handleBookWaitlist}
-            userEmail={session?.user?.email}
-          />
-        </Suspense>
+        <ScreenErrorBoundary onBack={() => setScreen('book-builder')}>
+          <Suspense fallback={null}>
+            <LazyBookPreviewScreen
+              kids={kids}
+              bookConfig={bookConfig}
+              onBack={() => setScreen('book-builder')}
+              onUpdateCrop={handleUpdateCrop}
+              currentUserId={session?.user?.id}
+              onNotifyMe={handleBookWaitlist}
+              userEmail={session?.user?.email}
+            />
+          </Suspense>
+        </ScreenErrorBoundary>
       )}
 
 {screen === 'profile' && (

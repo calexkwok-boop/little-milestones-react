@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import KidThumb from '../KidThumb.jsx';
 import { TODAY } from '../constants.js';
 
-export default function BookBuilderScreen({ kids, entries, familyMembers, myDisplayName, onBack, onPreview }) {
+export default function BookBuilderScreen({ kids = [], entries = [], familyMembers = [], myDisplayName, onBack, onPreview }) {
   const [selectedKids, setSelectedKids] = useState(() => kids.map(k => k.id));
   const [rangeMode, setRangeMode] = useState('all');
   const [customFrom, setCustomFrom] = useState('');
