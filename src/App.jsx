@@ -7256,40 +7256,6 @@ export default function App() {
     setAvatarUploading(false);
   }
 
-  if (authLoading || dataLoading) {
-    return (
-      <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <i className="ti ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
-      </div>
-    );
-  }
-
-  if (!session && !localMode) {
-    return (
-      <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined}>
-        <AuthScreen />
-      </div>
-    );
-  }
-
-  if (kids.length === 0 || postOnboardInvite) {
-    return (
-      <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined}>
-        {joiningFamily
-          ? <JoinFamilyScreen onJoin={handleJoinFamily} onBack={() => setJoiningFamily(false)} />
-          : <OnboardingScreen
-              onDone={handleOnboardingDone}
-              onJoinFamily={() => setJoiningFamily(true)}
-              onSignOut={() => supabase ? supabase.auth.signOut() : undefined}
-              hasBackend={!localMode && !!supabase && !!session}
-              onGenerateInvite={handleInvitePartner}
-              onFinish={() => setPostOnboardInvite(false)}
-            />
-        }
-      </div>
-    );
-  }
-
   const handleClearReactions = useCallback(() => {
     localStorage.setItem('notifClearedAt', Date.now().toString());
     setReactionNotifications([]);
@@ -7325,6 +7291,40 @@ export default function App() {
     onDismissReaction: handleDismissReaction,
     onDismissBirthday: handleDismissBirthday,
   }), [reactionNotifications, birthdayNotifications, reactionCounts, partnerToast, reactionToast, unseenPartnerIds, friendRequests, session?.user?.id, handleClearReactions, handleDismissReaction, handleDismissBirthday]);
+
+  if (authLoading || dataLoading) {
+    return (
+      <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <i className="ti ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
+
+  if (!session && !localMode) {
+    return (
+      <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined}>
+        <AuthScreen />
+      </div>
+    );
+  }
+
+  if (kids.length === 0 || postOnboardInvite) {
+    return (
+      <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined}>
+        {joiningFamily
+          ? <JoinFamilyScreen onJoin={handleJoinFamily} onBack={() => setJoiningFamily(false)} />
+          : <OnboardingScreen
+              onDone={handleOnboardingDone}
+              onJoinFamily={() => setJoiningFamily(true)}
+              onSignOut={() => supabase ? supabase.auth.signOut() : undefined}
+              hasBackend={!localMode && !!supabase && !!session}
+              onGenerateInvite={handleInvitePartner}
+              onFinish={() => setPostOnboardInvite(false)}
+            />
+        }
+      </div>
+    );
+  }
 
   return (
     <SessionCtx.Provider value={sessionValue}>
