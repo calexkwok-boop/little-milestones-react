@@ -1745,14 +1745,17 @@ function HomeScreen({ entries, kids, onOpenEntry, onSearch, onManage, kidFilter,
     cutoff.setDate(cutoff.getDate() - 90);
     const pool = entries.filter(e => new Date(e.date + 'T12:00:00') < cutoff);
     if (pool.length === 0) return null;
-    const daySeed = parseInt(currentSlot.replace(/-/g, ''));
-    const score = (id) => {
+    // Stable sort so the pool order is fixed regardless of slot
+    const stableHash = (id) => {
       const s = String(id).replace(/-/g, '');
-      let h = daySeed;
+      let h = 0x5EED;
       for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0x7fffffff;
       return h;
     };
-    return pool.reduce((best, e) => score(e.id) > score(best.id) ? e : best);
+    const sorted = [...pool].sort((a, b) => stableHash(a.id) - stableHash(b.id));
+    // Use a monotonically increasing slot counter so each 3-hour window picks the next entry in the cycle
+    const totalSlots = Math.floor(Date.now() / (3 * 60 * 60 * 1000));
+    return sorted[totalSlots % sorted.length];
   }, [entries, onThisDay, currentSlot]);
 
   const sameAgeGroups = useMemo(() => {
