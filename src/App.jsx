@@ -1763,6 +1763,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
   const text = rawText.length > 160 ? rawText.slice(0, 160) + '...' : rawText;
   const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
+  const [playingHero, setPlayingHero] = useState(false);
 
   const hasMedia = entry.media && entry.media.length > 0;
   const heroMedia = hasMedia ? entry.media[0] : null;
@@ -1773,11 +1774,13 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
       {heroMedia && (
         <div style={{ margin: 0, borderRadius: '13px 13px 0 0', overflow: 'hidden', aspectRatio: '4/3', position: 'relative' }}>
           {heroMedia.type === 'video'
-            ? <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+            ? playingHero
+              ? <video src={heroMedia.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              : <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
             : <FadeImg src={cloudinaryTransform(heroMedia.url, 'w_1200,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%`, display: 'block' }} />
           }
-          {heroMedia.type === 'video' && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {heroMedia.type === 'video' && !playingHero && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setPlayingHero(true); }}>
               <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
             </div>
           )}
