@@ -985,7 +985,7 @@ function entryAddedTime(entry) {
 
 function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onSeeLetters, onSeeFriends }) {
   const { entries, kids } = useData() ?? {};
-  const { unseenPartnerIds = [], reactionCounts = {}, pendingRequestCount = 0 } = useNotif() ?? {};
+  const { unseenPartnerIds = [], reactionCounts = {}, pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
   const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
@@ -1268,7 +1268,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
         {[
           { icon: 'ti-mail', label: 'Our letters', sub: 'All family letters', action: () => { setShowMenu(false); onSeeLetters?.(); } },
           { icon: 'ti-arrows-diff', label: 'At the same age', sub: 'Compare moments side by side', action: () => { setShowMenu(false); onCompare?.(); } },
-          { icon: 'ti-address-book', label: 'Friends', sub: 'Your friends', badge: pendingRequestCount, action: () => { setShowMenu(false); onSeeFriends?.(); } },
+          { icon: 'ti-address-book', label: 'Friends', sub: 'Your friends', badge: pendingRequestCount + circleBadge, action: () => { setShowMenu(false); onSeeFriends?.(); } },
         ].map(item => (
           <button
             key={item.label}
@@ -5789,8 +5789,6 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 }
 
 const NavBar = memo(function NavBar({ active, onNavigate }) {
-  const { circleBadge = 0 } = useNotif() ?? {};
-
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
     { id: 'circle-feed', icon: 'ti-users', label: 'Glimpse', color: '#F0897A' },
@@ -5813,16 +5811,9 @@ const NavBar = memo(function NavBar({ active, onNavigate }) {
       <div className="nav-frame">
         <div className="nav-bar">
           {tabs.map(tab => (
-            <button key={tab.id} className="nv-tab" style={{ ...tabStyle(tab), position: 'relative' }} onClick={() => onNavigate(tab.id)}>
+            <button key={tab.id} className="nv-tab" style={tabStyle(tab)} onClick={() => onNavigate(tab.id)}>
               <i className={`ti ${tab.icon}`} />
               <span>{tab.label}</span>
-              {tab.id === 'circle-feed' && circleBadge > 0 && (
-                <span style={{ position: 'absolute', top: 2, right: '50%', transform: 'translateX(14px)', minWidth: 16, height: 16, borderRadius: 999, background: '#E05C6A', border: '1.5px solid var(--bg-nav)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
-                  <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', lineHeight: 1, fontFamily: 'Inter, sans-serif' }}>
-                    {circleBadge > 99 ? '99+' : circleBadge}
-                  </span>
-                </span>
-              )}
             </button>
           ))}
           <div className="nv-add-wrap">
@@ -8143,7 +8134,10 @@ export default function App() {
     setReactionNotifications([]);
     if (supabase && session?.user?.id) {
       supabase.from('profiles').update({ notif_cleared_at: new Date().toISOString() }).eq('id', session.user.id).then(() => {});
-      supabase.from('birthday_notifications').delete().eq('user_id', session.user.id).then(() => {});
+      // Mark dismissed rather than delete — the birthday-detection effect upserts
+      // on a deterministic id and relies on the row still existing (ignoreDuplicates)
+      // to avoid recreating a notification for a birthday still inside the 7-day window.
+      supabase.from('birthday_notifications').update({ dismissed: true }).eq('user_id', session.user.id).then(() => {});
     }
     setBirthdayNotifications([]);
   }, [session?.user?.id]);
@@ -8154,7 +8148,7 @@ export default function App() {
   }, [session?.user?.id]);
 
   const handleDismissBirthday = useCallback(id => {
-    if (supabase && session?.user?.id) supabase.from('birthday_notifications').delete().eq('id', id).eq('user_id', session.user.id).then(() => {});
+    if (supabase && session?.user?.id) supabase.from('birthday_notifications').update({ dismissed: true }).eq('id', id).eq('user_id', session.user.id).then(() => {});
     setBirthdayNotifications(p => p.filter(n => n.id !== id));
   }, [session?.user?.id]);
 
