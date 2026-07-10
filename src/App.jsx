@@ -5806,11 +5806,11 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
   );
 }
 
-const NavBar = memo(function NavBar({ active, onNavigate }) {
+const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl }) {
   const { pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A', group: ['home'] },
-    { id: 'circle-feed', icon: 'ti-users', label: 'Circle', color: '#F0897A', group: ['circle-feed', 'friends'], badge: pendingRequestCount + circleBadge },
+    { id: 'circle-feed', icon: 'ti-users', label: 'Friends', color: '#F0897A', group: ['circle-feed', 'friends'], badge: pendingRequestCount + circleBadge },
   ];
   const tabsRight = [
     { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', color: '#F0897A', group: ['recap', 'partner-letters', 'compare'] },
@@ -5847,7 +5847,13 @@ const NavBar = memo(function NavBar({ active, onNavigate }) {
           </div>
           {tabsRight.map(tab => (
             <button key={tab.id} className="nv-tab" style={tabStyle(tab)} onClick={() => onNavigate(tab.id)}>
-              <i className={`ti ${tab.icon}`} />
+              {tab.id === 'profile' && myAvatarUrl ? (
+                <span style={{ width: 19, height: 19, borderRadius: '50%', overflow: 'hidden', display: 'block', border: `1.5px solid ${tab.group.includes(active) ? 'var(--accent)' : 'transparent'}` }}>
+                  <img src={cloudinaryTransform(myAvatarUrl, 'w_60,h_60,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                </span>
+              ) : (
+                <i className={`ti ${tab.icon}`} />
+              )}
               <span>{tab.label}</span>
             </button>
           ))}
@@ -8392,8 +8398,6 @@ export default function App() {
             kids={kids}
             onBack={() => setScreen('home')}
             onOpenEntry={openEntry}
-            onCompare={() => setScreen('compare')}
-            onSeeAll={() => { setJournalBackScreen('recap'); setScreen('journal'); }}
             onSwitchSection={switchSection}
           />
         </ScreenErrorBoundary>
@@ -8587,9 +8591,9 @@ export default function App() {
       )}
 
       {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'growth' && screen !== 'book-builder' && screen !== 'book-preview' && (
-        <NavBar active={screen} onNavigate={handleNavigate} />
+        <NavBar active={screen} onNavigate={handleNavigate} myAvatarUrl={familyMembers.find(m => m.user_id === session?.user?.id)?.avatar_url} />
       )}
-      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={handleNavigate} />}
+      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={handleNavigate} myAvatarUrl={familyMembers.find(m => m.user_id === session?.user?.id)?.avatar_url} />}
 
       {birthdaySlideshow && (
         <Suspense fallback={<div className="screen" />}>

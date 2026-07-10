@@ -46,7 +46,7 @@ function RecapEntryRow({ entry, kids, onOpenEntry }) {
   );
 }
 
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare, onSeeAll, onSwitchSection }) {
+function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
   const [viewMode, setViewMode] = useState('month');
   const [selectedMonth, setSelectedMonth] = useState(TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
@@ -139,10 +139,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare, onSeeAll, 
               <button style={segTabStyle('year')} onClick={() => setViewMode('year')}>Year</button>
               <button style={segTabStyle('all')} onClick={() => setViewMode('all')}>All</button>
             </div>
-            <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, color: 'var(--text-muted)', padding: 0 }}>
-              <i className="ti ti-layout-list" style={{ fontSize: 18 }} />
-              <span style={{ fontSize: 9, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.3 }}>All</span>
-            </button>
+            <div style={{ width: 36 }} />
           </div>
 
           {viewMode !== 'all' && (
@@ -267,12 +264,6 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare, onSeeAll, 
             </>
           )}
 
-          <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'var(--bg-elevated)', border: 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--accent)' }}>At the same age</span>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <i className="ti ti-arrow-right" style={{ fontSize: 13, color: '#fff' }} />
-            </div>
-          </button>
         </div>
       </div>
     </div>
