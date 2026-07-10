@@ -1,4 +1,4 @@
-const CACHE = 'patina-v6';
+const CACHE = 'patina-v7';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -26,14 +26,20 @@ self.addEventListener('fetch', e => {
 
   // HTML (index.html, /) — always network so deploys are picked up immediately
   if (isSameOrigin && (url.pathname === '/' || url.pathname.endsWith('.html'))) {
-    e.respondWith(
-      fetch(request).then(response => {
+    e.respondWith((async () => {
+      try {
+        const response = await fetch(request);
         if (response.ok) {
-          const cache = caches.open(CACHE).then(c => c.put(request, response.clone()));
+          const cache = await caches.open(CACHE);
+          // Clone before returning — cloning after the browser starts
+          // consuming the returned response throws "body already used".
+          cache.put(request, response.clone());
         }
         return response;
-      }).catch(() => caches.match(request))
-    );
+      } catch {
+        return caches.match(request);
+      }
+    })());
     return;
   }
 
