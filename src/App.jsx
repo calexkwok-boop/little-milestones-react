@@ -5411,7 +5411,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
     const link = `${getAuthRedirectUrl()}/?invite=${code}`;
     const shareData = {
       title: 'Join me on Patina',
-      text: `I've been keeping a journal for my kids on Patina — thought you'd want to see it. Join me?`,
+      text: `I've been writing letters to my kids on Patina, and it seemed like something you and your family might enjoy. Join me?`,
       url: link,
     };
     if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
