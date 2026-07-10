@@ -1268,7 +1268,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
         {[
           { icon: 'ti-mail', label: 'Our letters', sub: 'All family letters', action: () => { setShowMenu(false); onSeeLetters?.(); } },
           { icon: 'ti-arrows-diff', label: 'At the same age', sub: 'Compare moments side by side', action: () => { setShowMenu(false); onCompare?.(); } },
-          { icon: 'ti-address-book', label: 'Friends', sub: 'Your circle', badge: pendingRequestCount, action: () => { setShowMenu(false); onSeeFriends?.(); } },
+          { icon: 'ti-address-book', label: 'Friends', sub: 'Your friends', badge: pendingRequestCount, action: () => { setShowMenu(false); onSeeFriends?.(); } },
         ].map(item => (
           <button
             key={item.label}
@@ -5408,7 +5408,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
           </div>
 
           <div>
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 19, fontWeight: 600, color: 'var(--accent)', margin: 0 }}>Your circle</p>
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 19, fontWeight: 600, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Your friends</p>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
