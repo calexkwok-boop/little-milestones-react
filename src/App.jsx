@@ -1268,7 +1268,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
         {[
           { icon: 'ti-mail', label: 'Our letters', sub: 'All family letters', action: () => { setShowMenu(false); onSeeLetters?.(); } },
           { icon: 'ti-arrows-diff', label: 'At the same age', sub: 'Compare moments side by side', action: () => { setShowMenu(false); onCompare?.(); } },
-          { icon: 'ti-address-book', label: 'Manage Friends', sub: 'Search, requests, and your friend list', badge: pendingRequestCount, action: () => { setShowMenu(false); onSeeFriends?.(); } },
+          { icon: 'ti-address-book', label: 'Friends', sub: 'Your circle', badge: pendingRequestCount, action: () => { setShowMenu(false); onSeeFriends?.(); } },
         ].map(item => (
           <button
             key={item.label}
@@ -5384,8 +5384,22 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
           </div>
 
           <div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 4px' }}>Manage Friends</h2>
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Search, requests, and your friend list</p>
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 19, fontWeight: 600, color: 'var(--accent)', margin: 0 }}>Your circle</p>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+            <div style={{ background: 'var(--accent)', borderRadius: 14, padding: '14px 12px' }}>
+              <p style={{ fontSize: 28, fontWeight: 800, color: '#C8993E', margin: 0, lineHeight: 1 }}>{friends.length}</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: '5px 0 0', fontWeight: 600 }}>friend{friends.length !== 1 ? 's' : ''}</p>
+            </div>
+            <div style={{ background: pendingIncoming.length > 0 ? '#D4856A' : '#FAF0ED', borderRadius: 14, padding: '14px 12px' }}>
+              <p style={{ fontSize: 28, fontWeight: 800, color: pendingIncoming.length > 0 ? '#fff' : '#D4856A', margin: 0, lineHeight: 1 }}>{pendingIncoming.length}</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: pendingIncoming.length > 0 ? 'rgba(255,255,255,0.75)' : '#D4856A', margin: '5px 0 0' }}>requests</p>
+            </div>
+            <div style={{ background: (reactionNotifications.length + birthdayNotifications.length) > 0 ? '#C8993E' : '#FDF3E0', borderRadius: 14, padding: '14px 12px' }}>
+              <p style={{ fontSize: 28, fontWeight: 800, color: (reactionNotifications.length + birthdayNotifications.length) > 0 ? '#fff' : '#C8993E', margin: 0, lineHeight: 1 }}>{reactionNotifications.length + birthdayNotifications.length}</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: (reactionNotifications.length + birthdayNotifications.length) > 0 ? 'rgba(255,255,255,0.75)' : '#C8993E', margin: '5px 0 0' }}>new activity</p>
+            </div>
           </div>
 
           {showSearch && (
@@ -5457,8 +5471,9 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 
           {(reactionNotifications.length > 0 || birthdayNotifications.length > 0) && (
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: 0 }}>Activity</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8 }}>Activity</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                 {(reactionNotifications.length > 0 || birthdayNotifications.length > 0) && <button onClick={() => { onClearReactions?.(); birthdayNotifications.forEach(n => onDismissBirthday?.(n.id)); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 500, padding: 0 }}>Mark all as read</button>}
               </div>
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
@@ -5517,7 +5532,11 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 
           {pendingIncoming.length > 0 && (
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 10px' }}>Friend Requests</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8 }}>Friend Requests</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                <span style={{ fontSize: 11, color: 'var(--border-light)', fontWeight: 600 }}>{pendingIncoming.length}</span>
+              </div>
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
                 {pendingIncoming.map((req, idx) => (
                   <div key={req.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: idx < pendingIncoming.length - 1 ? '1px solid var(--border)' : 'none' }}>
@@ -5533,7 +5552,11 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 
           {friends.length > 0 && (
             <div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 10px' }}>My Friends</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8 }}>My Friends</span>
+                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                <span style={{ fontSize: 11, color: 'var(--border-light)', fontWeight: 600 }}>{friends.length}</span>
+              </div>
               {friends.map(fr => {
                 const uid = friendUserId(fr);
                 const name = friendDisplayName(fr);
@@ -5733,7 +5756,7 @@ const NavBar = memo(function NavBar({ active, onNavigate }) {
 
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
-    { id: 'circle-feed', icon: 'ti-users', label: 'Friends', color: '#F0897A' },
+    { id: 'circle-feed', icon: 'ti-users', label: 'Glimpse', color: '#F0897A' },
   ];
   const tabsRight = [
     { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', color: '#F0897A' },
