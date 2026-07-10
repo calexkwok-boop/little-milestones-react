@@ -1535,7 +1535,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>From your circle</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Just a glimpse</span>
                   {friendBirthdaysToday.length > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 999, padding: '2px 7px' }}>
                       <i className="ti ti-cake" style={{ fontSize: 10, color: '#C8993E' }} />
@@ -3531,6 +3531,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
   const searchInputRef = useRef(null);
   const [profileFamilyId, setProfileFamilyId] = useState(null);
   const [selectedEntry, setSelectedEntry] = useState(null);
+  const [likeAnimId, setLikeAnimId] = useState(null);
 
   useEffect(() => {
     if (showSearch) searchInputRef.current?.focus();
@@ -3543,7 +3544,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     if (!supabase || familyIds.length === 0) return;
     const { data: entriesData } = await supabase
       .from('entries')
-      .select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, entry_media(url, type)')
+      .select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, entry_media!inner(url, type)')
       .in('family_id', familyIds)
       .neq('shared', false)
       .order('created_at', { ascending: false })
@@ -3600,6 +3601,8 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     } else {
       const temp = { id: 'tmp-' + Date.now(), entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '' };
       setLikesMap(prev => ({ ...prev, [entryId]: [...(prev[entryId] || []), temp] }));
+      setLikeAnimId(entryId);
+      setTimeout(() => setLikeAnimId(id => id === entryId ? null : id), 800);
       const { data } = await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '' }).select('id, entry_id, user_id, display_name').single();
       if (data) setLikesMap(prev => ({ ...prev, [entryId]: (prev[entryId] || []).map(l => l.id === temp.id ? data : l) }));
     }
@@ -3644,23 +3647,25 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     const dateLabel = daysAgo === 0 ? 'Today' : daysAgo === 1 ? 'Yesterday' : `${daysAgo}d ago`;
     const photoDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
+    const likeLabel = likes.length === 0
+      ? null
+      : likes.length >= 3
+        ? `${likes.length} people loved this`
+        : `${likes.map(l => l.display_name?.split(' ')[0] || 'Someone').join(' & ')} loved this`;
+
     return (
       <div key={entry.id} style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
         {/* Poster row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px 10px' }}>
-          {/* Avatar with accent ring */}
-          <div style={{ width: 48, height: 48, borderRadius: '50%', padding: 2, background: 'var(--accent)', flexShrink: 0 }}>
+          <span className="thumb" style={{ width: 42, height: 42, fontSize: 15, flexShrink: 0 }}>
             {friendInfo.avatar
-              ? <img src={cloudinaryTransform(friendInfo.avatar, 'w_88,h_88,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', display: 'block', border: '2px solid var(--bg)' }} alt="" />
-              : <span style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--bg-elevated)', border: '2px solid var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, fontWeight: 700, color: 'var(--accent)' }}>
-                  {(friendInfo.name || '?')[0]}
-                </span>
-            }
-          </div>
+              ? <img src={cloudinaryTransform(friendInfo.avatar, 'w_84,h_84,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+              : (friendInfo.name || '?')[0]}
+          </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <button
               onClick={() => !profileFamilyId && setProfileFamilyId(entry.familyId)}
-              style={{ background: 'none', border: 'none', padding: 0, cursor: profileFamilyId ? 'default' : 'pointer', fontFamily: "'Urbanist', sans-serif", fontSize: 15, fontWeight: 800, color: 'var(--text)', display: 'block', textAlign: 'left', letterSpacing: '-0.1px' }}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: profileFamilyId ? 'default' : 'pointer', fontFamily: "'Urbanist', sans-serif", fontSize: 15, fontWeight: 700, color: 'var(--text)', display: 'block', textAlign: 'left' }}
             >
               {friendInfo.name || 'Friend'}
             </button>
@@ -3677,78 +3682,70 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           )}
         </div>
 
-        {/* Photo with rounded corners, side margin, and kid overlay */}
+        {/* Photo, no overlay */}
         {entry.media.length > 0 && (
-          <div style={{ position: 'relative', margin: '0 14px', borderRadius: 16, overflow: 'hidden', aspectRatio: '4/5', background: 'var(--border)' }}>
+          <div style={{ margin: '0 14px', borderRadius: 16, overflow: 'hidden', aspectRatio: '4/5', background: 'var(--border)' }}>
             {entry.media[0].type === 'video'
               ? <video src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} preload="metadata" playsInline controls />
               : <img src={cloudinaryTransform(entry.media[0].url, 'w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
             }
-            {/* Kid info gradient overlay */}
-            {entryKids.length > 0 && (
-              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.3) 50%, transparent 100%)', padding: '48px 14px 14px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div style={{ display: 'flex', flexShrink: 0 }}>
-                    {entryKids.map((k, i) => (
-                      <span key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, display: 'inline-block', width: 26, height: 26, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,255,255,0.6)', background: k.accent || '#888', flexShrink: 0 }}>
-                        {k.avatar
-                          ? <img src={cloudinaryTransform(k.avatar, 'w_52,h_52,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
-                          : <span style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#fff' }}>{k.name[0]}</span>
-                        }
-                      </span>
-                    ))}
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: '#fff', fontFamily: "'Urbanist', sans-serif", textShadow: '0 1px 3px rgba(0,0,0,0.4)' }}>
-                      {entryKids.map(k => k.name.split(' ')[0]).join(' & ')}
-                    </p>
-                    {entryKids[0]?.birthdate && (
-                      <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.8)', fontFamily: 'Inter, sans-serif' }}>
-                        {exactAgeLabel(entryKids[0].birthdate, entry.date)} · {photoDate}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
-        {/* Action row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '10px 16px 6px' }}>
+        {/* Kid caption, below the photo like a letter salutation */}
+        {entryKids.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px 0' }}>
+            <div style={{ display: 'flex', flexShrink: 0 }}>
+              {entryKids.map((k, i) => (
+                <span key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, display: 'inline-block', width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--bg-card)', background: k.accent || 'var(--bg-elevated)', flexShrink: 0 }}>
+                  {k.avatar
+                    ? <img src={cloudinaryTransform(k.avatar, 'w_48,h_48,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                    : <span style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff' }}>{k.name[0]}</span>
+                  }
+                </span>
+              ))}
+            </div>
+            <p style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-2)' }}>
+              {entryKids.map(k => k.name.split(' ')[0]).join(' & ')}
+              {entryKids[0]?.birthdate && ` · ${exactAgeLabel(entryKids[0].birthdate, entry.date)} · ${photoDate}`}
+            </p>
+          </div>
+        )}
+
+        {/* Love + notes, in words instead of icon counters */}
+        <div style={{ padding: '10px 16px 4px' }}>
           <button
             onClick={() => handleToggleLike(entry.id)}
-            style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 6px 4px 0', color: iLiked ? '#D4856A' : 'var(--text-muted)' }}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: iLiked ? '#D4856A' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}
           >
-            <i className={`ti ti-heart${iLiked ? '-filled' : ''}`} style={{ fontSize: 22 }} />
-            {likes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{likes.length}</span>}
+            <i className={`ti ti-heart${iLiked ? '-filled' : ''}`} style={{ fontSize: 18 }} />
+            {likeLabel && <span style={{ fontSize: 13, fontWeight: 600 }}>{likeLabel}</span>}
+            {likeAnimId === entry.id && (
+              <i className="ti ti-heart-filled" style={{ position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%)', fontSize: 30, color: '#D4856A', pointerEvents: 'none', animation: 'likeHeartPop 0.8s ease forwards' }} />
+            )}
           </button>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 6px', color: 'var(--text-muted)', marginLeft: 6 }}>
-            <i className="ti ti-message-circle" style={{ fontSize: 22 }} />
-            {comments.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{comments.length}</span>}
-          </span>
         </div>
 
-        {/* Comments */}
+        {/* Notes */}
         {comments.length > 0 && (
-          <div style={{ padding: '2px 16px 10px', display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ padding: '8px 16px 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {comments.map(c => (
-              <p key={c.id} style={{ margin: 0, fontSize: 13, color: 'var(--text-2)', fontFamily: 'Inter, sans-serif', lineHeight: 1.55 }}>
-                <span style={{ fontWeight: 700, color: 'var(--text)' }}>{c.display_name || 'Someone'}</span>
-                {' '}{c.body}
+              <p key={c.id} style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
+                <span style={{ fontWeight: 700, fontStyle: 'normal', color: 'var(--text)' }}>{c.display_name || 'Someone'}</span>
+                {' — '}{c.body}
               </p>
             ))}
           </div>
         )}
 
-        {/* Comment input */}
+        {/* Note input */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 16px' }}>
           <input
             value={commentDrafts[entry.id] || ''}
             onChange={e => setCommentDrafts(prev => ({ ...prev, [entry.id]: e.target.value }))}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleSubmitComment(entry.id); } }}
-            placeholder="Add a comment…"
-            style={{ flex: 1, border: 'none', padding: '2px 0', fontSize: 13, background: 'transparent', color: 'var(--text)', fontFamily: 'Inter, sans-serif', outline: 'none' }}
+            placeholder="Leave a note…"
+            style={{ flex: 1, border: 'none', padding: '2px 0', fontSize: 13, fontStyle: 'italic', fontFamily: "'Source Serif 4', serif", background: 'transparent', color: 'var(--text)', outline: 'none' }}
           />
           <button
             onClick={() => handleSubmitComment(entry.id)}
