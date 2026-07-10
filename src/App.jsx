@@ -3879,12 +3879,9 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             ) : displayedEntries.length === 0 ? (
               <div className="empty-state">
                 <i className="ti ti-users" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
-                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: 'var(--text-muted)', margin: '0 0 16px' }}>
-                  {familyIds.length === 0 ? 'Growing your circle, one friend at a time.' : searchQuery ? 'No matches found.' : 'Nothing shared yet.'}
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
+                  {familyIds.length === 0 ? 'Add friends to see the moments they share with you.' : searchQuery ? 'No matches found.' : 'Nothing shared yet.'}
                 </p>
-                {familyIds.length === 0 && (
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>Add friends to see the moments they choose to share with you.</p>
-                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 16px 16px' }}>
