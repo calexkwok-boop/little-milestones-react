@@ -5481,7 +5481,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
               </div>
               <div style={{ textAlign: 'left' }}>
                 <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{inviting ? 'Generating invite…' : inviteLinkCopied ? 'Link copied!' : 'Invite a friend'}</p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Bring someone new into your circle</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Growing alone, but walking together</p>
               </div>
             </div>
             <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
@@ -5678,7 +5678,6 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
           {friends.length === 0 && pendingIncoming.length === 0 && reactionNotifications.length === 0 && birthdayNotifications.length === 0 && !searchQuery && (
             <div className="empty-state">
               <i className="ti ti-users" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
-              <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 16px', fontStyle: 'italic' }}>Growing alone, but walking together.</p>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>We believe that your personal letters should stay between you and your family. Friends will only see your photos and a little context, nothing more.</p>
             </div>
           )}
