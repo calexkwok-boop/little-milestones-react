@@ -6,6 +6,7 @@ const loadExifr = () => _exifr ?? (_exifr = import('exifr').then(m => m.default)
 import { supabase, supabaseConfigured } from './supabase.js';
 import { SessionCtx, DataCtx, NotifCtx, useSession, useData, useNotif } from './contexts.js';
 import KidThumb from './KidThumb.jsx';
+import SectionSwitcher from './SectionSwitcher.jsx';
 const LazyBirthdaySlideshowScreen = lazy(() => import('./screens/BirthdaySlideshowScreen'));
 import RecapScreen from './screens/RecapScreen';
 const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
@@ -983,7 +984,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onSeeLetters, onSeeFriends }) {
+function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick }) {
   const { entries, kids } = useData() ?? {};
   const { unseenPartnerIds = [], reactionCounts = {}, pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
   const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
@@ -1011,7 +1012,6 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     setDismissedBdays(next);
     localStorage.setItem('patina-bday-dismissed', JSON.stringify(next));
   }
-  const [showMenu, setShowMenu] = useState(false);
   const scrollRef = useRef(null);
   const ptr = usePullToRefresh(scrollRef, onRefresh);
 
@@ -1241,55 +1241,9 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   const sameAgeGroup = sameAgeGroups ? sameAgeGroups[sameAgeIdx % sameAgeGroups.length] : null;
 
   const Header = () => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-      <div>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
-      </div>
-      <button className="icon-btn" onClick={() => setShowMenu(true)} style={{ position: 'relative' }}>
-        <i className="ti ti-menu-2" />
-        {(pendingRequestCount + circleBadge) > 0 && (
-          <span style={{ position: 'absolute', top: 2, right: 2, width: 9, height: 9, borderRadius: '50%', background: '#E05C6A', border: '1.5px solid var(--bg)' }} />
-        )}
-      </button>
-    </div>
-  );
-
-  const HamburgerMenu = () => showMenu && (
-    <div
-      style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end' }}
-      onClick={() => setShowMenu(false)}
-    >
-      <div
-        style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', paddingBottom: 36 }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 8px' }} />
-        {[
-          { icon: 'ti-mail', label: 'Our letters', sub: 'All family letters', action: () => { setShowMenu(false); onSeeLetters?.(); } },
-          { icon: 'ti-arrows-diff', label: 'At the same age', sub: 'Compare moments side by side', action: () => { setShowMenu(false); onCompare?.(); } },
-          { icon: 'ti-address-book', label: 'Friends', sub: 'Your friends', badge: pendingRequestCount + circleBadge, action: () => { setShowMenu(false); onSeeFriends?.(); } },
-        ].map(item => (
-          <button
-            key={item.label}
-            onClick={item.action}
-            style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', textAlign: 'left' }}
-          >
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative' }}>
-              <i className={`ti ${item.icon}`} style={{ fontSize: 22, color: 'var(--accent)' }} />
-              {item.badge > 0 && (
-                <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 999, background: '#E05C6A', border: '1.5px solid var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', lineHeight: 1, fontFamily: 'Inter, sans-serif' }}>{item.badge > 99 ? '99+' : item.badge}</span>
-                </span>
-              )}
-            </div>
-            <div>
-              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif" }}>{item.label}</p>
-              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>{item.sub}</p>
-            </div>
-          </button>
-        ))}
-      </div>
+    <div>
+      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
     </div>
   );
 
@@ -1300,7 +1254,6 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
         <div className="scroll-area" style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '28px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
             {Header()}
-            <HamburgerMenu />
 
             {/* Kid-first hero — vertically centered in remaining space */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, paddingBottom: 32 }}>
@@ -1788,7 +1741,6 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           </div>
         );
       })()}
-      <HamburgerMenu />
     </div>
   );
 }
@@ -3519,8 +3471,9 @@ function CelebrationOverlay({ kid, milestoneType, onDone }) {
 
 // ─── Circle feed screen ───────────────────────────────────────────────────
 
-function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCompareAtAge }) {
+function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCompareAtAge, onSwitchSection }) {
   const { userId: currentUserId, myDisplayName, familyMembers = [] } = useSession() ?? {};
+  const { pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
   const socialName = familyMembers.find(m => m.user_id === currentUserId)?.real_name || myDisplayName || '';
   const [loading, setLoading] = useState(true);
   const [feedEntries, setFeedEntries] = useState([]);
@@ -3856,7 +3809,12 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             </div>
             <div style={{ padding: '10px 20px 18px' }}>
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 4px' }}>Just a glimpse</h2>
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>A shared journey, just different chapters.</p>
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: '0 0 14px' }}>A shared journey, just different chapters.</p>
+              <SectionSwitcher
+                tabs={[{ id: 'circle-feed', label: 'Feed' }, { id: 'friends', label: 'Friends', badge: pendingRequestCount + circleBadge }]}
+                active="circle-feed"
+                onChange={onSwitchSection}
+              />
             </div>
 
             {showSearch && (
@@ -3910,7 +3868,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
 
 // ─── Compare screen ──────────────────────────────────────────────────────
 
-function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], friends = [], currentUserId, onBack, onOpenEntry, initialFriendKidId = null, initialCompareAge = null }) {
+function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], friends = [], currentUserId, onBack, onOpenEntry, initialFriendKidId = null, initialCompareAge = null, onSwitchSection }) {
   const [filterTab, setFilterTab] = useState('age');
   const [compareAge, setCompareAge] = useState(initialCompareAge ?? 24);
   const [photoViewer, setPhotoViewer] = useState(null); // { entry, kid, ageStr, isFriend, friendName, friendAvatar }
@@ -4012,6 +3970,12 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>At this age</h2>
             <div style={{ width: 36 }} />
           </div>
+
+          <SectionSwitcher
+            tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
+            active="compare"
+            onChange={onSwitchSection}
+          />
 
           <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 10, padding: 3 }}>
             <button style={tabStyle('age')} onClick={() => switchTab('age')}>By Age</button>
@@ -4422,7 +4386,7 @@ function ReactionToast({ message, onDismiss }) {
   );
 }
 
-function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserId, self, partner, onBack, onOpenEntry, onMarkAllRead, scrollPos }) {
+function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserId, self, partner, onBack, onOpenEntry, onMarkAllRead, scrollPos, onSwitchSection }) {
   const scrollRef = useRef(null);
   const [activeAuthorId, setActiveAuthorId] = useState(authorId);
   const isSelf = activeAuthorId != null && currentUserId && activeAuthorId === currentUserId;
@@ -4489,7 +4453,12 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
 
           <div>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 4px' }}>{title}</h2>
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>For all the things you wish they knew.</p>
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: '0 0 14px' }}>For all the things you wish they knew.</p>
+            <SectionSwitcher
+              tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
+              active="partner-letters"
+              onChange={onSwitchSection}
+            />
           </div>
 
           {partner && (
@@ -5311,7 +5280,7 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberIds = [], onBack, onSearch, onSendRequest, onInviteFriend, onRespond, onUnfriend, onOpenFriendEntry, onFriendBirthdayClick, socialName, friendUserFamilyMap = {} }) {
+function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberIds = [], onBack, onSearch, onSendRequest, onInviteFriend, onRespond, onUnfriend, onOpenFriendEntry, onFriendBirthdayClick, socialName, friendUserFamilyMap = {}, onSwitchSection }) {
   const { reactionNotifications = [], birthdayNotifications = [], friendRequests = [], onClearReactions, onDismissReaction, onDismissBirthday } = useNotif() ?? {};
   const { userId: currentUserId, session } = useSession() ?? {};
   const [searchQuery, setSearchQuery] = useState('');
@@ -5453,7 +5422,12 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
           </div>
 
           <div>
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 19, fontWeight: 600, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Your friends</p>
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 19, fontWeight: 600, color: 'var(--accent)', margin: '0 0 14px', textAlign: 'center' }}>Your friends</p>
+            <SectionSwitcher
+              tabs={[{ id: 'circle-feed', label: 'Feed' }, { id: 'friends', label: 'Friends' }]}
+              active="friends"
+              onChange={onSwitchSection}
+            />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
@@ -5833,17 +5807,18 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 }
 
 const NavBar = memo(function NavBar({ active, onNavigate }) {
+  const { pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
   const tabs = [
-    { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
-    { id: 'circle-feed', icon: 'ti-users', label: 'Glimpse', color: '#F0897A' },
+    { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A', group: ['home'] },
+    { id: 'circle-feed', icon: 'ti-users', label: 'Circle', color: '#F0897A', group: ['circle-feed', 'friends'], badge: pendingRequestCount + circleBadge },
   ];
   const tabsRight = [
-    { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', color: '#F0897A' },
-    { id: 'profile', icon: 'ti-user', label: 'Profile', color: '#F0897A' },
+    { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', color: '#F0897A', group: ['recap', 'partner-letters', 'compare'] },
+    { id: 'profile', icon: 'ti-user', label: 'Profile', color: '#F0897A', group: ['profile'] },
   ];
 
   function tabStyle(tab) {
-    const isActive = active === tab.id;
+    const isActive = tab.group.includes(active);
     return {
       backgroundColor: isActive ? 'rgba(74,94,80,0.12)' : 'transparent',
       color: isActive ? 'var(--accent)' : 'var(--text-muted)',
@@ -5855,9 +5830,16 @@ const NavBar = memo(function NavBar({ active, onNavigate }) {
       <div className="nav-frame">
         <div className="nav-bar">
           {tabs.map(tab => (
-            <button key={tab.id} className="nv-tab" style={tabStyle(tab)} onClick={() => onNavigate(tab.id)}>
+            <button key={tab.id} className="nv-tab" style={{ ...tabStyle(tab), position: 'relative' }} onClick={() => onNavigate(tab.id)}>
               <i className={`ti ${tab.icon}`} />
               <span>{tab.label}</span>
+              {tab.badge > 0 && (
+                <span style={{ position: 'absolute', top: 2, right: '50%', transform: 'translateX(14px)', minWidth: 16, height: 16, borderRadius: 999, background: '#E05C6A', border: '1.5px solid var(--bg-nav)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', lineHeight: 1, fontFamily: 'Inter, sans-serif' }}>
+                    {tab.badge > 99 ? '99+' : tab.badge}
+                  </span>
+                </span>
+              )}
             </button>
           ))}
           <div className="nv-add-wrap">
@@ -7474,6 +7456,15 @@ export default function App() {
 
   const handleNavigate = useCallback((s) => setScreen(s), []);
 
+  // Lateral navigation between sibling sub-tabs within the Circle (Feed/Friends)
+  // and Keepsakes (Recap/All letters/At the same age) sections — resets any
+  // deep-link context so switching sections lands on a generic, not stale, view.
+  const switchSection = useCallback((id) => {
+    if (id === 'compare') setCompareTarget(null);
+    if (id === 'partner-letters') setLetterAuthorId(null);
+    setScreen(id);
+  }, []);
+
   const openEntry = useCallback((entry) => {
     setEntrySource(screenRef.current);
     setActiveEntry(entry);
@@ -8310,8 +8301,6 @@ export default function App() {
             }}
             onBirthdayTodayClick={kid => setBirthdaySlideshow(kid)}
             onFriendBirthdayClick={kid => setBirthdaySlideshowFriend({ kid, entries: friendEntries })}
-            onSeeLetters={() => { setLetterAuthorId(null); setScreen('partner-letters'); }}
-            onSeeFriends={() => setScreen('friends')}
           />
         );
       })()}
@@ -8332,6 +8321,7 @@ export default function App() {
             onOpenEntry={(entry) => { markPartnerEntrySeen(entry.id); openEntry(entry); }}
             onMarkAllRead={markAllSeen}
             scrollPos={partnerLettersScrollPos}
+            onSwitchSection={switchSection}
           />
         );
       })()}
@@ -8404,6 +8394,7 @@ export default function App() {
             onOpenEntry={openEntry}
             onCompare={() => setScreen('compare')}
             onSeeAll={() => { setJournalBackScreen('recap'); setScreen('journal'); }}
+            onSwitchSection={switchSection}
           />
         </ScreenErrorBoundary>
       )}
@@ -8419,6 +8410,7 @@ export default function App() {
             setCompareTarget({ kidId, compareAge: bucket });
             setScreen('compare');
           }}
+          onSwitchSection={switchSection}
         />
       )}
 
@@ -8434,6 +8426,7 @@ export default function App() {
           onOpenEntry={openEntry}
           initialFriendKidId={compareTarget?.kidId ?? null}
           initialCompareAge={compareTarget?.compareAge ?? null}
+          onSwitchSection={switchSection}
         />
       )}
 
@@ -8463,6 +8456,7 @@ export default function App() {
           onFriendBirthdayClick={kid => setBirthdaySlideshowFriend({ kid, entries: friendEntries })}
           socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName}
           friendUserFamilyMap={friendUserFamilyMap}
+          onSwitchSection={switchSection}
         />
       )}
 

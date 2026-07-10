@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { TODAY, milestoneInfo } from '../constants.js';
 import KidThumb from '../KidThumb.jsx';
+import SectionSwitcher from '../SectionSwitcher.jsx';
 
 function RecapEntryRow({ entry, kids, onOpenEntry }) {
   const entryKids = (entry.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
@@ -45,7 +46,7 @@ function RecapEntryRow({ entry, kids, onOpenEntry }) {
   );
 }
 
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare, onSeeAll }) {
+function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare, onSeeAll, onSwitchSection }) {
   const [viewMode, setViewMode] = useState('month');
   const [selectedMonth, setSelectedMonth] = useState(TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
@@ -124,6 +125,12 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onCompare, onSeeAll }
     <div className="screen">
       <div className="scroll-area">
         <div className="scrollpad">
+
+          <SectionSwitcher
+            tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
+            active="recap"
+            onChange={onSwitchSection}
+          />
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
