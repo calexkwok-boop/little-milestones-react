@@ -3520,7 +3520,8 @@ function CelebrationOverlay({ kid, milestoneType, onDone }) {
 // ─── Circle feed screen ───────────────────────────────────────────────────
 
 function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCompareAtAge }) {
-  const { userId: currentUserId, myDisplayName } = useSession() ?? {};
+  const { userId: currentUserId, myDisplayName, familyMembers = [] } = useSession() ?? {};
+  const socialName = familyMembers.find(m => m.user_id === currentUserId)?.real_name || myDisplayName || '';
   const [loading, setLoading] = useState(true);
   const [feedEntries, setFeedEntries] = useState([]);
   const [likesMap, setLikesMap] = useState({});   // entryId -> [{id, user_id, display_name}]
@@ -3599,11 +3600,11 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
       setLikesMap(prev => ({ ...prev, [entryId]: prev[entryId].filter(l => l.id !== existing.id) }));
       await supabase.from('entry_likes').delete().eq('id', existing.id).eq('user_id', currentUserId);
     } else {
-      const temp = { id: 'tmp-' + Date.now(), entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '' };
+      const temp = { id: 'tmp-' + Date.now(), entry_id: entryId, user_id: currentUserId, display_name: socialName };
       setLikesMap(prev => ({ ...prev, [entryId]: [...(prev[entryId] || []), temp] }));
       setLikeAnimId(entryId);
       setTimeout(() => setLikeAnimId(id => id === entryId ? null : id), 800);
-      const { data } = await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '' }).select('id, entry_id, user_id, display_name').single();
+      const { data } = await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: currentUserId, display_name: socialName }).select('id, entry_id, user_id, display_name').single();
       if (data) setLikesMap(prev => ({ ...prev, [entryId]: (prev[entryId] || []).map(l => l.id === temp.id ? data : l) }));
     }
   }
@@ -3612,9 +3613,9 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     const body = (commentDrafts[entryId] || '').trim();
     if (!body || !supabase || !currentUserId) return;
     setCommentDrafts(prev => ({ ...prev, [entryId]: '' }));
-    const temp = { id: 'tmp-' + Date.now(), entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '', body, created_at: new Date().toISOString() };
+    const temp = { id: 'tmp-' + Date.now(), entry_id: entryId, user_id: currentUserId, display_name: socialName, body, created_at: new Date().toISOString() };
     setCommentsMap(prev => ({ ...prev, [entryId]: [...(prev[entryId] || []), temp] }));
-    const { data } = await supabase.from('entry_comments').insert({ entry_id: entryId, user_id: currentUserId, display_name: myDisplayName || '', body }).select('id, entry_id, user_id, display_name, body, created_at').single();
+    const { data } = await supabase.from('entry_comments').insert({ entry_id: entryId, user_id: currentUserId, display_name: socialName, body }).select('id, entry_id, user_id, display_name, body, created_at').single();
     if (data) setCommentsMap(prev => ({ ...prev, [entryId]: (prev[entryId] || []).map(c => c.id === temp.id ? data : c) }));
   }
 
