@@ -284,7 +284,7 @@ function compressImage(file, maxDim = 2400, quality = 0.88) {
 }
 
 
-const PROD_APP_URL = 'https://patina-react.vercel.app';
+const PROD_APP_URL = 'https://app.patinafamily.com';
 
 let googleMapsPromise = null;
 function loadGoogleMaps() {
