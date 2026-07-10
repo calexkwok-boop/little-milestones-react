@@ -7101,16 +7101,18 @@ export default function App() {
   }
 
   async function uploadToCloudinary(fileOrBlob, resourceType = 'image') {
-    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-    const preset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET;
-    if (!cloudName || !preset) throw new Error('Cloudinary not configured (missing env vars)');
+    const { data: sig, error: sigError } = await supabase.functions.invoke('sign-upload');
+    if (sigError || !sig) throw new Error('Could not authorize upload: ' + (sigError?.message || 'unknown error'));
     const fd = new FormData();
     fd.append('file', fileOrBlob);
-    fd.append('upload_preset', preset);
+    fd.append('upload_preset', sig.preset);
+    fd.append('api_key', sig.apiKey);
+    fd.append('timestamp', String(sig.timestamp));
+    fd.append('signature', sig.signature);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), resourceType === 'video' ? 300_000 : 30_000);
     try {
-      const res = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`, { method: 'POST', body: fd, signal: controller.signal });
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${sig.cloudName}/${resourceType}/upload`, { method: 'POST', body: fd, signal: controller.signal });
       if (!res.ok) {
         const errText = await res.text().catch(() => res.status);
         throw new Error(`Cloudinary ${res.status}: ${errText}`);
@@ -7653,11 +7655,10 @@ export default function App() {
   async function handleSearchUsers(query) {
     if (!query.trim() || !supabase || !session) return [];
     const { data } = await supabase
-      .from('profiles')
+      .from('discoverable_profiles')
       .select('id, display_name, avatar_url')
       .ilike('display_name', `%${query}%`)
       .neq('id', session.user.id)
-      .neq('discoverable', false)
       .limit(20);
     return data || [];
   }
