@@ -1248,7 +1248,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
       </div>
       <button className="icon-btn" onClick={() => setShowMenu(true)} style={{ position: 'relative' }}>
         <i className="ti ti-menu-2" />
-        {pendingRequestCount > 0 && (
+        {(pendingRequestCount + circleBadge) > 0 && (
           <span style={{ position: 'absolute', top: 2, right: 2, width: 9, height: 9, borderRadius: '50%', background: '#E05C6A', border: '1.5px solid var(--bg)' }} />
         )}
       </button>
@@ -3533,6 +3533,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
   const [profileFamilyId, setProfileFamilyId] = useState(null);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [likeAnimId, setLikeAnimId] = useState(null);
+  const [playingVideoId, setPlayingVideoId] = useState(null);
   const lastTapRef = useRef({});
 
   useEffect(() => {
@@ -3688,6 +3689,8 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         {entry.media.length > 0 && (
           <div
             onClick={() => {
+              const isVideo = entry.media[0].type === 'video';
+              if (isVideo && playingVideoId !== entry.id) { setPlayingVideoId(entry.id); return; }
               const now = Date.now();
               const wasDoubleTap = now - (lastTapRef.current[entry.id] || 0) < 320;
               lastTapRef.current[entry.id] = now;
@@ -3698,10 +3701,20 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             }}
             style={{ margin: '0 14px', borderRadius: 16, overflow: 'hidden', aspectRatio: '4/5', background: 'var(--border)', position: 'relative', cursor: 'pointer' }}
           >
-            {entry.media[0].type === 'video'
-              ? <video src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} preload="metadata" playsInline controls />
-              : <img src={cloudinaryTransform(entry.media[0].url, 'w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
-            }
+            {entry.media[0].type === 'video' ? (
+              playingVideoId === entry.id ? (
+                <video src={entry.media[0].url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+              ) : (
+                <>
+                  <img src={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+                  </div>
+                </>
+              )
+            ) : (
+              <img src={cloudinaryTransform(entry.media[0].url, 'w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+            )}
             {likeAnimId === entry.id && (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                 <i className="ti ti-heart-filled" style={{ fontSize: 90, color: '#fff', filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
