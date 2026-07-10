@@ -5266,7 +5266,7 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberIds = [], onBack, onSearch, onSendRequest, onRespond, onUnfriend, onOpenFriendEntry, onFriendBirthdayClick, socialName, friendUserFamilyMap = {} }) {
+function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberIds = [], onBack, onSearch, onSendRequest, onInviteFriend, onRespond, onUnfriend, onOpenFriendEntry, onFriendBirthdayClick, socialName, friendUserFamilyMap = {} }) {
   const { reactionNotifications = [], birthdayNotifications = [], friendRequests = [], onClearReactions, onDismissReaction, onDismissBirthday } = useNotif() ?? {};
   const { userId: currentUserId, session } = useSession() ?? {};
   const [searchQuery, setSearchQuery] = useState('');
@@ -5275,6 +5275,8 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
   const [showSearch, setShowSearch] = useState(false);
   const searchInputRef = useRef(null);
   const [sentIds, setSentIds] = useState(new Set());
+  const [inviting, setInviting] = useState(false);
+  const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
   const [selectedFriendUid, setSelectedFriendUid] = useState(null);
   const [friendViewer, setFriendViewer] = useState(null);
   const [viewerLikes, setViewerLikes] = useState([]);
@@ -5372,6 +5374,28 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
     return fr.requester_id === currentUserId ? fr.addressee_display_name : fr.requester_display_name;
   }
 
+  async function handleInvite() {
+    if (!onInviteFriend || inviting) return;
+    setInviting(true);
+    const code = await onInviteFriend();
+    setInviting(false);
+    if (!code) return;
+    const link = `${getAuthRedirectUrl()}/?invite=${code}`;
+    const shareData = {
+      title: 'Join me on Patina',
+      text: `I've been keeping a journal for my kids on Patina — thought you'd want to see it. Join me?`,
+      url: link,
+    };
+    if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+      try { await navigator.share(shareData); return; } catch (_) { /* user cancelled */ return; }
+    }
+    try {
+      await navigator.clipboard.writeText(link);
+      setInviteLinkCopied(true);
+      setTimeout(() => setInviteLinkCopied(false), 2000);
+    } catch (_) {}
+  }
+
   return (
     <div className="screen" style={{ position: 'relative' }}>
       <div className="scroll-area">
@@ -5401,6 +5425,19 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
               <p style={{ fontSize: 11, fontWeight: 600, color: (reactionNotifications.length + birthdayNotifications.length) > 0 ? 'rgba(255,255,255,0.75)' : '#C8993E', margin: '5px 0 0' }}>new activity</p>
             </div>
           </div>
+
+          <button onClick={handleInvite} disabled={inviting} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, cursor: inviting ? 'default' : 'pointer', fontFamily: "'Urbanist', sans-serif", opacity: inviting ? 0.75 : 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(74,94,80,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <i className="ti ti-user-plus" style={{ fontSize: 16, color: 'var(--accent)' }} />
+              </div>
+              <div style={{ textAlign: 'left' }}>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{inviting ? 'Generating invite…' : inviteLinkCopied ? 'Link copied!' : 'Invite a friend'}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Bring someone new into your circle</p>
+              </div>
+            </div>
+            <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
+          </button>
 
           {showSearch && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
@@ -6798,6 +6835,55 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [localMode]);
 
+  // Capture an "invite a friend" link (?invite=CODE) before it's lost to a
+  // signup/email-confirm redirect that lands back on a bare URL.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const invite = params.get('invite');
+    if (!invite) return;
+    localStorage.setItem('patina_pending_invite', invite.toUpperCase());
+    params.delete('invite');
+    const rest = params.toString();
+    window.history.replaceState({}, '', window.location.pathname + (rest ? `?${rest}` : ''));
+  }, []);
+
+  // Redeem a pending invite link once we have a session
+  useEffect(() => {
+    if (!supabase || !session?.user?.id) return;
+    const code = localStorage.getItem('patina_pending_invite');
+    if (!code) return;
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('redeem-invite', { body: { code } });
+        localStorage.removeItem('patina_pending_invite');
+        if (error || !data?.success) return;
+        const friendUserId = data.inviterId;
+        setFriends(prev => prev.some(f => f.id === data.friendRequestId) ? prev : [...prev, {
+          id: data.friendRequestId,
+          requester_id: friendUserId,
+          addressee_id: session.user.id,
+          status: 'accepted',
+          requester_display_name: data.inviterName || '',
+          requester_avatar_url: data.inviterAvatarUrl || null,
+          addressee_display_name: myDisplayName,
+          addressee_avatar_url: null,
+        }]);
+        setReactionToast({ message: data.inviterName ? `You're connected with ${data.inviterName}!` : "You're connected!" });
+        try {
+          const [{ data: fKids }, { data: fEntries }] = await Promise.all([
+            supabase.from('kids').select('*').eq('user_id', friendUserId),
+            supabase.from('entries').select('*, entry_media(*)').eq('user_id', friendUserId).eq('shared', true).order('date', { ascending: false }),
+          ]);
+          setFriendKids(prev => { const ids = new Set(prev.map(k => k.id)); return [...prev, ...(fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id })).filter(k => !ids.has(k.id))]; });
+          setFriendEntries(prev => { const ids = new Set(prev.map(e => e.id)); return [...prev, ...(fEntries || []).map(normalizeEntry).filter(e => !ids.has(e.id))]; });
+        } catch (_) {}
+      } catch (_) {
+        localStorage.removeItem('patina_pending_invite');
+      }
+    })();
+  }, [session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!localMode || typeof window === 'undefined') return;
     const id = setTimeout(() => {
@@ -7858,6 +7944,13 @@ export default function App() {
     return error ? null : token;
   }
 
+  async function handleInviteFriend() {
+    if (!supabase || !session) return null;
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const { error } = await supabase.from('friend_invites').insert({ code, inviter_id: session.user.id });
+    return error ? null : code;
+  }
+
   async function handleBookWaitlist(email) {
     if (!supabase || !session) return;
     await supabase.from('book_waitlist').upsert(
@@ -8315,6 +8408,7 @@ export default function App() {
           onBack={() => setScreen('home')}
           onSearch={handleSearchUsers}
           onSendRequest={handleSendFriendRequest}
+          onInviteFriend={handleInviteFriend}
           onRespond={handleRespondFriendRequest}
           onUnfriend={handleUnfriend}
           onOpenFriendEntry={(entryId) => {
