@@ -3933,6 +3933,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
   const [milestoneFilter, setMilestoneFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFriendKidIds, setSelectedFriendKidIds] = useState(initialFriendKidId ? [initialFriendKidId] : []);
+  const [excludedKidIds, setExcludedKidIds] = useState([]);
   const [showFriendPicker, setShowFriendPicker] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
   const ages = [12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
@@ -3986,11 +3987,13 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
     transition: 'all 0.15s',
   });
 
+  // Own kids are always present (never removed, only faded when excluded); friend kids are added/removed outright.
   const allKidColumns = [...kids, ...selectedFriendKids.map(k => ({ ...k, isFriend: true }))];
+  const includedKidColumns = allKidColumns.filter(k => k.isFriend || !excludedKidIds.includes(k.id));
 
   // Flat sorted list of all entries for the age grid (2+ kids)
   const ageGridItems = (filterTab === 'age' && allKidColumns.length >= 2)
-    ? allKidColumns.flatMap(kid => {
+    ? includedKidColumns.flatMap(kid => {
         const pool = kid.isFriend ? friendEntries : entries;
         return pool
           .filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths) && e.media?.length > 0)
@@ -4095,21 +4098,31 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* Kid tags */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                {allKidColumns.map(kid => (
-                  <div key={kid.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--bg-elevated)', borderRadius: 99, padding: '4px 10px 4px 5px' }}>
-                    <div style={{ width: 18, height: 18, borderRadius: '50%', background: kid.accent || 'var(--border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {kid.avatar
-                        ? <img src={cloudinaryTransform(kid.avatar, 'w_36,h_36,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        : <span style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{kid.name.charAt(0)}</span>}
+                {allKidColumns.map(kid => {
+                  const isExcluded = !kid.isFriend && excludedKidIds.includes(kid.id);
+                  return (
+                    <div
+                      key={kid.id}
+                      onClick={() => !kid.isFriend && setExcludedKidIds(prev => isExcluded ? prev.filter(id => id !== kid.id) : [...prev, kid.id])}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--bg-elevated)', borderRadius: 99, padding: '4px 10px 4px 5px', opacity: isExcluded ? 0.4 : 1, cursor: kid.isFriend ? 'default' : 'pointer', transition: 'opacity 0.15s' }}
+                    >
+                      <div style={{ width: 18, height: 18, borderRadius: '50%', background: kid.accent || 'var(--border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {kid.avatar
+                          ? <img src={cloudinaryTransform(kid.avatar, 'w_36,h_36,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          : <span style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{kid.name.charAt(0)}</span>}
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{kid.name}</span>
+                      {kid.isFriend && (
+                        <button
+                          onClick={() => setSelectedFriendKidIds(prev => prev.filter(id => id !== kid.id))}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', marginLeft: 2 }}
+                        >
+                          <i className="ti ti-x" style={{ fontSize: 11 }} />
+                        </button>
+                      )}
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{kid.name}</span>
-                    {kid.isFriend && (
-                      <button onClick={() => setSelectedFriendKidIds(prev => prev.filter(id => id !== kid.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', marginLeft: 2 }}>
-                        <i className="ti ti-x" style={{ fontSize: 11 }} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
                 {friendKids.length > 0 && selectedFriendKidIds.length < 10 && (
                   <button onClick={() => setShowFriendPicker(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: '1.5px dashed var(--border)', borderRadius: 99, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
                     <i className="ti ti-plus" style={{ fontSize: 12 }} /> Add
@@ -4189,6 +4202,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             <div className="scrollx" style={{ alignItems: 'flex-start', gap: 12, paddingBottom: 8 }}>
               {allKidColumns.map(kid => {
                 const isFriendKid = !!kid.isFriend;
+                const isExcluded = !isFriendKid && excludedKidIds.includes(kid.id);
                 const pool = isFriendKid ? friendEntries : entries;
                 const matches = isSearching
                   ? pool.filter(e => e.kids.includes(kid.id) && entryMatchesSearch(e))
@@ -4202,15 +4216,21 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                         return (new Date(a.date) - bd) - (new Date(b.date) - bd);
                       });
                 return (
-                  <div key={kid.id} style={{ width: 170, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div key={kid.id} style={{ width: 170, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 10, opacity: isExcluded ? 0.4 : 1, transition: 'opacity 0.15s' }}>
+                    <div
+                      onClick={() => !isFriendKid && setExcludedKidIds(prev => isExcluded ? prev.filter(id => id !== kid.id) : [...prev, kid.id])}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: isFriendKid ? 'default' : 'pointer' }}
+                    >
                       <KidThumb kid={kid} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kid.name}</p>
                         {isFriendKid && <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>friend</p>}
                       </div>
                       {isFriendKid && (
-                        <button onClick={() => setSelectedFriendKidIds(prev => prev.filter(id => id !== kid.id))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', flexShrink: 0 }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); setSelectedFriendKidIds(prev => prev.filter(id => id !== kid.id)); }}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', flexShrink: 0 }}
+                        >
                           <i className="ti ti-x" style={{ fontSize: 13 }} />
                         </button>
                       )}
