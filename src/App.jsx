@@ -6868,6 +6868,13 @@ export default function App() {
           }
         }
 
+        // Load own profile (discoverable setting + notification read-state)
+        const { data: ownProfile } = await supabase.from('profiles').select('discoverable, sharing_defaults, notif_cleared_at').eq('id', session.user.id).maybeSingle();
+        if (ownProfile) {
+          setDiscoverable(ownProfile.discoverable ?? true);
+          if (ownProfile.sharing_defaults) setSharingDefaults(ownProfile.sharing_defaults);
+        }
+
         // Load recent reactions on the user's entries to seed the activity feed
         {
           const thirtyDaysAgo = new Date(); thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -6905,17 +6912,13 @@ export default function App() {
             });
           }
           all.sort((a, b) => b.ts - a.ts);
-          const clearedAt = parseInt(localStorage.getItem('notifClearedAt') || '0', 10);
-          const dismissedIds = new Set(JSON.parse(localStorage.getItem('notifDismissedIds') || '[]'));
-          const unseen = all.filter(n => n.ts > clearedAt && !dismissedIds.has(n.id));
-          if (unseen.length > 0) setReactionNotifications(unseen);
-        }
-
-        // Load own profile for discoverable setting
-        const { data: ownProfile } = await supabase.from('profiles').select('discoverable, sharing_defaults').eq('id', session.user.id).maybeSingle();
-        if (ownProfile) {
-          setDiscoverable(ownProfile.discoverable ?? true);
-          if (ownProfile.sharing_defaults) setSharingDefaults(ownProfile.sharing_defaults);
+          if (all.length > 0) {
+            const clearedAt = ownProfile?.notif_cleared_at ? new Date(ownProfile.notif_cleared_at).getTime() : 0;
+            const { data: dismissedRows } = await supabase.from('dismissed_notifications').select('notification_id').eq('user_id', session.user.id);
+            const dismissedIds = new Set((dismissedRows || []).map(r => r.notification_id));
+            const unseen = all.filter(n => n.ts > clearedAt && !dismissedIds.has(n.id));
+            if (unseen.length > 0) setReactionNotifications(unseen);
+          }
         }
 
         // Create profile if none exists — never overwrite (real name set during onboarding)
@@ -7903,20 +7906,21 @@ export default function App() {
   }
 
   const handleClearReactions = useCallback(() => {
-    localStorage.setItem('notifClearedAt', Date.now().toString());
     setReactionNotifications([]);
-    if (supabase && session?.user?.id) supabase.from('birthday_notifications').delete().eq('user_id', session.user.id);
+    if (supabase && session?.user?.id) {
+      supabase.from('profiles').update({ notif_cleared_at: new Date().toISOString() }).eq('id', session.user.id).then(() => {});
+      supabase.from('birthday_notifications').delete().eq('user_id', session.user.id).then(() => {});
+    }
     setBirthdayNotifications([]);
   }, [session?.user?.id]);
 
   const handleDismissReaction = useCallback(id => {
-    const prev = JSON.parse(localStorage.getItem('notifDismissedIds') || '[]');
-    localStorage.setItem('notifDismissedIds', JSON.stringify([...new Set([...prev, id])]));
     setReactionNotifications(p => p.filter(n => n.id !== id));
-  }, []);
+    if (supabase && session?.user?.id) supabase.from('dismissed_notifications').insert({ user_id: session.user.id, notification_id: id }).then(() => {});
+  }, [session?.user?.id]);
 
   const handleDismissBirthday = useCallback(id => {
-    if (supabase && session?.user?.id) supabase.from('birthday_notifications').delete().eq('id', id).eq('user_id', session.user.id);
+    if (supabase && session?.user?.id) supabase.from('birthday_notifications').delete().eq('id', id).eq('user_id', session.user.id).then(() => {});
     setBirthdayNotifications(p => p.filter(n => n.id !== id));
   }, [session?.user?.id]);
 
