@@ -985,9 +985,9 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onSeeLetters, onSeeCircle }) {
+function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onSeeLetters, onSeeFriends }) {
   const { entries, kids } = useData() ?? {};
-  const { unseenPartnerIds = [], reactionCounts = {} } = useNotif() ?? {};
+  const { unseenPartnerIds = [], reactionCounts = {}, pendingRequestCount = 0 } = useNotif() ?? {};
   const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
@@ -1248,7 +1248,50 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
         <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
       </div>
-      <button className="icon-btn" onClick={() => setShowMenu(true)}><i className="ti ti-menu-2" /></button>
+      <button className="icon-btn" onClick={() => setShowMenu(true)} style={{ position: 'relative' }}>
+        <i className="ti ti-menu-2" />
+        {pendingRequestCount > 0 && (
+          <span style={{ position: 'absolute', top: 2, right: 2, width: 9, height: 9, borderRadius: '50%', background: '#E05C6A', border: '1.5px solid var(--bg)' }} />
+        )}
+      </button>
+    </div>
+  );
+
+  const HamburgerMenu = () => showMenu && (
+    <div
+      style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end' }}
+      onClick={() => setShowMenu(false)}
+    >
+      <div
+        style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', paddingBottom: 36 }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 8px' }} />
+        {[
+          { icon: 'ti-mail', label: 'Our letters', sub: 'All family letters', action: () => { setShowMenu(false); onSeeLetters?.(); } },
+          { icon: 'ti-arrows-diff', label: 'At the same age', sub: 'Compare moments side by side', action: () => { setShowMenu(false); onCompare?.(); } },
+          { icon: 'ti-address-book', label: 'Friends', sub: 'Search, requests, and your friend list', badge: pendingRequestCount, action: () => { setShowMenu(false); onSeeFriends?.(); } },
+        ].map(item => (
+          <button
+            key={item.label}
+            onClick={item.action}
+            style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', textAlign: 'left' }}
+          >
+            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative' }}>
+              <i className={`ti ${item.icon}`} style={{ fontSize: 22, color: 'var(--accent)' }} />
+              {item.badge > 0 && (
+                <span style={{ position: 'absolute', top: -2, right: -2, minWidth: 18, height: 18, borderRadius: 999, background: '#E05C6A', border: '1.5px solid var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', lineHeight: 1, fontFamily: 'Inter, sans-serif' }}>{item.badge > 99 ? '99+' : item.badge}</span>
+                </span>
+              )}
+            </div>
+            <div>
+              <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif" }}>{item.label}</p>
+              <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>{item.sub}</p>
+            </div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 
@@ -1259,6 +1302,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
         <div className="scroll-area" style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ padding: '28px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
             {Header()}
+            <HamburgerMenu />
 
             {/* Kid-first hero — vertically centered in remaining space */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24, paddingBottom: 32 }}>
@@ -1746,38 +1790,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           </div>
         );
       })()}
-      {showMenu && (
-        <div
-          style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end' }}
-          onClick={() => setShowMenu(false)}
-        >
-          <div
-            style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', paddingBottom: 36 }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 8px' }} />
-            {[
-              { icon: 'ti-mail', label: 'Our letters', sub: 'All family letters', action: () => { setShowMenu(false); onSeeLetters?.(); } },
-              { icon: 'ti-arrows-diff', label: 'At the same age', sub: 'Compare moments side by side', action: () => { setShowMenu(false); onCompare?.(); } },
-              { icon: 'ti-users', label: 'From your circle', sub: "What friends are sharing", action: () => { setShowMenu(false); onSeeCircle?.(); } },
-            ].map(item => (
-              <button
-                key={item.label}
-                onClick={item.action}
-                style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', textAlign: 'left' }}
-              >
-                <div style={{ width: 44, height: 44, borderRadius: 14, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <i className={`ti ${item.icon}`} style={{ fontSize: 22, color: 'var(--accent)' }} />
-                </div>
-                <div>
-                  <p style={{ margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif" }}>{item.label}</p>
-                  <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>{item.sub}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <HamburgerMenu />
     </div>
   );
 }
@@ -4351,6 +4364,19 @@ function ReactionToast({ message, onDismiss }) {
 function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, currentUserId, onBack, onOpenEntry, onMarkAllRead, scrollPos }) {
   const scrollRef = useRef(null);
   const isSelf = authorId && currentUserId && authorId === currentUserId;
+  const [query, setQuery] = useState('');
+
+  function matchesQuery(e) {
+    if (!query.trim()) return true;
+    const q = query.trim().toLowerCase();
+    const m = e.milestone ? milestoneInfo(e.milestone) : null;
+    const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
+    return (e.text || '').toLowerCase().includes(q)
+      || (m && m.label.toLowerCase().includes(q))
+      || entryKids.some(k => k.name.toLowerCase().includes(q))
+      || e.location?.toLowerCase().includes(q)
+      || (e.people || []).some(p => p.toLowerCase().includes(q));
+  }
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -4363,17 +4389,20 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
     onOpenEntry(entry);
   }
   const showAll = authorId === null;
-  const unseenEntries = useMemo(
+  const unseenEntriesAll = useMemo(
     () => (isSelf || showAll) ? [] : entries.filter(e => unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
     [entries, unseenIds, isSelf, showAll]
   );
-  const earlierEntries = useMemo(
+  const earlierEntriesAll = useMemo(
     () => entries
       .filter(e => showAll ? true : (authorId && e.authorId === authorId && (isSelf || !unseenIds.includes(e.id))))
       .sort((a, b) => new Date(b.date) - new Date(a.date)),
     [entries, authorId, unseenIds, isSelf, showAll]
   );
-  const hasAny = unseenEntries.length > 0 || earlierEntries.length > 0;
+  const unseenEntries = useMemo(() => unseenEntriesAll.filter(matchesQuery), [unseenEntriesAll, query, kids]);
+  const earlierEntries = useMemo(() => earlierEntriesAll.filter(matchesQuery), [earlierEntriesAll, query, kids]);
+  const hasAny = unseenEntriesAll.length > 0 || earlierEntriesAll.length > 0;
+  const hasMatches = unseenEntries.length > 0 || earlierEntries.length > 0;
   const title = showAll ? 'Our letters' : isSelf ? 'My letters' : (authorName ? `${authorName}'s letters` : "Partner's letters");
 
   return (
@@ -4388,6 +4417,28 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
 
           {!hasAny && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No letters yet</p>
+          )}
+
+          {hasAny && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 14px' }}>
+              <i className="ti ti-search" style={{ color: 'var(--text-muted)' }} />
+              <input
+                type="text"
+                placeholder="Search these letters..."
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                style={{ border: 'none', outline: 'none', flex: 1, fontSize: 15, background: 'transparent', color: 'var(--accent)', fontFamily: 'Inter, sans-serif' }}
+              />
+              {query && (
+                <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}>
+                  <i className="ti ti-x" style={{ fontSize: 14 }} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {hasAny && !hasMatches && (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>No letters match "{query}"</p>
           )}
 
           {unseenEntries.length > 0 && (
@@ -4410,7 +4461,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
           {earlierEntries.length > 0 && (
             <>
               <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', margin: 0 }}>
-                {unseenEntries.length > 0 ? 'Earlier' : `All ${earlierEntries.length} letters`}
+                {unseenEntries.length > 0 ? 'Earlier' : query.trim() ? `${earlierEntries.length} letter${earlierEntries.length === 1 ? '' : 's'} found` : `All ${earlierEntries.length} letters`}
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {earlierEntries.map(e => {
@@ -5308,25 +5359,36 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                 const isPending = pendingOutgoing.some(r => r.addressee_id === user.id) || sentIds.has(user.id);
                 const isFamily = familyMemberIds.includes(user.id);
                 return (
-                  <div key={user.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', borderBottom: idx < searchResults.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <FriendAvatar name={user.display_name} avatarUrl={user.avatar_url} />
-                    <p style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{user.display_name || 'User'}</p>
-                    {isFamily ? (
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Family</span>
-                    ) : isFriend ? (
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Friends</span>
-                    ) : isPending ? (
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sent</span>
-                    ) : (
-                      <button
-                        style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
-                        onClick={async () => {
-                          const { error } = await onSendRequest(user.id, user.display_name, user.avatar_url);
-                          if (!error) setSentIds(prev => new Set([...prev, user.id]));
-                        }}
-                      >
-                        Add
-                      </button>
+                  <div key={user.id} style={{ padding: '12px 16px', borderBottom: idx < searchResults.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <FriendAvatar name={user.display_name} avatarUrl={user.avatar_url} />
+                      <p style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{user.display_name || 'User'}</p>
+                      {isFamily ? (
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Family</span>
+                      ) : isFriend ? (
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Friends</span>
+                      ) : isPending ? (
+                        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sent</span>
+                      ) : (
+                        <button
+                          style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
+                          onClick={async () => {
+                            const { error } = await onSendRequest(user.id, user.display_name, user.avatar_url);
+                            if (!error) setSentIds(prev => new Set([...prev, user.id]));
+                          }}
+                        >
+                          Add
+                        </button>
+                      )}
+                    </div>
+                    {user.kid_names?.length > 0 && (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, paddingLeft: 44 }}>
+                        {user.kid_names.map((name, i) => (
+                          <span key={i} style={{ fontSize: 11, color: 'var(--text-2)', background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 10px' }}>
+                            {name}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
                 );
@@ -5611,11 +5673,11 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 }
 
 const NavBar = memo(function NavBar({ active, onNavigate }) {
-  const { friendBadge = 0, reactionBadge = 0 } = useNotif() ?? {};
+  const { circleBadge = 0 } = useNotif() ?? {};
 
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
-    { id: 'friends', icon: 'ti-users', label: 'Friends', color: '#F0897A' },
+    { id: 'circle-feed', icon: 'ti-users', label: 'Circle', color: '#F0897A' },
   ];
   const tabsRight = [
     { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', color: '#F0897A' },
@@ -5638,10 +5700,10 @@ const NavBar = memo(function NavBar({ active, onNavigate }) {
             <button key={tab.id} className="nv-tab" style={{ ...tabStyle(tab), position: 'relative' }} onClick={() => onNavigate(tab.id)}>
               <i className={`ti ${tab.icon}`} />
               <span>{tab.label}</span>
-              {tab.id === 'friends' && (friendBadge > 0 || reactionBadge > 0) && (
-                <span style={{ position: 'absolute', top: 2, right: '50%', transform: 'translateX(14px)', minWidth: 16, height: 16, borderRadius: 999, background: reactionBadge > 0 ? '#E05C6A' : '#D4856A', border: '1.5px solid var(--bg-nav)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
+              {tab.id === 'circle-feed' && circleBadge > 0 && (
+                <span style={{ position: 'absolute', top: 2, right: '50%', transform: 'translateX(14px)', minWidth: 16, height: 16, borderRadius: 999, background: '#E05C6A', border: '1.5px solid var(--bg-nav)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
                   <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', lineHeight: 1, fontFamily: 'Inter, sans-serif' }}>
-                    {reactionBadge > 0 ? (reactionBadge > 99 ? '99+' : reactionBadge) : friendBadge > 99 ? '99+' : friendBadge}
+                    {circleBadge > 99 ? '99+' : circleBadge}
                   </span>
                 </span>
               )}
@@ -7796,7 +7858,7 @@ export default function App() {
     if (!query.trim() || !supabase || !session) return [];
     const { data } = await supabase
       .from('discoverable_profiles')
-      .select('id, display_name, avatar_url')
+      .select('id, display_name, avatar_url, kid_names')
       .ilike('display_name', `%${query}%`)
       .neq('id', session.user.id)
       .limit(20);
@@ -7935,8 +7997,8 @@ export default function App() {
   const notifValue = useMemo(() => ({
     reactionNotifications, birthdayNotifications, reactionCounts,
     partnerToast, reactionToast, unseenPartnerIds, friendRequests,
-    friendBadge: friendRequests.filter(r => r.addressee_id === session?.user?.id).length + birthdayNotifications.length,
-    reactionBadge: reactionNotifications.length,
+    pendingRequestCount: friendRequests.filter(r => r.addressee_id === session?.user?.id).length,
+    circleBadge: reactionNotifications.length + birthdayNotifications.length,
     onClearReactions: handleClearReactions,
     onDismissReaction: handleDismissReaction,
     onDismissBirthday: handleDismissBirthday,
@@ -8041,7 +8103,7 @@ export default function App() {
             onBirthdayTodayClick={kid => setBirthdaySlideshow(kid)}
             onFriendBirthdayClick={kid => setBirthdaySlideshowFriend({ kid, entries: friendEntries })}
             onSeeLetters={() => { setLetterAuthorId(null); setScreen('partner-letters'); }}
-            onSeeCircle={() => setScreen('circle-feed')}
+            onSeeFriends={() => setScreen('friends')}
           />
         );
       })()}
