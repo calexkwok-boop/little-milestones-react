@@ -4102,10 +4102,8 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                                   {e.media?.[0]?.type === 'video' && (
                                     <button
                                       onClick={ev => { ev.stopPropagation(); setPlayingVideoId(e.id); }}
-                                      style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'none', border: 'none', cursor: 'pointer', zIndex: 2 }}>
-                                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                        <i className="ti ti-player-play-filled" style={{ fontSize: 15, color: '#fff', marginLeft: 2 }} />
-                                      </div>
+                                      style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', zIndex: 2 }}>
+                                      <i className="ti ti-player-play-filled" style={{ fontSize: 15, color: '#fff', marginLeft: 2 }} />
                                     </button>
                                   )}
                                   <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
@@ -5673,8 +5671,21 @@ function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [checkEmail, setCheckEmail] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
 
   async function handleSubmit() {
+    if (mode === 'reset') {
+      if (!email) return;
+      setLoading(true);
+      setError('');
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: getAuthRedirectUrl(),
+      });
+      setLoading(false);
+      if (error) setError(error.message);
+      else setResetSent(true);
+      return;
+    }
     if (!email || !password) return;
     setLoading(true);
     setError('');
@@ -5717,6 +5728,29 @@ function AuthScreen() {
     );
   }
 
+  if (resetSent) {
+    return (
+      <div className="screen">
+        <div className="scroll-area">
+          <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 560, textAlign: 'center', gap: 16 }}>
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+              <i className="ti ti-mail-check" style={{ fontSize: 32, color: 'var(--accent)' }} />
+            </div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--text)', margin: 0 }}>Check your inbox</h2>
+            <p style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.7, margin: 0 }}>
+              If an account exists for<br />
+              <strong style={{ color: 'var(--accent)' }}>{email}</strong>,<br />
+              we sent a link to reset your password.
+            </p>
+            <button onClick={() => { setResetSent(false); setMode('signin'); }} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginTop: 8 }}>
+              Back to sign in
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="screen">
       <div className="scroll-area">
@@ -5736,14 +5770,124 @@ function AuthScreen() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               autoComplete="email"
+              onKeyDown={e => e.key === 'Enter' && mode === 'reset' && handleSubmit()}
+            />
+            {mode !== 'reset' && (
+              <input
+                className="input-field"
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              />
+            )}
+          </div>
+          {mode === 'signin' && (
+            <p style={{ textAlign: 'right', margin: '-8px 0 16px' }}>
+              <button
+                onClick={() => { setMode('reset'); setError(''); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, padding: 0, fontFamily: "'Urbanist', sans-serif" }}
+              >
+                Forgot password?
+              </button>
+            </p>
+          )}
+          {error && (
+            <p style={{ fontSize: 13, color: '#D4856A', marginBottom: 12, textAlign: 'center', lineHeight: 1.4 }}>{error}</p>
+          )}
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%', marginBottom: 16, opacity: loading || !email || (mode !== 'reset' && !password) ? 0.5 : 1 }}
+            disabled={loading || !email || (mode !== 'reset' && !password)}
+            onClick={handleSubmit}
+          >
+            {loading ? 'Please wait…' : mode === 'reset' ? 'Send reset link' : mode === 'signup' ? 'Create account' : 'Sign in'}
+          </button>
+          <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+            {mode === 'reset'
+              ? null
+              : mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
+            <button
+              onClick={() => { setMode(mode === 'reset' ? 'signin' : mode === 'signup' ? 'signin' : 'signup'); setError(''); }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontWeight: 600, fontSize: 13, padding: 0, fontFamily: "'Urbanist', sans-serif" }}
+            >
+              {mode === 'reset' ? 'Back to sign in' : mode === 'signup' ? 'Sign in' : 'Sign up'}
+            </button>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Update password (landing from a reset-password email link) ──────────
+
+function UpdatePasswordScreen({ onDone }) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  async function handleSubmit() {
+    if (!password || password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (password !== confirm) { setError('Passwords don’t match.'); return; }
+    setLoading(true);
+    setError('');
+    const { error } = await supabase.auth.updateUser({ password });
+    setLoading(false);
+    if (error) { setError(error.message); return; }
+    setDone(true);
+  }
+
+  if (done) {
+    return (
+      <div className="screen">
+        <div className="scroll-area">
+          <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 560, textAlign: 'center', gap: 16 }}>
+            <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+              <i className="ti ti-circle-check" style={{ fontSize: 32, color: 'var(--accent)' }} />
+            </div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--text)', margin: 0 }}>Password updated</h2>
+            <p style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.7, margin: 0 }}>
+              You're all set — continue into your journal.
+            </p>
+            <button className="btn btn-primary" style={{ marginTop: 8 }} onClick={onDone}>Continue</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen">
+      <div className="scroll-area">
+        <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560, justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', marginBottom: 40 }}>
+            <img src="/icon-192.png" style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
+            <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--text)', margin: '0 0 10px' }}>Set a new password</h1>
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: 'var(--text-3)', margin: 0 }}>
+              Choose a new password for your account.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
+            <input
+              className="input-field"
+              type="password"
+              placeholder="New password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              autoComplete="new-password"
             />
             <input
               className="input-field"
               type="password"
-              placeholder="Password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+              placeholder="Confirm new password"
+              value={confirm}
+              onChange={e => setConfirm(e.target.value)}
+              autoComplete="new-password"
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             />
           </div>
@@ -5752,21 +5896,12 @@ function AuthScreen() {
           )}
           <button
             className="btn btn-primary"
-            style={{ width: '100%', marginBottom: 16, opacity: loading || !email || !password ? 0.5 : 1 }}
-            disabled={loading || !email || !password}
+            style={{ width: '100%', opacity: loading || !password || !confirm ? 0.5 : 1 }}
+            disabled={loading || !password || !confirm}
             onClick={handleSubmit}
           >
-            {loading ? 'Please wait…' : mode === 'signup' ? 'Create account' : 'Sign in'}
+            {loading ? 'Please wait…' : 'Update password'}
           </button>
-          <p style={{ textAlign: 'center', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-            {mode === 'signup' ? 'Already have an account? ' : "Don't have an account? "}
-            <button
-              onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setError(''); }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--accent)', fontWeight: 600, fontSize: 13, padding: 0, fontFamily: "'Urbanist', sans-serif" }}
-            >
-              {mode === 'signup' ? 'Sign in' : 'Sign up'}
-            </button>
-          </p>
         </div>
       </div>
     </div>
@@ -6430,6 +6565,7 @@ export default function App() {
   const localMode = !supabaseConfigured;
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(!localMode);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [kids, setKids] = useState(() => localMode ? loadLocalData().kids : []);
   const [entries, setEntries] = useState(() => localMode ? loadLocalData().entries : []);
@@ -6515,6 +6651,7 @@ export default function App() {
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (_event === 'PASSWORD_RECOVERY') setPasswordRecovery(true);
       if (!session) { setKids([]); setEntries([]); setScreen('home'); }
     });
     return () => subscription.unsubscribe();
@@ -7805,6 +7942,14 @@ export default function App() {
     return (
       <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }}>
         <i className="ti ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+      </div>
+    );
+  }
+
+  if (passwordRecovery && session) {
+    return (
+      <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined}>
+        <UpdatePasswordScreen onDone={() => setPasswordRecovery(false)} />
       </div>
     );
   }
