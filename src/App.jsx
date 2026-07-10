@@ -359,9 +359,9 @@ function KidChip({ kid, active, onClick, icon, label }) {
   );
 }
 
-function AuthorChip({ member, onClick }) {
+function AuthorChip({ member, onClick, active }) {
   return (
-    <div className="kid-chip" onClick={onClick} style={{ cursor: 'pointer' }}>
+    <div className={`kid-chip ${active ? 'active' : ''}`} onClick={onClick} style={{ cursor: 'pointer', ...(active ? { background: 'var(--accent)' } : {}) }}>
       <span className="thumb" style={member.avatar_url ? {} : { background: 'var(--bg-elevated)', color: 'var(--accent)', fontSize: 10, fontWeight: 700 }}>
         {member.avatar_url
           ? <img src={cloudinaryTransform(member.avatar_url, 'w_100,h_100,c_fill,q_auto,f_auto')} alt="" />
@@ -372,7 +372,7 @@ function AuthorChip({ member, onClick }) {
   );
 }
 
-function KidSelector({ kids, selected, onSelect, showBoth, partner, onPartner, self, onSelf }) {
+function KidSelector({ kids, selected, onSelect, showBoth }) {
   return (
     <div className="scrollx">
       <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-layout-list" label="All" />
@@ -392,8 +392,6 @@ function KidSelector({ kids, selected, onSelect, showBoth, partner, onPartner, s
       {kids.map(k => (
         <KidChip key={k.id} kid={k} active={selected === k.id} onClick={() => onSelect(k.id)} />
       ))}
-      {self && <AuthorChip member={self} onClick={onSelf} />}
-      {partner && <AuthorChip member={partner} onClick={onPartner} />}
     </div>
   );
 }
@@ -985,7 +983,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, partner, self, onSeeMyLetters, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onSeeLetters, onSeeFriends }) {
+function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onSeeLetters, onSeeFriends }) {
   const { entries, kids } = useData() ?? {};
   const { unseenPartnerIds = [], reactionCounts = {}, pendingRequestCount = 0 } = useNotif() ?? {};
   const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
@@ -1270,7 +1268,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
         {[
           { icon: 'ti-mail', label: 'Our letters', sub: 'All family letters', action: () => { setShowMenu(false); onSeeLetters?.(); } },
           { icon: 'ti-arrows-diff', label: 'At the same age', sub: 'Compare moments side by side', action: () => { setShowMenu(false); onCompare?.(); } },
-          { icon: 'ti-address-book', label: 'Friends', sub: 'Search, requests, and your friend list', badge: pendingRequestCount, action: () => { setShowMenu(false); onSeeFriends?.(); } },
+          { icon: 'ti-address-book', label: 'Manage Friends', sub: 'Search, requests, and your friend list', badge: pendingRequestCount, action: () => { setShowMenu(false); onSeeFriends?.(); } },
         ].map(item => (
           <button
             key={item.label}
@@ -1363,8 +1361,8 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
         <div style={{ padding: '28px 20px', display: 'flex', flexDirection: 'column', gap: 24 }}>
           <Header />
 
-          {(kids.length > 1 || partner || self) && (
-            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} self={self} onSelf={onSeeMyLetters} partner={partner} onPartner={onSeePartnerLetters} />
+          {kids.length > 1 && (
+            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} />
           )}
 
           {unseenPartnerIds.length > 0 && (() => {
@@ -3529,59 +3527,69 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
   const [commentsMap, setCommentsMap] = useState({}); // entryId -> [{id, user_id, display_name, body, created_at}]
   const [commentDrafts, setCommentDrafts] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const searchInputRef = useRef(null);
   const [profileFamilyId, setProfileFamilyId] = useState(null);
   const [selectedEntry, setSelectedEntry] = useState(null);
 
+  useEffect(() => {
+    if (showSearch) searchInputRef.current?.focus();
+  }, [showSearch]);
+
   const familyIds = useMemo(() => Object.keys(friendFamilyMap), [friendFamilyMap]);
+  const scrollRef = useRef(null);
+
+  async function loadFeed() {
+    if (!supabase || familyIds.length === 0) return;
+    const { data: entriesData } = await supabase
+      .from('entries')
+      .select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, entry_media(url, type)')
+      .in('family_id', familyIds)
+      .neq('shared', false)
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    const normalized = (entriesData || []).map(e => ({
+      id: e.id,
+      date: e.date,
+      createdAt: e.created_at,
+      kids: e.kid_ids || [],
+      milestone: e.milestone || null,
+      ageMonths: e.age_months,
+      familyId: e.family_id,
+      userId: e.user_id,
+      media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
+    }));
+
+    setFeedEntries(normalized);
+
+    if (normalized.length > 0) {
+      const ids = normalized.map(e => e.id);
+      const [{ data: likes }, { data: comments }] = await Promise.all([
+        supabase.from('entry_likes').select('id, entry_id, user_id, display_name').in('entry_id', ids),
+        supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at').in('entry_id', ids).is('parent_id', null).order('created_at'),
+      ]);
+      const lMap = {};
+      (likes || []).forEach(l => {
+        if (!lMap[l.entry_id]) lMap[l.entry_id] = [];
+        lMap[l.entry_id].push(l);
+      });
+      const cMap = {};
+      (comments || []).forEach(c => {
+        if (!cMap[c.entry_id]) cMap[c.entry_id] = [];
+        cMap[c.entry_id].push(c);
+      });
+      setLikesMap(lMap);
+      setCommentsMap(cMap);
+    }
+  }
 
   useEffect(() => {
     if (!supabase || familyIds.length === 0) { setLoading(false); return; }
-    (async () => {
-      const { data: entriesData } = await supabase
-        .from('entries')
-        .select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, entry_media(url, type)')
-        .in('family_id', familyIds)
-        .neq('shared', false)
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      const normalized = (entriesData || []).map(e => ({
-        id: e.id,
-        date: e.date,
-        createdAt: e.created_at,
-        kids: e.kid_ids || [],
-        milestone: e.milestone || null,
-        ageMonths: e.age_months,
-        familyId: e.family_id,
-        userId: e.user_id,
-        media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
-      }));
-
-      setFeedEntries(normalized);
-
-      if (normalized.length > 0) {
-        const ids = normalized.map(e => e.id);
-        const [{ data: likes }, { data: comments }] = await Promise.all([
-          supabase.from('entry_likes').select('id, entry_id, user_id, display_name').in('entry_id', ids),
-          supabase.from('entry_comments').select('id, entry_id, user_id, display_name, body, created_at').in('entry_id', ids).is('parent_id', null).order('created_at'),
-        ]);
-        const lMap = {};
-        (likes || []).forEach(l => {
-          if (!lMap[l.entry_id]) lMap[l.entry_id] = [];
-          lMap[l.entry_id].push(l);
-        });
-        const cMap = {};
-        (comments || []).forEach(c => {
-          if (!cMap[c.entry_id]) cMap[c.entry_id] = [];
-          cMap[c.entry_id].push(c);
-        });
-        setLikesMap(lMap);
-        setCommentsMap(cMap);
-      }
-
-      setLoading(false);
-    })();
+    loadFeed().finally(() => setLoading(false));
   }, [familyIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const ptr = usePullToRefresh(scrollRef, loadFeed);
 
   async function handleToggleLike(entryId) {
     if (!supabase || !currentUserId) return;
@@ -3637,7 +3645,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     const photoDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
     return (
-      <div key={entry.id} style={{ background: 'var(--bg-card)' }}>
+      <div key={entry.id} style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
         {/* Poster row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px 10px' }}>
           {/* Avatar with accent ring */}
@@ -3750,16 +3758,14 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             <i className="ti ti-send" />
           </button>
         </div>
-
-        {/* Post separator */}
-        <div style={{ height: 10, background: 'var(--bg)' }} />
       </div>
     );
   }
 
   return (
     <div className="screen">
-      <div className="scroll-area">
+      <div className="scroll-area" ref={scrollRef} style={{ overscrollBehaviorY: 'contain' }} {...ptr.handlers}>
+        {ptr.indicator}
         {profileFamilyId ? (
           /* ── Profile grid view ── */
           <div>
@@ -3817,33 +3823,46 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         ) : (
           /* ── Feed view ── */
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 16px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 16px 0' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>From your circle</h2>
-              <div style={{ width: 36 }} />
+              <button className="icon-btn" onClick={() => { if (showSearch) setSearchQuery(''); setShowSearch(s => !s); }}>
+                <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+              </button>
+            </div>
+            <div style={{ padding: '10px 20px 18px' }}>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 4px' }}>Just a glimpse</h2>
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>A shared journey, just different chapters.</p>
             </div>
 
-            <div style={{ position: 'relative', margin: '0 16px 16px' }}>
-              <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 14, pointerEvents: 'none' }} />
-              <input
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search by name…"
-                style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, border: '1px solid var(--border)', borderRadius: 12, fontSize: 14, background: 'var(--bg-input)', color: 'var(--text)', fontFamily: 'Inter, sans-serif', outline: 'none' }}
-              />
-            </div>
+            {showSearch && (
+              <div style={{ position: 'relative', margin: '0 16px 16px' }}>
+                <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 14, pointerEvents: 'none' }} />
+                <input
+                  ref={searchInputRef}
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  placeholder="Search by name…"
+                  style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, border: '1px solid var(--border)', borderRadius: 12, fontSize: 14, background: 'var(--bg-input)', color: 'var(--text)', fontFamily: 'Inter, sans-serif', outline: 'none' }}
+                />
+              </div>
+            )}
 
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
                 <i className="ti ti-loader-2" style={{ fontSize: 28, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
               </div>
             ) : displayedEntries.length === 0 ? (
-              <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, paddingTop: 40 }}>
-                {familyIds.length === 0 ? 'Add friends to see their moments here.' : searchQuery ? 'No matches.' : 'Nothing shared yet.'}
-              </p>
+              <div className="empty-state">
+                <i className="ti ti-users" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: 'var(--text-muted)', margin: '0 0 16px' }}>
+                  {familyIds.length === 0 ? 'Growing your circle, one friend at a time.' : searchQuery ? 'No matches found.' : 'Nothing shared yet.'}
+                </p>
+                {familyIds.length === 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>Add friends to see the moments they choose to share with you.</p>
+                )}
+              </div>
             ) : (
-              <div>
-                <div style={{ height: 1, background: 'var(--border)' }} />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 16px 16px' }}>
                 {displayedEntries.map(entry => renderPost(entry))}
               </div>
             )}
@@ -4361,10 +4380,17 @@ function ReactionToast({ message, onDismiss }) {
   );
 }
 
-function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, currentUserId, onBack, onOpenEntry, onMarkAllRead, scrollPos }) {
+function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserId, self, partner, onBack, onOpenEntry, onMarkAllRead, scrollPos }) {
   const scrollRef = useRef(null);
-  const isSelf = authorId && currentUserId && authorId === currentUserId;
+  const [activeAuthorId, setActiveAuthorId] = useState(authorId);
+  const isSelf = activeAuthorId != null && currentUserId && activeAuthorId === currentUserId;
   const [query, setQuery] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    if (showSearch) searchInputRef.current?.focus();
+  }, [showSearch]);
 
   function matchesQuery(e) {
     if (!query.trim()) return true;
@@ -4388,22 +4414,23 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
     if (scrollRef.current && scrollPos) scrollPos.current = scrollRef.current.scrollTop;
     onOpenEntry(entry);
   }
-  const showAll = authorId === null;
+  const showAll = activeAuthorId === null;
+  const partnerName = partner?.real_name || partner?.display_name || 'Partner';
   const unseenEntriesAll = useMemo(
     () => (isSelf || showAll) ? [] : entries.filter(e => unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
     [entries, unseenIds, isSelf, showAll]
   );
   const earlierEntriesAll = useMemo(
     () => entries
-      .filter(e => showAll ? true : (authorId && e.authorId === authorId && (isSelf || !unseenIds.includes(e.id))))
+      .filter(e => showAll ? true : (activeAuthorId && e.authorId === activeAuthorId && (isSelf || !unseenIds.includes(e.id))))
       .sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [entries, authorId, unseenIds, isSelf, showAll]
+    [entries, activeAuthorId, unseenIds, isSelf, showAll]
   );
   const unseenEntries = useMemo(() => unseenEntriesAll.filter(matchesQuery), [unseenEntriesAll, query, kids]);
   const earlierEntries = useMemo(() => earlierEntriesAll.filter(matchesQuery), [earlierEntriesAll, query, kids]);
   const hasAny = unseenEntriesAll.length > 0 || earlierEntriesAll.length > 0;
   const hasMatches = unseenEntries.length > 0 || earlierEntries.length > 0;
-  const title = showAll ? 'Our letters' : isSelf ? 'My letters' : (authorName ? `${authorName}'s letters` : "Partner's letters");
+  const title = showAll ? 'Our letters' : isSelf ? 'My letters' : `${partnerName}'s letters`;
 
   return (
     <div className="screen">
@@ -4411,18 +4438,35 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{title}</h2>
-            <div style={{ width: 36 }} />
+            {hasAny && (
+              <button className="icon-btn" onClick={() => { if (showSearch) setQuery(''); setShowSearch(s => !s); }}>
+                <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+              </button>
+            )}
           </div>
+
+          <div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 4px' }}>{title}</h2>
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>For all the things you wish they knew.</p>
+          </div>
+
+          {partner && (
+            <div className="scrollx">
+              <KidChip active={showAll} onClick={() => setActiveAuthorId(null)} icon="ti-layout-list" label="All" />
+              {self && <AuthorChip member={self} active={isSelf} onClick={() => setActiveAuthorId(currentUserId)} />}
+              <AuthorChip member={partner} active={!showAll && !isSelf} onClick={() => setActiveAuthorId(partner.user_id)} />
+            </div>
+          )}
 
           {!hasAny && (
             <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No letters yet</p>
           )}
 
-          {hasAny && (
+          {hasAny && showSearch && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 14px' }}>
               <i className="ti ti-search" style={{ color: 'var(--text-muted)' }} />
               <input
+                ref={searchInputRef}
                 type="text"
                 placeholder="Search these letters..."
                 value={query}
@@ -4461,7 +4505,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorName, authorId, 
           {earlierEntries.length > 0 && (
             <>
               <p style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, letterSpacing: 0.8, textTransform: 'uppercase', margin: 0 }}>
-                {unseenEntries.length > 0 ? 'Earlier' : query.trim() ? `${earlierEntries.length} letter${earlierEntries.length === 1 ? '' : 's'} found` : `All ${earlierEntries.length} letters`}
+                {unseenEntries.length > 0 ? 'Earlier' : query.trim() ? `${earlierEntries.length} letter${earlierEntries.length === 1 ? '' : 's'} found` : `All ${earlierEntries.length} letter${earlierEntries.length === 1 ? '' : 's'}`}
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {earlierEntries.map(e => {
@@ -5231,6 +5275,8 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const searchInputRef = useRef(null);
   const [sentIds, setSentIds] = useState(new Set());
   const [selectedFriendUid, setSelectedFriendUid] = useState(null);
   const [friendViewer, setFriendViewer] = useState(null);
@@ -5240,6 +5286,10 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
   const [showLikeAnim, setShowLikeAnim] = useState(false);
   const lastTapRef = useRef(0);
   const searchTimer = useRef(null);
+
+  useEffect(() => {
+    if (showSearch) searchInputRef.current?.focus();
+  }, [showSearch]);
 
   // Merge birthday notifications with the same kid name into one card with combined family names
   const groupedBirthdayNotifs = useMemo(() => {
@@ -5331,26 +5381,35 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>Friends</h2>
-            <div style={{ width: 36 }} />
+            <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setSearchResults([]); } setShowSearch(s => !s); }}>
+              <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+            </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
-            <i className="ti ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
-            <input
-              type="text"
-              placeholder="Search by name…"
-              value={searchQuery}
-              onChange={e => handleQueryChange(e.target.value)}
-              style={{ border: 'none', outline: 'none', flex: 1, fontSize: 16, background: 'transparent', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}
-            />
-            {searching && <i className="ti ti-loader-2" style={{ fontSize: 14, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />}
-            {searchQuery && !searching && (
-              <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}>
-                <i className="ti ti-x" style={{ fontSize: 14 }} />
-              </button>
-            )}
+          <div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 4px' }}>Manage Friends</h2>
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Search, requests, and your friend list</p>
           </div>
+
+          {showSearch && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
+              <i className="ti ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search by name…"
+                value={searchQuery}
+                onChange={e => handleQueryChange(e.target.value)}
+                style={{ border: 'none', outline: 'none', flex: 1, fontSize: 16, background: 'transparent', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}
+              />
+              {searching && <i className="ti ti-loader-2" style={{ fontSize: 14, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />}
+              {searchQuery && !searching && (
+                <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}>
+                  <i className="ti ti-x" style={{ fontSize: 14 }} />
+                </button>
+              )}
+            </div>
+          )}
 
           {searchResults.length > 0 && (
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
@@ -5677,7 +5736,7 @@ const NavBar = memo(function NavBar({ active, onNavigate }) {
 
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A' },
-    { id: 'circle-feed', icon: 'ti-users', label: 'Circle', color: '#F0897A' },
+    { id: 'circle-feed', icon: 'ti-users', label: 'Friends', color: '#F0897A' },
   ];
   const tabsRight = [
     { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', color: '#F0897A' },
@@ -8075,8 +8134,6 @@ export default function App() {
             onCompare={() => setScreen('compare')}
             onUpdateCrop={handleUpdateCrop}
             onSeePartnerLetters={() => { setLetterAuthorId(partnerMember?.user_id || null); setScreen('partner-letters'); }}
-            onSeeMyLetters={() => { setLetterAuthorId(session?.user?.id || null); setScreen('partner-letters'); }}
-            partner={partnerMember}
             self={selfMember}
             onRefresh={handleRefresh}
             onToggleFavorite={handleToggleFavorite}
@@ -8109,16 +8166,17 @@ export default function App() {
       })()}
 
       {screen === 'partner-letters' && (() => {
-        const authorMember = familyMembers.find(m => m.user_id === letterAuthorId);
-        const partnerMember = familyMembers.find(m => m.user_id !== session?.user?.id);
+        const partnerMember = familyMembers.find(m => m.user_id !== session?.user?.id) || null;
+        const selfMember = familyMembers.find(m => m.user_id === session?.user?.id) || null;
         return (
           <PartnerLettersScreen
             entries={entries}
             kids={kids}
             unseenIds={unseenPartnerIds}
-            authorName={authorMember?.real_name || authorMember?.display_name || partnerMember?.real_name || partnerMember?.display_name || ''}
             authorId={letterAuthorId}
             currentUserId={session?.user?.id}
+            self={selfMember}
+            partner={partnerMember}
             onBack={() => setScreen('home')}
             onOpenEntry={(entry) => { markPartnerEntrySeen(entry.id); openEntry(entry); }}
             onMarkAllRead={markAllSeen}

@@ -168,8 +168,23 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
       )}
 
       {/* Preview button */}
-      <button onClick={handlePreview} disabled={!canPreview} style={{ width: '100%', padding: '16px', borderRadius: 14, border: canPreview ? (darkMode ? '1px solid rgba(107,158,109,0.18)' : 'none') : 'none', background: canPreview ? (darkMode ? 'linear-gradient(180deg, #2E4A34 0%, #1E3425 100%)' : 'linear-gradient(180deg, #3A4D40 0%, #1E2E24 100%)') : darkMode ? 'var(--bg-elevated)' : 'var(--border)', boxShadow: canPreview ? (darkMode ? '0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 3px 10px rgba(20,35,25,0.38), inset 0 1px 0 rgba(255,255,255,0.08)') : 'none', color: canPreview ? '#fff' : 'var(--text-muted)', fontSize: 15, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", cursor: canPreview ? 'pointer' : 'default', opacity: canPreview ? 1 : 0.5, transition: 'all 0.15s' }}>
-        <i className="ti ti-book" style={{ fontSize: 16 }} /> Preview book
+      <button
+        onClick={handlePreview}
+        disabled={!canPreview}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: canPreview ? (darkMode ? 'linear-gradient(180deg, #2E4A34 0%, #1E3425 100%)' : 'linear-gradient(180deg, #3A4D40 0%, #1E2E24 100%)') : (darkMode ? 'var(--bg-elevated)' : 'var(--border)'), border: canPreview && darkMode ? '1px solid rgba(107,158,109,0.18)' : 'none', borderRadius: 14, cursor: canPreview ? 'pointer' : 'default', fontFamily: "'Urbanist', sans-serif", boxShadow: canPreview ? (darkMode ? '0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 3px 10px rgba(20,35,25,0.38), inset 0 1px 0 rgba(255,255,255,0.08)') : 'none', opacity: canPreview ? 1 : 0.5, transition: 'all 0.15s' }}
+        onMouseDown={e => { if (canPreview) { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.opacity = '0.88'; } }}
+        onMouseUp={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = canPreview ? '' : '0.5'; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = canPreview ? '' : '0.5'; }}
+        onTouchStart={e => { if (canPreview) { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.opacity = '0.88'; } }}
+        onTouchEnd={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = canPreview ? '' : '0.5'; }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <i className="ti ti-book" style={{ fontSize: 18, color: canPreview ? '#C8993E' : 'var(--text-muted)' }} />
+          </div>
+          <p style={{ fontSize: 14, fontWeight: 700, color: canPreview ? '#fff' : 'var(--text-muted)', margin: 0, textAlign: 'left' }}>Preview book</p>
+        </div>
+        <i className="ti ti-arrow-right" style={{ fontSize: 16, color: canPreview ? 'rgba(255,255,255,0.3)' : 'var(--text-muted)', flexShrink: 0 }} />
       </button>
 
     </div>
