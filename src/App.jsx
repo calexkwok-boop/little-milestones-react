@@ -3533,6 +3533,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
   const [profileFamilyId, setProfileFamilyId] = useState(null);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [likeAnimId, setLikeAnimId] = useState(null);
+  const lastTapRef = useRef({});
 
   useEffect(() => {
     if (showSearch) searchInputRef.current?.focus();
@@ -3685,11 +3686,27 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
 
         {/* Photo, no overlay */}
         {entry.media.length > 0 && (
-          <div style={{ margin: '0 14px', borderRadius: 16, overflow: 'hidden', aspectRatio: '4/5', background: 'var(--border)' }}>
+          <div
+            onClick={() => {
+              const now = Date.now();
+              const wasDoubleTap = now - (lastTapRef.current[entry.id] || 0) < 320;
+              lastTapRef.current[entry.id] = now;
+              if (!wasDoubleTap) return;
+              if (!iLiked) handleToggleLike(entry.id);
+              setLikeAnimId(entry.id);
+              setTimeout(() => setLikeAnimId(id => id === entry.id ? null : id), 800);
+            }}
+            style={{ margin: '0 14px', borderRadius: 16, overflow: 'hidden', aspectRatio: '4/5', background: 'var(--border)', position: 'relative', cursor: 'pointer' }}
+          >
             {entry.media[0].type === 'video'
               ? <video src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} preload="metadata" playsInline controls />
               : <img src={cloudinaryTransform(entry.media[0].url, 'w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
             }
+            {likeAnimId === entry.id && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                <i className="ti ti-heart-filled" style={{ fontSize: 90, color: '#fff', filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+              </div>
+            )}
           </div>
         )}
 
@@ -3721,9 +3738,6 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           >
             <i className={`ti ti-heart${iLiked ? '-filled' : ''}`} style={{ fontSize: 18 }} />
             {likeLabel && <span style={{ fontSize: 13, fontWeight: 600 }}>{likeLabel}</span>}
-            {likeAnimId === entry.id && (
-              <i className="ti ti-heart-filled" style={{ position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%)', fontSize: 30, color: '#D4856A', pointerEvents: 'none', animation: 'likeHeartPop 0.8s ease forwards' }} />
-            )}
           </button>
         </div>
 
