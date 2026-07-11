@@ -3808,10 +3808,9 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
               </button>
             </div>
             <div style={{ padding: '10px 20px 18px' }}>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 4px' }}>Just a glimpse</h2>
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: '0 0 14px' }}>A shared journey, just different chapters.</p>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 14px' }}>Friends</h2>
               <SectionSwitcher
-                tabs={[{ id: 'circle-feed', label: 'Feed' }, { id: 'friends', label: 'Friends', badge: pendingRequestCount + circleBadge }]}
+                tabs={[{ id: 'circle-feed', label: 'Glimpse' }, { id: 'friends', label: 'Activity', badge: pendingRequestCount + circleBadge }]}
                 active="circle-feed"
                 onChange={onSwitchSection}
               />
@@ -3934,12 +3933,11 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
     : 'No moments yet at this age';
 
   const tabStyle = (tab) => ({
-    flex: 1, border: 'none', borderRadius: 8, padding: '8px 0',
-    fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, cursor: 'pointer',
+    border: 'none', borderRadius: 7, padding: '6px 14px',
+    fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, cursor: 'pointer',
     background: filterTab === tab ? 'var(--bg-input)' : 'transparent',
     color: filterTab === tab ? 'var(--accent)' : 'var(--text-muted)',
     boxShadow: filterTab === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-    transition: 'all 0.15s',
   });
 
   // Own kids are always present (never removed, only faded when excluded); friend kids are added/removed outright.
@@ -3979,10 +3977,12 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             />
           </div>
 
-          <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 10, padding: 3 }}>
-            <button style={tabStyle('age')} onClick={() => switchTab('age')}>By Age</button>
-            <button style={tabStyle('milestone')} onClick={() => switchTab('milestone')}>Milestones</button>
-            <button style={tabStyle('search')} onClick={() => switchTab('search')}>Search</button>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 9, padding: 3 }}>
+              <button style={tabStyle('age')} onClick={() => switchTab('age')}>By Age</button>
+              <button style={tabStyle('milestone')} onClick={() => switchTab('milestone')}>Milestones</button>
+              <button style={tabStyle('search')} onClick={() => switchTab('search')}>Search</button>
+            </div>
           </div>
 
           {filterTab === 'search' && (
@@ -4615,12 +4615,14 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, sharingDefaults = { partner: true, family: false, friends: false }, onToggleSharingDefault, onShowPrivacy, onShowTerms }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, sharingDefaults = { partner: true, family: false, friends: false }, onToggleSharingDefault, onShowPrivacy, onShowTerms }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showHidePostsPrompt, setShowHidePostsPrompt] = useState(false);
+  const [hidingPosts, setHidingPosts] = useState(false);
   const [activeFamilyAvatarId, setActiveFamilyAvatarId] = useState(null);
   const [inviteCode, setInviteCode] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -4803,7 +4805,11 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
               <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>Discoverable</p>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{discoverable ? 'A shared journey, just different chapters.' : 'A quiet journey, just your close ones.'}</p>
             </div>
-            <div onClick={() => onToggleDiscoverable?.(!discoverable)} style={{ width: 44, height: 26, borderRadius: 13, background: discoverable ? 'var(--accent)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+            <div onClick={() => {
+              const next = !discoverable;
+              onToggleDiscoverable?.(next);
+              if (!next) setShowHidePostsPrompt(true);
+            }} style={{ width: 44, height: 26, borderRadius: 13, background: discoverable ? 'var(--accent)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
               <div style={{ position: 'absolute', top: 3, left: discoverable ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
             </div>
           </div>
@@ -5084,6 +5090,36 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 }}
               >
                 {deleting ? <><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Deleting…</> : 'Delete everything'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHidePostsPrompt && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !hidingPosts && setShowHidePostsPrompt(false)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <i className="ti ti-eye-off" style={{ fontSize: 20, color: 'var(--accent)' }} />
+            </div>
+            <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Hide your previous posts from friends?</p>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center', lineHeight: 1.55 }}>
+              Turning off discoverable only stops new people from finding you — friends you already have can still see what you've shared with them. Hiding your past posts removes them from friends only; your partner and family keep seeing everything.
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowHidePostsPrompt(false)} disabled={hidingPosts}>Keep them visible</button>
+              <button
+                className="btn"
+                style={{ flex: 1, background: '#D4856A', color: '#fff', opacity: hidingPosts ? 0.6 : 1 }}
+                disabled={hidingPosts}
+                onClick={async () => {
+                  setHidingPosts(true);
+                  await onHidePostsFromFriends?.();
+                  setHidingPosts(false);
+                  setShowHidePostsPrompt(false);
+                }}
+              >
+                {hidingPosts ? <><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Hiding…</> : 'Hide from friends'}
               </button>
             </div>
           </div>
@@ -5422,9 +5458,9 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
           </div>
 
           <div>
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 19, fontWeight: 600, color: 'var(--accent)', margin: '0 0 14px', textAlign: 'center' }}>Your friends</p>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 14px' }}>Friends</h2>
             <SectionSwitcher
-              tabs={[{ id: 'circle-feed', label: 'Feed' }, { id: 'friends', label: 'Friends' }]}
+              tabs={[{ id: 'circle-feed', label: 'Glimpse' }, { id: 'friends', label: 'Activity' }]}
               active="friends"
               onChange={onSwitchSection}
             />
@@ -8082,6 +8118,21 @@ export default function App() {
     }
   }
 
+  async function handleHidePostsFromFriends() {
+    const toUpdate = entries.filter(e => e.sharedWith?.friends);
+    if (toUpdate.length === 0) return;
+    const nextSharedWith = e => ({ ...e.sharedWith, friends: false });
+    setEntries(prev => prev.map(e => e.sharedWith?.friends
+      ? { ...e, sharedWith: nextSharedWith(e), shared: Object.values(nextSharedWith(e)).some(Boolean) }
+      : e));
+    if (!localMode && supabase && session) {
+      await Promise.all(toUpdate.map(e => {
+        const sw = nextSharedWith(e);
+        return supabase.from('entries').update({ shared: Object.values(sw).some(Boolean), shared_with: sw }).eq('id', e.id);
+      }));
+    }
+  }
+
   async function handleToggleSharingDefault(key, val) {
     const next = { ...sharingDefaults, [key]: val };
     setSharingDefaults(next);
@@ -8530,6 +8581,7 @@ export default function App() {
           onSetDarkMode={setDarkModeValue}
           discoverable={discoverable}
           onToggleDiscoverable={handleToggleDiscoverable}
+          onHidePostsFromFriends={handleHidePostsFromFriends}
           sharingDefaults={sharingDefaults}
           onToggleSharingDefault={handleToggleSharingDefault}
           onShowPrivacy={() => setScreen('privacy')}
