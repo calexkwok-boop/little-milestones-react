@@ -3967,15 +3967,17 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>At this age</h2>
             <div style={{ width: 36 }} />
           </div>
 
-          <SectionSwitcher
-            tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
-            active="compare"
-            onChange={onSwitchSection}
-          />
+          <div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 14px' }}>Keepsakes</h2>
+            <SectionSwitcher
+              tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
+              active="compare"
+              onChange={onSwitchSection}
+            />
+          </div>
 
           <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 10, padding: 3 }}>
             <button style={tabStyle('age')} onClick={() => switchTab('age')}>By Age</button>
@@ -4436,7 +4438,6 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
   const earlierEntries = useMemo(() => earlierEntriesAll.filter(matchesQuery), [earlierEntriesAll, query, kids]);
   const hasAny = unseenEntriesAll.length > 0 || earlierEntriesAll.length > 0;
   const hasMatches = unseenEntries.length > 0 || earlierEntries.length > 0;
-  const title = showAll ? 'Our letters' : isSelf ? 'My letters' : `${partnerName}'s letters`;
 
   return (
     <div className="screen">
@@ -4452,8 +4453,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
           </div>
 
           <div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 4px' }}>{title}</h2>
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: '0 0 14px' }}>For all the things you wish they knew.</p>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 14px' }}>Keepsakes</h2>
             <SectionSwitcher
               tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
               active="partner-letters"
@@ -5847,14 +5847,20 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl }) {
           </div>
           {tabsRight.map(tab => (
             <button key={tab.id} className="nv-tab" style={tabStyle(tab)} onClick={() => onNavigate(tab.id)}>
-              {tab.id === 'profile' && myAvatarUrl ? (
-                <span style={{ width: 19, height: 19, borderRadius: '50%', overflow: 'hidden', display: 'block', border: `1.5px solid ${tab.group.includes(active) ? 'var(--accent)' : 'transparent'}` }}>
-                  <img src={cloudinaryTransform(myAvatarUrl, 'w_60,h_60,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
-                </span>
+              {tab.id === 'profile' ? (
+                myAvatarUrl ? (
+                  <span style={{ width: 48, height: 48, borderRadius: '50%', overflow: 'hidden', display: 'block', border: `2px solid ${tab.group.includes(active) ? 'var(--accent)' : 'transparent'}` }}>
+                    <img src={cloudinaryTransform(myAvatarUrl, 'w_144,h_144,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                  </span>
+                ) : (
+                  <i className={`ti ${tab.icon}`} style={{ fontSize: 38 }} />
+                )
               ) : (
-                <i className={`ti ${tab.icon}`} />
+                <>
+                  <i className={`ti ${tab.icon}`} />
+                  <span>{tab.label}</span>
+                </>
               )}
-              <span>{tab.label}</span>
             </button>
           ))}
         </div>

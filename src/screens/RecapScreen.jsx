@@ -126,20 +126,26 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
       <div className="scroll-area">
         <div className="scrollpad">
 
-          <SectionSwitcher
-            tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
-            active="recap"
-            onChange={onSwitchSection}
-          />
-
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+            <div style={{ width: 36 }} />
+          </div>
+
+          <div>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 14px' }}>Keepsakes</h2>
+            <SectionSwitcher
+              tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
+              active="recap"
+              onChange={onSwitchSection}
+            />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 9, padding: 3 }}>
               <button style={segTabStyle('month')} onClick={() => setViewMode('month')}>Month</button>
               <button style={segTabStyle('year')} onClick={() => setViewMode('year')}>Year</button>
               <button style={segTabStyle('all')} onClick={() => setViewMode('all')}>All</button>
             </div>
-            <div style={{ width: 36 }} />
           </div>
 
           {viewMode !== 'all' && (
