@@ -1243,7 +1243,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   const Header = () => (
     <div style={{ textAlign: 'center' }}>
       <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
-      <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
+      <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
     </div>
   );
 
