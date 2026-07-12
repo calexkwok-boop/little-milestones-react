@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { TODAY, milestoneInfo } from '../constants.js';
 import KidThumb from '../KidThumb.jsx';
 import SectionSwitcher from '../SectionSwitcher.jsx';
@@ -52,6 +52,30 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
   const [recapFilter, setRecapFilter] = useState(null);
   const [kidFilter, setKidFilter] = useState(null);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    if (showSearch) searchInputRef.current?.focus();
+  }, [showSearch]);
+
+  function entryMatchesSearch(e) {
+    const q = searchQuery.trim().toLowerCase();
+    const m = e.milestone ? milestoneInfo(e.milestone) : null;
+    const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
+    return (e.text || '').toLowerCase().includes(q)
+      || (m && m.label.toLowerCase().includes(q))
+      || e.location?.toLowerCase().includes(q)
+      || (e.people || []).some(p => p.toLowerCase().includes(q))
+      || entryKids.some(k => k.name.toLowerCase().includes(q));
+  }
+
+  const isSearching = searchQuery.trim().length > 0;
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    return [...entries].filter(entryMatchesSearch).sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [entries, searchQuery, kids]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const segTabStyle = (tab) => ({
     border: 'none', borderRadius: 7, padding: '11px 16px',
@@ -126,19 +150,56 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
       <div className="scroll-area">
         <div className="scrollpad">
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <div style={{ width: 36 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Keepsakes</h2>
+              <button className="icon-btn" onClick={() => { if (showSearch) setSearchQuery(''); setShowSearch(s => !s); }}>
+                <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+              </button>
+            </div>
+
+            <div>
+              <SectionSwitcher
+                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
+                active="recap"
+                onChange={onSwitchSection}
+              />
+            </div>
           </div>
 
-          <div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 14px' }}>Keepsakes</h2>
-            <SectionSwitcher
-              tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
-              active="recap"
-              onChange={onSwitchSection}
-            />
-          </div>
+          {showSearch && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
+              <i className="ti ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Search moments..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ border: 'none', outline: 'none', flex: 1, fontSize: 16, background: 'transparent', color: 'var(--accent)', fontFamily: 'Inter, sans-serif' }}
+              />
+              {searchQuery && (
+                <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}>
+                  <i className="ti ti-x" style={{ fontSize: 14 }} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {isSearching ? (
+            searchResults.length === 0 ? (
+              <div className="empty-state">
+                <i className="ti ti-search" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>No matches for "{searchQuery}"</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {searchResults.map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
+              </div>
+            )
+          ) : (
+          <>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 9, padding: 3 }}>
@@ -265,6 +326,8 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
                 </div>
               )}
             </>
+          )}
+          </>
           )}
 
         </div>

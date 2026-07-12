@@ -1241,7 +1241,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   const sameAgeGroup = sameAgeGroups ? sameAgeGroups[sameAgeIdx % sameAgeGroups.length] : null;
 
   const Header = () => (
-    <div>
+    <div style={{ textAlign: 'center' }}>
       <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
       <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
     </div>
@@ -3801,14 +3801,14 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         ) : (
           /* ── Feed view ── */
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 16px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 0' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Friends</h2>
               <button className="icon-btn" onClick={() => { if (showSearch) setSearchQuery(''); setShowSearch(s => !s); }}>
                 <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
               </button>
             </div>
             <div style={{ padding: '10px 20px 18px' }}>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 14px' }}>Friends</h2>
               <SectionSwitcher
                 tabs={[{ id: 'circle-feed', label: 'Glimpse' }, { id: 'friends', label: 'Activity', badge: pendingRequestCount + circleBadge }]}
                 active="circle-feed"
@@ -3963,20 +3963,22 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
     <div className="screen">
       <div className="scroll-area">
         <div className="scrollpad">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <button className="icon-btn" onClick={() => filterTab === 'search' ? switchTab('age') : switchTab('search')}>
-              <i className={`ti ${filterTab === 'search' ? 'ti-x' : 'ti-search'}`} />
-            </button>
-          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Keepsakes</h2>
+              <button className="icon-btn" onClick={() => filterTab === 'search' ? switchTab('age') : switchTab('search')}>
+                <i className={`ti ${filterTab === 'search' ? 'ti-x' : 'ti-search'}`} />
+              </button>
+            </div>
 
-          <div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 14px' }}>Keepsakes</h2>
-            <SectionSwitcher
-              tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
-              active="compare"
-              onChange={onSwitchSection}
-            />
+            <div>
+              <SectionSwitcher
+                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
+                active="compare"
+                onChange={onSwitchSection}
+              />
+            </div>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -4445,22 +4447,24 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
     <div className="screen">
       <div className="scroll-area" ref={scrollRef}>
         <div className="scrollpad">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            {hasAny && (
-              <button className="icon-btn" onClick={() => { if (showSearch) setQuery(''); setShowSearch(s => !s); }}>
-                <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
-              </button>
-            )}
-          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Keepsakes</h2>
+              {hasAny ? (
+                <button className="icon-btn" onClick={() => { if (showSearch) setQuery(''); setShowSearch(s => !s); }}>
+                  <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+                </button>
+              ) : <div style={{ width: 36 }} />}
+            </div>
 
-          <div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 14px' }}>Keepsakes</h2>
-            <SectionSwitcher
-              tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
-              active="partner-letters"
-              onChange={onSwitchSection}
-            />
+            <div>
+              <SectionSwitcher
+                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
+                active="partner-letters"
+                onChange={onSwitchSection}
+              />
+            </div>
           </div>
 
           {partner && (
@@ -5455,20 +5459,22 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
     <div className="screen" style={{ position: 'relative' }}>
       <div className="scroll-area">
         <div className="scrollpad">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setSearchResults([]); } setShowSearch(s => !s); }}>
-              <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
-            </button>
-          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Friends</h2>
+              <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setSearchResults([]); } setShowSearch(s => !s); }}>
+                <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+              </button>
+            </div>
 
-          <div>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 700, color: 'var(--accent)', margin: '0 0 14px' }}>Friends</h2>
-            <SectionSwitcher
-              tabs={[{ id: 'circle-feed', label: 'Glimpse' }, { id: 'friends', label: 'Activity' }]}
-              active="friends"
-              onChange={onSwitchSection}
-            />
+            <div>
+              <SectionSwitcher
+                tabs={[{ id: 'circle-feed', label: 'Glimpse' }, { id: 'friends', label: 'Activity' }]}
+                active="friends"
+                onChange={onSwitchSection}
+              />
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
