@@ -3965,7 +3965,9 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <div style={{ width: 36 }} />
+            <button className="icon-btn" onClick={() => filterTab === 'search' ? switchTab('age') : switchTab('search')}>
+              <i className={`ti ${filterTab === 'search' ? 'ti-x' : 'ti-search'}`} />
+            </button>
           </div>
 
           <div>
@@ -3981,7 +3983,6 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 9, padding: 3 }}>
               <button style={tabStyle('age')} onClick={() => switchTab('age')}>By Age</button>
               <button style={tabStyle('milestone')} onClick={() => switchTab('milestone')}>Milestones</button>
-              <button style={tabStyle('search')} onClick={() => switchTab('search')}>Search</button>
             </div>
           </div>
 
