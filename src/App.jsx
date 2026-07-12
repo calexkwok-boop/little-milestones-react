@@ -790,7 +790,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <div onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd} style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
+    <div onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
       {entry.media && entry.media.length > 0 && (
         <div
           ref={photoRef}
@@ -859,7 +859,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
         <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{yearLabel}</span>
         <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       </div>
-      <div onClick={onClick} style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
+      <div onClick={onClick} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
         {entry.media && entry.media.length > 0 && (
           <div
             ref={photoRef}
@@ -1323,7 +1323,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
             const name = partner?.real_name || partner?.display_name || 'Your partner';
             const count = unseenPartnerIds.length;
             return (
-              <div style={{ background: 'var(--bg-elevated)', border: '1px solid #C4D8C0', borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
                 <i className="ti ti-sparkles" style={{ color: '#C8993E', fontSize: 17, flexShrink: 0 }} />
                 <span style={{ flex: 1, fontSize: 13, color: 'var(--accent)', fontWeight: 500 }}>
                   {name} added {count === 1 ? 'a new letter' : `${count} new letters`}
@@ -1931,7 +1931,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         <div className="scrollpad" style={{ paddingTop: 0 }}>
           {rows.length === 0 ? (
             <div className="empty-state">
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: '#F5EFE3', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
                 <i className="ti ti-notebook" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>Nothing written yet</p>
@@ -2306,7 +2306,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
       {showDeleteConfirm && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FEF0ED', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <i className="ti ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
             </div>
             <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px', textAlign: 'center' }}>Delete this entry?</p>
@@ -2843,7 +2843,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         <button className="icon-btn" onClick={onCancel}><i className="ti ti-x" /></button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {existingEntry && onDelete && (
-            <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)} style={{ color: '#D4856A', borderColor: '#F2C4B8' }}>
+            <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)} style={{ color: '#D4856A', borderColor: 'rgba(212,133,106,0.35)' }}>
               <i className="ti ti-trash" />
             </button>
           )}
@@ -2864,7 +2864,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       <div className="scroll-area" style={{ padding: '4px 24px 20px' }}>
 
         {draftRestored && (
-          <div style={{ background: 'var(--bg-elevated)', border: '1px solid #C4D8C0', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
             <i className="ti ti-pencil" style={{ color: 'var(--accent)', fontSize: 14, flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 13, color: 'var(--accent)', fontWeight: 500 }}>Draft restored</span>
             <button
@@ -3333,7 +3333,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       {showDeleteConfirm && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#FEF0ED', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <i className="ti ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
             </div>
             <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px', textAlign: 'center' }}>Delete this entry?</p>
@@ -3610,7 +3610,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         : `${likes.map(l => l.display_name?.split(' ')[0] || 'Someone').join(' & ')} loved this`;
 
     return (
-      <div key={entry.id} style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
+      <div key={entry.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
         {/* Poster row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px 10px' }}>
           <span className="thumb" style={{ width: 42, height: 42, fontSize: 15, flexShrink: 0 }}>
@@ -3933,7 +3933,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
     : 'No moments yet at this age';
 
   const tabStyle = (tab) => ({
-    border: 'none', borderRadius: 7, padding: '6px 14px',
+    border: 'none', borderRadius: 7, padding: '11px 16px',
     fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, cursor: 'pointer',
     background: filterTab === tab ? 'var(--bg-input)' : 'transparent',
     color: filterTab === tab ? 'var(--accent)' : 'var(--text-muted)',
@@ -4053,8 +4053,9 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
           )}
 
           {filterTab === 'milestone' && !milestoneFilter ? (
-            <div className="empty-state" style={{ padding: '32px 24px' }}>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Pick a milestone above to compare</p>
+            <div className="empty-state">
+              <i className="ti ti-star" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>Pick a milestone above to compare</p>
             </div>
           ) : ageGridItems ? (
             /* ── Free-flowing 2-col grid: By Age with 2+ kids ── */
@@ -4470,7 +4471,10 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
           )}
 
           {!hasAny && (
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '40px 0' }}>No letters yet</p>
+            <div className="empty-state">
+              <i className="ti ti-mail" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>No letters yet</p>
+            </div>
           )}
 
           {hasAny && showSearch && (
@@ -5067,7 +5071,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
       {showDeleteConfirm && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !deleting && setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#FEF0ED', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <i className="ti ti-trash" style={{ fontSize: 20, color: '#D4856A' }} />
             </div>
             <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Delete your account?</p>
@@ -5471,11 +5475,11 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
               <p style={{ fontSize: 28, fontWeight: 800, color: '#C8993E', margin: 0, lineHeight: 1 }}>{friends.length}</p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: '5px 0 0', fontWeight: 600 }}>friend{friends.length !== 1 ? 's' : ''}</p>
             </div>
-            <div style={{ background: pendingIncoming.length > 0 ? '#D4856A' : '#FAF0ED', borderRadius: 14, padding: '14px 12px' }}>
+            <div style={{ background: pendingIncoming.length > 0 ? '#D4856A' : 'rgba(212,133,106,0.12)', borderRadius: 14, padding: '14px 12px' }}>
               <p style={{ fontSize: 28, fontWeight: 800, color: pendingIncoming.length > 0 ? '#fff' : '#D4856A', margin: 0, lineHeight: 1 }}>{pendingIncoming.length}</p>
               <p style={{ fontSize: 11, fontWeight: 600, color: pendingIncoming.length > 0 ? 'rgba(255,255,255,0.75)' : '#D4856A', margin: '5px 0 0' }}>requests</p>
             </div>
-            <div style={{ background: (reactionNotifications.length + birthdayNotifications.length) > 0 ? '#C8993E' : '#FDF3E0', borderRadius: 14, padding: '14px 12px' }}>
+            <div style={{ background: (reactionNotifications.length + birthdayNotifications.length) > 0 ? '#C8993E' : 'rgba(200,153,62,0.12)', borderRadius: 14, padding: '14px 12px' }}>
               <p style={{ fontSize: 28, fontWeight: 800, color: (reactionNotifications.length + birthdayNotifications.length) > 0 ? '#fff' : '#C8993E', margin: 0, lineHeight: 1 }}>{reactionNotifications.length + birthdayNotifications.length}</p>
               <p style={{ fontSize: 11, fontWeight: 600, color: (reactionNotifications.length + birthdayNotifications.length) > 0 ? 'rgba(255,255,255,0.75)' : '#C8993E', margin: '5px 0 0' }}>new activity</p>
             </div>
@@ -5845,12 +5849,12 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl }) {
   const { pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
   const tabs = [
-    { id: 'home', icon: 'ti-home', label: 'Home', color: '#F0897A', group: ['home'] },
-    { id: 'circle-feed', icon: 'ti-users', label: 'Friends', color: '#F0897A', group: ['circle-feed', 'friends'], badge: pendingRequestCount + circleBadge },
+    { id: 'home', icon: 'ti-home', label: 'Home', group: ['home'] },
+    { id: 'circle-feed', icon: 'ti-users', label: 'Friends', group: ['circle-feed', 'friends'], badge: pendingRequestCount + circleBadge },
   ];
   const tabsRight = [
-    { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', color: '#F0897A', group: ['recap', 'partner-letters', 'compare'] },
-    { id: 'profile', icon: 'ti-user', label: 'Profile', color: '#F0897A', group: ['profile'] },
+    { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', group: ['recap', 'partner-letters', 'compare'] },
+    { id: 'profile', icon: 'ti-user', label: 'Profile', group: ['profile'] },
   ];
 
   function tabStyle(tab) {
@@ -6448,7 +6452,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
             ];
             const salutation = kidFirstNames.length > 0 ? kidFirstNames.join(' & ') : null;
             return (
-              <div style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 12, padding: '14px 16px 12px', marginBottom: 16 }}>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px 12px', marginBottom: 16 }}>
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 11, color: 'var(--text-muted)', margin: '0 0 6px' }}>
                   Dear {salutation
                     ? <span style={{ color: 'var(--text)' }}>{salutation},</span>
@@ -6473,7 +6477,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text-3)', lineHeight: 1.8, margin: '0 0 32px', textAlign: 'center' }}>
                 For all the things you wish they knew, and all the moments you never want them to forget.
                </p>
-              <div style={{ background: 'var(--bg-card)', border: '1px solid #C4D8C0', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
                     {[{ initial: 'E', color: KID_ACCENTS[0] }, { initial: 'M', color: KID_ACCENTS[1] }].map((k, i) => (
@@ -6844,6 +6848,11 @@ export default function App() {
   const [friendFamilyMap, setFriendFamilyMap] = useState({});
   const [friendUserFamilyMap, setFriendUserFamilyMap] = useState({});
   const [compareTarget, setCompareTarget] = useState(null);
+  // Once a user visits either sub-tab in a merged section, keep the whole
+  // group mounted (just hidden) so switching between its tabs is instant —
+  // no remount flash, no scroll/filter reset, no refetch.
+  const [circleGroupMounted, setCircleGroupMounted] = useState(false);
+  const [keepsakesGroupMounted, setKeepsakesGroupMounted] = useState(false);
   const [newEntryInitial, setNewEntryInitial] = useState(null);
   const [birthdaySlideshow, setBirthdaySlideshow] = useState(null);
   const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
@@ -7513,6 +7522,11 @@ export default function App() {
     setScreen(id);
   }, []);
 
+  useEffect(() => {
+    if (screen === 'circle-feed' || screen === 'friends') setCircleGroupMounted(true);
+    if (screen === 'recap' || screen === 'partner-letters' || screen === 'compare') setKeepsakesGroupMounted(true);
+  }, [screen]);
+
   const openEntry = useCallback((entry) => {
     setEntrySource(screenRef.current);
     setActiveEntry(entry);
@@ -8120,7 +8134,10 @@ export default function App() {
 
   async function handleHidePostsFromFriends() {
     const toUpdate = entries.filter(e => e.sharedWith?.friends);
-    if (toUpdate.length === 0) return;
+    if (toUpdate.length === 0) {
+      setReactionToast({ message: "You don't have any posts shared with friends" });
+      return;
+    }
     const nextSharedWith = e => ({ ...e.sharedWith, friends: false });
     setEntries(prev => prev.map(e => e.sharedWith?.friends
       ? { ...e, sharedWith: nextSharedWith(e), shared: Object.values(nextSharedWith(e)).some(Boolean) }
@@ -8131,6 +8148,7 @@ export default function App() {
         return supabase.from('entries').update({ shared: Object.values(sw).some(Boolean), shared_with: sw }).eq('id', e.id);
       }));
     }
+    setReactionToast({ message: `Hidden from friends — ${toUpdate.length} post${toUpdate.length !== 1 ? 's' : ''}` });
   }
 
   async function handleToggleSharingDefault(key, val) {
@@ -8238,6 +8256,7 @@ export default function App() {
       supabase.from('birthday_notifications').update({ dismissed: true }).eq('user_id', session.user.id).then(() => {});
     }
     setBirthdayNotifications([]);
+    setReactionToast({ message: 'All caught up' });
   }, [session?.user?.id]);
 
   const handleDismissReaction = useCallback(id => {
@@ -8368,24 +8387,26 @@ export default function App() {
         );
       })()}
 
-      {screen === 'partner-letters' && (() => {
+      {keepsakesGroupMounted && (() => {
         const partnerMember = familyMembers.find(m => m.user_id !== session?.user?.id) || null;
         const selfMember = familyMembers.find(m => m.user_id === session?.user?.id) || null;
         return (
-          <PartnerLettersScreen
-            entries={entries}
-            kids={kids}
-            unseenIds={unseenPartnerIds}
-            authorId={letterAuthorId}
-            currentUserId={session?.user?.id}
-            self={selfMember}
-            partner={partnerMember}
-            onBack={() => setScreen('home')}
-            onOpenEntry={(entry) => { markPartnerEntrySeen(entry.id); openEntry(entry); }}
-            onMarkAllRead={markAllSeen}
-            scrollPos={partnerLettersScrollPos}
-            onSwitchSection={switchSection}
-          />
+          <div style={{ display: screen === 'partner-letters' ? 'contents' : 'none' }}>
+            <PartnerLettersScreen
+              entries={entries}
+              kids={kids}
+              unseenIds={unseenPartnerIds}
+              authorId={letterAuthorId}
+              currentUserId={session?.user?.id}
+              self={selfMember}
+              partner={partnerMember}
+              onBack={() => setScreen('home')}
+              onOpenEntry={(entry) => { markPartnerEntrySeen(entry.id); openEntry(entry); }}
+              onMarkAllRead={markAllSeen}
+              scrollPos={partnerLettersScrollPos}
+              onSwitchSection={switchSection}
+            />
+          </div>
         );
       })()}
 
@@ -8448,50 +8469,57 @@ export default function App() {
         />
       )}
 
-      {screen === 'recap' && (
-        <ScreenErrorBoundary onBack={() => setScreen('home')}>
-          <RecapScreen
-            entries={entries}
-            kids={kids}
+      {keepsakesGroupMounted && (
+        <div style={{ display: screen === 'recap' ? 'contents' : 'none' }}>
+          <ScreenErrorBoundary onBack={() => setScreen('home')}>
+            <RecapScreen
+              entries={entries}
+              kids={kids}
+              onBack={() => setScreen('home')}
+              onOpenEntry={openEntry}
+              onSwitchSection={switchSection}
+            />
+          </ScreenErrorBoundary>
+        </div>
+      )}
+
+      {circleGroupMounted && (
+        <div style={{ display: screen === 'circle-feed' ? 'contents' : 'none' }}>
+          <CircleFeedScreen
             onBack={() => setScreen('home')}
-            onOpenEntry={openEntry}
+            friendKids={friendKids}
+            friendFamilyMap={friendFamilyMap}
+            onCompareAtAge={(kidId, ageMonths) => {
+              const ages = [12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
+              const bucket = ages.reduce((best, a) => ageMonths >= a ? a : best, ages[0]);
+              setCompareTarget({ kidId, compareAge: bucket });
+              setScreen('compare');
+            }}
             onSwitchSection={switchSection}
           />
-        </ScreenErrorBoundary>
+        </div>
       )}
 
-      {screen === 'circle-feed' && (
-        <CircleFeedScreen
-          onBack={() => setScreen('home')}
-          friendKids={friendKids}
-          friendFamilyMap={friendFamilyMap}
-          onCompareAtAge={(kidId, ageMonths) => {
-            const ages = [12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
-            const bucket = ages.reduce((best, a) => ageMonths >= a ? a : best, ages[0]);
-            setCompareTarget({ kidId, compareAge: bucket });
-            setScreen('compare');
-          }}
-          onSwitchSection={switchSection}
-        />
+      {keepsakesGroupMounted && (
+        <div style={{ display: screen === 'compare' ? 'contents' : 'none' }}>
+          <CompareScreen
+            entries={entries}
+            kids={kids}
+            friendKids={friendKids}
+            friendEntries={friendEntries}
+            friends={friends}
+            currentUserId={session?.user?.id}
+            onBack={() => { setScreen('home'); setCompareTarget(null); }}
+            onOpenEntry={openEntry}
+            initialFriendKidId={compareTarget?.kidId ?? null}
+            initialCompareAge={compareTarget?.compareAge ?? null}
+            onSwitchSection={switchSection}
+          />
+        </div>
       )}
 
-      {screen === 'compare' && (
-        <CompareScreen
-          entries={entries}
-          kids={kids}
-          friendKids={friendKids}
-          friendEntries={friendEntries}
-          friends={friends}
-          currentUserId={session?.user?.id}
-          onBack={() => { setScreen('home'); setCompareTarget(null); }}
-          onOpenEntry={openEntry}
-          initialFriendKidId={compareTarget?.kidId ?? null}
-          initialCompareAge={compareTarget?.compareAge ?? null}
-          onSwitchSection={switchSection}
-        />
-      )}
-
-      {screen === 'friends' && (
+      {circleGroupMounted && (
+        <div style={{ display: screen === 'friends' ? 'contents' : 'none' }}>
         <FriendsScreen
           friends={friends}
           friendKids={friendKids}
@@ -8519,6 +8547,7 @@ export default function App() {
           friendUserFamilyMap={friendUserFamilyMap}
           onSwitchSection={switchSection}
         />
+        </div>
       )}
 
       {screen === 'search' && (

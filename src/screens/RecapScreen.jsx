@@ -54,7 +54,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
   const [kidFilter, setKidFilter] = useState(null);
 
   const segTabStyle = (tab) => ({
-    border: 'none', borderRadius: 7, padding: '6px 14px',
+    border: 'none', borderRadius: 7, padding: '11px 16px',
     fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, cursor: 'pointer',
     background: viewMode === tab ? 'var(--bg-input)' : 'transparent',
     color: viewMode === tab ? 'var(--accent)' : 'var(--text-muted)',
@@ -188,11 +188,8 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
 
           {momentCount === 0 ? (
             <div className="empty-state">
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <i className="ti ti-calendar" style={{ fontSize: 22, color: 'var(--text-muted)' }} />
-              </div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>Nothing written</p>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>{periodEmpty}</p>
+              <i className="ti ti-calendar" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>{periodEmpty}</p>
             </div>
           ) : (
             <>
@@ -203,21 +200,21 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
                 </div>
                 <div
                   onClick={() => setRecapFilter(f => f === 'milestones' ? null : 'milestones')}
-                  style={{ background: recapFilter === 'milestones' ? '#D4856A' : '#FAF0ED', borderRadius: 14, padding: '14px 16px', cursor: milestoneCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'milestones' ? 0.65 : 1, transition: 'opacity 0.15s' }}
+                  style={{ background: recapFilter === 'milestones' ? '#D4856A' : 'rgba(212,133,106,0.12)', borderRadius: 14, padding: '14px 16px', cursor: milestoneCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'milestones' ? 0.65 : 1, transition: 'opacity 0.15s' }}
                 >
                   <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'milestones' ? '#fff' : '#D4856A', margin: 0, lineHeight: 1 }}>{milestoneCount}</p>
                   <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'milestones' ? 'rgba(255,255,255,0.75)' : '#D4856A', margin: '5px 0 0' }}>milestones</p>
                 </div>
                 <div
                   onClick={() => setRecapFilter(f => f === 'photos' ? null : 'photos')}
-                  style={{ background: recapFilter === 'photos' ? '#A09080' : '#F0ECE8', borderRadius: 14, padding: '14px 16px', cursor: photoCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'photos' ? 0.65 : 1, transition: 'opacity 0.15s' }}
+                  style={{ background: recapFilter === 'photos' ? '#A09080' : 'rgba(160,144,128,0.16)', borderRadius: 14, padding: '14px 16px', cursor: photoCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'photos' ? 0.65 : 1, transition: 'opacity 0.15s' }}
                 >
                   <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'photos' ? '#fff' : '#A09080', margin: 0, lineHeight: 1 }}>{photoCount}</p>
                   <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'photos' ? 'rgba(255,255,255,0.75)' : '#A09080', margin: '5px 0 0' }}>photos</p>
                 </div>
                 <div
                   onClick={() => setRecapFilter(f => f === 'favorites' ? null : 'favorites')}
-                  style={{ background: recapFilter === 'favorites' ? '#C8993E' : '#FDF3E0', borderRadius: 14, padding: '14px 16px', cursor: favoriteCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'favorites' ? 0.65 : 1, transition: 'opacity 0.15s' }}
+                  style={{ background: recapFilter === 'favorites' ? '#C8993E' : 'rgba(200,153,62,0.12)', borderRadius: 14, padding: '14px 16px', cursor: favoriteCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'favorites' ? 0.65 : 1, transition: 'opacity 0.15s' }}
                 >
                   <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'favorites' ? '#fff' : '#C8993E', margin: 0, lineHeight: 1 }}>{favoriteCount}</p>
                   <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'favorites' ? 'rgba(255,255,255,0.75)' : '#C8993E', margin: '5px 0 0' }}>favorites</p>

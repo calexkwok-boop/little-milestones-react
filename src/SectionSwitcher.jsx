@@ -7,7 +7,7 @@ function SectionSwitcher({ tabs, active, onChange }) {
             key={t.id}
             onClick={() => onChange(t.id)}
             style={{
-              border: 'none', borderRadius: 7, padding: '6px 14px', position: 'relative',
+              border: 'none', borderRadius: 7, padding: '11px 16px', position: 'relative',
               fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, cursor: 'pointer',
               background: active === t.id ? 'var(--bg-input)' : 'transparent',
               color: active === t.id ? 'var(--accent)' : 'var(--text-muted)',
