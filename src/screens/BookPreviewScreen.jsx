@@ -169,7 +169,7 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
                   <div style={{ background: '#FFFDF8', padding: '8px 9px 7px', display: photo ? 'flex' : 'block', gap: 9 }}>
                     {photo && (
                       <div style={{ width: 66, height: 66, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
-                        <img src={cloudinaryTransform(photo.url, 'w_140,h_140,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />
+                        <img src={cloudinaryTransform(photo.url, 'w_140,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />
                       </div>
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -211,7 +211,7 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
                 <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 10px 10px 0', borderColor: `transparent ${hexToRgba(accent, 0.5)} transparent transparent`, borderRadius: '0 8px 0 0' }} />
                 {photo && (
                   <div style={{ width: 66, height: 66, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={cloudinaryTransform(photo.url, 'w_140,h_140,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />
+                    <img src={cloudinaryTransform(photo.url, 'w_140,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />
                   </div>
                 )}
                 <div style={{ flex: photo ? 1 : undefined, minWidth: 0 }}>

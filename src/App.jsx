@@ -830,7 +830,12 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <div onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
+    <div onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd} style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
+      {entry.shared === false && (
+        <div style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }} title="Private">
+          <i className="ti ti-lock" style={{ color: '#fff', fontSize: 12 }} />
+        </div>
+      )}
       {entry.media && entry.media.length > 0 && (
         <div
           ref={photoRef}
@@ -925,23 +930,26 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPr
       style={{ position: 'relative', background: tintBg, border: `1px solid ${tintBorder}`, borderRadius: 13, padding: '15px 17px 13px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.07)', transform: `rotate(${rotation}deg)` }}
     >
       <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 15px 15px 0', borderColor: `transparent ${tintFold} transparent transparent`, borderRadius: '0 13px 0 0' }} />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-        <i className="ti ti-notebook" style={{ fontSize: 12, color: accent }} />
-        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: accent }}>Note</span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <i className="ti ti-notebook" style={{ fontSize: 12, color: accent }} />
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: accent }}>Note</span>
+        </div>
+        {entry.shared === false && <i className="ti ti-lock" style={{ fontSize: 12, color: accent }} title="Private" />}
       </div>
       <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, color: 'var(--text)', margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
         {preview}
       </p>
       {entry.media?.length === 1 && (
         <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', height: 140 }}>
-          <FeedMediaThumb item={entry.media[0]} cropY={entry.cropY} transform="w_500,h_280,c_fill,q_auto,f_auto" />
+          <FeedMediaThumb item={entry.media[0]} cropY={entry.cropY} transform="w_500,q_auto,f_auto" />
         </div>
       )}
       {entry.media?.length > 1 && (
         <div style={{ marginBottom: 12, display: 'flex', gap: 8, overflowX: 'auto' }}>
           {entry.media.slice(0, 3).map((m, i) => (
             <div key={i} style={{ width: 110, height: 110, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-              <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_240,h_240,c_fill,q_auto,f_auto" />
+              <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_240,q_auto,f_auto" />
             </div>
           ))}
         </div>
@@ -972,9 +980,12 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, onClick, onLo
       style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}
     >
       <div style={{ background: PROMPT_ACCENT, padding: '13px 17px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-          <i className="ti ti-bulb" style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }} />
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>Prompt</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <i className="ti ti-bulb" style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>Prompt</span>
+          </div>
+          {entry.shared === false && <i className="ti ti-lock" style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)' }} title="Private" />}
         </div>
         <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, lineHeight: 1.4, color: '#fff', margin: 0 }}>
           {entry.prompt}
@@ -986,14 +997,14 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, onClick, onLo
         </p>
         {entry.media?.length === 1 && (
           <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', height: 140 }}>
-            <FeedMediaThumb item={entry.media[0]} cropY={entry.cropY} transform="w_500,h_280,c_fill,q_auto,f_auto" />
+            <FeedMediaThumb item={entry.media[0]} cropY={entry.cropY} transform="w_500,q_auto,f_auto" />
           </div>
         )}
         {entry.media?.length > 1 && (
           <div style={{ marginBottom: 12, display: 'flex', gap: 8, overflowX: 'auto' }}>
             {entry.media.slice(0, 3).map((m, i) => (
               <div key={i} style={{ width: 110, height: 110, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-                <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_240,h_240,c_fill,q_auto,f_auto" />
+                <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_240,q_auto,f_auto" />
               </div>
             ))}
           </div>
@@ -1027,7 +1038,12 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
         <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{yearLabel}</span>
         <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
       </div>
-      <div onClick={onClick} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
+      <div onClick={onClick} style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
+        {entry.shared === false && (
+          <div style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }} title="Private">
+            <i className="ti ti-lock" style={{ color: '#fff', fontSize: 12 }} />
+          </div>
+        )}
         {entry.media && entry.media.length > 0 && (
           <div
             ref={photoRef}
