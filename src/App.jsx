@@ -19,6 +19,27 @@ import {
 } from './constants.js';
 
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
+const NOTE_PROMPTS = [
+  'What made them laugh today?',
+  "What's a word or phrase they keep saying lately?",
+  'What did they surprise you with today?',
+  "What's something small they did today you don't want to forget?",
+  "What are they obsessed with this week?",
+  "What did they ask you today that you didn't have an answer for?",
+  "What's a moment from today you wish you'd filmed?",
+  'What did they call something the wrong (but better) name today?',
+  "What's something they're proud of right now?",
+  'What did they refuse to do today, and how did that go?',
+  "What's a habit of theirs you'll miss when it's gone?",
+  'What did they teach you today?',
+  "What's something they said that sounded so grown-up?",
+  'What food did they love or hate today?',
+  'What did they pretend to be today?',
+  "What's something ordinary today that felt extraordinary?",
+  'What question did they ask on repeat today?',
+  "What's a nickname or inside joke from today?",
+  'What did they do today that reminded you of yourself?',
+];
 let _pendingCircleViewer = null;
 
 function hexToRgba(hex, alpha) {
@@ -853,6 +874,8 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
   );
 });
 
+const PROMPT_ACCENT = '#C8993E';
+
 const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPress }) {
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const accent = kid?.accent || KID_ACCENTS[0];
@@ -897,6 +920,55 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPr
             </span>
           </div>
         ))}
+      </div>
+    </div>
+  );
+});
+
+const PromptCard = memo(function PromptCard({ entry, kid, allKids, onClick, onLongPress }) {
+  const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
+  const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
+
+  return (
+    <div
+      onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd}
+      style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}
+    >
+      <div style={{ background: PROMPT_ACCENT, padding: '13px 17px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+          <i className="ti ti-bulb" style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }} />
+          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>Prompt</span>
+        </div>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, lineHeight: 1.4, color: '#fff', margin: 0 }}>
+          {entry.prompt}
+        </p>
+      </div>
+      <div style={{ padding: '14px 17px 13px' }}>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, color: 'var(--text)', margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
+          {entry.text}
+        </p>
+        {entry.media?.length > 0 && (
+          <div style={{ marginBottom: 12, display: 'flex', gap: 6, overflowX: 'auto' }}>
+            {entry.media.slice(0, 3).map((m, i) => (
+              <div key={i} style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+                {m.type === 'video'
+                  ? <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
+                  : <img src={cloudinaryTransform(m.url, 'w_120,h_120,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {entryKids.map(k => (
+            <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <KidThumb kid={k} size={18} />
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {exactAgeLabel(k.birthdate, entry.date)} &middot; {dateLabel}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1506,6 +1578,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               <SectionDivider label="Recent" />
               {recent.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
+                if (entry.type === 'note' && entry.prompt) return <PromptCard key={entry.id} entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />;
                 return entry.type === 'note'
                   ? <NoteCard key={entry.id} entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />
                   : <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />;
@@ -1523,6 +1596,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               <SectionDivider label="Recently added" />
               {recentlyAdded.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
+                if (entry.type === 'note' && entry.prompt) return <PromptCard key={entry.id} entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />;
                 return entry.type === 'note'
                   ? <NoteCard key={entry.id} entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />
                   : <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />;
@@ -1865,7 +1939,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{nameLabel}</span>
               {entryKids.length === 1 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {exactAgeLabel(entryKids[0].birthdate, entry.date)}</span>}
               <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {entry.type === 'note' && <i className="ti ti-notebook" style={{ fontSize: 11, color: 'var(--text-muted)' }} />}
+                {entry.type === 'note' && <i className={`ti ${entry.prompt ? 'ti-bulb' : 'ti-notebook'}`} style={{ fontSize: 11, color: entry.prompt ? PROMPT_ACCENT : 'var(--text-muted)' }} />}
                 {reactionCount?.likes > 0 && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#E05C6A', fontWeight: 600 }}>
                     <i className="ti ti-heart-filled" style={{ fontSize: 11 }} />
@@ -2262,16 +2336,34 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           </div>
           {entry.song && <SongPlayer song={entry.song} />}
           {entry.voiceMemoUrl && <VoiceMemoPlayer url={entry.voiceMemoUrl} />}
-          {isNote ? (
-            <div style={{ position: 'relative', background: hexToRgba(kid?.accent || KID_ACCENTS[0], 0.13), border: `1px solid ${hexToRgba(kid?.accent || KID_ACCENTS[0], 0.3)}`, borderRadius: 13, padding: '15px 17px 13px' }}>
-              <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 15px 15px 0', borderColor: `transparent ${hexToRgba(kid?.accent || KID_ACCENTS[0], 0.48)} transparent transparent`, borderRadius: '0 13px 0 0' }} />
+          {isNote ? (() => {
+            const isPrompt = !!entry.prompt;
+            if (isPrompt) return (
+              <div style={{ borderRadius: 13, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                <div style={{ background: PROMPT_ACCENT, padding: '13px 17px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <i className="ti ti-bulb" style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>Prompt</span>
+                  </div>
+                  <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, lineHeight: 1.5, color: '#fff', margin: 0 }}>{entry.prompt}</p>
+                </div>
+                <div style={{ background: 'var(--bg-card)', padding: '14px 17px' }}>
+                  <p style={{ fontSize: 16, color: 'var(--text)', lineHeight: 1.7, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{entry.text}</p>
+                </div>
+              </div>
+            );
+            const noteAccent = kid?.accent || KID_ACCENTS[0];
+            return (
+            <div style={{ position: 'relative', background: hexToRgba(noteAccent, 0.13), border: `1px solid ${hexToRgba(noteAccent, 0.3)}`, borderRadius: 13, padding: '15px 17px 13px' }}>
+              <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 15px 15px 0', borderColor: `transparent ${hexToRgba(noteAccent, 0.48)} transparent transparent`, borderRadius: '0 13px 0 0' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <i className="ti ti-notebook" style={{ fontSize: 12, color: kid?.accent || KID_ACCENTS[0] }} />
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: kid?.accent || KID_ACCENTS[0] }}>Note</span>
+                <i className="ti ti-notebook" style={{ fontSize: 12, color: noteAccent }} />
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: noteAccent }}>Note</span>
               </div>
               <p style={{ fontSize: 16, color: 'var(--text)', lineHeight: 1.7, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{entry.text}</p>
             </div>
-          ) : (
+            );
+          })() : (
             <>
               <p style={{ fontSize: 17, color: 'var(--accent)', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
                 Dear {buildSalutation(entry, allKids)},
@@ -2528,7 +2620,8 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, mode: modeProp }) {
+function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, mode: modeProp, promptText: promptTextProp }) {
+  const [promptText, setPromptText] = useState(promptTextProp || existingEntry?.prompt || null);
   const mode = modeProp || existingEntry?.type || 'letter';
   const isNote = mode === 'note';
   const [selectedKids, setSelectedKids] = useState(
@@ -2895,6 +2988,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         voiceMemoBlob,
         voiceMemoUrl,
         type: mode,
+        prompt: isNote ? (promptText || null) : null,
       });
     } catch (err) {
       alert('Something went wrong saving your entry: ' + (err?.message || String(err)));
@@ -3074,12 +3168,26 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         </div>
         )}
 
+        {/* Prompt banner */}
+        {isNote && promptText && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 12, padding: '11px 12px', marginBottom: 14 }}>
+            <i className="ti ti-bulb" style={{ fontSize: 16, color: '#C8993E', flexShrink: 0 }} />
+            <p style={{ flex: 1, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.4 }}>{promptText}</p>
+            <button
+              onClick={() => setPromptText(NOTE_PROMPTS[Math.floor(Math.random() * NOTE_PROMPTS.length)])}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C8993E', padding: 4, display: 'flex', flexShrink: 0 }}
+            >
+              <i className="ti ti-refresh" style={{ fontSize: 15 }} />
+            </button>
+          </div>
+        )}
+
         {/* Writing area */}
         <textarea
           autoFocus={isNote}
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder={isNote ? 'What just happened?' : 'You did the most surprising thing today. I never want you to forget what it felt like to be there…'}
+          placeholder={isNote ? (promptText ? 'Type your answer…' : 'What just happened?') : 'You did the most surprising thing today. I never want you to forget what it felt like to be there…'}
           style={isNote ? {
             width: '100%', border: '1px solid rgba(74,94,80,0.16)', outline: 'none', resize: 'none',
             background: 'rgba(74,94,80,0.06)', borderRadius: 14, fontFamily: "'Source Serif 4', serif",
@@ -6882,6 +6990,7 @@ function normalizeEntry(e) {
     kids: e.kid_ids,
     date: e.date,
     type: e.type || 'letter',
+    prompt: e.prompt || null,
     text: e.text || '',
     mood: e.mood,
     milestone: e.milestone,
@@ -6952,6 +7061,7 @@ export default function App() {
   const [newEntryInitial, setNewEntryInitial] = useState(null);
   const [composeMode, setComposeMode] = useState('letter');
   const [showComposePicker, setShowComposePicker] = useState(false);
+  const [activePrompt, setActivePrompt] = useState(null);
   const [birthdaySlideshow, setBirthdaySlideshow] = useState(null);
   const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
@@ -7244,7 +7354,7 @@ export default function App() {
               const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
               const [{ data: fKids }, { data: fEntries }] = await Promise.all([
                 supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, family_id').in('family_id', friendFamilyIds),
-                supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }),
+                supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, prompt, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }),
               ]);
               setFriendKids((fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id, familyId: k.family_id })));
               setFriendEntries((fEntries || []).filter(e => e.shared !== false).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
@@ -7712,7 +7822,7 @@ export default function App() {
     const promises = [supabase.from('entries').select('*, entry_media(*)').eq('family_id', familyId).order('date', { ascending: false })];
     if (friendFamilyIds.length > 0) {
       const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-      promises.push(supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }));
+      promises.push(supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, prompt, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }));
     }
     const [{ data }, friendResult] = await Promise.all(promises);
     if (data) {
@@ -7746,7 +7856,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter' }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null }) {
     const shared = Object.values(sharedWith).some(Boolean);
     const primaryKid = kids.find(k => kidIds.includes(k.id)) ?? friendKids.find(k => kidIds.includes(k.id));
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
@@ -7794,11 +7904,11 @@ export default function App() {
     // ── UPDATE existing entry ──
     if (entryId) {
       if (localMode || !supabase || !session) {
-        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media, type: entryType } : e));
+        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media, type: entryType, prompt } : e));
         setScreen('home');
         return;
       }
-      const { error: updateError } = await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null, people: people || [], shared, shared_with: sharedWith, voice_memo_url: voiceMemoUrlFinal, type: entryType }).eq('id', entryId);
+      const { error: updateError } = await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null, people: people || [], shared, shared_with: sharedWith, voice_memo_url: voiceMemoUrlFinal, type: entryType, prompt }).eq('id', entryId);
       if (updateError) {
         alert('Could not save your changes. Please try again.\n' + updateError.message);
         return;
@@ -7806,7 +7916,7 @@ export default function App() {
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
       setScreen('home');
       const { saved, failed } = await prepareAndUpload(media, fileObjects, entryId);
-      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: saved, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, type: entryType } : e));
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: saved, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, type: entryType, prompt } : e));
       if (failed) alert(`Media upload failed (${failed.err}) — your text was saved. Please try again.`);
       return;
     }
@@ -7820,6 +7930,7 @@ export default function App() {
         kids: kidIds,
         date,
         type: entryType,
+        prompt,
         createdAt: new Date().toISOString(),
         text: text || '',
         mood,
@@ -7859,6 +7970,7 @@ export default function App() {
       shared_with: sharedWith,
       voice_memo_url: voiceMemoUrlFinal,
       type: entryType,
+      prompt,
     }).select().single();
 
     if (error || !entry) {
@@ -7867,7 +7979,7 @@ export default function App() {
     }
 
     // Optimistically show entry and navigate away immediately
-    const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal };
+    const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal };
     setEntries(prev => [optimisticEntry, ...prev]);
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone, entry: optimisticEntry });
@@ -8552,7 +8664,7 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} friendKids={friendKids} mode={composeMode} onCancel={() => { setScreen('home'); setNewEntryInitial(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
+        <NewEntryScreen kids={kids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
@@ -8790,8 +8902,15 @@ export default function App() {
             {[
               { icon: 'ti-mail', label: 'Write a letter', sub: 'For moments worth writing home about', mode: 'letter' },
               { icon: 'ti-notebook', label: 'Quick note', sub: 'For the funny, fleeting, and forever', mode: 'note' },
-            ].map(opt => (
-              <div key={opt.mode} onClick={() => { setComposeMode(opt.mode); setShowComposePicker(false); setScreen('new-entry'); }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: opt.mode === 'letter' ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
+              { icon: 'ti-bulb', label: 'Try a prompt', sub: 'For when you need inspiration', mode: 'prompt' },
+            ].map((opt, i) => (
+              <div key={opt.mode} onClick={() => {
+                if (opt.mode === 'prompt') setActivePrompt(NOTE_PROMPTS[Math.floor(Math.random() * NOTE_PROMPTS.length)]);
+                else setActivePrompt(null);
+                setComposeMode(opt.mode === 'prompt' ? 'note' : opt.mode);
+                setShowComposePicker(false);
+                setScreen('new-entry');
+              }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: i < 2 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
                 <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(74,94,80,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <i className={`ti ${opt.icon}`} style={{ fontSize: 18, color: 'var(--accent)' }} />
                 </div>

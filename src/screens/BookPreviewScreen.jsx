@@ -103,6 +103,7 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
 const NOTES_PER_PAGE = 6;
 
 const NOTE_ACCENT_FALLBACK = '#8AA98C';
+const PROMPT_ACCENT = '#C8993E';
 
 function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
   const monthLabel = new Date(monthKey + '-01T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -117,6 +118,39 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
             const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
             const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
             const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const isPrompt = !!entry.prompt;
+
+            if (isPrompt) {
+              return (
+                <div key={entry.id} style={{ width: 'calc(50% - 6px)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 8px rgba(0,0,0,0.1)', border: '1px solid rgba(200,153,62,0.4)' }}>
+                  <div style={{ background: PROMPT_ACCENT, padding: '6px 9px 5px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 2 }}>
+                      <i className="ti ti-bulb" style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.9)' }} />
+                      <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>Prompt</span>
+                    </div>
+                    <p style={{
+                      fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 8, lineHeight: 1.3, color: '#fff', margin: 0,
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    }}>
+                      {entry.prompt}
+                    </p>
+                  </div>
+                  <div style={{ background: '#FFFDF8', padding: '8px 9px 7px' }}>
+                    <p style={{
+                      fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 9.5, lineHeight: 1.45, color: '#2C3828',
+                      margin: '0 0 6px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    }}>
+                      {entry.text}
+                    </p>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7.5, color: '#B8944A' }}>{nameLabel}</span>
+                      <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7.5, color: '#B8944A' }}>{dateLabel}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+
             const accent = entryKids[0]?.accent || NOTE_ACCENT_FALLBACK;
             const seed = String(entry.id).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
             const rotation = ((seed % 7) - 3) * 0.9;

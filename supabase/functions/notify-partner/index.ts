@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        from: 'Patina <onboarding@resend.dev>',
+        from: 'Patina <hello@patinafamily.com>',
         to: [partnerEmail],
         subject: `${authorName} wrote a new letter`,
         html,
