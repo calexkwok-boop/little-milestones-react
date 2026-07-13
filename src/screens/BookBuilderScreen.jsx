@@ -156,7 +156,15 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
           </div>
           {textEntries.length > 0 ? (
             <div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{textEntries.length} letter{textEntries.length !== 1 ? 's' : ''}</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
+                {(() => {
+                  const letterCount = textEntries.filter(e => e.type !== 'note').length;
+                  const noteCount = textEntries.filter(e => e.type === 'note').length;
+                  if (letterCount > 0 && noteCount > 0) return `${letterCount} letter${letterCount !== 1 ? 's' : ''} & ${noteCount} note${noteCount !== 1 ? 's' : ''}`;
+                  if (noteCount > 0) return `${noteCount} note${noteCount !== 1 ? 's' : ''}`;
+                  return `${letterCount} letter${letterCount !== 1 ? 's' : ''}`;
+                })()}
+              </p>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
                 {filteredEntries.length - textEntries.length > 0 ? `${filteredEntries.length - textEntries.length} photo-only excluded · ` : ''}Ready to preview
               </p>

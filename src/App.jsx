@@ -21,6 +21,14 @@ import {
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
 let _pendingCircleViewer = null;
 
+function hexToRgba(hex, alpha) {
+  const clean = (hex || '').replace('#', '');
+  const r = parseInt(clean.slice(0, 2), 16) || 0;
+  const g = parseInt(clean.slice(2, 4), 16) || 0;
+  const b = parseInt(clean.slice(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 class ScreenErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(e) { return { error: e }; }
@@ -845,6 +853,55 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
   );
 });
 
+const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPress }) {
+  const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
+  const accent = kid?.accent || KID_ACCENTS[0];
+  const tintBg = hexToRgba(accent, 0.13);
+  const tintBorder = hexToRgba(accent, 0.3);
+  const tintFold = hexToRgba(accent, 0.48);
+  const seed = String(entry.id).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const rotation = ((seed % 7) - 3) * 0.45;
+  const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
+
+  return (
+    <div
+      onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd}
+      style={{ position: 'relative', background: tintBg, border: `1px solid ${tintBorder}`, borderRadius: 13, padding: '15px 17px 13px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.07)', transform: `rotate(${rotation}deg)` }}
+    >
+      <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 15px 15px 0', borderColor: `transparent ${tintFold} transparent transparent`, borderRadius: '0 13px 0 0' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <i className="ti ti-notebook" style={{ fontSize: 12, color: accent }} />
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: accent }}>Note</span>
+      </div>
+      <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, color: 'var(--text)', margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
+        {entry.text}
+      </p>
+      {entry.media?.length > 0 && (
+        <div style={{ marginBottom: 12, display: 'flex', gap: 6, overflowX: 'auto' }}>
+          {entry.media.slice(0, 3).map((m, i) => (
+            <div key={i} style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+              {m.type === 'video'
+                ? <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
+                : <img src={cloudinaryTransform(m.url, 'w_120,h_120,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {entryKids.map(k => (
+          <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <KidThumb kid={k} size={18} />
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              {exactAgeLabel(k.birthdate, entry.date)} &middot; {dateLabel}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+});
+
 const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAgo, onClick, cropY = 50 }) {
   const cardH = 250;
   const photoRef = useRef(null);
@@ -1098,7 +1155,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
 
 
   const onThisDay = useMemo(() => entries
-    .filter(e => e.date.slice(5) === todayMMDD && parseInt(e.date.slice(0, 4)) < todayYear)
+    .filter(e => e.type !== 'note' && e.date.slice(5) === todayMMDD && parseInt(e.date.slice(0, 4)) < todayYear)
     .sort((a, b) => new Date(b.date) - new Date(a.date)),
   [entries, todayMMDD, todayYear]);
 
@@ -1173,7 +1230,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
 
   const letterCounts = useMemo(() => {
     const countMap = new Map(kids.map(k => [k.id, 0]));
-    for (const e of entries) for (const id of e.kids) if (countMap.has(id)) countMap.set(id, countMap.get(id) + 1);
+    for (const e of entries) if (e.type !== 'note') for (const id of e.kids) if (countMap.has(id)) countMap.set(id, countMap.get(id) + 1);
     return kids.map(k => ({ kid: k, count: countMap.get(k.id) ?? 0 }));
   }, [kids, entries]);
 
@@ -1186,7 +1243,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     if (onThisDay.length > 0) return null;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
-    const pool = entries.filter(e => new Date(e.date + 'T12:00:00') < cutoff);
+    const pool = entries.filter(e => e.type !== 'note' && new Date(e.date + 'T12:00:00') < cutoff);
     if (pool.length === 0) return null;
     // FNV-1a hash with good avalanche — consecutive slots pick different entries
     const score = (id) => {
@@ -1203,7 +1260,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     const kidItems = kids.map(kid => ({
       kid,
       items: entries
-        .filter(e => e.kids[0] === kid.id && e.media?.length > 0)
+        .filter(e => e.type !== 'note' && e.kids[0] === kid.id && e.media?.length > 0)
         .map(e => ({ entry: e, ageDays: (new Date(e.date + 'T12:00:00') - new Date(kid.birthdate + 'T12:00:00')) / 86400000 }))
         .filter(x => x.ageDays >= 0),
     })).filter(kd => kd.items.length > 0);
@@ -1446,10 +1503,12 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
 
           {recent.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <SectionDivider label="Recent letters" />
+              <SectionDivider label="Recent" />
               {recent.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
-                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />;
+                return entry.type === 'note'
+                  ? <NoteCard key={entry.id} entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />
+                  : <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />;
               })}
               {entries.length > 3 && (
                 <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-3)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
@@ -1464,7 +1523,9 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               <SectionDivider label="Recently added" />
               {recentlyAdded.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
-                return <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />;
+                return entry.type === 'note'
+                  ? <NoteCard key={entry.id} entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />
+                  : <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />;
               })}
             </div>
           )}
@@ -1804,6 +1865,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{nameLabel}</span>
               {entryKids.length === 1 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {exactAgeLabel(entryKids[0].birthdate, entry.date)}</span>}
               <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                {entry.type === 'note' && <i className="ti ti-notebook" style={{ fontSize: 11, color: 'var(--text-muted)' }} />}
                 {reactionCount?.likes > 0 && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#E05C6A', fontWeight: 600 }}>
                     <i className="ti ti-heart-filled" style={{ fontSize: 11 }} />
@@ -2030,6 +2092,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 // ─── Entry detail ────────────────────────────────────────────────────────
 
 function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, allPeople = [], friendKids = [], supabase, session, socialName = '' }) {
+  const isNote = entry.type === 'note';
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
@@ -2199,14 +2262,27 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           </div>
           {entry.song && <SongPlayer song={entry.song} />}
           {entry.voiceMemoUrl && <VoiceMemoPlayer url={entry.voiceMemoUrl} />}
-          <p style={{ fontSize: 17, color: 'var(--accent)', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
-            Dear {buildSalutation(entry, allKids)},
-          </p>
-          <p style={{ fontSize: 17, color: 'var(--text)', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: entry.text ? 'italic' : 'normal', whiteSpace: 'pre-wrap' }}>{entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim()}</p>
-          {entry.signedAs && (
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: 'var(--text-muted)', margin: 0, textAlign: 'right' }}>
-              Love, {entry.signedAs}
-            </p>
+          {isNote ? (
+            <div style={{ position: 'relative', background: hexToRgba(kid?.accent || KID_ACCENTS[0], 0.13), border: `1px solid ${hexToRgba(kid?.accent || KID_ACCENTS[0], 0.3)}`, borderRadius: 13, padding: '15px 17px 13px' }}>
+              <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 15px 15px 0', borderColor: `transparent ${hexToRgba(kid?.accent || KID_ACCENTS[0], 0.48)} transparent transparent`, borderRadius: '0 13px 0 0' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <i className="ti ti-notebook" style={{ fontSize: 12, color: kid?.accent || KID_ACCENTS[0] }} />
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: kid?.accent || KID_ACCENTS[0] }}>Note</span>
+              </div>
+              <p style={{ fontSize: 16, color: 'var(--text)', lineHeight: 1.7, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{entry.text}</p>
+            </div>
+          ) : (
+            <>
+              <p style={{ fontSize: 17, color: 'var(--accent)', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
+                Dear {buildSalutation(entry, allKids)},
+              </p>
+              <p style={{ fontSize: 17, color: 'var(--text)', lineHeight: 1.8, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: entry.text ? 'italic' : 'normal', whiteSpace: 'pre-wrap' }}>{entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim()}</p>
+              {entry.signedAs && (
+                <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: 'var(--text-muted)', margin: 0, textAlign: 'right' }}>
+                  Love, {entry.signedAs}
+                </p>
+              )}
+            </>
           )}
           {supabase && session && (
             <>
@@ -2291,8 +2367,8 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 20px' }} />
             {[
               { icon: 'ti-edit', label: 'Edit entry', action: () => { setShowActionSheet(false); onEdit(entry); } },
-              onToggleShared && { icon: isShared ? 'ti-lock' : 'ti-users', label: isShared ? 'Make private' : 'Share with friends', action: () => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, next); showToast(next ? 'Visible to friends' : 'Post is private'); setShowActionSheet(false); } },
-              { icon: 'ti-share', label: 'Share', action: () => { setShowActionSheet(false); handleShare(); } },
+              onToggleShared && { icon: isShared ? 'ti-lock' : 'ti-users', label: isShared ? 'Private' : 'Share', action: () => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, { partner: next, friends: next }); showToast(next ? 'Visible to friends' : 'Post is private'); setShowActionSheet(false); } },
+              { icon: 'ti-share', label: 'Send', action: () => { setShowActionSheet(false); handleShare(); } },
               { icon: 'ti-trash', label: 'Delete entry', action: () => { setShowActionSheet(false); setShowDeleteConfirm(true); }, danger: true },
             ].filter(Boolean).map(item => (
               <button key={item.label} onClick={item.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', color: item.danger ? '#D4856A' : 'var(--text)', fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 500 }}>
@@ -2452,7 +2528,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone }) {
+function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, mode: modeProp }) {
+  const mode = modeProp || existingEntry?.type || 'letter';
+  const isNote = mode === 'note';
   const [selectedKids, setSelectedKids] = useState(
     existingEntry ? existingEntry.kids : (initialKidIds?.length ? initialKidIds : (kids.length === 1 ? [kids[0].id] : []))
   );
@@ -2473,7 +2551,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [polishing, setPolishing] = useState(false);
-  const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? signedDefault ?? '');
+  const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? (isNote ? '' : signedDefault) ?? '');
   const [sharedWith, setSharedWith] = useState(existingEntry?.sharedWith || sharingDefaults);
   const [showSharePicker, setShowSharePicker] = useState(false);
   const [location, setLocation] = useState(existingEntry?.location || '');
@@ -2816,6 +2894,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
           : people,
         voiceMemoBlob,
         voiceMemoUrl,
+        type: mode,
       });
     } catch (err) {
       alert('Something went wrong saving your entry: ' + (err?.message || String(err)));
@@ -2830,8 +2909,13 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     <div className="screen" style={{ background: 'var(--bg-card)', position: 'relative' }}>
 
       {/* Top bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px', flexShrink: 0, position: 'relative' }}>
         <button className="icon-btn" onClick={onCancel}><i className="ti ti-x" /></button>
+        {isNote && (
+          <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', fontSize: 14, fontWeight: 700, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif" }}>
+            {existingEntry ? 'Edit note' : 'New note'}
+          </span>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {existingEntry && onDelete && (
             <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)} style={{ color: '#D4856A', borderColor: 'rgba(212,133,106,0.35)' }}>
@@ -2875,7 +2959,17 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         )}
 
 
-        {/* Kid avatar hero + greeting */}
+        {/* Kid picker + greeting/date */}
+        {isNote ? (
+          <div style={{ marginBottom: 20 }}>
+            <div className="scrollx" style={{ marginBottom: 4 }}>
+              {kids.map(k => (
+                <KidChip key={k.id} kid={k} active={selectedKids.includes(k.id)} onClick={() => setSelectedKids(prev => prev.includes(k.id) ? prev.filter(id => id !== k.id) : [...prev, k.id])} />
+              ))}
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", margin: '10px 2px 0' }}>Today &middot; {dateDisplay}</p>
+          </div>
+        ) : (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 24 }}>
           {selectedKids.length > 0 ? (
             <>
@@ -2920,6 +3014,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             </div>
           )}
         </div>
+        )}
 
         {/* Photo preview */}
         {mediaError && (
@@ -2957,6 +3052,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
 
 
         {/* Tap to speak */}
+        {!isNote && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
           <button
             onClick={toggleListening}
@@ -2976,13 +3072,20 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             </span>
           </button>
         </div>
+        )}
 
         {/* Writing area */}
         <textarea
+          autoFocus={isNote}
           value={text}
           onChange={e => setText(e.target.value)}
-          placeholder="You did the most surprising thing today. I never want you to forget what it felt like to be there…"
-          style={{
+          placeholder={isNote ? 'What just happened?' : 'You did the most surprising thing today. I never want you to forget what it felt like to be there…'}
+          style={isNote ? {
+            width: '100%', border: '1px solid rgba(74,94,80,0.16)', outline: 'none', resize: 'none',
+            background: 'rgba(74,94,80,0.06)', borderRadius: 14, fontFamily: "'Source Serif 4', serif",
+            fontStyle: 'italic', fontSize: 17, lineHeight: 1.75, color: 'var(--text)',
+            minHeight: '30vh', padding: 16,
+          } : {
             width: '100%', border: 'none', outline: 'none', resize: 'none',
             background: 'transparent', fontFamily: "'Source Serif 4', serif",
             fontStyle: 'italic', fontSize: 17, lineHeight: 1.85, color: 'var(--text)',
@@ -2992,7 +3095,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
 
 
         {/* Sign-off */}
-        {signedDefault && (
+        {!isNote && signedDefault && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 16 }}>
             <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: 'var(--text-muted)' }}>Love,</span>
             <input
@@ -3005,9 +3108,11 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         )}
 
         {/* Location row */}
+        {!isNote && (
         <div style={{ marginTop: 10 }}>
           <LocationInput value={location} onChange={v => { setLocation(v); if (!v) setLocationCoords(null); }} onChangeCoords={(lat, lng) => setLocationCoords(lat != null ? { lat, lng } : null)} placeholder="Add location" compact />
         </div>
+        )}
 
         {/* Fullscreen photo preview */}
         {previewMedia && (
@@ -3023,7 +3128,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         )}
 
         {/* Extras: mood + milestone */}
-        {showExtras && (
+        {!isNote && showExtras && (
           <div style={{ marginTop: 28, paddingTop: 20, borderTop: '1px solid #D4E4D0', display: 'flex', flexDirection: 'column', gap: 24 }}>
 
             <div>
@@ -3200,7 +3305,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       </div>
 
       {/* Bottom toolbar */}
-      <div style={{ flexShrink: 0, borderTop: '1px solid var(--border-light)', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'space-evenly', padding: '6px 8px', paddingBottom: 'max(6px, env(safe-area-inset-bottom))' }}>
+      <div style={{ flexShrink: 0, borderTop: '1px solid var(--border-light)', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: isNote ? 'flex-start' : 'space-evenly', gap: isNote ? 8 : 0, padding: isNote ? '6px 12px' : '6px 8px', paddingBottom: `max(6px, env(safe-area-inset-bottom))` }}>
         {/* Camera */}
         <div style={{ position: 'relative' }}>
           {showMediaMenu && (
@@ -3221,6 +3326,11 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             <i className="ti ti-camera" />
           </button>
         </div>
+        {isNote && (
+          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>Add a photo &mdash; optional</span>
+        )}
+        {!isNote && (
+        <>
         {/* Mic */}
         <button onClick={toggleListening} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: listening ? '#F0897A' : 'var(--text-muted)', fontSize: 22, borderRadius: 10, animation: listening ? 'mic-pulse 1.5s ease-in-out infinite' : 'none' }}>
           <i className="ti ti-microphone" />
@@ -3242,13 +3352,15 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         <button onClick={() => setShowSharePicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, color: Object.values(sharedWith).some(Boolean) ? 'var(--accent)' : 'var(--text-muted)', borderRadius: 10 }}>
           <i className={`ti ${Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'}`} style={{ fontSize: 18 }} />
           <span style={{ fontSize: 9, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.2, lineHeight: 1 }}>
-            {sharedWith.partner && sharedWith.friends ? 'All' : sharedWith.partner ? 'Partner' : 'Private'}
+            {Object.values(sharedWith).some(Boolean) ? 'All' : 'Private'}
           </span>
         </button>
         {/* More */}
         <button onClick={() => setShowExtras(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showExtras ? 'var(--accent)' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
           <i className="ti ti-dots" />
         </button>
+        </>
+        )}
       </div>
 
       {/* Song picker sheet */}
@@ -3357,10 +3469,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 14px' }}>Who can see this?</p>
             {[
               { icon: 'ti-lock', label: 'Private', sub: 'Only you', value: { partner: false, friends: false } },
-              { icon: 'ti-heart', label: 'Partner', sub: 'Just your family', value: { partner: true, friends: false } },
               { icon: 'ti-world', label: 'All', sub: 'Your friends and family', value: { partner: true, friends: true } },
             ].map(opt => {
-              const active = opt.value.partner === sharedWith.partner && opt.value.friends === sharedWith.friends;
+              const active = opt.value.partner === Object.values(sharedWith).some(Boolean);
               return (
                 <div key={opt.label} onClick={() => { setSharedWith(opt.value); setShowSharePicker(false); }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: active ? 'var(--accent)' : 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.15s' }}>
@@ -5830,7 +5941,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
   );
 }
 
-const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl }) {
+const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) {
   const { pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', group: ['home'] },
@@ -5867,7 +5978,7 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl }) {
             </button>
           ))}
           <div className="nv-add-wrap">
-            <button className="nv-add" onClick={() => onNavigate('new-entry')}><i className="ti ti-plus" /></button>
+            <button className="nv-add" onClick={onAdd ?? (() => onNavigate('new-entry'))}><i className="ti ti-plus" /></button>
           </div>
           {tabsRight.map(tab => (
             <button key={tab.id} className="nv-tab" style={tabStyle(tab)} onClick={() => onNavigate(tab.id)}>
@@ -6770,6 +6881,7 @@ function normalizeEntry(e) {
     userId: e.user_id || null,
     kids: e.kid_ids,
     date: e.date,
+    type: e.type || 'letter',
     text: e.text || '',
     mood: e.mood,
     milestone: e.milestone,
@@ -6838,6 +6950,8 @@ export default function App() {
   const [circleGroupMounted, setCircleGroupMounted] = useState(false);
   const [keepsakesGroupMounted, setKeepsakesGroupMounted] = useState(false);
   const [newEntryInitial, setNewEntryInitial] = useState(null);
+  const [composeMode, setComposeMode] = useState('letter');
+  const [showComposePicker, setShowComposePicker] = useState(false);
   const [birthdaySlideshow, setBirthdaySlideshow] = useState(null);
   const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
@@ -7130,7 +7244,7 @@ export default function App() {
               const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
               const [{ data: fKids }, { data: fEntries }] = await Promise.all([
                 supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, family_id').in('family_id', friendFamilyIds),
-                supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }),
+                supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }),
               ]);
               setFriendKids((fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id, familyId: k.family_id })));
               setFriendEntries((fEntries || []).filter(e => e.shared !== false).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
@@ -7598,7 +7712,7 @@ export default function App() {
     const promises = [supabase.from('entries').select('*, entry_media(*)').eq('family_id', familyId).order('date', { ascending: false })];
     if (friendFamilyIds.length > 0) {
       const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-      promises.push(supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }));
+      promises.push(supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }));
     }
     const [{ data }, friendResult] = await Promise.all(promises);
     if (data) {
@@ -7632,7 +7746,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter' }) {
     const shared = Object.values(sharedWith).some(Boolean);
     const primaryKid = kids.find(k => kidIds.includes(k.id)) ?? friendKids.find(k => kidIds.includes(k.id));
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
@@ -7680,11 +7794,11 @@ export default function App() {
     // ── UPDATE existing entry ──
     if (entryId) {
       if (localMode || !supabase || !session) {
-        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media } : e));
+        setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media, type: entryType } : e));
         setScreen('home');
         return;
       }
-      const { error: updateError } = await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null, people: people || [], shared, shared_with: sharedWith, voice_memo_url: voiceMemoUrlFinal }).eq('id', entryId);
+      const { error: updateError } = await supabase.from('entries').update({ kid_ids: kidIds, text: text || '', mood, milestone, date, age_months: ageMonths, signed_as: signedAs || null, location: location || null, location_lat: locationLat ?? null, location_lng: locationLng ?? null, song: song || null, people: people || [], shared, shared_with: sharedWith, voice_memo_url: voiceMemoUrlFinal, type: entryType }).eq('id', entryId);
       if (updateError) {
         alert('Could not save your changes. Please try again.\n' + updateError.message);
         return;
@@ -7692,7 +7806,7 @@ export default function App() {
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
       setScreen('home');
       const { saved, failed } = await prepareAndUpload(media, fileObjects, entryId);
-      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: saved, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal } : e));
+      setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds, text: text || '', mood, milestone, date, ageMonths, media: saved, signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, type: entryType } : e));
       if (failed) alert(`Media upload failed (${failed.err}) — your text was saved. Please try again.`);
       return;
     }
@@ -7705,6 +7819,7 @@ export default function App() {
         id: Date.now(),
         kids: kidIds,
         date,
+        type: entryType,
         createdAt: new Date().toISOString(),
         text: text || '',
         mood,
@@ -7743,6 +7858,7 @@ export default function App() {
       shared,
       shared_with: sharedWith,
       voice_memo_url: voiceMemoUrlFinal,
+      type: entryType,
     }).select().single();
 
     if (error || !entry) {
@@ -7751,7 +7867,7 @@ export default function App() {
     }
 
     // Optimistically show entry and navigate away immediately
-    const optimisticEntry = { id: entry.id, kids: kidIds, date, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal };
+    const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal };
     setEntries(prev => [optimisticEntry, ...prev]);
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone, entry: optimisticEntry });
@@ -8337,7 +8453,7 @@ export default function App() {
             setKidFilter={setKidFilter}
             onOpenEntry={openEntry}
             onSearch={() => setScreen('search')}
-            onAddMoment={() => setScreen('new-entry')}
+            onAddMoment={() => { setComposeMode('letter'); setScreen('new-entry'); }}
             onSeeAll={() => { setJournalBackScreen('home'); setScreen('journal'); }}
             onCompare={() => setScreen('compare')}
             onUpdateCrop={handleUpdateCrop}
@@ -8363,6 +8479,7 @@ export default function App() {
             onAvatarUpload={handleAvatarUpload}
             onBirthdayNextWeekClick={(kid, age) => {
               setNewEntryInitial({ kidIds: [kid.id], milestone: 'custom', customMilestone: `${ordinal(age)} Birthday` });
+              setComposeMode('letter');
               setScreen('new-entry');
             }}
             onBirthdayTodayClick={kid => setBirthdaySlideshow(kid)}
@@ -8401,7 +8518,7 @@ export default function App() {
           kidFilter={kidFilter}
           setKidFilter={setKidFilter}
           onOpenEntry={openEntry}
-          onNewEntry={() => setScreen('new-entry')}
+          onNewEntry={() => { setComposeMode('letter'); setScreen('new-entry'); }}
           memberCount={familyMembers.length}
           scrollPos={journalScrollPos}
           onRefresh={handleRefresh}
@@ -8435,7 +8552,7 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} friendKids={friendKids} onCancel={() => { setScreen('home'); setNewEntryInitial(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${session.user.id}` : 'patina-new-draft')} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
+        <NewEntryScreen kids={kids} friendKids={friendKids} mode={composeMode} onCancel={() => { setScreen('home'); setNewEntryInitial(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
@@ -8662,9 +8779,31 @@ export default function App() {
       )}
 
       {screen !== 'entry-detail' && screen !== 'new-entry' && screen !== 'edit-entry' && screen !== 'growth' && screen !== 'book-builder' && screen !== 'book-preview' && (
-        <NavBar active={screen} onNavigate={handleNavigate} myAvatarUrl={familyMembers.find(m => m.user_id === session?.user?.id)?.avatar_url} />
+        <NavBar active={screen} onNavigate={handleNavigate} myAvatarUrl={familyMembers.find(m => m.user_id === session?.user?.id)?.avatar_url} onAdd={() => setShowComposePicker(true)} />
       )}
-      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={handleNavigate} myAvatarUrl={familyMembers.find(m => m.user_id === session?.user?.id)?.avatar_url} />}
+      {(screen === 'growth' || screen === 'book-builder') && <NavBar active="profile" onNavigate={handleNavigate} myAvatarUrl={familyMembers.find(m => m.user_id === session?.user?.id)?.avatar_url} onAdd={() => setShowComposePicker(true)} />}
+
+      {showComposePicker && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.4)', zIndex: 30, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowComposePicker(false)}>
+          <div className="quick-sheet" style={{ background: 'var(--bg)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 20px 36px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
+            {[
+              { icon: 'ti-mail', label: 'Write a letter', sub: 'For moments worth writing home about', mode: 'letter' },
+              { icon: 'ti-notebook', label: 'Quick note', sub: 'For the funny, fleeting, and forever', mode: 'note' },
+            ].map(opt => (
+              <div key={opt.mode} onClick={() => { setComposeMode(opt.mode); setShowComposePicker(false); setScreen('new-entry'); }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: opt.mode === 'letter' ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(74,94,80,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <i className={`ti ${opt.icon}`} style={{ fontSize: 18, color: 'var(--accent)' }} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{opt.label}</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{opt.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {birthdaySlideshow && (
         <Suspense fallback={<div className="screen" />}>

@@ -9,13 +9,21 @@ function CroppedPhoto({ src, cropY = 50, height = 200 }) {
   );
 }
 
+function hexToRgba(hex, alpha) {
+  const clean = (hex || '').replace('#', '');
+  const r = parseInt(clean.slice(0, 2), 16) || 0;
+  const g = parseInt(clean.slice(2, 4), 16) || 0;
+  const b = parseInt(clean.slice(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function letterFontSize(charCount, hasPhoto) {
   if (hasPhoto) return charCount < 300 ? 11.5 : charCount < 500 ? 10.5 : 9;
   return charCount < 600 ? 11.5 : charCount < 950 ? 10.5 : charCount < 1250 ? 9.5 : 9;
 }
 
 function charsPerPage(fontSize, hasPhoto) {
-  return Math.round((hasPhoto ? 700 : 1900) * (9 / fontSize));
+  return Math.round((hasPhoto ? 580 : 1900) * (9 / fontSize));
 }
 
 function breakAt(text, max) {
@@ -58,7 +66,7 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const photo = !isContinued && entry.media?.length > 0 && entry.media[0].type !== 'video' ? entry.media[0] : null;
   const cropY = entry.cropY ?? 50;
-  const photoHeight = 176;
+  const photoHeight = 220;
   return (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {photo && <CroppedPhoto src={cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto')} cropY={cropY} height={photoHeight} />}
@@ -92,33 +100,117 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
   );
 }
 
+const NOTES_PER_PAGE = 6;
+
+const NOTE_ACCENT_FALLBACK = '#8AA98C';
+
+function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
+  const monthLabel = new Date(monthKey + '-01T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  return (
+    <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, padding: '18px 20px 12px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, fontWeight: 700, color: '#B8C8B4', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 12px' }}>
+          Notes &middot; {monthLabel}{isContinued ? ' — cont\'d' : ''}
+        </p>
+        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexWrap: 'wrap', alignContent: 'flex-start', gap: 12, padding: '4px 2px' }}>
+          {notes.map((entry, i) => {
+            const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
+            const nameLabel = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
+            const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const accent = entryKids[0]?.accent || NOTE_ACCENT_FALLBACK;
+            const seed = String(entry.id).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+            const rotation = ((seed % 7) - 3) * 0.9;
+            return (
+              <div
+                key={entry.id}
+                style={{
+                  position: 'relative',
+                  width: 'calc(50% - 6px)',
+                  background: hexToRgba(accent, 0.16),
+                  border: `1px solid ${hexToRgba(accent, 0.32)}`,
+                  borderRadius: 8,
+                  padding: '10px 11px 8px',
+                  boxShadow: '0 3px 8px rgba(0,0,0,0.1)',
+                  transform: `rotate(${rotation}deg)`,
+                }}
+              >
+                <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 10px 10px 0', borderColor: `transparent ${hexToRgba(accent, 0.5)} transparent transparent`, borderRadius: '0 8px 0 0' }} />
+                <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 8, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: hexToRgba(accent, 0.9) }}>{nameLabel}</span>
+                <p style={{
+                  fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 9.5, lineHeight: 1.45, color: '#2C3828',
+                  margin: '4px 0 6px', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                }}>
+                  {entry.text}
+                </p>
+                <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7.5, color: hexToRgba(accent, 0.75), display: 'block', textAlign: 'right' }}>{dateLabel}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+          {hasMore && (
+            <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#B8C8B4', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>continued &rarr;</p>
+          )}
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#B8C8B4', margin: 0, textAlign: 'center' }}>Patina</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUserId, onNotifyMe, userEmail }) {
   const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
   const sorted = [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1);
 
-  // Build pages array with chapter dividers inserted at year boundaries
+  const letterEntries = useMemo(() => sorted.filter(e => e.type !== 'note'), [sorted]);
+  const totalLetters = letterEntries.length;
+
+  // Build pages array with chapter dividers inserted at year boundaries.
+  // Notes are too short for their own page — they're compiled one page per month,
+  // interleaved chronologically with Letters (sorted by the 1st of that month).
   const { contentPages, yearTOC } = useMemo(() => {
+    const notesByMonth = new Map();
+    sorted.filter(e => e.type === 'note').forEach(entry => {
+      const key = entry.date.slice(0, 7);
+      if (!notesByMonth.has(key)) notesByMonth.set(key, []);
+      notesByMonth.get(key).push(entry);
+    });
+
+    const items = letterEntries.map(entry => ({ sortDate: entry.date, kind: 'letter', entry }));
+    notesByMonth.forEach((notes, monthKey) => {
+      items.push({ sortDate: `${monthKey}-01`, kind: 'notes', monthKey, notes });
+    });
+    items.sort((a, b) => a.sortDate < b.sortDate ? -1 : a.sortDate > b.sortDate ? 1 : (a.kind === 'notes' ? -1 : 1));
+
     const pages = [];
     const toc = []; // [{ year, pageIndex }]  pageIndex = index within contentPages
     let currentYear = null;
     let letterNum = 0;
-    sorted.forEach(entry => {
-      const year = entry.date.slice(0, 4);
+    items.forEach(item => {
+      const year = item.sortDate.slice(0, 4);
       if (year !== currentYear) {
         currentYear = year;
         toc.push({ year, pageIndex: pages.length });
         pages.push({ type: 'chapter', year });
       }
-      const hasPhoto = entry.media?.length > 0 && entry.media[0].type !== 'video';
-      const fs = letterFontSize((entry.text || '').length, hasPhoto);
-      const chunks = splitLetterText(entry.text || '', fs, hasPhoto);
-      const thisNum = letterNum++;
-      chunks.forEach((chunk, i) => {
-        pages.push({ type: 'letter', entry, pageText: chunk, letterNum: thisNum, isContinued: i > 0, hasMore: i < chunks.length - 1, fontSize: fs });
-      });
+      if (item.kind === 'letter') {
+        const entry = item.entry;
+        const hasPhoto = entry.media?.length > 0 && entry.media[0].type !== 'video';
+        const fs = letterFontSize((entry.text || '').length, hasPhoto);
+        const chunks = splitLetterText(entry.text || '', fs, hasPhoto);
+        const thisNum = letterNum++;
+        chunks.forEach((chunk, i) => {
+          pages.push({ type: 'letter', entry, pageText: chunk, letterNum: thisNum, isContinued: i > 0, hasMore: i < chunks.length - 1, fontSize: fs });
+        });
+      } else {
+        for (let i = 0; i < item.notes.length; i += NOTES_PER_PAGE) {
+          const slice = item.notes.slice(i, i + NOTES_PER_PAGE);
+          pages.push({ type: 'notes', monthKey: item.monthKey, notes: slice, isContinued: i > 0, hasMore: i + NOTES_PER_PAGE < item.notes.length });
+        }
+      }
     });
     return { contentPages: pages, yearTOC: toc };
-  }, [sorted]);
+  }, [sorted, letterEntries]);
 
   // page 0 = cover, page 1 = TOC, pages 2..N = content, last = back cover
   const totalPages = contentPages.length + 3;
@@ -130,8 +222,8 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
   const [waitlistDone, setWaitlistDone] = useState(false);
 
-  function goNext() { pageDir.current = 1;  setPage(p => Math.min(p + 1, totalPages - 1)); }
-  function goPrev() { pageDir.current = -1; setPage(p => Math.max(p - 1, 0)); }
+  function goNext() { pageDir.current = 1;  setPage(p => p >= totalPages - 1 ? 0 : p + 1); }
+  function goPrev() { pageDir.current = -1; setPage(p => p <= 0 ? totalPages - 1 : p - 1); }
 
   function handleSwipeStart(e) {
     const t = e.touches[0];
@@ -244,10 +336,10 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
         <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.1) 100%)', pointerEvents: 'none' }} />
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%' }}>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: 'rgba(255,255,255,0.85)', margin: 0 }}>Patina</p>
+          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: '#C8993E', margin: 0 }}>Patina</p>
           <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.9, textAlign: 'center' }}>
-            Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet attempt to slow down time—a gift for you to one day hold, and an anchor for us to inhabit today.
+            Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet, perilous attempt to slow down time. A gift for you to one day hold, and an anchor for us to inhabit today.
           </p>
           <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
         </div>
@@ -265,7 +357,8 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
     const content = contentPages[page - 2];
     if (!content) return null;
     if (content.type === 'chapter') return renderChapterPage(content.year);
-    return <LetterPage entry={content.entry} pageText={content.pageText} index={content.letterNum} sortedLength={sorted.length} kids={kids} isContinued={content.isContinued} hasMore={content.hasMore} fontSize={content.fontSize} />;
+    if (content.type === 'notes') return <NotesPage notes={content.notes} monthKey={content.monthKey} kids={kids} isContinued={content.isContinued} hasMore={content.hasMore} />;
+    return <LetterPage entry={content.entry} pageText={content.pageText} index={content.letterNum} sortedLength={totalLetters} kids={kids} isContinued={content.isContinued} hasMore={content.hasMore} fontSize={content.fontSize} />;
   };
 
   const pageLabel = (() => {
@@ -275,7 +368,8 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
     const content = contentPages[page - 2];
     if (!content) return '';
     if (content.type === 'chapter') return content.year;
-    return `Letter ${content.letterNum + 1} of ${sorted.length}`;
+    if (content.type === 'notes') return `Notes · ${new Date(content.monthKey + '-01T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+    return `Letter ${content.letterNum + 1} of ${totalLetters}`;
   })();
 
   return (
