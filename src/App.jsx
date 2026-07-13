@@ -2491,15 +2491,6 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     !!(existingEntry?.mood || existingEntry?.milestone || existingEntry?.song || existingEntry?.people?.length || existingEntry?.voiceMemoUrl || initialMilestone)
   );
   const [showKidPicker, setShowKidPicker] = useState(false);
-  const [kidPickerSearch, setKidPickerSearch] = useState('');
-  const kidPickerFiltered = useMemo(() => {
-    const q = kidPickerSearch.toLowerCase();
-    return {
-      own: kids.filter(k => !q || k.name.toLowerCase().includes(q)),
-      friends: friendKids.filter(k => !q || k.name.toLowerCase().includes(q)),
-      hasQuery: q.length > 0,
-    };
-  }, [kidPickerSearch, kids, friendKids]);
   const [showMediaMenu, setShowMediaMenu] = useState(false);
   const [editingDate, setEditingDate] = useState(false);
   const [editMonth, setEditMonth] = useState('');
@@ -2890,7 +2881,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             <>
               <div
                 style={{ display: 'flex', justifyContent: 'center', cursor: 'pointer' }}
-                onClick={() => { setShowKidPicker(true); setKidPickerSearch(''); }}
+                onClick={() => { setShowKidPicker(true);}}
               >
                 {selectedKids.map((id, i) => {
                   const k = kids.find(kid => kid.id === id) ?? friendKids.find(kid => kid.id === id);
@@ -2917,7 +2908,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             </>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <button onClick={() => { setShowKidPicker(true); setKidPickerSearch(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: 'var(--border)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={() => { setShowKidPicker(true);}} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: 'var(--border)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                 Who is this for?
                 <i className="ti ti-chevron-down" style={{ fontSize: 13 }} />
               </button>
@@ -3178,16 +3169,28 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                     placeholder={people.length === 0 ? 'Add a name…' : '+'}
                     style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 16, color: 'var(--text)', fontFamily: 'Inter, sans-serif', width: peopleInput ? `${Math.max(peopleInput.length + 2, 4)}ch` : people.length === 0 ? '12ch' : '3ch', minWidth: '2ch' }}
                   />
-                  {peopleInput.trim().length > 0 && allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).length > 0 && (
-                    <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 150 }}>
-                      {allPeople.filter(p => p.toLowerCase().includes(peopleInput.toLowerCase()) && !people.includes(p)).slice(0, 5).map(p => (
-                        <button key={p} onMouseDown={e => { e.preventDefault(); setPeople(prev => [...prev, p]); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                          <i className="ti ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
-                          {p}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  {peopleInput.trim().length > 0 && (() => {
+                    const q = peopleInput.toLowerCase();
+                    const kidSuggestions = friendKids.filter(k => k.name.toLowerCase().includes(q) && !selectedKids.includes(k.id));
+                    const peopleSuggestions = allPeople.filter(p => p.toLowerCase().includes(q) && !people.includes(p)).slice(0, 5);
+                    if (kidSuggestions.length === 0 && peopleSuggestions.length === 0) return null;
+                    return (
+                      <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', zIndex: 10, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', minWidth: 150 }}>
+                        {kidSuggestions.map(k => (
+                          <button key={k.id} onMouseDown={e => { e.preventDefault(); setSelectedKids(prev => [...prev, k.id]); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                            <KidThumb kid={k} size={20} />
+                            {k.name}
+                          </button>
+                        ))}
+                        {peopleSuggestions.map(p => (
+                          <button key={p} onMouseDown={e => { e.preventDefault(); setPeople(prev => [...prev, p]); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                            <i className="ti ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -3378,18 +3381,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       {showKidPicker && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, padding: '0 16px' }} onClick={() => setShowKidPicker(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 12px' }}>Who's in this entry?</p>
-            {friendKids.length > 0 && (
-              <input
-                autoFocus
-                placeholder="Search by name…"
-                style={{ width: '100%', boxSizing: 'border-box', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', padding: '6px 0 10px', fontSize: 14, color: 'var(--text)', fontFamily: 'Inter, sans-serif', outline: 'none', marginBottom: 4 }}
-                value={kidPickerSearch ?? ''}
-                onChange={e => setKidPickerSearch(e.target.value)}
-              />
-            )}
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 12px' }}>Who's this for?</p>
             <>
-              {kidPickerFiltered.own.map(k => {
+              {kids.map(k => {
                 const selected = selectedKids.includes(k.id);
                 return (
                   <div key={k.id} onClick={() => setSelectedKids(prev => selected ? prev.filter(id => id !== k.id) : [...prev, k.id])} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
@@ -3401,25 +3395,8 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                   </div>
                 );
               })}
-              {kidPickerFiltered.friends.length > 0 && (
-                <>
-                  {!kidPickerFiltered.hasQuery && <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', margin: '16px 0 8px', fontFamily: 'Inter, sans-serif' }}>Friends' kids</p>}
-                  {kidPickerFiltered.friends.map(k => {
-                    const selected = selectedKids.includes(k.id);
-                    return (
-                      <div key={k.id} onClick={() => setSelectedKids(prev => selected ? prev.filter(id => id !== k.id) : [...prev, k.id])} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
-                        <KidThumb kid={k} size={36} />
-                        <span style={{ fontSize: 16, color: 'var(--text)', fontWeight: 600 }}>{k.name}</span>
-                        <div style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: '50%', border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          {selected && <i className="ti ti-check" style={{ color: '#fff', fontSize: 12 }} />}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </>
-              )}
             </>
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} onClick={() => { setShowKidPicker(false); setKidPickerSearch(''); }}>Done</button>
+            <button className="btn btn-primary" style={{ width: '100%', marginTop: 20 }} onClick={() => setShowKidPicker(false)}>Done</button>
           </div>
         </div>
       )}
@@ -4450,7 +4427,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Keepsakes</h2>
+              <h2 onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center', cursor: 'pointer' }}>Keepsakes</h2>
               {hasAny ? (
                 <button className="icon-btn" onClick={() => { if (showSearch) setQuery(''); setShowSearch(s => !s); }}>
                   <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
