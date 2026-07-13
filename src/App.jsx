@@ -916,7 +916,7 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPr
         <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', height: 140 }}>
           {entry.media[0].type === 'video'
             ? <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-            : <img src={cloudinaryTransform(entry.media[0].url, 'w_500,h_280,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
+            : <img src={cloudinaryTransform(entry.media[0].url, 'w_500,h_280,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />}
         </div>
       )}
       {entry.media?.length > 1 && (
@@ -925,7 +925,7 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPr
             <div key={i} style={{ width: 110, height: 110, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
               {m.type === 'video'
                 ? <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-                : <img src={cloudinaryTransform(m.url, 'w_240,h_240,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
+                : <img src={cloudinaryTransform(m.url, 'w_240,h_240,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />}
             </div>
           ))}
         </div>
@@ -972,7 +972,7 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, onClick, onLo
           <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', height: 140 }}>
             {entry.media[0].type === 'video'
               ? <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-              : <img src={cloudinaryTransform(entry.media[0].url, 'w_500,h_280,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
+              : <img src={cloudinaryTransform(entry.media[0].url, 'w_500,h_280,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />}
           </div>
         )}
         {entry.media?.length > 1 && (
@@ -981,7 +981,7 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, onClick, onLo
               <div key={i} style={{ width: 110, height: 110, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
                 {m.type === 'video'
                   ? <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-                  : <img src={cloudinaryTransform(m.url, 'w_240,h_240,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
+                  : <img src={cloudinaryTransform(m.url, 'w_240,h_240,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />}
               </div>
             ))}
           </div>
@@ -1381,6 +1381,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   const birthdayTodayIds = useMemo(() => new Set(birthdayToday.map(k => k.id)), [birthdayToday]);
   const birthdayNextWeek = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 7 && !birthdayTodayIds.has(k.id)), [kids, birthdayTodayIds]);
   const friendBirthdaysToday = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [friendKids]);
+  const friendBirthdayNextWeek = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 7), [friendKids]);
 
   const onceUponATime = useMemo(() => {
     if (onThisDay.length > 0) return null;
@@ -1582,6 +1583,36 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
                   Write something special for the occasion
                 </p>
+              </div>
+              <button onClick={e => { e.stopPropagation(); dismissBirthday(k.id, turningAge(k.birthdate)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, flexShrink: 0, lineHeight: 1 }}>
+                <i className="ti ti-x" />
+              </button>
+            </div>
+          ))}
+
+          {friendBirthdayNextWeek.filter(k => !dismissedBdays[`${k.id}-${turningAge(k.birthdate)}`]).map(k => (
+            <div
+              key={k.id}
+              onClick={() => k.wishlistUrl && window.open(k.wishlistUrl, '_blank', 'noopener,noreferrer')}
+              style={{ background: 'var(--bg-nav)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: k.wishlistUrl ? 'pointer' : 'default', position: 'relative' }}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(200,153,62,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <i className="ti ti-cake" style={{ fontSize: 20, color: '#C8993E' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', margin: '0 0 2px' }}>
+                  {k.name}'s birthday is in one week!
+                </p>
+                {k.wishlistUrl ? (
+                  <p style={{ fontSize: 12, color: '#C8993E', margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <i className="ti ti-brand-amazon" style={{ fontSize: 13 }} />
+                    View gift ideas on Amazon
+                  </p>
+                ) : (
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+                    No wishlist shared yet
+                  </p>
+                )}
               </div>
               <button onClick={e => { e.stopPropagation(); dismissBirthday(k.id, turningAge(k.birthdate)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, flexShrink: 0, lineHeight: 1 }}>
                 <i className="ti ti-x" />
@@ -3560,7 +3591,13 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
           </button>
         </div>
         {isNote && (
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>Add a photo &mdash; optional</span>
+          <>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>Add a photo &mdash; optional</span>
+            <button onClick={() => setShowSharePicker(true)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px', borderRadius: 10, color: Object.values(sharedWith).some(Boolean) ? 'var(--accent)' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, fontFamily: "'Urbanist', sans-serif" }}>
+              <i className={`ti ${Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'}`} style={{ fontSize: 15 }} />
+              {Object.values(sharedWith).some(Boolean) ? 'Share' : 'Private'}
+            </button>
+          </>
         )}
         {!isNote && (
         <>
@@ -4951,7 +4988,7 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, sharingDefaults = { partner: true, family: false, friends: false }, onToggleSharingDefault, onShowPrivacy, onShowTerms }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, sharingDefaults = { partner: true, family: false, friends: false }, onToggleSharingDefault, onShowPrivacy, onShowTerms }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -4969,6 +5006,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   const [editingKid, setEditingKid] = useState(null);
   const [kidNameInput, setKidNameInput] = useState('');
   const [kidSexInput, setKidSexInput] = useState(null);
+  const [kidWishlistInput, setKidWishlistInput] = useState('');
   const [addingKid, setAddingKid] = useState(false);
   const [newName, setNewName] = useState('');
   const [newBdMonth, setNewBdMonth] = useState('');
@@ -5077,7 +5115,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 </div>
                 <p
                   style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)', margin: '0 0 2px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-                  onClick={() => { setEditingKid(k); setKidNameInput(k.name); setKidSexInput(k.sex ?? null); }}
+                  onClick={() => { setEditingKid(k); setKidNameInput(k.name); setKidSexInput(k.sex ?? null); setKidWishlistInput(k.wishlistUrl || ''); }}
                 >
                   {k.name} <i className="ti ti-pencil" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
                 </p>
@@ -5312,11 +5350,20 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                     <button key={val} onClick={() => setKidSexInput(kidSexInput === val ? null : val)} style={{ flex: 1, border: `1px solid ${kidSexInput === val ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 10, padding: '11px 0', fontSize: 14, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", background: kidSexInput === val ? 'var(--accent)' : 'var(--bg-input)', color: kidSexInput === val ? '#fff' : 'var(--text-2)', cursor: 'pointer' }}>{label}</button>
                   ))}
                 </div>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>Amazon wishlist <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(optional — shown to friends near their birthday)</span></p>
+                <input
+                  className="input-field"
+                  type="url"
+                  value={kidWishlistInput}
+                  onChange={e => setKidWishlistInput(e.target.value)}
+                  placeholder="https://www.amazon.com/hz/wishlist/ls/..."
+                  style={{ marginBottom: 20, fontSize: 14 }}
+                />
                 <button
                   className="btn btn-primary"
                   style={{ width: '100%', opacity: kidNameInput.trim() ? 1 : 0.4 }}
                   disabled={!kidNameInput.trim()}
-                  onClick={() => { onRenameKid(editingKid.id, kidNameInput.trim()); onUpdateKidSex?.(editingKid.id, kidSexInput); setEditingKid(null); }}
+                  onClick={() => { onRenameKid(editingKid.id, kidNameInput.trim()); onUpdateKidSex?.(editingKid.id, kidSexInput); onUpdateKidWishlist?.(editingKid.id, kidWishlistInput.trim() || null); setEditingKid(null); }}
                 >
                   Save
                 </button>
@@ -7288,7 +7335,7 @@ export default function App() {
             supabase.from('kids').select('*').eq('user_id', friendUserId),
             supabase.from('entries').select('*, entry_media(*)').eq('user_id', friendUserId).eq('shared', true).order('date', { ascending: false }),
           ]);
-          setFriendKids(prev => { const ids = new Set(prev.map(k => k.id)); return [...prev, ...(fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id })).filter(k => !ids.has(k.id))]; });
+          setFriendKids(prev => { const ids = new Set(prev.map(k => k.id)); return [...prev, ...(fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id, wishlistUrl: k.wishlist_url || null })).filter(k => !ids.has(k.id))]; });
           setFriendEntries(prev => { const ids = new Set(prev.map(e => e.id)); return [...prev, ...(fEntries || []).map(normalizeEntry).filter(e => !ids.has(e.id))]; });
         } catch (_) {}
       } catch (_) {
@@ -7365,8 +7412,8 @@ export default function App() {
         ? supabase.from('entries').select('*, entry_media(*)').eq('family_id', currentFamilyId).order('date', { ascending: false })
         : supabase.from('entries').select('*, entry_media(*)').eq('user_id', session.user.id).order('date', { ascending: false });
       const kidsQ = currentFamilyId
-        ? supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id').eq('family_id', currentFamilyId).order('created_at')
-        : supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id').eq('user_id', session.user.id).order('created_at');
+        ? supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url').eq('family_id', currentFamilyId).order('created_at')
+        : supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url').eq('user_id', session.user.id).order('created_at');
       const [{ data: kidsData, error: kidsError }, { data: entriesData, error: entriesError }] = await Promise.all([
         kidsQ,
         entriesQ,
@@ -7411,7 +7458,7 @@ export default function App() {
       }
 
       if (kidsData) {
-        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [] })));
+        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null })));
         setProfileKidId(kidsData[0]?.id ?? null);
       }
       if (entriesData) {
@@ -7484,10 +7531,10 @@ export default function App() {
             if (friendFamilyIds.length > 0) {
               const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
               const [{ data: fKids }, { data: fEntries }] = await Promise.all([
-                supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, family_id').in('family_id', friendFamilyIds),
+                supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, family_id, wishlist_url').in('family_id', friendFamilyIds),
                 supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, prompt, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }),
               ]);
-              setFriendKids((fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id, familyId: k.family_id })));
+              setFriendKids((fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id, familyId: k.family_id, wishlistUrl: k.wishlist_url || null })));
               setFriendEntries((fEntries || []).filter(e => e.shared !== false).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
             }
           }
@@ -8243,10 +8290,10 @@ export default function App() {
     if (existingMemberships?.length > 0) {
       const existingFamilyId = existingMemberships[0].family_id;
       setFamilyId(existingFamilyId);
-      const { data: kidsData } = await supabase.from('kids').select('id, name, birthdate, accent, avatar_url, sex, growth_log').eq('family_id', existingFamilyId).order('created_at');
+      const { data: kidsData } = await supabase.from('kids').select('id, name, birthdate, accent, avatar_url, sex, growth_log, wishlist_url').eq('family_id', existingFamilyId).order('created_at');
       if (kidsData?.length > 0) {
         // Already have kids — just load them
-        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [] })));
+        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null })));
         setProfileKidId(kidsData[0]?.id ?? null);
         setPostOnboardInvite(true);
         return { success: true, familyId: existingFamilyId };
@@ -8349,12 +8396,12 @@ export default function App() {
     setFamilyId(invite.family_id);
     setMyDisplayName(displayName);
     const [{ data: kidsData }, { data: entriesData }, { data: membersData }] = await Promise.all([
-      supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id').eq('family_id', invite.family_id).order('created_at'),
+      supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url').eq('family_id', invite.family_id).order('created_at'),
       supabase.from('entries').select('*, entry_media(*)').eq('family_id', invite.family_id).order('date', { ascending: false }),
       supabase.from('family_members').select('id, user_id, family_id, display_name, avatar_url').eq('family_id', invite.family_id),
     ]);
     if (kidsData) {
-      setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [] })));
+      setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null })));
       setProfileKidId(kidsData[0]?.id ?? null);
     }
     if (entriesData) {
@@ -8400,6 +8447,12 @@ export default function App() {
     setKids(prev => prev.map(k => k.id === kidId ? { ...k, sex } : k));
     if (localMode || !supabase || !session) return;
     await supabase.from('kids').update({ sex }).eq('id', kidId);
+  }
+
+  async function handleUpdateKidWishlist(kidId, wishlistUrl) {
+    setKids(prev => prev.map(k => k.id === kidId ? { ...k, wishlistUrl } : k));
+    if (localMode || !supabase || !session) return;
+    await supabase.from('kids').update({ wishlist_url: wishlistUrl }).eq('id', kidId);
   }
 
   async function handleAddKid({ name, birthdate, sex }) {
@@ -8943,6 +8996,7 @@ export default function App() {
           onAddKid={handleAddKid}
           onRenameKid={handleRenameKid}
           onUpdateKidSex={handleUpdateKidSex}
+          onUpdateKidWishlist={handleUpdateKidWishlist}
           onFamilyAvatarUpload={handleFamilyAvatarUpload}
           avatarUploading={avatarUploading}
           currentUserId={session?.user?.id}
