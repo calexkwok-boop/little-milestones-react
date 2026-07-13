@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { cloudinaryTransform } from '../constants.js';
 
 function CroppedPhoto({ src, cropY = 50, height = 200 }) {
@@ -22,10 +22,6 @@ function letterFontSize(charCount, hasPhoto) {
   return charCount < 600 ? 11.5 : charCount < 950 ? 10.5 : charCount < 1250 ? 9.5 : 9;
 }
 
-function charsPerPage(fontSize, hasPhoto) {
-  return Math.round((hasPhoto ? 580 : 1900) * (9 / fontSize));
-}
-
 function breakAt(text, max) {
   if (text.length <= max) return text;
   let i = max;
@@ -42,21 +38,54 @@ function breakAt(text, max) {
   return text.slice(0, i);
 }
 
-function splitLetterText(text, fontSize, hasPhoto) {
-  if (!text) return [''];
-  const firstCap = charsPerPage(fontSize, hasPhoto);
-  const contCap = charsPerPage(fontSize, false);
-  if (text.length <= firstCap) return [text];
-  const chunks = [];
-  const first = breakAt(text, firstCap);
-  chunks.push(first);
-  let rest = text.slice(first.length).trimStart();
-  while (rest.length > 0) {
-    if (rest.length <= contCap) { chunks.push(rest); break; }
-    const chunk = breakAt(rest, contCap);
-    chunks.push(chunk);
-    rest = rest.slice(chunk.length).trimStart();
+// Measures actual rendered height of `text` at `fontSize`/`width` using a hidden,
+// off-screen clone of the letter-page paragraph — so pagination fits real layout
+// instead of guessing from a character count (which drifts whenever font, width,
+// or photo height changes, and silently clips since the container is overflow:hidden).
+function measureTextHeight(el, text, fontSize, width) {
+  el.style.width = width + 'px';
+  el.style.fontSize = fontSize + 'px';
+  el.textContent = text;
+  return el.scrollHeight;
+}
+
+function splitTextToFit(text, el, fontSize, width, maxHeight) {
+  if (!text) return ['', ''];
+  if (measureTextHeight(el, text, fontSize, width) <= maxHeight) return [text, ''];
+  let lo = 1, hi = text.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    if (measureTextHeight(el, text.slice(0, mid), fontSize, width) <= maxHeight) lo = mid;
+    else hi = mid - 1;
   }
+  const snapped = breakAt(text, lo) || text.slice(0, Math.max(1, lo));
+  return [snapped, text.slice(snapped.length).trimStart()];
+}
+
+// Fixed chrome heights around the letter body — small, predictable single-line
+// elements, unlike the body paragraph which is why that part gets measured instead.
+const LETTER_TOP_PAD = 18, LETTER_BOTTOM_PAD = 12, LETTER_DATE_H = 21, LETTER_DEAR_H = 25, LETTER_SIGNED_H = 23, LETTER_FOOTER_H = 35;
+const LETTER_PHOTO_H = 220;
+const LETTER_SIDE_PAD = 48; // 24px left + right
+
+function splitLetterToPages(entry, el, fontSize, pageWidth) {
+  const text = entry.text || '';
+  const hasPhoto = entry.media?.length > 0 && entry.media[0].type !== 'video';
+  const textWidth = pageWidth - LETTER_SIDE_PAD;
+  const pageHeight = pageWidth * 4 / 3;
+  const chunks = [];
+  let rest = text;
+  let isFirst = true;
+  do {
+    const photoH = isFirst && hasPhoto ? LETTER_PHOTO_H : 0;
+    const dearH = isFirst ? LETTER_DEAR_H : 0;
+    const signedH = entry.signedAs ? LETTER_SIGNED_H : 0; // reserved on every page, since we don't know the last chunk yet
+    const available = pageHeight - photoH - LETTER_TOP_PAD - LETTER_BOTTOM_PAD - LETTER_DATE_H - dearH - signedH - LETTER_FOOTER_H;
+    const [chunk, remainder] = splitTextToFit(rest, el, fontSize, textWidth, Math.max(available, 60));
+    chunks.push(chunk);
+    rest = remainder;
+    isFirst = false;
+  } while (rest.length > 0);
   return chunks;
 }
 
@@ -100,7 +129,7 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
   );
 }
 
-const NOTES_PER_PAGE = 6;
+const NOTES_PAGE_BUDGET = 480;
 
 const NOTE_ACCENT_FALLBACK = '#8AA98C';
 const PROMPT_ACCENT = '#C8993E';
@@ -120,9 +149,11 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
             const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             const isPrompt = !!entry.prompt;
 
+            const photo = entry.media?.find(m => m.type !== 'video');
+
             if (isPrompt) {
               return (
-                <div key={entry.id} style={{ width: 'calc(50% - 6px)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 8px rgba(0,0,0,0.1)', border: '1px solid rgba(200,153,62,0.4)' }}>
+                <div key={entry.id} style={{ width: photo ? '100%' : 'calc(50% - 6px)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 8px rgba(0,0,0,0.1)', border: '1px solid rgba(200,153,62,0.4)' }}>
                   <div style={{ background: PROMPT_ACCENT, padding: '6px 9px 5px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 2 }}>
                       <i className="ti ti-bulb" style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.9)' }} />
@@ -135,16 +166,23 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
                       {entry.prompt}
                     </p>
                   </div>
-                  <div style={{ background: '#FFFDF8', padding: '8px 9px 7px' }}>
-                    <p style={{
-                      fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 9.5, lineHeight: 1.45, color: '#2C3828',
-                      margin: '0 0 6px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    }}>
-                      {entry.text}
-                    </p>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7.5, color: '#B8944A' }}>{nameLabel}</span>
-                      <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7.5, color: '#B8944A' }}>{dateLabel}</span>
+                  <div style={{ background: '#FFFDF8', padding: '8px 9px 7px', display: photo ? 'flex' : 'block', gap: 9 }}>
+                    {photo && (
+                      <div style={{ width: 66, height: 66, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
+                        <img src={cloudinaryTransform(photo.url, 'w_140,h_140,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{
+                        fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 9.5, lineHeight: 1.45, color: '#2C3828',
+                        margin: '0 0 6px', whiteSpace: 'pre-wrap',
+                      }}>
+                        {entry.text}
+                      </p>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7.5, color: '#B8944A' }}>{nameLabel}</span>
+                        <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7.5, color: '#B8944A' }}>{dateLabel}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -153,30 +191,39 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
 
             const accent = entryKids[0]?.accent || NOTE_ACCENT_FALLBACK;
             const seed = String(entry.id).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-            const rotation = ((seed % 7) - 3) * 0.9;
+            const rotation = photo ? 0 : ((seed % 7) - 3) * 0.9;
             return (
               <div
                 key={entry.id}
                 style={{
                   position: 'relative',
-                  width: 'calc(50% - 6px)',
+                  width: photo ? '100%' : 'calc(50% - 6px)',
                   background: hexToRgba(accent, 0.16),
                   border: `1px solid ${hexToRgba(accent, 0.32)}`,
                   borderRadius: 8,
                   padding: '10px 11px 8px',
                   boxShadow: '0 3px 8px rgba(0,0,0,0.1)',
                   transform: `rotate(${rotation}deg)`,
+                  display: photo ? 'flex' : 'block',
+                  gap: 9,
                 }}
               >
                 <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 10px 10px 0', borderColor: `transparent ${hexToRgba(accent, 0.5)} transparent transparent`, borderRadius: '0 8px 0 0' }} />
+                {photo && (
+                  <div style={{ width: 66, height: 66, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
+                    <img src={cloudinaryTransform(photo.url, 'w_140,h_140,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                  </div>
+                )}
+                <div style={{ flex: photo ? 1 : undefined, minWidth: 0 }}>
                 <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 8, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: hexToRgba(accent, 0.9) }}>{nameLabel}</span>
                 <p style={{
                   fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 9.5, lineHeight: 1.45, color: '#2C3828',
-                  margin: '4px 0 6px', display: '-webkit-box', WebkitLineClamp: 5, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                  margin: '4px 0 6px', whiteSpace: 'pre-wrap',
                 }}>
                   {entry.text}
                 </p>
                 <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7.5, color: hexToRgba(accent, 0.75), display: 'block', textAlign: 'right' }}>{dateLabel}</span>
+                </div>
               </div>
             );
           })}
@@ -194,61 +241,98 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
 
 function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUserId, onNotifyMe, userEmail }) {
   const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
-  const sorted = [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1);
+  const sorted = useMemo(() => [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1), [bookEntries]);
 
   const letterEntries = useMemo(() => sorted.filter(e => e.type !== 'note'), [sorted]);
   const totalLetters = letterEntries.length;
 
+  const stageRef = useRef(null);
+  const measureRef = useRef(null);
+  const [contentPages, setContentPages] = useState([]);
+  const [yearTOC, setYearTOC] = useState([]);
+  const [page, setPage] = useState(0);
+
   // Build pages array with chapter dividers inserted at year boundaries.
   // Notes are too short for their own page — they're compiled one page per month,
   // interleaved chronologically with Letters (sorted by the 1st of that month).
-  const { contentPages, yearTOC } = useMemo(() => {
-    const notesByMonth = new Map();
-    sorted.filter(e => e.type === 'note').forEach(entry => {
-      const key = entry.date.slice(0, 7);
-      if (!notesByMonth.has(key)) notesByMonth.set(key, []);
-      notesByMonth.get(key).push(entry);
-    });
+  // Letter text is paginated by actually measuring it against the live page's DOM
+  // width via the hidden `measureRef` node, rather than a character-count guess —
+  // the guess drifts whenever font size, page width, or photo height changes, and
+  // silently clips since the page container is overflow:hidden.
+  useLayoutEffect(() => {
+    function build() {
+      const pageWidth = stageRef.current?.getBoundingClientRect().width;
+      if (!pageWidth || !measureRef.current) return;
+      const el = measureRef.current;
 
-    const items = letterEntries.map(entry => ({ sortDate: entry.date, kind: 'letter', entry }));
-    notesByMonth.forEach((notes, monthKey) => {
-      items.push({ sortDate: `${monthKey}-01`, kind: 'notes', monthKey, notes });
-    });
-    items.sort((a, b) => a.sortDate < b.sortDate ? -1 : a.sortDate > b.sortDate ? 1 : (a.kind === 'notes' ? -1 : 1));
+      const notesByMonth = new Map();
+      sorted.filter(e => e.type === 'note').forEach(entry => {
+        const key = entry.date.slice(0, 7);
+        if (!notesByMonth.has(key)) notesByMonth.set(key, []);
+        notesByMonth.get(key).push(entry);
+      });
 
-    const pages = [];
-    const toc = []; // [{ year, pageIndex }]  pageIndex = index within contentPages
-    let currentYear = null;
-    let letterNum = 0;
-    items.forEach(item => {
-      const year = item.sortDate.slice(0, 4);
-      if (year !== currentYear) {
-        currentYear = year;
-        toc.push({ year, pageIndex: pages.length });
-        pages.push({ type: 'chapter', year });
-      }
-      if (item.kind === 'letter') {
-        const entry = item.entry;
-        const hasPhoto = entry.media?.length > 0 && entry.media[0].type !== 'video';
-        const fs = letterFontSize((entry.text || '').length, hasPhoto);
-        const chunks = splitLetterText(entry.text || '', fs, hasPhoto);
-        const thisNum = letterNum++;
-        chunks.forEach((chunk, i) => {
-          pages.push({ type: 'letter', entry, pageText: chunk, letterNum: thisNum, isContinued: i > 0, hasMore: i < chunks.length - 1, fontSize: fs });
-        });
-      } else {
-        for (let i = 0; i < item.notes.length; i += NOTES_PER_PAGE) {
-          const slice = item.notes.slice(i, i + NOTES_PER_PAGE);
-          pages.push({ type: 'notes', monthKey: item.monthKey, notes: slice, isContinued: i > 0, hasMore: i + NOTES_PER_PAGE < item.notes.length });
+      const items = letterEntries.map(entry => ({ sortDate: entry.date, kind: 'letter', entry }));
+      notesByMonth.forEach((notes, monthKey) => {
+        items.push({ sortDate: `${monthKey}-01`, kind: 'notes', monthKey, notes });
+      });
+      items.sort((a, b) => a.sortDate < b.sortDate ? -1 : a.sortDate > b.sortDate ? 1 : (a.kind === 'notes' ? -1 : 1));
+
+      const pages = [];
+      const toc = []; // [{ year, pageIndex }]  pageIndex = index within contentPages
+      let currentYear = null;
+      let letterNum = 0;
+      items.forEach(item => {
+        const year = item.sortDate.slice(0, 4);
+        if (year !== currentYear) {
+          currentYear = year;
+          toc.push({ year, pageIndex: pages.length });
+          pages.push({ type: 'chapter', year });
         }
-      }
-    });
-    return { contentPages: pages, yearTOC: toc };
+        if (item.kind === 'letter') {
+          const entry = item.entry;
+          const hasPhoto = entry.media?.length > 0 && entry.media[0].type !== 'video';
+          const fs = letterFontSize((entry.text || '').length, hasPhoto);
+          const chunks = splitLetterToPages(entry, el, fs, pageWidth);
+          const thisNum = letterNum++;
+          chunks.forEach((chunk, i) => {
+            pages.push({ type: 'letter', entry, pageText: chunk, letterNum: thisNum, isContinued: i > 0, hasMore: i < chunks.length - 1, fontSize: fs });
+          });
+        } else {
+          // Notes render at their natural height (no text clamping), so pack a page by an
+          // estimated content budget rather than a flat item count — entries that don't fit
+          // spill onto a continuation page instead of getting visually cut off.
+          let chunk = [];
+          let weight = 0;
+          let chunkStart = 0;
+          item.notes.forEach((note, idx) => {
+            const hasPhoto = note.media?.some(m => m.type !== 'video');
+            const cost = (hasPhoto ? 90 : 45) + (note.prompt ? 35 : 0) + (note.text || '').length;
+            if (weight + cost > NOTES_PAGE_BUDGET && chunk.length > 0) {
+              pages.push({ type: 'notes', monthKey: item.monthKey, notes: chunk, isContinued: chunkStart > 0, hasMore: true });
+              chunk = [];
+              weight = 0;
+              chunkStart = idx;
+            }
+            chunk.push(note);
+            weight += cost;
+          });
+          if (chunk.length > 0) {
+            pages.push({ type: 'notes', monthKey: item.monthKey, notes: chunk, isContinued: chunkStart > 0, hasMore: false });
+          }
+        }
+      });
+      setContentPages(pages);
+      setYearTOC(toc);
+      setPage(p => Math.min(p, pages.length + 2));
+    }
+    build();
+    window.addEventListener('resize', build);
+    return () => window.removeEventListener('resize', build);
   }, [sorted, letterEntries]);
 
   // page 0 = cover, page 1 = TOC, pages 2..N = content, last = back cover
   const totalPages = contentPages.length + 3;
-  const [page, setPage] = useState(0);
   const swipeStart = useRef(null);
   const pageDir = useRef(1);
   const [showWaitlist, setShowWaitlist] = useState(false);
@@ -416,11 +500,20 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
 
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 20px', minHeight: 0 }}
         onTouchStart={handleSwipeStart} onTouchEnd={handleSwipeEnd}>
-        <div style={{ width: '100%', aspectRatio: '3/4', borderRadius: 6, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.6), 4px 0 0 rgba(0,0,0,0.3)', maxHeight: '100%' }}>
+        <div ref={stageRef} style={{ width: '100%', aspectRatio: '3/4', borderRadius: 6, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.6), 4px 0 0 rgba(0,0,0,0.3)', maxHeight: '100%' }}>
           <div key={page} className={pageDir.current > 0 ? 'page-enter-right' : 'page-enter-left'} style={{ width: '100%', height: '100%' }}>
             {renderPage()}
           </div>
         </div>
+        <div
+          ref={measureRef}
+          aria-hidden="true"
+          style={{
+            position: 'fixed', top: 0, left: -9999, visibility: 'hidden', pointerEvents: 'none',
+            fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', lineHeight: 1.72,
+            whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0,
+          }}
+        />
       </div>
 
       <div style={{ padding: '16px 20px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>

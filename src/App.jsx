@@ -39,6 +39,17 @@ const NOTE_PROMPTS = [
   'What question did they ask on repeat today?',
   "What's a nickname or inside joke from today?",
   'What did they do today that reminded you of yourself?',
+  "What's a fear or worry they shared with you?",
+  'What did they do for someone else today?',
+  "What did their body do today that amazed you — a new skill, a growth spurt, a wobble?",
+  'What song or sound have they had on repeat lately?',
+  "What could they do today that they couldn't a year ago?",
+  "What did they do today that showed who they're becoming?",
+  'What did they smell, sound, or feel like today that you want to remember?',
+  'What calmed them down today, and how?',
+  "What's the strangest thing they believed to be true today?",
+  'What are you grateful for about them right now?',
+  'What do you hope they remember about today?',
 ];
 let _pendingCircleViewer = null;
 
@@ -886,6 +897,7 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPr
   const rotation = ((seed % 7) - 3) * 0.45;
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
+  const preview = entry.text.length > 200 ? entry.text.slice(0, 200) + '…' : entry.text;
 
   return (
     <div
@@ -898,15 +910,22 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPr
         <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: accent }}>Note</span>
       </div>
       <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, color: 'var(--text)', margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
-        {entry.text}
+        {preview}
       </p>
-      {entry.media?.length > 0 && (
-        <div style={{ marginBottom: 12, display: 'flex', gap: 6, overflowX: 'auto' }}>
+      {entry.media?.length === 1 && (
+        <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', height: 140 }}>
+          {entry.media[0].type === 'video'
+            ? <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
+            : <img src={cloudinaryTransform(entry.media[0].url, 'w_500,h_280,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
+        </div>
+      )}
+      {entry.media?.length > 1 && (
+        <div style={{ marginBottom: 12, display: 'flex', gap: 8, overflowX: 'auto' }}>
           {entry.media.slice(0, 3).map((m, i) => (
-            <div key={i} style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+            <div key={i} style={{ width: 110, height: 110, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
               {m.type === 'video'
                 ? <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-                : <img src={cloudinaryTransform(m.url, 'w_120,h_120,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
+                : <img src={cloudinaryTransform(m.url, 'w_240,h_240,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
             </div>
           ))}
         </div>
@@ -929,6 +948,7 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, onClick, onLo
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
+  const preview = entry.text.length > 200 ? entry.text.slice(0, 200) + '…' : entry.text;
 
   return (
     <div
@@ -946,15 +966,22 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, onClick, onLo
       </div>
       <div style={{ padding: '14px 17px 13px' }}>
         <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, color: 'var(--text)', margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
-          {entry.text}
+          {preview}
         </p>
-        {entry.media?.length > 0 && (
-          <div style={{ marginBottom: 12, display: 'flex', gap: 6, overflowX: 'auto' }}>
+        {entry.media?.length === 1 && (
+          <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', height: 140 }}>
+            {entry.media[0].type === 'video'
+              ? <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
+              : <img src={cloudinaryTransform(entry.media[0].url, 'w_500,h_280,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
+          </div>
+        )}
+        {entry.media?.length > 1 && (
+          <div style={{ marginBottom: 12, display: 'flex', gap: 8, overflowX: 'auto' }}>
             {entry.media.slice(0, 3).map((m, i) => (
-              <div key={i} style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', flexShrink: 0 }}>
+              <div key={i} style={{ width: 110, height: 110, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
                 {m.type === 'video'
                   ? <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-                  : <img src={cloudinaryTransform(m.url, 'w_120,h_120,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
+                  : <img src={cloudinaryTransform(m.url, 'w_240,h_240,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
               </div>
             ))}
           </div>
