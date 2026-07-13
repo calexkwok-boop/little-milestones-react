@@ -62,9 +62,12 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
 
   function entryMatchesSearch(e) {
     const q = searchQuery.trim().toLowerCase();
+    if (q === 'note' || q === 'notes') return e.type === 'note' && !e.prompt;
+    if (q === 'prompt' || q === 'prompts') return e.type === 'note' && !!e.prompt;
     const m = e.milestone ? milestoneInfo(e.milestone) : null;
     const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
     return (e.text || '').toLowerCase().includes(q)
+      || (e.prompt || '').toLowerCase().includes(q)
       || (m && m.label.toLowerCase().includes(q))
       || e.location?.toLowerCase().includes(q)
       || (e.people || []).some(p => p.toLowerCase().includes(q))

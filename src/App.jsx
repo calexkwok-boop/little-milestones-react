@@ -1068,6 +1068,12 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
   );
 });
 
+function EntryCard({ entry, kid, allKids, onClick, onLongPress, featured, cropY }) {
+  if (entry.type === 'note' && entry.prompt) return <PromptCard entry={entry} kid={kid} allKids={allKids} onClick={onClick} onLongPress={onLongPress} />;
+  if (entry.type === 'note') return <NoteCard entry={entry} kid={kid} allKids={allKids} onClick={onClick} onLongPress={onLongPress} />;
+  return <LetterCard entry={entry} kid={kid} allKids={allKids} featured={featured} onClick={onClick} cropY={cropY ?? 50} onLongPress={onLongPress} />;
+}
+
 function SectionDivider({ label }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1140,7 +1146,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick }) {
+function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt }) {
   const { entries, kids } = useData() ?? {};
   const { unseenPartnerIds = [], reactionCounts = {}, pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
   const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
@@ -1254,7 +1260,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
 
 
   const onThisDay = useMemo(() => entries
-    .filter(e => e.type !== 'note' && e.date.slice(5) === todayMMDD && parseInt(e.date.slice(0, 4)) < todayYear)
+    .filter(e => e.date.slice(5) === todayMMDD && parseInt(e.date.slice(0, 4)) < todayYear)
     .sort((a, b) => new Date(b.date) - new Date(a.date)),
   [entries, todayMMDD, todayYear]);
 
@@ -1333,6 +1339,44 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     return kids.map(k => ({ kid: k, count: countMap.get(k.id) ?? 0 }));
   }, [kids, entries]);
 
+  const noteCounts = useMemo(() => {
+    const countMap = new Map(kids.map(k => [k.id, 0]));
+    for (const e of entries) if (e.type === 'note') for (const id of e.kids) if (countMap.has(id)) countMap.set(id, countMap.get(id) + 1);
+    return kids.map(k => ({ kid: k, count: countMap.get(k.id) ?? 0 }));
+  }, [kids, entries]);
+
+  // Nudge toward whichever kid has gone quietest lately (by recency of their last
+  // entry, not lifetime volume — an older kid naturally has more entries but isn't
+  // necessarily "more written about right now"). Only shows once someone's actually
+  // overdue, and never repeats a prompt already answered for that specific kid.
+  const promptOfDay = useMemo(() => {
+    if (kids.length === 0) return null;
+    const now = Date.now();
+    const gaps = kids.map(kid => {
+      const kidEntries = entries.filter(e => e.kids.includes(kid.id));
+      const lastActivity = kidEntries.reduce((max, e) => Math.max(max, entryAddedTime(e)), 0);
+      const days = lastActivity ? (now - lastActivity) / 86400000 : Infinity;
+      return { kid, days };
+    }).sort((a, b) => b.days - a.days);
+    const target = gaps[0];
+    if (!target || target.days < 5) return null;
+
+    const usedPrompts = new Set(
+      entries.filter(e => e.type === 'note' && e.prompt && e.kids.includes(target.kid.id)).map(e => e.prompt)
+    );
+    const available = NOTE_PROMPTS.filter(p => !usedPrompts.has(p));
+    const pool = available.length > 0 ? available : NOTE_PROMPTS;
+    const seed = `${todayString()}-${target.kid.id}`.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    return { kid: target.kid, prompt: pool[seed % pool.length], pool };
+  }, [kids, entries]);
+
+  const [rerolledPrompt, setRerolledPrompt] = useState(null);
+  const displayedPrompt = rerolledPrompt || promptOfDay?.prompt;
+
+  const [promptDismissed, setPromptDismissed] = useState(() => {
+    try { return localStorage.getItem('patina-prompt-of-day-dismissed') === todayString(); } catch { return false; }
+  });
+
   const birthdayToday = useMemo(() => kids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [kids]);
   const birthdayTodayIds = useMemo(() => new Set(birthdayToday.map(k => k.id)), [birthdayToday]);
   const birthdayNextWeek = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 7 && !birthdayTodayIds.has(k.id)), [kids, birthdayTodayIds]);
@@ -1342,7 +1386,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     if (onThisDay.length > 0) return null;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
-    const pool = entries.filter(e => e.type !== 'note' && new Date(e.date + 'T12:00:00') < cutoff);
+    const pool = entries.filter(e => new Date(e.date + 'T12:00:00') < cutoff);
     if (pool.length === 0) return null;
     // FNV-1a hash with good avalanche — consecutive slots pick different entries
     const score = (id) => {
@@ -1359,7 +1403,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     const kidItems = kids.map(kid => ({
       kid,
       items: entries
-        .filter(e => e.type !== 'note' && e.kids[0] === kid.id && e.media?.length > 0)
+        .filter(e => e.kids[0] === kid.id && e.media?.length > 0)
         .map(e => ({ entry: e, ageDays: (new Date(e.date + 'T12:00:00') - new Date(kid.birthdate + 'T12:00:00')) / 86400000 }))
         .filter(x => x.ageDays >= 0),
     })).filter(kd => kd.items.length > 0);
@@ -1549,8 +1593,54 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
             const entry = onThisDay[0];
             const kid = kidMap.get(entry.kids[0]);
             const yearsAgo = todayYear - parseInt(entry.date.slice(0, 4));
+            if (entry.type === 'note') {
+              const yearLabel = yearsAgo === 1 ? 'One year ago today' : `${yearsAgo} years ago today`;
+              return (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                    <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{yearLabel}</span>
+                    <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                  </div>
+                  {entry.prompt
+                    ? <PromptCard entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />
+                    : <NoteCard entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />}
+                </div>
+              );
+            }
             return <OnThisDayCard entry={entry} kid={kid} allKids={kids} yearsAgo={yearsAgo} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} />;
           })()}
+
+          {promptOfDay && !promptDismissed && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px' }}>
+              <div
+                onClick={() => onStartPrompt?.(displayedPrompt, promptOfDay.kid.id)}
+                style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
+              >
+                <i className="ti ti-bulb" style={{ fontSize: 14, color: '#C8993E', flexShrink: 0 }} />
+                <p style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--text-2)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
+                  {displayedPrompt}
+                </p>
+                {kids.length > 1 && <KidThumb kid={promptOfDay.kid} size={18} />}
+              </div>
+              <button
+                onClick={() => {
+                  const rest = promptOfDay.pool.filter(p => p !== displayedPrompt);
+                  const options = rest.length > 0 ? rest : promptOfDay.pool;
+                  setRerolledPrompt(options[Math.floor(Math.random() * options.length)]);
+                }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', flexShrink: 0 }}
+              >
+                <i className="ti ti-refresh" style={{ fontSize: 13 }} />
+              </button>
+              <button
+                onClick={() => { setPromptDismissed(true); try { localStorage.setItem('patina-prompt-of-day-dismissed', todayString()); } catch {} }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', flexShrink: 0 }}
+              >
+                <i className="ti ti-x" style={{ fontSize: 13 }} />
+              </button>
+            </div>
+          )}
 
           {onceUponATime && (() => {
             const entry = onceUponATime;
@@ -1562,7 +1652,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Once upon a time</span>
                   <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                 </div>
-                <LetterCard entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />
+                <EntryCard entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY} onLongPress={handleLongPress} />
               </div>
             );
           })()}
@@ -1579,14 +1669,14 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               {sameAgeGroup.length === 2 ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {sameAgeGroup.map(({ entry, kid }) => (
-                    <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={false} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />
+                    <EntryCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={false} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY} onLongPress={handleLongPress} />
                   ))}
                 </div>
               ) : (
                 <div className="scrollx">
                   {sameAgeGroup.map(({ entry, kid }) => (
                     <div key={entry.id} style={{ minWidth: '72%', flexShrink: 0 }}>
-                      <LetterCard entry={entry} kid={kid} allKids={kids} featured={false} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />
+                      <EntryCard entry={entry} kid={kid} allKids={kids} featured={false} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY} onLongPress={handleLongPress} />
                     </div>
                   ))}
                 </div>
@@ -1605,10 +1695,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               <SectionDivider label="Recent" />
               {recent.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
-                if (entry.type === 'note' && entry.prompt) return <PromptCard key={entry.id} entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />;
-                return entry.type === 'note'
-                  ? <NoteCard key={entry.id} entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />
-                  : <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />;
+                return <EntryCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY} onLongPress={handleLongPress} />;
               })}
               {entries.length > 3 && (
                 <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-3)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
@@ -1623,24 +1710,32 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               <SectionDivider label="Recently added" />
               {recentlyAdded.map(entry => {
                 const kid = kidMap.get(entry.kids[0]);
-                if (entry.type === 'note' && entry.prompt) return <PromptCard key={entry.id} entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />;
-                return entry.type === 'note'
-                  ? <NoteCard key={entry.id} entry={entry} kid={kid} allKids={kids} onClick={() => handleOpenEntry(entry)} onLongPress={handleLongPress} />
-                  : <LetterCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} onLongPress={handleLongPress} />;
+                return <EntryCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY} onLongPress={handleLongPress} />;
               })}
             </div>
           )}
 
           <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {letterCounts.map(({ kid, count }) => (
-              <div key={kid.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <KidThumb kid={kid} size={26} />
-                <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>
-                  <strong>{count}</strong>
-                  <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', color: 'var(--text-3)' }}> letter{count !== 1 ? 's' : ''} to {kid.name}</span>
-                </p>
-              </div>
-            ))}
+            {letterCounts.map(({ kid, count }) => {
+              const noteCount = noteCounts.find(nc => nc.kid.id === kid.id)?.count ?? 0;
+              return (
+                <div key={kid.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <KidThumb kid={kid} size={26} />
+                  <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>
+                    <strong>{count}</strong>
+                    <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', color: 'var(--text-3)' }}> letter{count !== 1 ? 's' : ''}</span>
+                    {noteCount > 0 && (
+                      <>
+                        <span style={{ color: 'var(--text-muted)' }}> &middot; </span>
+                        <strong>{noteCount}</strong>
+                        <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', color: 'var(--text-3)' }}> note{noteCount !== 1 ? 's' : ''}</span>
+                      </>
+                    )}
+                    <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', color: 'var(--text-3)' }}> to {kid.name}</span>
+                  </p>
+                </div>
+              );
+            })}
           </div>
 
 
@@ -2028,7 +2123,10 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
       .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
       .filter(e => {
         if (!q) return true;
+        if (q === 'note' || q === 'notes') return e.type === 'note' && !e.prompt;
+        if (q === 'prompt' || q === 'prompts') return e.type === 'note' && !!e.prompt;
         if ((e.text || '').toLowerCase().includes(q)) return true;
+        if ((e.prompt || '').toLowerCase().includes(q)) return true;
         const [y, m] = (e.date || '').split('-');
         if (y && m) {
           const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).toLowerCase();
@@ -4141,9 +4239,12 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
   }
 
   function entryMatchesSearch(e) {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.trim().toLowerCase();
+    if (q === 'note' || q === 'notes') return e.type === 'note' && !e.prompt;
+    if (q === 'prompt' || q === 'prompts') return e.type === 'note' && !!e.prompt;
     const m = e.milestone ? milestoneInfo(e.milestone) : null;
     return (e.text || '').toLowerCase().includes(q)
+      || (e.prompt || '').toLowerCase().includes(q)
       || (m && m.label.toLowerCase().includes(q))
       || e.location?.toLowerCase().includes(q)
       || (e.people || []).some(p => p.toLowerCase().includes(q));
@@ -4630,9 +4731,12 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
   function matchesQuery(e) {
     if (!query.trim()) return true;
     const q = query.trim().toLowerCase();
+    if (q === 'note' || q === 'notes') return e.type === 'note' && !e.prompt;
+    if (q === 'prompt' || q === 'prompts') return e.type === 'note' && !!e.prompt;
     const m = e.milestone ? milestoneInfo(e.milestone) : null;
     const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
     return (e.text || '').toLowerCase().includes(q)
+      || (e.prompt || '').toLowerCase().includes(q)
       || (m && m.label.toLowerCase().includes(q))
       || entryKids.some(k => k.name.toLowerCase().includes(q))
       || e.location?.toLowerCase().includes(q)
@@ -8593,6 +8697,7 @@ export default function App() {
             onOpenEntry={openEntry}
             onSearch={() => setScreen('search')}
             onAddMoment={() => { setComposeMode('letter'); setScreen('new-entry'); }}
+            onStartPrompt={(prompt, kidId) => { setActivePrompt(prompt); setNewEntryInitial({ kidIds: [kidId] }); setComposeMode('note'); setScreen('new-entry'); }}
             onSeeAll={() => { setJournalBackScreen('home'); setScreen('journal'); }}
             onCompare={() => setScreen('compare')}
             onUpdateCrop={handleUpdateCrop}
