@@ -887,6 +887,26 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
 
 const PROMPT_ACCENT = '#C8993E';
 
+const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transform }) {
+  const [playing, setPlaying] = useState(false);
+  if (item.type !== 'video') {
+    return <img src={cloudinaryTransform(item.url, transform)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%` }} alt="" />;
+  }
+  if (playing) {
+    return <video src={item.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={e => e.stopPropagation()} />;
+  }
+  return (
+    <div style={{ width: '100%', height: '100%', position: 'relative' }} onClick={e => { e.stopPropagation(); setPlaying(true); }}>
+      <img src={videoThumbUrl(item.url, `so_0,${transform}`)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%` }} alt="" />
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 15 }} />
+        </div>
+      </div>
+    </div>
+  );
+});
+
 const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPress }) {
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const accent = kid?.accent || KID_ACCENTS[0];
@@ -914,18 +934,14 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPr
       </p>
       {entry.media?.length === 1 && (
         <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', height: 140 }}>
-          {entry.media[0].type === 'video'
-            ? <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-            : <img src={cloudinaryTransform(entry.media[0].url, 'w_500,h_280,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />}
+          <FeedMediaThumb item={entry.media[0]} cropY={entry.cropY} transform="w_500,h_280,c_fill,q_auto,f_auto" />
         </div>
       )}
       {entry.media?.length > 1 && (
         <div style={{ marginBottom: 12, display: 'flex', gap: 8, overflowX: 'auto' }}>
           {entry.media.slice(0, 3).map((m, i) => (
             <div key={i} style={{ width: 110, height: 110, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-              {m.type === 'video'
-                ? <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-                : <img src={cloudinaryTransform(m.url, 'w_240,h_240,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />}
+              <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_240,h_240,c_fill,q_auto,f_auto" />
             </div>
           ))}
         </div>
@@ -970,18 +986,14 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, onClick, onLo
         </p>
         {entry.media?.length === 1 && (
           <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', height: 140 }}>
-            {entry.media[0].type === 'video'
-              ? <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-              : <img src={cloudinaryTransform(entry.media[0].url, 'w_500,h_280,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />}
+            <FeedMediaThumb item={entry.media[0]} cropY={entry.cropY} transform="w_500,h_280,c_fill,q_auto,f_auto" />
           </div>
         )}
         {entry.media?.length > 1 && (
           <div style={{ marginBottom: 12, display: 'flex', gap: 8, overflowX: 'auto' }}>
             {entry.media.slice(0, 3).map((m, i) => (
               <div key={i} style={{ width: 110, height: 110, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-                {m.type === 'video'
-                  ? <video src={m.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted playsInline />
-                  : <img src={cloudinaryTransform(m.url, 'w_240,h_240,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />}
+                <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_240,h_240,c_fill,q_auto,f_auto" />
               </div>
             ))}
           </div>
@@ -1383,20 +1395,30 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   const friendBirthdaysToday = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [friendKids]);
   const friendBirthdayNextWeek = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 7), [friendKids]);
 
+  // FNV-1a hash with good avalanche — consecutive slots pick different entries
+  const onceUponATimeScore = (salt, id) => {
+    const s = currentSlot + '|' + salt + '|' + String(id).replace(/-/g, '');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 16777619) & 0x7fffffff; }
+    return h;
+  };
+
   const onceUponATime = useMemo(() => {
     if (onThisDay.length > 0) return null;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
-    const pool = entries.filter(e => new Date(e.date + 'T12:00:00') < cutoff);
+    const pool = entries.filter(e => e.type !== 'note' && new Date(e.date + 'T12:00:00') < cutoff);
     if (pool.length === 0) return null;
-    // FNV-1a hash with good avalanche — consecutive slots pick different entries
-    const score = (id) => {
-      const s = currentSlot + '|' + String(id).replace(/-/g, '');
-      let h = 0x811c9dc5;
-      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 16777619) & 0x7fffffff; }
-      return h;
-    };
-    return pool.reduce((best, e) => score(e.id) > score(best.id) ? e : best);
+    return pool.reduce((best, e) => onceUponATimeScore('letter', e.id) > onceUponATimeScore('letter', best.id) ? e : best);
+  }, [entries, onThisDay, currentSlot]);
+
+  const onceUponATimeNote = useMemo(() => {
+    if (onThisDay.length > 0) return null;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    const pool = entries.filter(e => e.type === 'note' && new Date(e.date + 'T12:00:00') < cutoff);
+    if (pool.length === 0) return null;
+    return pool.reduce((best, e) => onceUponATimeScore('note', e.id) > onceUponATimeScore('note', best.id) ? e : best);
   }, [entries, onThisDay, currentSlot]);
 
   const sameAgeGroups = useMemo(() => {
@@ -1673,9 +1695,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
             </div>
           )}
 
-          {onceUponATime && (() => {
-            const entry = onceUponATime;
-            const kid = kidMap.get(entry.kids[0]);
+          {(onceUponATime || onceUponATimeNote) && (() => {
             return (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -1683,7 +1703,14 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Once upon a time</span>
                   <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                 </div>
-                <EntryCard entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY} onLongPress={handleLongPress} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {onceUponATime && (
+                    <EntryCard entry={onceUponATime} kid={kidMap.get(onceUponATime.kids[0])} allKids={kids} featured={true} onClick={() => handleOpenEntry(onceUponATime)} cropY={onceUponATime.cropY} onLongPress={handleLongPress} />
+                  )}
+                  {onceUponATimeNote && (
+                    <EntryCard entry={onceUponATimeNote} kid={kidMap.get(onceUponATimeNote.kids[0])} allKids={kids} featured={true} onClick={() => handleOpenEntry(onceUponATimeNote)} cropY={onceUponATimeNote.cropY} onLongPress={handleLongPress} />
+                  )}
+                </div>
               </div>
             );
           })()}
@@ -2419,12 +2446,12 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 {media.map((item, i) => (
                   <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${cloudinaryTransform(item.url, 'w_1200,e_sharpen:60,q_auto,f_auto')}')`, backgroundPosition: `center ${cropY}%` }}>
                     {item.type === 'video'
-                      ? <video src={item.url} poster={videoThumbUrl(item.url)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" playsInline controls onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />
+                      ? <video src={item.url} poster={videoThumbUrl(item.url, `so_0,e_sharpen:60,q_auto,f_auto`)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%` }} preload="metadata" playsInline controls onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />
                       : <div className="video-play-overlay" style={{ display: 'none' }} />
                     }
                   </div>
                 ))}
-                {onUpdateCrop && media[activeSlide]?.type !== 'video' && (
+                {onUpdateCrop && !videoPlaying && (
                   <button
                     onClick={e => { e.stopPropagation(); setShowCrop(true); }}
                     style={{ position: 'absolute', bottom: 12, right: 12, width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
@@ -2644,7 +2671,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
       )}
       {showCrop && media[activeSlide] && (
         <CropModal
-          url={cloudinaryTransform(media[activeSlide].url, 'w_1200,q_auto,f_auto')}
+          url={media[activeSlide].type === 'video'
+            ? videoThumbUrl(media[activeSlide].url, 'so_0,w_1200,q_auto,f_auto')
+            : cloudinaryTransform(media[activeSlide].url, 'w_1200,q_auto,f_auto')}
           cropY={cropY}
           cardHeight={260}
           onSave={newY => { setCropY(newY); onUpdateCrop?.(entry.id, newY); setShowCrop(false); }}
