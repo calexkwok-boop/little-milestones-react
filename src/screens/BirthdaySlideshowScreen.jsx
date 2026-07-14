@@ -21,6 +21,16 @@ function ordinal(n) {
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
+function AmazonIcon({ size = 13, aColor = 'currentColor', arrowColor = '#FF9900', style }) {
+  return (
+    <svg width={size} height={size * (46 / 32)} viewBox="0 0 32 46" fill="none" style={{ display: 'inline-block', flexShrink: 0, ...style }}>
+      <text x="16" y="30" textAnchor="middle" fontFamily="Arial, 'Helvetica Neue', Helvetica, sans-serif" fontWeight="800" fontSize="34" fill={aColor} style={{ transform: 'scaleY(1.3) scaleX(0.78)', transformOrigin: '16px 15px' }}>a</text>
+      <path d="M3 38 C 9 44.5 23 44.5 29 37" stroke={arrowColor} strokeWidth="2.6" fill="none" strokeLinecap="round" />
+      <path d="M24 35 L29.5 36.8 L26 43.5" stroke={arrowColor} strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false, viewerEntries = [], viewerKids = [] }) {
   const slides = useMemo(() => {
     const result = [];
@@ -476,7 +486,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
               className="fade-up"
               style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(200,153,62,0.15)', border: '1px solid rgba(200,153,62,0.4)', borderRadius: 999, padding: '10px 20px', marginBottom: 28, animationDelay: sharedPhotos.length > 0 ? '820ms' : '620ms', textDecoration: 'none' }}
             >
-              <i className="ti ti-brand-amazon" style={{ fontSize: 15, color: '#E5C97E' }} />
+              <AmazonIcon size={17} aColor="#fff" />
               <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 13, fontWeight: 600, color: '#E5C97E' }}>
                 {kid.wishlistUrl ? `View ${kid.name.split(' ')[0]}'s wishlist` : 'Shop gift ideas on Amazon'}
               </span>

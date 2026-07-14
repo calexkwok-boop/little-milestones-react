@@ -892,6 +892,16 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
 
 const PROMPT_ACCENT = '#C8993E';
 
+function AmazonIcon({ size = 13, aColor = 'currentColor', arrowColor = '#FF9900', style }) {
+  return (
+    <svg width={size} height={size * (46 / 32)} viewBox="0 0 32 46" fill="none" style={{ display: 'inline-block', flexShrink: 0, ...style }}>
+      <text x="16" y="30" textAnchor="middle" fontFamily="Arial, 'Helvetica Neue', Helvetica, sans-serif" fontWeight="800" fontSize="34" fill={aColor} style={{ transform: 'scaleY(1.3) scaleX(0.78)', transformOrigin: '16px 15px' }}>a</text>
+      <path d="M3 38 C 9 44.5 23 44.5 29 37" stroke={arrowColor} strokeWidth="2.6" fill="none" strokeLinecap="round" />
+      <path d="M24 35 L29.5 36.8 L26 43.5" stroke={arrowColor} strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transform }) {
   const [playing, setPlaying] = useState(false);
   if (item.type !== 'video') {
@@ -1652,12 +1662,12 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 </p>
                 {k.wishlistUrl ? (
                   <p style={{ fontSize: 12, color: '#C8993E', margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <i className="ti ti-brand-amazon" style={{ fontSize: 13 }} />
+                    <AmazonIcon size={14} aColor="var(--text)" />
                     View gift ideas on Amazon
                   </p>
                 ) : (
                   <p style={{ fontSize: 12, color: '#C8993E', margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <i className="ti ti-brand-amazon" style={{ fontSize: 13 }} />
+                    <AmazonIcon size={14} aColor="var(--text)" />
                     Shop gift ideas on Amazon
                   </p>
                 )}
@@ -1850,7 +1860,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                             style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.35)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
                             title={k.wishlistUrl ? `${k.name}'s Amazon wishlist` : 'Shop gift ideas on Amazon'}
                           >
-                            <i className="ti ti-brand-amazon" style={{ fontSize: 12, color: '#E5C97E' }} />
+                            <AmazonIcon size={14} aColor="#fff" />
                           </button>
                           <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(200,153,62,0.5)', background: k.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             {k.avatar
@@ -6102,25 +6112,38 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                 const avatar = fr.requester_id === currentUserId ? fr.addressee_avatar_url : fr.requester_avatar_url;
                 const friendFamilyId = friendUserFamilyMap[uid];
                 const theirKids = friendKids.filter(k => friendFamilyId ? k.familyId === friendFamilyId : k.userId === uid);
+                const kidsBirthdayToday = theirKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0);
                 return (
-                  <div key={fr.id} onClick={() => setSelectedFriendUid(uid)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 10, cursor: 'pointer' }}>
+                  <div key={fr.id} onClick={() => setSelectedFriendUid(uid)} style={{ background: 'var(--bg-card)', border: kidsBirthdayToday.length > 0 ? '1px solid rgba(200,153,62,0.4)' : '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', marginBottom: 10, cursor: 'pointer' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: theirKids.length > 0 ? 10 : 0 }}>
                       <FriendAvatar name={name} avatarUrl={avatar} />
                       <p style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{name || 'Friend'}</p>
+                      {kidsBirthdayToday.length > 0 && (
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(200,153,62,0.15)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 999, padding: '3px 9px' }}>
+                          <i className="ti ti-cake" style={{ fontSize: 12, color: '#C8993E' }} />
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#C8993E', fontFamily: "'Urbanist', sans-serif" }}>
+                            {kidsBirthdayToday.map(k => k.name.split(' ')[0]).join(' & ')}'s birthday
+                          </span>
+                        </span>
+                      )}
                       <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)' }} />
                     </div>
                     {theirKids.length > 0 && (
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {theirKids.map(k => (
-                          <span key={k.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-2)', background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 10px 3px 4px' }}>
-                            <span style={{ width: 20, height: 20, borderRadius: '50%', background: k.accent || KID_ACCENTS[0], overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              {k.avatar
-                                ? <img src={cloudinaryTransform(k.avatar, 'w_40,h_40,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
-                                : <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{k.name?.[0]?.toUpperCase()}</span>}
+                        {theirKids.map(k => {
+                          const isBirthday = k.birthdate && daysUntilBirthday(k.birthdate) === 0;
+                          return (
+                            <span key={k.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: isBirthday ? '#C8993E' : 'var(--text-2)', fontWeight: isBirthday ? 700 : 400, background: isBirthday ? 'rgba(200,153,62,0.15)' : 'var(--bg-elevated)', border: isBirthday ? '1px solid rgba(200,153,62,0.35)' : 'none', borderRadius: 999, padding: '3px 10px 3px 4px' }}>
+                              <span style={{ width: 20, height: 20, borderRadius: '50%', background: k.accent || KID_ACCENTS[0], overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                {k.avatar
+                                  ? <img src={cloudinaryTransform(k.avatar, 'w_40,h_40,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                  : <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{k.name?.[0]?.toUpperCase()}</span>}
+                              </span>
+                              {k.name}
+                              {isBirthday && <i className="ti ti-cake" style={{ fontSize: 11 }} />}
                             </span>
-                            {k.name}
-                          </span>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
