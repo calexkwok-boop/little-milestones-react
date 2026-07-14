@@ -143,6 +143,90 @@ function triggerPush(body) {
   supabase.functions.invoke('send-push', { body }).catch(() => {});
 }
 
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+// Shared between ProfileScreen's toggle and the onboarding "enable notifications"
+// step, so the subscribe/unsubscribe flow only lives in one place.
+function usePushNotifications(currentUserId) {
+  const [status, setStatus] = useState('checking'); // 'unsupported' | 'ios-need-install' | 'off' | 'on' | 'checking'
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    async function check() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        setStatus('unsupported');
+        return;
+      }
+      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      if (isIOS && !isStandalone) {
+        setStatus('ios-need-install');
+        return;
+      }
+      if (Notification.permission === 'granted') {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        setStatus(sub ? 'on' : 'off');
+      } else {
+        setStatus('off');
+      }
+    }
+    check();
+  }, []);
+
+  async function enable() {
+    if (busy || !supabase || !currentUserId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setStatus('off'); setBusy(false); return; }
+      const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidKey) throw new Error('Missing VAPID key — restart the dev server (env vars only load at startup)');
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+      const j = sub.toJSON();
+      const { error: upsertErr } = await supabase.from('push_subscriptions').upsert(
+        { user_id: currentUserId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth },
+        { onConflict: 'endpoint' }
+      );
+      if (upsertErr) throw upsertErr;
+      setStatus('on');
+    } catch (err) {
+      console.error('[push] enable failed:', err);
+      setError(err?.message || String(err));
+      setStatus('off');
+    }
+    setBusy(false);
+  }
+
+  async function disable() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        if (supabase) await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+        await sub.unsubscribe();
+      }
+      setStatus('off');
+    } catch {}
+    setBusy(false);
+  }
+
+  return { status, busy, error, enable, disable };
+}
+
 // ─── Share card ──────────────────────────────────────────────────────────────
 
 function loadImageEl(url) {
@@ -5304,83 +5388,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   const newBirthdate = (newBdMonth && newBdDay && newBdYear && newBdYear.length === 4)
     ? `${newBdYear}-${newBdMonth}-${newBdDay.padStart(2, '0')}` : '';
 
-  const [notifStatus, setNotifStatus] = useState('checking'); // 'unsupported' | 'ios-need-install' | 'off' | 'on' | 'checking'
-  const [notifBusy, setNotifBusy] = useState(false);
-  const [notifError, setNotifError] = useState(null);
-
-  useEffect(() => {
-    async function check() {
-      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
-        setNotifStatus('unsupported');
-        return;
-      }
-      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-      if (isIOS && !isStandalone) {
-        setNotifStatus('ios-need-install');
-        return;
-      }
-      if (Notification.permission === 'granted') {
-        const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.getSubscription();
-        setNotifStatus(sub ? 'on' : 'off');
-      } else {
-        setNotifStatus('off');
-      }
-    }
-    check();
-  }, []);
-
-  function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - base64String.length % 4) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = atob(base64);
-    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
-  }
-
-  async function handleEnableNotifications() {
-    if (notifBusy || !supabase || !currentUserId) return;
-    setNotifBusy(true);
-    setNotifError(null);
-    try {
-      const perm = await Notification.requestPermission();
-      if (perm !== 'granted') { setNotifStatus('off'); setNotifBusy(false); return; }
-      const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-      if (!vapidKey) throw new Error('Missing VAPID key — restart the dev server (env vars only load at startup)');
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidKey),
-      });
-      const j = sub.toJSON();
-      const { error } = await supabase.from('push_subscriptions').upsert(
-        { user_id: currentUserId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth },
-        { onConflict: 'endpoint' }
-      );
-      if (error) throw error;
-      setNotifStatus('on');
-    } catch (err) {
-      console.error('[push] enable failed:', err);
-      setNotifError(err?.message || String(err));
-      setNotifStatus('off');
-    }
-    setNotifBusy(false);
-  }
-
-  async function handleDisableNotifications() {
-    if (notifBusy) return;
-    setNotifBusy(true);
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) {
-        if (supabase) await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
-        await sub.unsubscribe();
-      }
-      setNotifStatus('off');
-    } catch {}
-    setNotifBusy(false);
-  }
+  const { status: notifStatus, busy: notifBusy, error: notifError, enable: handleEnableNotifications, disable: handleDisableNotifications } = usePushNotifications(currentUserId);
 
   async function handleSaveNewKid() {
     if (!newName.trim() || !newBirthdate) return;
@@ -7115,7 +7123,8 @@ function AvatarCropModal({ imageSrc, onConfirm, onCancel }) {
 
 const ONBOARDING_LETTER = "Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet, perilous attempt to slow down time. A gift for you to one day hold, and an anchor for us to inhabit today.";
 
-function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGenerateInvite, onFinish }) {
+function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGenerateInvite, onFinish, currentUserId }) {
+  const notif = usePushNotifications(currentUserId);
   const [step, setStep] = useState('welcome');
   const [doneKids, setDoneKids] = useState([]);
   const [name, setName] = useState('');
@@ -7159,6 +7168,13 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
     else if (step === 'photo') setStep('birthdate');
     else if (step === 'another') setStep('photo');
     else if (step === 'profile') setStep('another');
+  }
+
+  // Skip the notifications step entirely on a browser that can't support it at all —
+  // no point showing a screen whose only button would be a no-op.
+  function goToNotificationsOrFinish() {
+    if (notif.status === 'unsupported') onFinish();
+    else setStep('notifications');
   }
 
   function handleFile(e) {
@@ -7217,14 +7233,14 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
       <div className="scroll-area">
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560 }}>
 
-          {step !== 'welcome' && step !== 'invite-partner' && (
+          {step !== 'welcome' && step !== 'invite-partner' && step !== 'notifications' && (
             <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 24px', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", alignSelf: 'flex-start' }}>
               <i className="ti ti-arrow-left" style={{ fontSize: 16 }} /> Back
             </button>
           )}
 
           {step !== 'welcome' && (() => {
-            const DOT_STEPS = ['name', 'birthdate', 'photo', 'profile', 'invite-partner'];
+            const DOT_STEPS = ['name', 'birthdate', 'photo', 'profile', 'invite-partner', 'notifications'];
             const activeIdx = step === 'another' ? 2 : DOT_STEPS.indexOf(step);
             if (activeIdx < 0) return null;
             return (
@@ -7236,7 +7252,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
             );
           })()}
 
-          {step !== 'welcome' && step !== 'invite-partner' && (() => {
+          {step !== 'welcome' && step !== 'invite-partner' && step !== 'notifications' && (() => {
             const kidFirstNames = [
               ...doneKids.map(k => k.name.split(' ')[0]),
               ...(step !== 'profile' && name.trim() ? [name.trim().split(' ')[0]] : []),
@@ -7487,18 +7503,53 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', marginBottom: 14 }}
-                onClick={onFinish}
+                onClick={goToNotificationsOrFinish}
               >
                 {inviteCode ? 'Start writing' : 'Go to journal'}
               </button>
               {inviteCode && (
                 <button
-                  onClick={onFinish}
+                  onClick={goToNotificationsOrFinish}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}
                 >
                   I'll share later
                 </button>
               )}
+            </div>
+          )}
+
+          {step === 'notifications' && (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+              <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
+                <i className="ti ti-bell" style={{ fontSize: 26, color: 'var(--accent)' }} />
+              </div>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 27, color: 'var(--text)', lineHeight: 1.22, margin: '0 0 9px' }}>
+                Don't miss<br />a moment
+              </h2>
+              <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: '0 0 32px', lineHeight: 1.6, maxWidth: 260 }}>
+                Get a nudge for birthdays, friend activity, and letters from your partner.
+              </p>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', width: '100%', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 30, textAlign: 'left' }}>
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#C8993E', flexShrink: 0 }} />
+                <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text)', lineHeight: 1.4 }}>
+                  <strong>Patina</strong> — Alex liked your letter to Piper
+                </p>
+              </div>
+              <div style={{ flex: 1 }} />
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', marginBottom: 14 }}
+                disabled={notif.busy}
+                onClick={async () => { await notif.enable(); onFinish(); }}
+              >
+                {notif.busy ? 'Enabling…' : 'Enable notifications'}
+              </button>
+              <button
+                onClick={onFinish}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500, textDecoration: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: 3 }}
+              >
+                Not now
+              </button>
             </div>
           )}
 
@@ -9150,6 +9201,7 @@ export default function App() {
               hasBackend={!localMode && !!supabase && !!session}
               onGenerateInvite={handleInvitePartner}
               onFinish={() => setPostOnboardInvite(false)}
+              currentUserId={session?.user?.id}
             />
         }
       </div>
