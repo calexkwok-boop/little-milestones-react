@@ -1193,7 +1193,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt }) {
+function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist }) {
   const { entries, kids } = useData() ?? {};
   const { unseenPartnerIds = [], reactionCounts = {}, pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
   const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
@@ -1221,6 +1221,8 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     setDismissedBdays(next);
     localStorage.setItem('patina-bday-dismissed', JSON.stringify(next));
   }
+  const [wishlistPromptKid, setWishlistPromptKid] = useState(null);
+  const [wishlistPromptInput, setWishlistPromptInput] = useState('');
   const scrollRef = useRef(null);
   const ptr = usePullToRefresh(scrollRef, onRefresh);
 
@@ -1641,11 +1643,54 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                   Write something special for the occasion
                 </p>
               </div>
+              {onUpdateKidWishlist && !k.wishlistUrl && (
+                <button
+                  onClick={e => { e.stopPropagation(); setWishlistPromptKid(k); setWishlistPromptInput(''); }}
+                  style={{ background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: '50%', width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+                  title={`Add ${k.name}'s Amazon wishlist`}
+                >
+                  <AmazonIcon size={13} aColor="var(--text)" />
+                </button>
+              )}
               <button onClick={e => { e.stopPropagation(); dismissBirthday(k.id, turningAge(k.birthdate)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, flexShrink: 0, lineHeight: 1 }}>
                 <i className="ti ti-x" />
               </button>
             </div>
           ))}
+
+          {wishlistPromptKid && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', zIndex: 30, display: 'flex', alignItems: 'flex-end' }} onClick={() => setWishlistPromptKid(null)}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 20px 32px' }} onClick={e => e.stopPropagation()}>
+                <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 18px' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <AmazonIcon size={16} aColor="var(--text)" />
+                  <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Add {wishlistPromptKid.name}'s wishlist</p>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px', lineHeight: 1.5 }}>
+                  Friends will see a link to shop for {wishlistPromptKid.name} near their birthday.
+                </p>
+                <input
+                  className="input-field"
+                  value={wishlistPromptInput}
+                  onChange={e => setWishlistPromptInput(e.target.value)}
+                  placeholder="https://www.amazon.com/hz/wishlist/ls/..."
+                  style={{ marginBottom: 16, fontSize: 14 }}
+                  autoFocus
+                />
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setWishlistPromptKid(null)}>Skip</button>
+                  <button
+                    className="btn btn-primary"
+                    style={{ flex: 1, opacity: wishlistPromptInput.trim() ? 1 : 0.5 }}
+                    disabled={!wishlistPromptInput.trim()}
+                    onClick={() => { onUpdateKidWishlist?.(wishlistPromptKid.id, wishlistPromptInput.trim()); setWishlistPromptKid(null); }}
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {friendBirthdayNextWeek.filter(k => !dismissedBdays[`${k.id}-${turningAge(k.birthdate)}`]).map(k => (
             <div
@@ -8866,6 +8911,7 @@ export default function App() {
             }}
             onBirthdayTodayClick={kid => setBirthdaySlideshow(kid)}
             onFriendBirthdayClick={kid => setBirthdaySlideshowFriend({ kid, entries: friendEntries })}
+            onUpdateKidWishlist={handleUpdateKidWishlist}
           />
         );
       })()}
