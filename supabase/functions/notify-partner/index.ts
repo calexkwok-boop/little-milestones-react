@@ -70,6 +70,8 @@ Deno.serve(async (req) => {
         body: `${authorName} wrote a new letter to ${kidNames}.`,
         url: entryId ? `/?open=${entryId}` : '/',
         tag: `partner-entry-${entryId || ''}`,
+        kind: 'partner_entry',
+        category: 'partner_activity',
       });
     } catch { /* email already sent; push is a bonus */ }
 

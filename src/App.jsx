@@ -11,6 +11,7 @@ const LazyBirthdaySlideshowScreen = lazy(() => import('./screens/BirthdaySlidesh
 import RecapScreen from './screens/RecapScreen';
 const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
 const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
+const LazyNotificationHistoryScreen = lazy(() => import('./screens/NotificationHistoryScreen'));
 import BookBuilderScreen from './screens/BookBuilderScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
@@ -153,7 +154,7 @@ function urlBase64ToUint8Array(base64String) {
 // Shared between ProfileScreen's toggle and the onboarding "enable notifications"
 // step, so the subscribe/unsubscribe flow only lives in one place.
 function usePushNotifications(currentUserId) {
-  const [status, setStatus] = useState('checking'); // 'unsupported' | 'ios-need-install' | 'off' | 'on' | 'checking'
+  const [status, setStatus] = useState('checking'); // 'unsupported' | 'ios-need-install' | 'denied' | 'off' | 'on' | 'checking'
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -167,6 +168,10 @@ function usePushNotifications(currentUserId) {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
       if (isIOS && !isStandalone) {
         setStatus('ios-need-install');
+        return;
+      }
+      if (Notification.permission === 'denied') {
+        setStatus('denied');
         return;
       }
       if (Notification.permission === 'granted') {
@@ -185,7 +190,15 @@ function usePushNotifications(currentUserId) {
     setBusy(true);
     setError(null);
     try {
+      // Once denied, the browser silently no-ops requestPermission() forever
+      // instead of re-prompting — surface that instead of pretending to try.
+      if (Notification.permission === 'denied') {
+        setStatus('denied');
+        setBusy(false);
+        return;
+      }
       const perm = await Notification.requestPermission();
+      if (perm === 'denied') { setStatus('denied'); setBusy(false); return; }
       if (perm !== 'granted') { setStatus('off'); setBusy(false); return; }
       const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
       if (!vapidKey) throw new Error('Missing VAPID key — restart the dev server (env vars only load at startup)');
@@ -195,8 +208,10 @@ function usePushNotifications(currentUserId) {
         applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
       const j = sub.toJSON();
+      let timezone = null;
+      try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch {}
       const { error: upsertErr } = await supabase.from('push_subscriptions').upsert(
-        { user_id: currentUserId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth },
+        { user_id: currentUserId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, timezone },
         { onConflict: 'endpoint' }
       );
       if (upsertErr) throw upsertErr;
@@ -225,6 +240,35 @@ function usePushNotifications(currentUserId) {
   }
 
   return { status, busy, error, enable, disable };
+}
+
+const NOTIFICATION_PREF_KEYS = ['birthday_reminders', 'friend_activity', 'partner_activity', 'prompt_nudges'];
+const NOTIFICATION_PREF_DEFAULTS = { birthday_reminders: true, friend_activity: true, partner_activity: true, prompt_nudges: true };
+
+// Per-category push mute state. No row in the DB means "everything on" —
+// a row is only written once the user actually flips a toggle.
+function useNotificationPreferences(currentUserId) {
+  const [prefs, setPrefs] = useState(NOTIFICATION_PREF_DEFAULTS);
+
+  useEffect(() => {
+    if (!supabase || !currentUserId) return;
+    let cancelled = false;
+    supabase.from('notification_preferences').select(NOTIFICATION_PREF_KEYS.join(',')).eq('user_id', currentUserId).maybeSingle()
+      .then(({ data }) => { if (!cancelled && data) setPrefs({ ...NOTIFICATION_PREF_DEFAULTS, ...data }); });
+    return () => { cancelled = true; };
+  }, [currentUserId]);
+
+  async function setPref(key, value) {
+    if (!supabase || !currentUserId) return;
+    const next = { ...prefs, [key]: value };
+    setPrefs(next);
+    await supabase.from('notification_preferences').upsert(
+      { user_id: currentUserId, ...next, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+  }
+
+  return { prefs, setPref };
 }
 
 // ─── Share card ──────────────────────────────────────────────────────────────
@@ -5389,6 +5433,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
     ? `${newBdYear}-${newBdMonth}-${newBdDay.padStart(2, '0')}` : '';
 
   const { status: notifStatus, busy: notifBusy, error: notifError, enable: handleEnableNotifications, disable: handleDisableNotifications } = usePushNotifications(currentUserId);
+  const { prefs: notifPrefs, setPref: setNotifPref } = useNotificationPreferences(currentUserId);
 
   async function handleSaveNewKid() {
     if (!newName.trim() || !newBirthdate) return;
@@ -5584,20 +5629,50 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                       iPhone only delivers notifications to installed apps. Tap the Share icon, then "Add to Home Screen" — then come back here to turn them on.
                     </p>
                   </div>
-                ) : (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 2px' }}>Push notifications</p>
-                      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Birthdays, friend activity, and gentle nudges</p>
-                    </div>
-                    <button
-                      onClick={notifStatus === 'on' ? handleDisableNotifications : handleEnableNotifications}
-                      disabled={notifBusy || notifStatus === 'checking'}
-                      style={{ width: 46, height: 27, borderRadius: 999, border: 'none', background: notifStatus === 'on' ? 'var(--accent)' : 'var(--border)', position: 'relative', cursor: 'pointer', flexShrink: 0, opacity: notifBusy ? 0.6 : 1 }}
-                    >
-                      <div style={{ width: 21, height: 21, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: notifStatus === 'on' ? 22 : 3, transition: 'left 0.15s' }} />
-                    </button>
+                ) : notifStatus === 'denied' ? (
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 6px' }}>Notifications are blocked</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
+                      You've blocked notifications for Patina in your browser. Open your browser or device settings, allow notifications for this site, then come back here.
+                    </p>
                   </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 2px' }}>Push notifications</p>
+                        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Birthdays, friend activity, and gentle nudges</p>
+                      </div>
+                      <button
+                        onClick={notifStatus === 'on' ? handleDisableNotifications : handleEnableNotifications}
+                        disabled={notifBusy || notifStatus === 'checking'}
+                        style={{ width: 46, height: 27, borderRadius: 999, border: 'none', background: notifStatus === 'on' ? 'var(--accent)' : 'var(--border)', position: 'relative', cursor: 'pointer', flexShrink: 0, opacity: notifBusy ? 0.6 : 1 }}
+                      >
+                        <div style={{ width: 21, height: 21, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: notifStatus === 'on' ? 22 : 3, transition: 'left 0.15s' }} />
+                      </button>
+                    </div>
+                    {notifStatus === 'on' && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        {[['birthday_reminders', 'Birthdays'], ['friend_activity', 'Friend activity'], ['partner_activity', 'Partner activity'], ['prompt_nudges', 'Gentle nudges']].map(([key, label]) => (
+                          <div
+                            key={key}
+                            onClick={() => setNotifPref(key, !notifPrefs[key])}
+                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '6px 0', cursor: 'pointer' }}
+                          >
+                            <p style={{ fontSize: 12.5, color: 'var(--text-2)', margin: 0 }}>{label}</p>
+                            <div style={{
+                              width: 19, height: 19, borderRadius: 6, flexShrink: 0,
+                              border: notifPrefs[key] ? 'none' : '1.5px solid var(--border)',
+                              background: notifPrefs[key] ? 'var(--accent)' : 'transparent',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s',
+                            }}>
+                              {notifPrefs[key] && <i className="ti ti-check" style={{ fontSize: 13, color: '#fff', fontWeight: 700 }} />}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
                 )}
                 {notifError && (
                   <p style={{ fontSize: 11.5, color: '#D4856A', margin: '10px 0 0', lineHeight: 1.5 }}>{notifError}</p>
@@ -6102,7 +6177,7 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberIds = [], onBack, onSearch, onSendRequest, onInviteFriend, onRespond, onUnfriend, onOpenFriendEntry, onFriendBirthdayClick, socialName, friendUserFamilyMap = {}, onSwitchSection }) {
+function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberIds = [], onBack, onSearch, onSendRequest, onInviteFriend, onRespond, onUnfriend, onOpenFriendEntry, onFriendBirthdayClick, socialName, friendUserFamilyMap = {}, onSwitchSection, onOpenNotificationHistory }) {
   const { reactionNotifications = [], birthdayNotifications = [], friendRequests = [], onClearReactions, onDismissReaction, onDismissBirthday } = useNotif() ?? {};
   const { userId: currentUserId, session } = useSession() ?? {};
   const [searchQuery, setSearchQuery] = useState('');
@@ -6409,6 +6484,11 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                   </div>
                 ))}
               </div>
+              {onOpenNotificationHistory && (
+                <button onClick={onOpenNotificationHistory} style={{ display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontFamily: 'Inter, sans-serif', fontWeight: 500, padding: '10px 0 0' }}>
+                  View full history
+                </button>
+              )}
             </div>
           )}
 
@@ -7695,6 +7775,7 @@ export default function App() {
   const [activePrompt, setActivePrompt] = useState(null);
   const [birthdaySlideshow, setBirthdaySlideshow] = useState(null);
   const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
+  const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
   const [reactionCounts, setReactionCounts] = useState({});
   const [pendingOpenEntryId, setPendingOpenEntryId] = useState(() => {
@@ -9420,6 +9501,7 @@ export default function App() {
           socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName}
           friendUserFamilyMap={friendUserFamilyMap}
           onSwitchSection={switchSection}
+          onOpenNotificationHistory={() => setShowNotificationHistory(true)}
         />
         </div>
       )}
@@ -9606,6 +9688,17 @@ export default function App() {
             isFriend
             viewerEntries={entries}
             viewerKids={kids}
+          />
+        </Suspense>
+      )}
+
+      {showNotificationHistory && (
+        <Suspense fallback={<div className="screen" />}>
+          <LazyNotificationHistoryScreen
+            currentUserId={session?.user?.id}
+            onBack={() => setShowNotificationHistory(false)}
+            onOpenEntry={id => setPendingOpenEntryId(id)}
+            onOpenBirthdayKid={id => setPendingOpenBirthdayKidId(id)}
           />
         </Suspense>
       )}

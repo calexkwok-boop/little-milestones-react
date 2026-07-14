@@ -42,6 +42,34 @@ async function markSent(admin: any, id: string, userId: string) {
   await admin.from('sent_scheduled_notifications').upsert({ id, user_id: userId, created_at: new Date().toISOString() });
 }
 
+// This function now runs hourly (see push-cron-hourly.sql) instead of once a
+// day at a fixed UTC hour, so each user's scheduled notifications land at a
+// reasonable local time instead of whatever hour it happens to be in UTC.
+const TARGET_LOCAL_HOUR = 9;
+
+async function getUserTimezone(admin: any, userId: string): Promise<string | null> {
+  const { data } = await admin
+    .from('push_subscriptions')
+    .select('timezone')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data?.timezone ?? null;
+}
+
+// No stored timezone (subscription predates this migration, or user has never
+// subscribed) falls back to the old fixed UTC hour rather than never sending.
+function isTargetLocalHour(tz: string | null, now: Date): boolean {
+  if (!tz) return now.getUTCHours() === 15;
+  try {
+    const hour = parseInt(new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hour12: false }).format(now), 10);
+    return hour === TARGET_LOCAL_HOUR;
+  } catch {
+    return now.getUTCHours() === 15;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -79,11 +107,14 @@ Deno.serve(async (req) => {
         for (const ownerId of owners) {
           const id = `own-bday-${kid.id}-${today.getFullYear()}`;
           if (await alreadySent(admin, id, undefined)) continue;
+          if (!isTargetLocalHour(await getUserTimezone(admin, ownerId), today)) continue;
           await sendPushToUser(admin, ownerId, {
             title: 'Birthday coming up',
             body: `${kid.name}'s ${age}${age % 10 === 1 && age !== 11 ? 'st' : age % 10 === 2 && age !== 12 ? 'nd' : age % 10 === 3 && age !== 13 ? 'rd' : 'th'} birthday is in a week — add a wishlist so friends can shop for gift ideas.`,
             url: '/',
             tag: `own-bday-${kid.id}`,
+            kind: 'birthday',
+            category: 'birthday_reminders',
           });
           await markSent(admin, id, ownerId);
           sentCount++;
@@ -96,11 +127,14 @@ Deno.serve(async (req) => {
       for (const friendId of notifyIds) {
         const id = `friend-bday-${kid.id}-${today.getFullYear()}-${days === 0 ? 'today' : '7day'}`;
         if (await alreadySent(admin, id, undefined)) continue;
+        if (!isTargetLocalHour(await getUserTimezone(admin, friendId), today)) continue;
         await sendPushToUser(admin, friendId, {
           title: days === 0 ? "It's a birthday!" : 'Birthday coming up',
           body: days === 0 ? `It's ${kid.name}'s birthday today!` : `${kid.name}'s birthday is in a week.`,
           url: `/?openBirthday=${kid.id}`,
           tag: `friend-bday-${kid.id}`,
+          kind: 'birthday',
+          category: 'birthday_reminders',
         });
         await markSent(admin, id, friendId);
         sentCount++;
@@ -137,11 +171,14 @@ Deno.serve(async (req) => {
       for (const ownerId of owners) {
         const id = `prompt-nudge-${mostOverdue.id}`;
         if (await alreadySent(admin, id, 7)) continue; // don't nag more than once a week
+        if (!isTargetLocalHour(await getUserTimezone(admin, ownerId), today)) continue;
         await sendPushToUser(admin, ownerId, {
           title: 'A little nudge',
           body: `Haven't heard about ${mostOverdue.name} in a few days — got a story to share?`,
           url: '/',
           tag: `prompt-nudge-${mostOverdue.id}`,
+          kind: 'prompt_nudge',
+          category: 'prompt_nudges',
         });
         await markSent(admin, id, ownerId);
         sentCount++;
