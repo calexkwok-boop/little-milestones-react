@@ -20,6 +20,9 @@ import {
 } from './constants.js';
 
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
+// Used for note/prompt cards tagging more than one kid — a card "about everyone"
+// shouldn't borrow any single kid's color, so it gets a warm neutral instead.
+const MULTI_KID_ACCENT = '#9C9284';
 const NOTE_PROMPTS = [
   'What made them laugh today?',
   "What's a word or phrase they keep saying lately?",
@@ -1187,14 +1190,14 @@ const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transfor
 
 const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, onClick, onLongPress }) {
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
-  const accent = kid?.accent || KID_ACCENTS[0];
+  const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
+  const accent = entryKids.length > 1 ? MULTI_KID_ACCENT : (entryKids[0]?.accent || kid?.accent || KID_ACCENTS[0]);
   const tintBg = hexToRgba(accent, 0.13);
   const tintBorder = hexToRgba(accent, 0.3);
   const tintFold = hexToRgba(accent, 0.48);
   const seed = String(entry.id).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
   const rotation = ((seed % 7) - 3) * 0.45;
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
   const previewLen = featured ? 200 : 90;
   const preview = entry.text.length > previewLen ? entry.text.slice(0, previewLen) + '…' : entry.text;
   const photoH = featured ? 140 : 92;
@@ -1233,6 +1236,7 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {entryKids.map(k => (
           <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: k.accent || KID_ACCENTS[0], flexShrink: 0 }} />
             <KidThumb kid={k} size={featured ? 18 : 15} />
             <span style={{ fontSize: featured ? 11 : 10, color: 'var(--text-muted)' }}>
               {exactAgeLabel(k.birthdate, entry.date)} &middot; {dateLabel}
