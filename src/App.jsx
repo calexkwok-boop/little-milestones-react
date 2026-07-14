@@ -4162,6 +4162,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                 </div>
               );
             })}
+            <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '14px 0 0', lineHeight: 1.55, textAlign: 'center' }}>
+              Letters stay private either way. Sharing with friends only ever shows the photo, the date, and your child's age.
+            </p>
           </div>
         </div>
       )}
@@ -5588,18 +5591,23 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           </button>
 
           {/* ── Discoverable ── */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 16px' }}>
-            <div>
-              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>Discoverable</p>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{discoverable ? 'A shared journey, just different chapters.' : 'A quiet journey, just your close ones.'}</p>
+          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '13px 16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>Discoverable</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{discoverable ? 'A shared journey, just different chapters.' : 'A quiet journey, just your close ones.'}</p>
+              </div>
+              <div onClick={() => {
+                const next = !discoverable;
+                onToggleDiscoverable?.(next);
+                if (!next) setShowHidePostsPrompt(true);
+              }} style={{ width: 44, height: 26, borderRadius: 13, background: discoverable ? 'var(--accent)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                <div style={{ position: 'absolute', top: 3, left: discoverable ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+              </div>
             </div>
-            <div onClick={() => {
-              const next = !discoverable;
-              onToggleDiscoverable?.(next);
-              if (!next) setShowHidePostsPrompt(true);
-            }} style={{ width: 44, height: 26, borderRadius: 13, background: discoverable ? 'var(--accent)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-              <div style={{ position: 'absolute', top: 3, left: discoverable ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-            </div>
+            <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '10px 0 0', paddingTop: 10, borderTop: '1px solid var(--border)', lineHeight: 1.55 }}>
+              Your letters are always kept private between you and your family (added via share link). Friends will only ever see the photo/video, the date, and your child's age for posts in which you mark "All".
+            </p>
           </div>
 
           {/* ── Appearance ── */}
@@ -7776,6 +7784,7 @@ export default function App() {
   const [birthdaySlideshow, setBirthdaySlideshow] = useState(null);
   const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
+  const [showFriendsPrivacyExplainer, setShowFriendsPrivacyExplainer] = useState(false);
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
   const [reactionCounts, setReactionCounts] = useState({});
   const [pendingOpenEntryId, setPendingOpenEntryId] = useState(() => {
@@ -9140,6 +9149,15 @@ export default function App() {
         setFriendKids(prev => { const ids = new Set(prev.map(k => k.id)); return [...prev, ...(fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id })).filter(k => !ids.has(k.id))]; });
         setFriendEntries(prev => { const ids = new Set(prev.map(e => e.id)); return [...prev, ...(fEntries || []).map(normalizeEntry).filter(e => !ids.has(e.id))]; });
       } catch (_) {}
+      // First-ever accepted friend — explain the sharing model once, right after
+      // the moment it becomes relevant, rather than front-loading it in onboarding
+      // before the user has any friends to apply it to.
+      try {
+        if (!localStorage.getItem('patina_seen_friends_privacy')) {
+          localStorage.setItem('patina_seen_friends_privacy', '1');
+          setShowFriendsPrivacyExplainer(true);
+        }
+      } catch {}
     }
   }
 
@@ -9701,6 +9719,28 @@ export default function App() {
             onOpenBirthdayKid={id => setPendingOpenBirthdayKidId(id)}
           />
         </Suspense>
+      )}
+
+      {showFriendsPrivacyExplainer && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }} onClick={() => setShowFriendsPrivacyExplainer(false)}>
+          <div className="quick-sheet" style={{ background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <i className="ti ti-shield-lock" style={{ fontSize: 20, color: 'var(--accent)' }} />
+            </div>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Your words stay private</p>
+            <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: '0 0 22px', lineHeight: 1.65, textAlign: 'center' }}>
+              Letters are always just between you and your family (added via invite code). Friends never see what you wrote. When you mark a moment <strong style={{ color: 'var(--text-2)' }}>"All"</strong>, they'll only see the photo or video, the date, and your child's age.
+            </p>
+            <button
+              onClick={() => setShowFriendsPrivacyExplainer(false)}
+              className="btn btn-gold"
+              style={{ width: '100%', border: 'none', borderRadius: 14, padding: '14px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
       )}
 
       {celebration && (

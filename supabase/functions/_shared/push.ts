@@ -21,21 +21,44 @@ export type PushPayload = {
   category: NotificationCategory;
 };
 
+// A burst of activity on the same thing (an entry getting liked 5 times in an
+// hour) shares one `tag` (e.g. `like-<entryId>`) — only the first OS-level
+// push per tag within this window actually fires. Everything still gets its
+// own notification_log row, so nothing is lost from history, just from the
+// buzz-your-phone experience.
+const PUSH_COOLDOWN_MINUTES = 15;
+
 // Sends `payload` to every device a user has subscribed from. Dead subscriptions
 // (410 Gone / 404 Not Found — the browser unsubscribed or the endpoint expired)
 // are deleted so they stop being retried on every future notification.
 //
-// Always writes to notification_log first, regardless of mute state or whether
-// any subscription exists — that table is the durable "everything ever sent to
-// you" history, independent of whether an OS-level push actually fired.
+// Always writes to notification_log first, regardless of mute state, cooldown,
+// or whether any subscription exists — that table is the durable "everything
+// ever sent to you" history, independent of whether an OS-level push fired.
 export async function sendPushToUser(admin: any, userId: string, payload: PushPayload) {
+  let onCooldown = false;
+  if (payload.tag) {
+    const cutoff = new Date(Date.now() - PUSH_COOLDOWN_MINUTES * 60000).toISOString();
+    const { data: recent } = await admin
+      .from('notification_log')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('tag', payload.tag)
+      .gte('created_at', cutoff)
+      .limit(1);
+    onCooldown = !!(recent && recent.length > 0);
+  }
+
   await admin.from('notification_log').insert({
     user_id: userId,
     kind: payload.kind,
     title: payload.title,
     body: payload.body,
     url: payload.url ?? null,
+    tag: payload.tag ?? null,
   });
+
+  if (onCooldown) return { sent: 0, throttled: true };
 
   const { data: prefRow } = await admin
     .from('notification_preferences')
