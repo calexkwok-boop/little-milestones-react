@@ -1,5 +1,8 @@
 {
   "framework": "vite",
   "outputDirectory": "dist",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/moment/:token", "destination": "/index.html" }
+  ]
 }

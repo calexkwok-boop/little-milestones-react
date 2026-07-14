@@ -1300,7 +1300,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     const token = await onGenerateShareLink(entry);
     if (!token) { showQuickToast('Could not create link'); return; }
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/?shared=${token}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/moment/${token}`);
       showQuickToast('Link copied!');
     } catch { showQuickToast('Could not copy link'); }
   }
@@ -2390,7 +2390,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
     const token = await onGenerateShareLink(entry);
     if (!token) { showQuickToast('Could not create link'); return; }
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/?shared=${token}`);
+      await navigator.clipboard.writeText(`${window.location.origin}/moment/${token}`);
       showQuickToast('Link copied!');
     } catch { showQuickToast('Could not copy link'); }
   }
@@ -2656,7 +2656,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
   function handleCopyShareLink() {
     if (!shareToken) return;
-    const url = `${window.location.origin}/?shared=${shareToken}`;
+    const url = `${window.location.origin}/moment/${shareToken}`;
     navigator.clipboard.writeText(url).then(() => {
       setShareLinkCopied(true);
       setTimeout(() => setShareLinkCopied(false), 2000);
@@ -2943,7 +2943,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', marginBottom: 12 }}>
                   <p style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {`${typeof window !== 'undefined' ? window.location.origin : ''}/?shared=${shareToken}`}
+                    {`${typeof window !== 'undefined' ? window.location.origin : ''}/moment/${shareToken}`}
                   </p>
                 </div>
                 <button onClick={handleCopyShareLink} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginBottom: 10 }}>
@@ -7720,10 +7720,11 @@ export default function App() {
   const [pendingOpenEntryId, setPendingOpenEntryId] = useState(() => {
     try { return new URLSearchParams(window.location.search).get('open'); } catch { return null; }
   });
-  // A public share link (?shared=<token>) needs no auth and no app data —
+  // A public share link (/moment/<token>) needs no auth and no app data —
   // read once at mount, checked ahead of every other gate in the render below.
+  // See vercel.json for the rewrite that serves index.html for this path.
   const [sharedEntryToken] = useState(() => {
-    try { return new URLSearchParams(window.location.search).get('shared'); } catch { return null; }
+    try { return window.location.pathname.match(/^\/moment\/([^/]+)/)?.[1] ?? null; } catch { return null; }
   });
   const [pendingOpenBirthdayKidId, setPendingOpenBirthdayKidId] = useState(() => {
     try { return new URLSearchParams(window.location.search).get('openBirthday'); } catch { return null; }
