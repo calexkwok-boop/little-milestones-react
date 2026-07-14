@@ -1,5 +1,7 @@
 export const KIDS_INITIAL = [];
 
+export const AMAZON_GIFT_FALLBACK_URL = 'https://www.amazon.com/s?k=gifts+for+kids';
+
 export const MOODS = ['Proud', 'Joyful', 'Surprised', 'Exhausted', 'Grateful', 'Nostalgic'];
 
 export const MILESTONE_TYPES = [

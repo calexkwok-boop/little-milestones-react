@@ -14,7 +14,7 @@ const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
 import BookBuilderScreen from './screens/BookBuilderScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
-  MOODS, MILESTONE_TYPES, PALETTES, TODAY,
+  MOODS, MILESTONE_TYPES, PALETTES, TODAY, AMAZON_GIFT_FALLBACK_URL,
   ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, cloudinaryTransform,
 } from './constants.js';
 
@@ -912,7 +912,7 @@ const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transfor
   );
 });
 
-const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPress }) {
+const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, onClick, onLongPress }) {
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const accent = kid?.accent || KID_ACCENTS[0];
   const tintBg = hexToRgba(accent, 0.13);
@@ -922,33 +922,36 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPr
   const rotation = ((seed % 7) - 3) * 0.45;
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
-  const preview = entry.text.length > 200 ? entry.text.slice(0, 200) + '…' : entry.text;
+  const previewLen = featured ? 200 : 90;
+  const preview = entry.text.length > previewLen ? entry.text.slice(0, previewLen) + '…' : entry.text;
+  const photoH = featured ? 140 : 92;
+  const thumbSize = featured ? 110 : 74;
 
   return (
     <div
       onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd}
-      style={{ position: 'relative', background: tintBg, border: `1px solid ${tintBorder}`, borderRadius: 13, padding: '15px 17px 13px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.07)', transform: `rotate(${rotation}deg)` }}
+      style={{ position: 'relative', background: tintBg, border: `1px solid ${tintBorder}`, borderRadius: 13, padding: featured ? '15px 17px 13px' : '12px 13px 11px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.07)', transform: `rotate(${rotation}deg)` }}
     >
       <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 15px 15px 0', borderColor: `transparent ${tintFold} transparent transparent`, borderRadius: '0 13px 0 0' }} />
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: featured ? 8 : 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <i className="ti ti-notebook" style={{ fontSize: 12, color: accent }} />
-          <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: accent }}>Note</span>
+          <i className="ti ti-notebook" style={{ fontSize: featured ? 12 : 10, color: accent }} />
+          <span style={{ fontSize: featured ? 10 : 9, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: accent }}>Note</span>
         </div>
-        {entry.shared === false && <i className="ti ti-lock" style={{ fontSize: 12, color: accent }} title="Private" />}
+        {entry.shared === false && <i className="ti ti-lock" style={{ fontSize: featured ? 12 : 10, color: accent }} title="Private" />}
       </div>
-      <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, color: 'var(--text)', margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
+      <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 15 : 12.5, lineHeight: 1.5, color: 'var(--text)', margin: featured ? '0 0 12px' : '0 0 8px', whiteSpace: 'pre-wrap' }}>
         {preview}
       </p>
       {entry.media?.length === 1 && (
-        <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', height: 140 }}>
+        <div style={{ marginBottom: featured ? 12 : 8, borderRadius: 10, overflow: 'hidden', height: photoH }}>
           <FeedMediaThumb item={entry.media[0]} cropY={entry.cropY} transform="w_500,q_auto,f_auto" />
         </div>
       )}
       {entry.media?.length > 1 && (
-        <div style={{ marginBottom: 12, display: 'flex', gap: 8, overflowX: 'auto' }}>
+        <div style={{ marginBottom: featured ? 12 : 8, display: 'flex', gap: featured ? 8 : 6, overflowX: 'auto' }}>
           {entry.media.slice(0, 3).map((m, i) => (
-            <div key={i} style={{ width: 110, height: 110, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+            <div key={i} style={{ width: thumbSize, height: thumbSize, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
               <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_240,q_auto,f_auto" />
             </div>
           ))}
@@ -957,8 +960,8 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPr
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {entryKids.map(k => (
           <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <KidThumb kid={k} size={18} />
-            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+            <KidThumb kid={k} size={featured ? 18 : 15} />
+            <span style={{ fontSize: featured ? 11 : 10, color: 'var(--text-muted)' }}>
               {exactAgeLabel(k.birthdate, entry.date)} &middot; {dateLabel}
             </span>
           </div>
@@ -968,42 +971,48 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, onClick, onLongPr
   );
 });
 
-const PromptCard = memo(function PromptCard({ entry, kid, allKids, onClick, onLongPress }) {
+const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = true, onClick, onLongPress }) {
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
-  const preview = entry.text.length > 200 ? entry.text.slice(0, 200) + '…' : entry.text;
+  const previewLen = featured ? 200 : 90;
+  const preview = entry.text.length > previewLen ? entry.text.slice(0, previewLen) + '…' : entry.text;
+  const photoH = featured ? 140 : 92;
+  const thumbSize = featured ? 110 : 74;
 
   return (
     <div
       onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd}
       style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}
     >
-      <div style={{ background: PROMPT_ACCENT, padding: '13px 17px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+      <div style={{ background: PROMPT_ACCENT, padding: featured ? '13px 17px' : '10px 13px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: featured ? 6 : 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <i className="ti ti-bulb" style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }} />
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>Prompt</span>
+            <i className="ti ti-bulb" style={{ fontSize: featured ? 13 : 11, color: 'rgba(255,255,255,0.9)' }} />
+            <span style={{ fontSize: featured ? 10 : 9, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>Prompt</span>
           </div>
-          {entry.shared === false && <i className="ti ti-lock" style={{ fontSize: 12, color: 'rgba(255,255,255,0.9)' }} title="Private" />}
+          {entry.shared === false && <i className="ti ti-lock" style={{ fontSize: featured ? 12 : 10, color: 'rgba(255,255,255,0.9)' }} title="Private" />}
         </div>
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, lineHeight: 1.4, color: '#fff', margin: 0 }}>
+        <p style={{
+          fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 15 : 12, lineHeight: 1.4, color: '#fff', margin: 0,
+          ...(featured ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
+        }}>
           {entry.prompt}
         </p>
       </div>
-      <div style={{ padding: '14px 17px 13px' }}>
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, lineHeight: 1.55, color: 'var(--text)', margin: '0 0 12px', whiteSpace: 'pre-wrap' }}>
+      <div style={{ padding: featured ? '14px 17px 13px' : '11px 13px 10px' }}>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 15 : 12.5, lineHeight: 1.5, color: 'var(--text)', margin: featured ? '0 0 12px' : '0 0 8px', whiteSpace: 'pre-wrap' }}>
           {preview}
         </p>
         {entry.media?.length === 1 && (
-          <div style={{ marginBottom: 12, borderRadius: 10, overflow: 'hidden', height: 140 }}>
+          <div style={{ marginBottom: featured ? 12 : 8, borderRadius: 10, overflow: 'hidden', height: photoH }}>
             <FeedMediaThumb item={entry.media[0]} cropY={entry.cropY} transform="w_500,q_auto,f_auto" />
           </div>
         )}
         {entry.media?.length > 1 && (
-          <div style={{ marginBottom: 12, display: 'flex', gap: 8, overflowX: 'auto' }}>
+          <div style={{ marginBottom: featured ? 12 : 8, display: 'flex', gap: featured ? 8 : 6, overflowX: 'auto' }}>
             {entry.media.slice(0, 3).map((m, i) => (
-              <div key={i} style={{ width: 110, height: 110, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
+              <div key={i} style={{ width: thumbSize, height: thumbSize, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
                 <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_240,q_auto,f_auto" />
               </div>
             ))}
@@ -1012,8 +1021,8 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, onClick, onLo
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {entryKids.map(k => (
             <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <KidThumb kid={k} size={18} />
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              <KidThumb kid={k} size={featured ? 18 : 15} />
+              <span style={{ fontSize: featured ? 11 : 10, color: 'var(--text-muted)' }}>
                 {exactAgeLabel(k.birthdate, entry.date)} &middot; {dateLabel}
               </span>
             </div>
@@ -1097,8 +1106,8 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
 });
 
 function EntryCard({ entry, kid, allKids, onClick, onLongPress, featured, cropY }) {
-  if (entry.type === 'note' && entry.prompt) return <PromptCard entry={entry} kid={kid} allKids={allKids} onClick={onClick} onLongPress={onLongPress} />;
-  if (entry.type === 'note') return <NoteCard entry={entry} kid={kid} allKids={allKids} onClick={onClick} onLongPress={onLongPress} />;
+  if (entry.type === 'note' && entry.prompt) return <PromptCard entry={entry} kid={kid} allKids={allKids} featured={featured} onClick={onClick} onLongPress={onLongPress} />;
+  if (entry.type === 'note') return <NoteCard entry={entry} kid={kid} allKids={allKids} featured={featured} onClick={onClick} onLongPress={onLongPress} />;
   return <LetterCard entry={entry} kid={kid} allKids={allKids} featured={featured} onClick={onClick} cropY={cropY ?? 50} onLongPress={onLongPress} />;
 }
 
@@ -1631,8 +1640,8 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           {friendBirthdayNextWeek.filter(k => !dismissedBdays[`${k.id}-${turningAge(k.birthdate)}`]).map(k => (
             <div
               key={k.id}
-              onClick={() => k.wishlistUrl && window.open(k.wishlistUrl, '_blank', 'noopener,noreferrer')}
-              style={{ background: 'var(--bg-nav)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: k.wishlistUrl ? 'pointer' : 'default', position: 'relative' }}
+              onClick={() => window.open(k.wishlistUrl || AMAZON_GIFT_FALLBACK_URL, '_blank', 'noopener,noreferrer')}
+              style={{ background: 'var(--bg-nav)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', position: 'relative' }}
             >
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(200,153,62,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <i className="ti ti-cake" style={{ fontSize: 20, color: '#C8993E' }} />
@@ -1647,8 +1656,9 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                     View gift ideas on Amazon
                   </p>
                 ) : (
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
-                    No wishlist shared yet
+                  <p style={{ fontSize: 12, color: '#C8993E', margin: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
+                    <i className="ti ti-brand-amazon" style={{ fontSize: 13 }} />
+                    Shop gift ideas on Amazon
                   </p>
                 )}
               </div>
@@ -1835,6 +1845,13 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                     return (
                       <div key={`bday-${k.id}`} onClick={() => onFriendBirthdayClick?.(k)} style={{ width: 136, flexShrink: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(200,153,62,0.35)', background: 'linear-gradient(160deg, #2A4035 0%, #3A5548 100%)', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}>
                         <div style={{ height: 136, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 10px', position: 'relative' }}>
+                          <button
+                            onClick={e => { e.stopPropagation(); window.open(k.wishlistUrl || AMAZON_GIFT_FALLBACK_URL, '_blank', 'noopener,noreferrer'); }}
+                            style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.35)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                            title={k.wishlistUrl ? `${k.name}'s Amazon wishlist` : 'Shop gift ideas on Amazon'}
+                          >
+                            <i className="ti ti-brand-amazon" style={{ fontSize: 12, color: '#E5C97E' }} />
+                          </button>
                           <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(200,153,62,0.5)', background: k.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             {k.avatar
                               ? <img src={k.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />

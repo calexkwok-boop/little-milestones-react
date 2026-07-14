@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { cloudinaryTransform } from '../constants.js';
+import { cloudinaryTransform, AMAZON_GIFT_FALLBACK_URL } from '../constants.js';
 
 const SLIDESHOW_DURATION = 50700;
 
@@ -467,6 +467,20 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
                 ))}
               </div>
             </div>
+          )}
+          {isFriend && (
+            <a
+              href={kid.wishlistUrl || AMAZON_GIFT_FALLBACK_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="fade-up"
+              style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(200,153,62,0.15)', border: '1px solid rgba(200,153,62,0.4)', borderRadius: 999, padding: '10px 20px', marginBottom: 28, animationDelay: sharedPhotos.length > 0 ? '820ms' : '620ms', textDecoration: 'none' }}
+            >
+              <i className="ti ti-brand-amazon" style={{ fontSize: 15, color: '#E5C97E' }} />
+              <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 13, fontWeight: 600, color: '#E5C97E' }}>
+                {kid.wishlistUrl ? `View ${kid.name.split(' ')[0]}'s wishlist` : 'Shop gift ideas on Amazon'}
+              </span>
+            </a>
           )}
           <button className="fade-up" onClick={replay} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 26, animationDelay: sharedPhotos.length > 0 ? '900ms' : '700ms', marginBottom: 48 }}>
             <i className="ti ti-player-play-filled" style={{ marginLeft: 3 }} />
