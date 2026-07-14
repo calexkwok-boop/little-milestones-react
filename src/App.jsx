@@ -1072,10 +1072,10 @@ const PROMPT_ACCENT = '#C8993E';
 
 function AmazonIcon({ size = 13, aColor = 'currentColor', arrowColor = '#FF9900', style }) {
   return (
-    <svg width={size} height={size * (46 / 32)} viewBox="0 0 32 46" fill="none" style={{ display: 'inline-block', flexShrink: 0, ...style }}>
-      <text x="16" y="30" textAnchor="middle" fontFamily="Arial, 'Helvetica Neue', Helvetica, sans-serif" fontWeight="800" fontSize="34" fill={aColor} style={{ transform: 'scaleY(1.3) scaleX(0.78)', transformOrigin: '16px 15px' }}>a</text>
-      <path d="M3 38 C 9 44.5 23 44.5 29 37" stroke={arrowColor} strokeWidth="2.6" fill="none" strokeLinecap="round" />
-      <path d="M24 35 L29.5 36.8 L26 43.5" stroke={arrowColor} strokeWidth="2.6" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width={size} height={size * (38 / 32)} viewBox="0 0 32 38" fill="none" style={{ display: 'inline-block', flexShrink: 0, ...style }}>
+      <text x="16" y="24" textAnchor="middle" fontFamily="Arial, 'Helvetica Neue', Helvetica, sans-serif" fontWeight="800" fontSize="30" fill={aColor} style={{ transform: 'scaleY(1.1) scaleX(0.88)', transformOrigin: '16px 12px' }}>a</text>
+      <path d="M3 30 C 9 36.5 23 36.5 29 29" stroke={arrowColor} strokeWidth="2.4" fill="none" strokeLinecap="round" />
+      <path d="M24 27 L29.5 28.8 L26 35.5" stroke={arrowColor} strokeWidth="2.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
