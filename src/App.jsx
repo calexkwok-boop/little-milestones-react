@@ -12,6 +12,7 @@ import RecapScreen from './screens/RecapScreen';
 const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
 const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
 const LazyNotificationHistoryScreen = lazy(() => import('./screens/NotificationHistoryScreen'));
+const LazySharedEntryScreen = lazy(() => import('./screens/SharedEntryScreen'));
 import BookBuilderScreen from './screens/BookBuilderScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
@@ -2726,6 +2727,10 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [peopleInput, setPeopleInput] = useState('');
   const [isShared, setIsShared] = useState(entry.shared ?? true);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showShareLinkSheet, setShowShareLinkSheet] = useState(false);
+  const [shareToken, setShareToken] = useState(entry.shareToken ?? null);
+  const [shareLinkBusy, setShareLinkBusy] = useState(false);
+  const [shareLinkCopied, setShareLinkCopied] = useState(false);
   const [detailLikes, setDetailLikes] = useState([]);
   const [detailComments, setDetailComments] = useState([]);
   const [detailCommentText, setDetailCommentText] = useState('');
@@ -2756,6 +2761,32 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
     const { data } = await supabase.from('entry_comments').insert(insertData).select('id, user_id, display_name, body, created_at, parent_id').single();
     if (data) setDetailComments(prev => prev.map(c => c.id === temp.id ? data : c));
     if (entry.authorId) triggerPush({ targetUserId: entry.authorId, kind: parentId ? 'reply' : 'comment', entryId: entry.id, fromName: socialName, commentPreview: body });
+  }
+
+  async function handleGenerateShareLink() {
+    if (!supabase || shareLinkBusy) return;
+    setShareLinkBusy(true);
+    const token = crypto.randomUUID();
+    const { error } = await supabase.from('entries').update({ share_token: token }).eq('id', entry.id);
+    if (!error) setShareToken(token);
+    setShareLinkBusy(false);
+  }
+
+  async function handleRevokeShareLink() {
+    if (!supabase || shareLinkBusy) return;
+    setShareLinkBusy(true);
+    const { error } = await supabase.from('entries').update({ share_token: null }).eq('id', entry.id);
+    if (!error) setShareToken(null);
+    setShareLinkBusy(false);
+  }
+
+  function handleCopyShareLink() {
+    if (!shareToken) return;
+    const url = `${window.location.origin}/?shared=${shareToken}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setShareLinkCopied(true);
+      setTimeout(() => setShareLinkCopied(false), 2000);
+    }).catch(() => {});
   }
 
   function handleDetailTouchStart(e) {
@@ -3019,6 +3050,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               { icon: 'ti-edit', label: 'Edit entry', action: () => { setShowActionSheet(false); onEdit(entry); } },
               onToggleShared && { icon: isShared ? 'ti-lock' : 'ti-users', label: isShared ? 'Private' : 'Share', action: () => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, { partner: next, friends: next }); showToast(next ? 'Visible to friends' : 'Post is private'); setShowActionSheet(false); } },
               { icon: 'ti-share', label: 'Send', action: () => { setShowActionSheet(false); handleShare(); } },
+              supabase && { icon: 'ti-link', label: 'Share link', action: () => { setShowActionSheet(false); setShowShareLinkSheet(true); } },
               { icon: 'ti-trash', label: 'Delete entry', action: () => { setShowActionSheet(false); setShowDeleteConfirm(true); }, danger: true },
             ].filter(Boolean).map(item => (
               <button key={item.label} onClick={item.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', color: item.danger ? '#D4856A' : 'var(--text)', fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 500 }}>
@@ -3026,6 +3058,39 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 {item.label}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+      {showShareLinkSheet && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowShareLinkSheet(false)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <i className="ti ti-link" style={{ fontSize: 19, color: 'var(--accent)' }} />
+            </div>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Share this moment</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.6, textAlign: 'center' }}>
+              Anyone with this link can view this photo and letter — no Patina account needed. You can revoke it anytime.
+            </p>
+            {shareToken ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', marginBottom: 12 }}>
+                  <p style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {`${typeof window !== 'undefined' ? window.location.origin : ''}/?shared=${shareToken}`}
+                  </p>
+                </div>
+                <button onClick={handleCopyShareLink} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginBottom: 10 }}>
+                  {shareLinkCopied ? 'Copied!' : 'Copy link'}
+                </button>
+                <button onClick={handleRevokeShareLink} disabled={shareLinkBusy} style={{ width: '100%', background: 'none', border: 'none', color: '#D4856A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: '4px', opacity: shareLinkBusy ? 0.6 : 1 }}>
+                  Revoke link
+                </button>
+              </>
+            ) : (
+              <button onClick={handleGenerateShareLink} disabled={shareLinkBusy} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", opacity: shareLinkBusy ? 0.6 : 1 }}>
+                {shareLinkBusy ? 'Creating…' : 'Create link'}
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -7726,6 +7791,7 @@ function normalizeEntry(e) {
     shared: e.shared ?? true,
     sharedWith: e.shared_with || { partner: true, family: false, friends: false },
     voiceMemoUrl: e.voice_memo_url || null,
+    shareToken: e.share_token || null,
   };
 }
 
@@ -7786,6 +7852,11 @@ export default function App() {
   const [reactionCounts, setReactionCounts] = useState({});
   const [pendingOpenEntryId, setPendingOpenEntryId] = useState(() => {
     try { return new URLSearchParams(window.location.search).get('open'); } catch { return null; }
+  });
+  // A public share link (?shared=<token>) needs no auth and no app data —
+  // read once at mount, checked ahead of every other gate in the render below.
+  const [sharedEntryToken] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('shared'); } catch { return null; }
   });
   const [pendingOpenBirthdayKidId, setPendingOpenBirthdayKidId] = useState(() => {
     try { return new URLSearchParams(window.location.search).get('openBirthday'); } catch { return null; }
@@ -9244,6 +9315,14 @@ export default function App() {
     onDismissReaction: handleDismissReaction,
     onDismissBirthday: handleDismissBirthday,
   }), [reactionNotifications, birthdayNotifications, reactionCounts, partnerToast, reactionToast, unseenPartnerIds, friendRequests, session?.user?.id, handleClearReactions, handleDismissReaction, handleDismissBirthday]);
+
+  if (sharedEntryToken) {
+    return (
+      <Suspense fallback={<div className="app-root" data-theme={effectiveDark ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }} />}>
+        <LazySharedEntryScreen token={sharedEntryToken} effectiveDark={effectiveDark} />
+      </Suspense>
+    );
+  }
 
   if (authLoading || dataLoading) {
     return (
