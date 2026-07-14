@@ -555,22 +555,12 @@ function KidSelector({ kids, selected, onSelect, showBoth }) {
   return (
     <div className="scrollx">
       <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-layout-list" label="All" />
-      {showBoth && kids.length >= 2 && (
-        <div
-          className={`kid-chip ${selected === 'both' ? 'active' : ''}`}
-          style={selected === 'both' ? { background: 'var(--accent)' } : {}}
-          onClick={() => onSelect('both')}
-        >
-          <div style={{ position: 'relative', width: 34, height: 24, flexShrink: 0 }}>
-            <span style={{ position: 'absolute', left: 0, top: 0 }}><KidThumb kid={kids[0]} /></span>
-            <span style={{ position: 'absolute', left: 12, top: 0, outline: `2px solid ${selected === 'both' ? 'var(--accent)' : 'var(--bg-input)'}`, borderRadius: '50%' }}><KidThumb kid={kids[1]} /></span>
-          </div>
-          Both
-        </div>
-      )}
       {kids.map(k => (
         <KidChip key={k.id} kid={k} active={selected === k.id} onClick={() => onSelect(k.id)} />
       ))}
+      {showBoth && kids.length >= 2 && (
+        <KidChip active={selected === 'both'} onClick={() => onSelect('both')} icon="ti-users" label="Together" />
+      )}
     </div>
   );
 }
@@ -1578,9 +1568,10 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
 
 
   const onThisDay = useMemo(() => entries
-    .filter(e => e.date.slice(5) === todayMMDD && parseInt(e.date.slice(0, 4)) < todayYear)
+    .filter(e => e.date.slice(5) === todayMMDD && parseInt(e.date.slice(0, 4)) < todayYear
+      && (kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter))))
     .sort((a, b) => new Date(b.date) - new Date(a.date)),
-  [entries, todayMMDD, todayYear]);
+  [entries, todayMMDD, todayYear, kidFilter]);
 
   const recent = useMemo(() => entries
     .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
@@ -1713,19 +1704,21 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     if (onThisDay.length > 0) return null;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
-    const pool = entries.filter(e => e.type !== 'note' && new Date(e.date + 'T12:00:00') < cutoff);
+    const pool = entries.filter(e => e.type !== 'note' && new Date(e.date + 'T12:00:00') < cutoff
+      && (kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter))));
     if (pool.length === 0) return null;
     return pool.reduce((best, e) => onceUponATimeScore('letter', e.id) > onceUponATimeScore('letter', best.id) ? e : best);
-  }, [entries, onThisDay, currentSlot]);
+  }, [entries, onThisDay, currentSlot, kidFilter]);
 
   const onceUponATimeNote = useMemo(() => {
     if (onThisDay.length > 0) return null;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
-    const pool = entries.filter(e => e.type === 'note' && new Date(e.date + 'T12:00:00') < cutoff);
+    const pool = entries.filter(e => e.type === 'note' && new Date(e.date + 'T12:00:00') < cutoff
+      && (kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter))));
     if (pool.length === 0) return null;
     return pool.reduce((best, e) => onceUponATimeScore('note', e.id) > onceUponATimeScore('note', best.id) ? e : best);
-  }, [entries, onThisDay, currentSlot]);
+  }, [entries, onThisDay, currentSlot, kidFilter]);
 
   const sameAgeGroups = useMemo(() => {
     if (kids.length < 2) return null;
@@ -1775,7 +1768,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   // "On this day" is an exact-anniversary match and stays independent/always-shown when present.
   const lookBackChoice = useMemo(() => {
     const hasOnce = !!(onceUponATime || onceUponATimeNote);
-    const hasSameAge = !!sameAgeGroup && !kidFilter;
+    const hasSameAge = !!sameAgeGroup && (!kidFilter || kidFilter === 'both');
     if (!hasOnce && !hasSameAge) return null;
     if (hasOnce && !hasSameAge) return 'once';
     if (!hasOnce && hasSameAge) return 'sameAge';
@@ -1858,7 +1851,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           <Header />
 
           {kids.length > 1 && (
-            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} />
+            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth />
           )}
 
           {unseenPartnerIds.length > 0 && (() => {
