@@ -6451,14 +6451,6 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: theirKids.length > 0 ? 10 : 0 }}>
                       <FriendAvatar name={name} avatarUrl={avatar} />
                       <p style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{name || 'Friend'}</p>
-                      {kidsBirthdayToday.length > 0 && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(200,153,62,0.15)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 999, padding: '3px 9px' }}>
-                          <i className="ti ti-cake" style={{ fontSize: 12, color: '#C8993E' }} />
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#C8993E', fontFamily: "'Urbanist', sans-serif" }}>
-                            {kidsBirthdayToday.map(k => k.name.split(' ')[0]).join(' & ')}'s birthday
-                          </span>
-                        </span>
-                      )}
                       <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)' }} />
                     </div>
                     {theirKids.length > 0 && (
