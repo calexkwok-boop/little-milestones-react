@@ -1,7 +1,34 @@
-const CACHE = 'patina-v7';
+const CACHE = 'patina-v8';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
+});
+
+self.addEventListener('push', e => {
+  let data = {};
+  try { data = e.data ? e.data.json() : {}; } catch {}
+  e.waitUntil(
+    self.registration.showNotification(data.title || 'Patina', {
+      body: data.body || '',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      data: { url: data.url || '/' },
+      tag: data.tag,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const url = e.notification.data?.url || '/';
+  e.waitUntil(
+    clients.matchAll({ type: 'window' }).then(list => {
+      for (const c of list) {
+        if ('focus' in c) { c.navigate(url); return c.focus(); }
+      }
+      return clients.openWindow(url);
+    })
+  );
 });
 
 self.addEventListener('activate', e => {

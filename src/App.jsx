@@ -136,6 +136,13 @@ function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
   } catch { return null; }
 }
 
+// Fire-and-forget push notification to another user — mirrors how notify-partner
+// is invoked (never awaited by the caller, never blocks the UI on failure).
+function triggerPush(body) {
+  if (!supabase) return;
+  supabase.functions.invoke('send-push', { body }).catch(() => {});
+}
+
 // ─── Share card ──────────────────────────────────────────────────────────────
 
 function loadImageEl(url) {
@@ -578,10 +585,19 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
   );
 }
 
+const CROP_PREVIEW_TARGETS = [
+  { label: 'Note', w: 84, h: 40 },
+  { label: 'Letter', w: 84, h: 50 },
+  { label: 'Book', w: 40, h: 40 },
+];
+
 function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
   const scrollRef = useRef(null);
   const imgRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
+  const [liveCropY, setLiveCropY] = useState(cropY);
+  const rafRef = useRef(null);
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
   // `cropY` means "this % down the photo should stay centered wherever it's shown" — not a raw
   // scroll position — so cards of other heights (a 140px note thumb vs this editor's frame) can
@@ -599,20 +615,32 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
     }
   }
 
-  function handleLoad() {
-    setLoaded(true);
-    scrollToCropY(cropY);
-  }
-
-  function handleSave() {
+  function computeLiveCropY() {
     const img = imgRef.current;
     const container = scrollRef.current;
-    if (!img || !container) return onSave(cropY);
+    if (!img || !container || !img.naturalWidth) return cropY;
     const scale = container.offsetWidth / img.naturalWidth;
     const scaledH = img.naturalHeight * scale;
     const focusPx = container.scrollTop + cardHeight / 2;
-    const newY = scaledH > 0 ? Math.round((focusPx / scaledH) * 100) : 50;
-    onSave(Math.min(100, Math.max(0, newY)));
+    return scaledH > 0 ? Math.min(100, Math.max(0, (focusPx / scaledH) * 100)) : 50;
+  }
+
+  function handleLoad() {
+    setLoaded(true);
+    scrollToCropY(cropY);
+    setLiveCropY(computeLiveCropY());
+  }
+
+  function handleScroll() {
+    if (rafRef.current) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      setLiveCropY(computeLiveCropY());
+    });
+  }
+
+  function handleSave() {
+    onSave(Math.round(computeLiveCropY()));
   }
 
   return (
@@ -622,10 +650,23 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
       </p>
       <div
         ref={scrollRef}
+        onScroll={handleScroll}
         style={{ height: cardHeight, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', margin: '0 0' }}
       >
         <img ref={imgRef} src={url} style={{ width: '100%', display: 'block' }} onLoad={handleLoad} alt="" />
       </div>
+      {loaded && (
+        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', padding: '16px 24px 0' }}>
+          {CROP_PREVIEW_TARGETS.map(p => (
+            <div key={p.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: p.w, height: p.h, borderRadius: 6, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.18)' }}>
+                <CroppedImg src={url} cropY={liveCropY} />
+              </div>
+              <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', fontFamily: 'Inter, sans-serif', textTransform: 'uppercase', letterSpacing: 0.5 }}>{p.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 12, padding: '20px 24px 44px' }}>
         <button onClick={onClose} style={{ flex: 1, padding: '13px', border: '1px solid rgba(255,255,255,0.25)', background: 'none', color: '#fff', borderRadius: 12, fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
           Cancel
@@ -1272,7 +1313,7 @@ function turningAge(birthdate) {
 function slotString() {
   const d = new Date();
   const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  const slot = Math.floor(d.getHours() / 3) * 3;
+  const slot = Math.floor(d.getHours() / 2) * 2;
   return `${date}-${slot}`;
 }
 
@@ -1289,7 +1330,7 @@ function entryAddedTime(entry) {
 
 function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist }) {
   const { entries, kids } = useData() ?? {};
-  const { unseenPartnerIds = [], reactionCounts = {}, pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
+  const { unseenPartnerIds = [], reactionCounts = {}, pendingRequestCount = 0, circleBadge = 0, birthdayNotifications = [], onDismissBirthday } = useNotif() ?? {};
   const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
   const [currentDate, setCurrentDate] = useState(todayString);
   const [currentSlot, setCurrentSlot] = useState(slotString);
@@ -1323,7 +1364,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   useEffect(() => {
     function scheduleRefresh() {
       const now = new Date();
-      const nextSlotHour = (Math.floor(now.getHours() / 3) + 1) * 3;
+      const nextSlotHour = (Math.floor(now.getHours() / 2) + 1) * 2;
       const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), nextSlotHour);
       const ms = next - now;
       return setTimeout(() => { setCurrentDate(todayString()); setCurrentSlot(slotString()); scheduleRefresh(); }, ms);
@@ -1370,6 +1411,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
       setViewerLikes(prev => [...prev, optimistic]);
       const { data } = await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: userId, display_name: socialName }).select('id, user_id, display_name').single();
       if (data) setViewerLikes(prev => prev.map(l => l.id === 'opt' ? data : l));
+      if (circleViewer.entry.userId) triggerPush({ targetUserId: circleViewer.entry.userId, kind: 'like', entryId, fromName: socialName, kidNames: circleViewer.kidLabel });
     }
   }
 
@@ -1386,6 +1428,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     if (parentId) insertData.parent_id = parentId;
     const { data } = await supabase.from('entry_comments').insert(insertData).select('id, user_id, display_name, body, created_at, parent_id').single();
     if (data) setViewerComments(prev => prev.map(c => c.id === temp.id ? data : c));
+    if (circleViewer.entry.userId) triggerPush({ targetUserId: circleViewer.entry.userId, kind: parentId ? 'reply' : 'comment', entryId: circleViewer.entry.id, fromName: socialName, commentPreview: body });
   }
 
   function handleOpenEntry(entry) {
@@ -1593,6 +1636,20 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   }, [sameAgeGroups?.length]);
 
   const sameAgeGroup = sameAgeGroups ? sameAgeGroups[sameAgeIdx % sameAgeGroups.length] : null;
+
+  // "Once upon a time" and "At the same age" both compete for the same kind of home-feed
+  // real estate (a nostalgic look-back), so only show one per visit instead of stacking both —
+  // alternating by the existing 2-hour slot so each still gets airtime over the course of a day.
+  // "On this day" is an exact-anniversary match and stays independent/always-shown when present.
+  const lookBackChoice = useMemo(() => {
+    const hasOnce = !!(onceUponATime || onceUponATimeNote);
+    const hasSameAge = !!sameAgeGroup && !kidFilter;
+    if (!hasOnce && !hasSameAge) return null;
+    if (hasOnce && !hasSameAge) return 'once';
+    if (!hasOnce && hasSameAge) return 'sameAge';
+    const s = currentSlot.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+    return s % 2 === 0 ? 'once' : 'sameAge';
+  }, [onceUponATime, onceUponATimeNote, sameAgeGroup, kidFilter, currentSlot]);
 
   const Header = () => (
     <div style={{ textAlign: 'center' }}>
@@ -1870,7 +1927,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
             </div>
           )}
 
-          {(onceUponATime || onceUponATimeNote) && (() => {
+          {lookBackChoice === 'once' && (() => {
             return (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
@@ -1890,7 +1947,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
             );
           })()}
 
-          {sameAgeGroup && !kidFilter && (
+          {lookBackChoice === 'sameAge' && (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
                 <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
@@ -1992,7 +2049,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                     const friendInfo = friendFamilyMap[k.familyId] || {};
                     const age = turningAge(k.birthdate);
                     return (
-                      <div key={`bday-${k.id}`} onClick={() => onFriendBirthdayClick?.(k)} style={{ width: 136, flexShrink: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(200,153,62,0.35)', background: 'linear-gradient(160deg, #2A4035 0%, #3A5548 100%)', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}>
+                      <div key={`bday-${k.id}`} onClick={() => { birthdayNotifications.filter(n => n.kidId === k.id).forEach(n => onDismissBirthday?.(n.id)); onFriendBirthdayClick?.(k); }} style={{ width: 136, flexShrink: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(200,153,62,0.35)', background: 'linear-gradient(160deg, #2A4035 0%, #3A5548 100%)', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}>
                         <div style={{ height: 136, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 10px', position: 'relative' }}>
                           <button
                             onClick={e => { e.stopPropagation(); window.open(k.wishlistUrl || AMAZON_GIFT_FALLBACK_URL, '_blank', 'noopener,noreferrer'); }}
@@ -2573,6 +2630,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
     if (parentId) insertData.parent_id = parentId;
     const { data } = await supabase.from('entry_comments').insert(insertData).select('id, user_id, display_name, body, created_at, parent_id').single();
     if (data) setDetailComments(prev => prev.map(c => c.id === temp.id ? data : c));
+    if (entry.authorId) triggerPush({ targetUserId: entry.authorId, kind: parentId ? 'reply' : 'comment', entryId: entry.id, fromName: socialName, commentPreview: body });
   }
 
   function handleDetailTouchStart(e) {
@@ -4140,6 +4198,8 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
       setTimeout(() => setLikeAnimId(id => id === entryId ? null : id), 800);
       const { data } = await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: currentUserId, display_name: socialName }).select('id, entry_id, user_id, display_name').single();
       if (data) setLikesMap(prev => ({ ...prev, [entryId]: (prev[entryId] || []).map(l => l.id === temp.id ? data : l) }));
+      const owner = feedEntries.find(e => e.id === entryId)?.userId;
+      if (owner) triggerPush({ targetUserId: owner, kind: 'like', entryId, fromName: socialName });
     }
   }
 
@@ -4151,6 +4211,8 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     setCommentsMap(prev => ({ ...prev, [entryId]: [...(prev[entryId] || []), temp] }));
     const { data } = await supabase.from('entry_comments').insert({ entry_id: entryId, user_id: currentUserId, display_name: socialName, body }).select('id, entry_id, user_id, display_name, body, created_at').single();
     if (data) setCommentsMap(prev => ({ ...prev, [entryId]: (prev[entryId] || []).map(c => c.id === temp.id ? data : c) }));
+    const owner = feedEntries.find(e => e.id === entryId)?.userId;
+    if (owner) triggerPush({ targetUserId: owner, kind: 'comment', entryId, fromName: socialName, commentPreview: body });
   }
 
   const displayedEntries = useMemo(() => {
@@ -5242,6 +5304,77 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   const newBirthdate = (newBdMonth && newBdDay && newBdYear && newBdYear.length === 4)
     ? `${newBdYear}-${newBdMonth}-${newBdDay.padStart(2, '0')}` : '';
 
+  const [notifStatus, setNotifStatus] = useState('checking'); // 'unsupported' | 'ios-need-install' | 'off' | 'on' | 'checking'
+  const [notifBusy, setNotifBusy] = useState(false);
+
+  useEffect(() => {
+    async function check() {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+        setNotifStatus('unsupported');
+        return;
+      }
+      const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      if (isIOS && !isStandalone) {
+        setNotifStatus('ios-need-install');
+        return;
+      }
+      if (Notification.permission === 'granted') {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.getSubscription();
+        setNotifStatus(sub ? 'on' : 'off');
+      } else {
+        setNotifStatus('off');
+      }
+    }
+    check();
+  }, []);
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  }
+
+  async function handleEnableNotifications() {
+    if (notifBusy || !supabase || !currentUserId) return;
+    setNotifBusy(true);
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') { setNotifStatus('off'); setNotifBusy(false); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+      });
+      const j = sub.toJSON();
+      await supabase.from('push_subscriptions').upsert(
+        { user_id: currentUserId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth },
+        { onConflict: 'endpoint' }
+      );
+      setNotifStatus('on');
+    } catch {
+      setNotifStatus('off');
+    }
+    setNotifBusy(false);
+  }
+
+  async function handleDisableNotifications() {
+    if (notifBusy) return;
+    setNotifBusy(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        if (supabase) await supabase.from('push_subscriptions').delete().eq('endpoint', sub.endpoint);
+        await sub.unsubscribe();
+      }
+      setNotifStatus('off');
+    } catch {}
+    setNotifBusy(false);
+  }
+
   async function handleSaveNewKid() {
     if (!newName.trim() || !newBirthdate) return;
     setAddSaving(true);
@@ -5423,6 +5556,37 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
               </div>
             </div>
           </div>
+
+          {/* ── Notifications ── */}
+          {notifStatus !== 'unsupported' && (
+            <div>
+              <p style={sectionLabel}>Notifications</p>
+              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px' }}>
+                {notifStatus === 'ios-need-install' ? (
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 6px' }}>Add Patina to your Home Screen</p>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
+                      iPhone only delivers notifications to installed apps. Tap the Share icon, then "Add to Home Screen" — then come back here to turn them on.
+                    </p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: '0 0 2px' }}>Push notifications</p>
+                      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Birthdays, friend activity, and gentle nudges</p>
+                    </div>
+                    <button
+                      onClick={notifStatus === 'on' ? handleDisableNotifications : handleEnableNotifications}
+                      disabled={notifBusy || notifStatus === 'checking'}
+                      style={{ width: 46, height: 27, borderRadius: 999, border: 'none', background: notifStatus === 'on' ? 'var(--accent)' : 'var(--border)', position: 'relative', cursor: 'pointer', flexShrink: 0, opacity: notifBusy ? 0.6 : 1 }}
+                    >
+                      <div style={{ width: 21, height: 21, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: notifStatus === 'on' ? 22 : 3, transition: 'left 0.15s' }} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* ── Create a book ── */}
           {onCreateBook && (
@@ -5985,6 +6149,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
       const fake = { entry_id: entryId, user_id: userId, display_name: socialName || '' };
       setViewerLikes(p => [...p, fake]);
       await supabase.from('entry_likes').insert({ entry_id: entryId, user_id: userId, display_name: socialName || '' });
+      if (friendViewer.entry.userId) triggerPush({ targetUserId: friendViewer.entry.userId, kind: 'like', entryId, fromName: socialName || '' });
     }
   }
 
@@ -5994,6 +6159,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
     setViewerCommentText('');
     const { data } = await supabase.from('entry_comments').insert({ entry_id: friendViewer.entry.id, user_id: session.user.id, display_name: socialName || '', body }).select().single();
     if (data) setViewerComments(p => [...p, data]);
+    if (friendViewer.entry.userId) triggerPush({ targetUserId: friendViewer.entry.userId, kind: 'comment', entryId: friendViewer.entry.id, fromName: socialName || '', commentPreview: body });
   }
 
   const pendingIncoming = friendRequests.filter(r => r.addressee_id === currentUserId);
@@ -6182,7 +6348,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                     ? n.familyNames.slice(0, -1).join(', ') + ' and ' + n.familyNames.slice(-1) + "'s family"
                     : n.familyNames[0] ? `${n.familyNames[0]}'s family` : null;
                   return (
-                    <div key={n.id} onClick={() => onFriendBirthdayClick?.(kid)} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: (idx < groupedBirthdayNotifs.length - 1 || reactionNotifications.length > 0) ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: 'rgba(74,94,80,0.08)' }}>
+                    <div key={n.id} onClick={() => { n.ids.forEach(id => onDismissBirthday?.(id)); onFriendBirthdayClick?.(kid); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: (idx < groupedBirthdayNotifs.length - 1 || reactionNotifications.length > 0) ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: 'rgba(74,94,80,0.08)' }}>
                       <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(74,94,80,0.15)', border: '1px solid rgba(74,94,80,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <i className="ti ti-cake" style={{ fontSize: 16, color: 'var(--accent)' }} />
                       </div>
@@ -7478,7 +7644,27 @@ export default function App() {
   const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
   const [reactionCounts, setReactionCounts] = useState({});
-  const [pendingOpenEntryId, setPendingOpenEntryId] = useState(null);
+  const [pendingOpenEntryId, setPendingOpenEntryId] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('open'); } catch { return null; }
+  });
+  const [pendingOpenBirthdayKidId, setPendingOpenBirthdayKidId] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('openBirthday'); } catch { return null; }
+  });
+
+  // Deep-link from a push notification tap: ?open=<entryId> is handled by the existing
+  // pendingOpenEntryId flow already used for in-app notification taps; ?openBirthday=<kidId>
+  // waits for friendKids to load, then opens that friend's birthday slideshow.
+  useEffect(() => {
+    if (window.location.search) window.history.replaceState({}, '', window.location.pathname);
+  }, []);
+  useEffect(() => {
+    if (!pendingOpenBirthdayKidId || friendKids.length === 0) return;
+    const kid = friendKids.find(k => k.id === pendingOpenBirthdayKidId);
+    if (kid) {
+      setBirthdaySlideshowFriend({ kid, entries: friendEntries });
+      setPendingOpenBirthdayKidId(null);
+    }
+  }, [pendingOpenBirthdayKidId, friendKids, friendEntries]);
   const [discoverable, setDiscoverable] = useState(true);
   const [sharingDefaults, setSharingDefaults] = useState({ partner: true, family: false, friends: false });
   const [postOnboardInvite, setPostOnboardInvite] = useState(false);
@@ -8406,7 +8592,7 @@ export default function App() {
       const authorName = myMember?.real_name || myMember?.display_name || 'Your partner';
       const kidNames = kidIds.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & ');
       supabase.functions.invoke('notify-partner', {
-        body: { authorName, partnerUserId: partnerMember.user_id, kidNames, entryDate: date, entryText: text },
+        body: { authorName, partnerUserId: partnerMember.user_id, kidNames, entryDate: date, entryText: text, entryId: entry.id },
       }).catch(() => {});
     }
 
@@ -8797,6 +8983,7 @@ export default function App() {
       .select().single();
     if (!error && data) {
       setFriendRequests(prev => [...prev, { ...data, requester_display_name: myDisplayName, requester_avatar_url: null, addressee_display_name: displayName, addressee_avatar_url: avatarUrl || null }]);
+      triggerPush({ targetUserId: userId, kind: 'friend_request', fromName: myDisplayName || 'Someone' });
     }
     return { error };
   }

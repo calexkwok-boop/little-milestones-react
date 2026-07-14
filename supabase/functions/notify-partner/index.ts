@@ -1,3 +1,6 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { sendPushToUser } from '../_shared/push.ts';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -7,7 +10,7 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { authorName, partnerUserId, kidNames, entryDate, entryText } = await req.json();
+    const { authorName, partnerUserId, kidNames, entryDate, entryText, entryId } = await req.json();
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -57,6 +60,18 @@ Deno.serve(async (req) => {
     });
 
     if (!emailRes.ok) throw new Error(await emailRes.text());
+
+    // Push is best-effort — a missing/expired subscription shouldn't fail the whole
+    // request when the email above already succeeded.
+    try {
+      const admin = createClient(supabaseUrl, serviceKey);
+      await sendPushToUser(admin, partnerUserId, {
+        title: 'New letter',
+        body: `${authorName} wrote a new letter to ${kidNames}.`,
+        url: entryId ? `/?open=${entryId}` : '/',
+        tag: `partner-entry-${entryId || ''}`,
+      });
+    } catch { /* email already sent; push is a bonus */ }
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -33,26 +33,36 @@ function AmazonIcon({ size = 13, aColor = 'currentColor', arrowColor = '#FF9900'
 
 function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false, viewerEntries = [], viewerKids = [] }) {
   const slides = useMemo(() => {
-    const result = [];
-    const seen = new Set();
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    const uniqueEntries = [...new Map(entries.map(e => [e.id, e])).values()];
-    for (const e of uniqueEntries) {
-      if (!e.kids.includes(kid.id) || !e.media?.length) continue;
-      if (new Date(e.date + 'T12:00:00') < oneYearAgo) continue;
-      for (const m of e.media) {
-        if (seen.has(m.url)) continue;
-        seen.add(m.url);
-        result.push({ url: m.url, type: m.type, date: e.date, cropY: e.cropY ?? 50 });
+    const uniqueEntries = [...new Map(entries.map(e => [e.id, e])).values()]
+      .filter(e => e.kids.includes(kid.id) && e.media?.length);
+
+    function collectMedia(pool) {
+      const seen = new Set();
+      const out = [];
+      for (const e of pool) {
+        for (const m of e.media) {
+          if (seen.has(m.url)) continue;
+          seen.add(m.url);
+          out.push({ url: m.url, type: m.type, date: e.date, cropY: e.cropY ?? 50 });
+        }
       }
+      return { out, seen };
     }
+
+    // Prefer photos from the past year (this is a "year in review" recap), but if this kid has
+    // no photos from the last 12 months, fall back to all-time rather than showing an empty
+    // slideshow — some photos beat "no photos yet" when photos genuinely exist.
+    const recentEntries = uniqueEntries.filter(e => new Date(e.date + 'T12:00:00') >= oneYearAgo);
+    const { out: result, seen } = collectMedia(recentEntries.length > 0 ? recentEntries : uniqueEntries);
+
     for (let i = result.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [result[i], result[j]] = [result[j], result[i]];
     }
     // TEST VIDEO — remove after testing
-    const testVideo = uniqueEntries.flatMap(e => (e.kids.includes(kid.id) ? (e.media || []).filter(m => m.type === 'video').map(m => ({ url: m.url, type: 'video', date: e.date, cropY: e.cropY ?? 50 })) : [])).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const testVideo = uniqueEntries.flatMap(e => (e.media || []).filter(m => m.type === 'video').map(m => ({ url: m.url, type: 'video', date: e.date, cropY: e.cropY ?? 50 }))).sort((a, b) => a.date.localeCompare(b.date))[0];
     if (testVideo && !seen.has(testVideo.url)) result.unshift(testVideo);
     return result.slice(0, 9);
   }, [entries, kid.id]);
@@ -187,7 +197,17 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
 
   // Auto-advance slides, show stats card after last one
   useEffect(() => {
-    if (slides.length <= 1 || ended || showIntro || slideshowPaused) return;
+    if (ended || showIntro || slideshowPaused) return;
+    // Only one slide (or none) — there's nothing to advance between, but it should still move on
+    // to the stats card after a beat instead of sitting there forever.
+    if (slides.length <= 1) {
+      const t = setTimeout(() => {
+        setEnded(true);
+        setFreezeFrame(true);
+        setTimeout(() => { setFreezeFrame(false); setShowStats(true); }, 2400);
+      }, slideInterval);
+      return () => clearTimeout(t);
+    }
     const t = setInterval(() => {
       try { navigator.vibrate?.(8); } catch {}
       setIndex(i => {
