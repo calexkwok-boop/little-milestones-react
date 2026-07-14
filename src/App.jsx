@@ -275,168 +275,6 @@ function useNotificationPreferences(currentUserId) {
   return { prefs, setPref };
 }
 
-// ─── Share card ──────────────────────────────────────────────────────────────
-
-function loadImageEl(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = url;
-  });
-}
-
-function ctxRoundRect(ctx, x, y, w, h, r, fill) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-  ctx.fillStyle = fill;
-  ctx.fill();
-}
-
-function ctxWrapText(ctx, text, maxW) {
-  const words = text.split(' ');
-  const lines = [];
-  let line = '';
-  for (const word of words) {
-    const test = line ? line + ' ' + word : word;
-    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = word; }
-    else line = test;
-  }
-  if (line) lines.push(line);
-  return lines;
-}
-
-const SHARE_PALETTE = {
-  bg: '#E8F0E4',
-  card: '#F6FAF4',
-  border: '#CCDAC8',
-  accent: '#4A5E50',
-  text: '#2C3828',
-  muted: '#9AA89C',
-  gold: '#C8993E',
-};
-
-async function generateShareCard(entry, allKids) {
-  await document.fonts.ready;
-  await Promise.allSettled([
-    document.fonts.load('italic 400 42px "Source Serif 4"'),
-    document.fonts.load('600 28px Inter'),
-  ]);
-
-  const W = 1080, H = 1350, PAD = 72;
-  const canvas = document.createElement('canvas');
-  canvas.width = W; canvas.height = H;
-  const ctx = canvas.getContext('2d');
-
-  ctx.fillStyle = SHARE_PALETTE.bg;
-  ctx.fillRect(0, 0, W, H);
-
-  let cardTop = 100;
-  let hasPhoto = false;
-
-  const firstMedia = entry.media?.[0];
-  if (firstMedia) {
-    const imgUrl = firstMedia.type === 'video' ? videoThumbUrl(firstMedia.url) : firstMedia.url;
-    if (imgUrl) {
-      try {
-        const img = await loadImageEl(imgUrl);
-        const PHOTO_H = 520;
-        const scale = Math.max(W / img.width, PHOTO_H / img.height);
-        const sw = W / scale, sh = PHOTO_H / scale;
-        const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
-        ctx.save();
-        ctx.beginPath(); ctx.rect(0, 0, W, PHOTO_H); ctx.clip();
-        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, W, PHOTO_H);
-        ctx.restore();
-        cardTop = PHOTO_H - 44;
-        hasPhoto = true;
-      } catch {}
-    }
-  }
-
-  ctxRoundRect(ctx, 0, cardTop, W, H - cardTop + 20, 44, SHARE_PALETTE.card);
-
-  let y = cardTop + 80;
-
-  if (!hasPhoto) {
-    ctx.font = '400 140px “Source Serif 4”';
-    ctx.fillStyle = SHARE_PALETTE.border;
-    ctx.textAlign = 'right';
-    ctx.fillText('”', W - PAD + 10, cardTop + 118);
-    ctx.textAlign = 'left';
-  }
-
-  const name = buildSalutation(entry, allKids);
-  ctx.font = 'italic 400 38px "Source Serif 4"';
-  ctx.fillStyle = SHARE_PALETTE.accent;
-  ctx.fillText(`Dear ${name},`, PAD, y);
-  y += 60;
-
-  const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
-  ctx.font = 'italic 400 42px "Source Serif 4"';
-  ctx.fillStyle = SHARE_PALETTE.text;
-  const maxLines = hasPhoto ? 7 : 10;
-  const bodyLines = ctxWrapText(ctx, cleanText, W - PAD * 2);
-  bodyLines.slice(0, maxLines).forEach(line => { ctx.fillText(line, PAD, y); y += 64; });
-  if (bodyLines.length > maxLines) {
-    ctx.fillStyle = SHARE_PALETTE.muted; ctx.fillText('…', PAD, y); y += 64;
-  }
-  y += 12;
-
-  if (entry.signedAs) {
-    ctx.font = 'italic 400 36px "Source Serif 4"';
-    ctx.fillStyle = SHARE_PALETTE.accent;
-    ctx.fillText(`Love, ${entry.signedAs}`, PAD, y);
-    y += 52;
-  }
-
-  y += 28;
-  ctx.fillStyle = SHARE_PALETTE.border;
-  ctx.fillRect(PAD, y, W - PAD * 2, 1.5);
-  y += 36;
-
-  const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  ctx.font = '600 28px Inter';
-  ctx.fillStyle = SHARE_PALETTE.accent;
-  ctx.fillText(dateStr, PAD, y);
-  const ICON_SIZE = 36, ICON_GAP = 10;
-  ctx.font = '600 28px Inter';
-  ctx.fillStyle = SHARE_PALETTE.gold;
-  const patinaW = ctx.measureText('Patina').width;
-  ctx.fillText('Patina', W - PAD - patinaW - ICON_GAP - ICON_SIZE, y);
-  try {
-    const quillImg = await loadImageEl('/quill-no-background.png');
-    ctx.drawImage(quillImg, W - PAD - ICON_SIZE, y - 30, ICON_SIZE, ICON_SIZE);
-  } catch {}
-  ctx.textAlign = 'left';
-
-  return canvas;
-}
-
-
-async function shareEntry(entry, allKids) {
-  const canvas = await generateShareCard(entry, allKids);
-  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
-  const file = new File([blob], 'patina-letter.jpg', { type: 'image/jpeg' });
-  if (navigator.share && navigator.canShare?.({ files: [file] })) {
-    await navigator.share({ files: [file], title: 'A letter from Patina' });
-  } else {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'patina-letter.jpg'; a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-}
 
 function compressImage(file, maxDim = 2400, quality = 0.88) {
   return new Promise(resolve => {
@@ -950,7 +788,7 @@ function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDele
   const preview = (entry.text || '').replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const actions = [
     { icon: entry.favorited ? 'ti-star-filled' : 'ti-star', label: entry.favorited ? 'Remove from favorites' : 'Add to favorites', color: entry.favorited ? '#C8993E' : 'var(--text)', fn: onFavorite },
-    { icon: 'ti-share', label: 'Share', color: 'var(--text)', fn: onShare },
+    { icon: 'ti-link', label: 'Share link', color: 'var(--text)', fn: onShare },
     { icon: 'ti-trash', label: 'Delete', color: '#D4856A', fn: () => setConfirmingDelete(true) },
   ];
   return (
@@ -1451,7 +1289,21 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist }) {
+function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist, onGenerateShareLink }) {
+  const [quickToast, setQuickToast] = useState(null);
+  function showQuickToast(msg) {
+    setQuickToast(msg);
+    setTimeout(() => setQuickToast(null), 1800);
+  }
+  async function handleQuickShareLink(entry) {
+    if (!onGenerateShareLink) return;
+    const token = await onGenerateShareLink(entry);
+    if (!token) { showQuickToast('Could not create link'); return; }
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/?shared=${token}`);
+      showQuickToast('Link copied!');
+    } catch { showQuickToast('Could not copy link'); }
+  }
   const { entries, kids } = useData() ?? {};
   const { unseenPartnerIds = [], reactionCounts = {}, pendingRequestCount = 0, circleBadge = 0, birthdayNotifications = [], onDismissBirthday } = useNotif() ?? {};
   const { session, userId: currentUserId, familyMembers = [], myDisplayName } = useSession() ?? {};
@@ -2243,9 +2095,14 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           allKids={kids}
           onClose={() => setLongPressEntry(null)}
           onFavorite={() => { onToggleFavorite?.(longPressEntry.id); setLongPressEntry(null); }}
-          onShare={() => { shareEntry(longPressEntry, kids).catch(() => {}); setLongPressEntry(null); }}
+          onShare={() => { handleQuickShareLink(longPressEntry); setLongPressEntry(null); }}
           onDelete={() => { setLongPressEntry(null); onDeleteEntry?.(longPressEntry.id); }}
         />
+      )}
+      {quickToast && (
+        <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', background: 'rgba(44,56,40,0.88)', color: '#fff', fontSize: 13, fontWeight: 500, padding: '8px 16px', borderRadius: 20, zIndex: 50, whiteSpace: 'nowrap', pointerEvents: 'none', fontFamily: 'Inter, sans-serif' }}>
+          {quickToast}
+        </div>
       )}
       {circleViewer && (() => {
         const { entry, kidLabel, age, friendName, friendAvatar, entryDate, isOwn } = circleViewer;
@@ -2522,7 +2379,21 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
   );
 });
 
-function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos, onRefresh, onToggleFavorite, onDeleteEntry, reactionCounts = {}, onBack }) {
+function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos, onRefresh, onToggleFavorite, onDeleteEntry, reactionCounts = {}, onBack, onGenerateShareLink }) {
+  const [quickToast, setQuickToast] = useState(null);
+  function showQuickToast(msg) {
+    setQuickToast(msg);
+    setTimeout(() => setQuickToast(null), 1800);
+  }
+  async function handleQuickShareLink(entry) {
+    if (!onGenerateShareLink) return;
+    const token = await onGenerateShareLink(entry);
+    if (!token) { showQuickToast('Could not create link'); return; }
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/?shared=${token}`);
+      showQuickToast('Link copied!');
+    } catch { showQuickToast('Could not copy link'); }
+  }
   const scrollRef = useRef(null);
   const [longPressEntry, setLongPressEntry] = useState(null);
   const handleLongPress = useCallback((entry) => setLongPressEntry(entry), []);
@@ -2635,9 +2506,14 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
           allKids={kids}
           onClose={() => setLongPressEntry(null)}
           onFavorite={() => { onToggleFavorite?.(longPressEntry.id); setLongPressEntry(null); }}
-          onShare={() => { shareEntry(longPressEntry, kids).catch(() => {}); setLongPressEntry(null); }}
+          onShare={() => { handleQuickShareLink(longPressEntry); setLongPressEntry(null); }}
           onDelete={() => { setLongPressEntry(null); onDeleteEntry?.(longPressEntry.id); }}
         />
+      )}
+      {quickToast && (
+        <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', background: 'rgba(44,56,40,0.88)', color: '#fff', fontSize: 13, fontWeight: 500, padding: '8px 16px', borderRadius: 20, zIndex: 50, whiteSpace: 'nowrap', pointerEvents: 'none', fontFamily: 'Inter, sans-serif' }}>
+          {quickToast}
+        </div>
       )}
     </div>
   );
@@ -2713,7 +2589,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, allPeople = [], friendKids = [], supabase, session, socialName = '' }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, allPeople = [], friendKids = [], supabase, session, socialName = '' }) {
   const isNote = entry.type === 'note';
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
@@ -2763,19 +2639,18 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   }
 
   async function handleGenerateShareLink() {
-    if (!supabase || shareLinkBusy) return;
+    if (!onGenerateShareLink || shareLinkBusy) return;
     setShareLinkBusy(true);
-    const token = crypto.randomUUID();
-    const { error } = await supabase.from('entries').update({ share_token: token }).eq('id', entry.id);
-    if (!error) setShareToken(token);
+    const token = await onGenerateShareLink({ ...entry, shareToken });
+    if (token) setShareToken(token);
     setShareLinkBusy(false);
   }
 
   async function handleRevokeShareLink() {
-    if (!supabase || shareLinkBusy) return;
+    if (!onRevokeShareLink || shareLinkBusy) return;
     setShareLinkBusy(true);
-    const { error } = await supabase.from('entries').update({ share_token: null }).eq('id', entry.id);
-    if (!error) setShareToken(null);
+    await onRevokeShareLink(entry.id);
+    setShareToken(null);
     setShareLinkBusy(false);
   }
 
@@ -8554,6 +8429,29 @@ export default function App() {
     }
   }
 
+  // Single source of truth for share_token so the full entry action sheet and
+  // the feed's long-press quick menu never generate two different tokens for
+  // the same entry (which would silently invalidate whichever link was made
+  // first — the DB column only holds one value at a time).
+  async function handleGenerateShareLink(entry) {
+    if (entry.shareToken) return entry.shareToken;
+    if (!supabase) return null;
+    const token = crypto.randomUUID();
+    const { error } = await supabase.from('entries').update({ share_token: token }).eq('id', entry.id);
+    if (error) return null;
+    setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, shareToken: token } : e));
+    setActiveEntry(prev => prev?.id === entry.id ? { ...prev, shareToken: token } : prev);
+    return token;
+  }
+
+  async function handleRevokeShareLink(entryId) {
+    if (!supabase) return;
+    const { error } = await supabase.from('entries').update({ share_token: null }).eq('id', entryId);
+    if (error) return;
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, shareToken: null } : e));
+    setActiveEntry(prev => prev?.id === entryId ? { ...prev, shareToken: null } : prev);
+  }
+
   async function handleToggleFavorite(entryId) {
     const entry = entries.find(e => e.id === entryId);
     if (!entry) return;
@@ -9388,6 +9286,7 @@ export default function App() {
             onSeeAll={() => { setJournalBackScreen('home'); setScreen('journal'); }}
             onCompare={() => setScreen('compare')}
             onUpdateCrop={handleUpdateCrop}
+            onGenerateShareLink={handleGenerateShareLink}
             onSeePartnerLetters={() => { setLetterAuthorId(partnerMember?.user_id || null); setScreen('partner-letters'); }}
             self={selfMember}
             onRefresh={handleRefresh}
@@ -9458,6 +9357,7 @@ export default function App() {
           onDeleteEntry={handleQuickDelete}
           reactionCounts={reactionCounts}
           onBack={() => setScreen(journalBackScreen)}
+          onGenerateShareLink={handleGenerateShareLink}
         />
       )}
 
@@ -9475,6 +9375,8 @@ export default function App() {
           onUpdatePeople={handleUpdatePeople}
           onUpdateKids={handleUpdateKids}
           onToggleShared={!localMode ? handleToggleEntryShared : undefined}
+          onGenerateShareLink={handleGenerateShareLink}
+          onRevokeShareLink={handleRevokeShareLink}
           allPeople={allPeople}
           friendKids={friendKids}
           supabase={supabase}
