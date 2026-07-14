@@ -1,10 +1,43 @@
-import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { cloudinaryTransform } from '../constants.js';
 
-function CroppedPhoto({ src, cropY = 50, height = 200 }) {
+// `cropY` is saved as "the point in the photo that should stay centered" (0-100, top-to-bottom),
+// not a raw scroll-percentage — so it has to be re-projected into an `object-position` value
+// specific to THIS container's actual measured size, otherwise a crop chosen in the editor's tall
+// preview frame shows a completely different slice of the photo in a short book thumbnail.
+function CroppedPhoto({ src, cropY = 50, height = 200, width, style }) {
+  const containerRef = useRef(null);
+  const imgRef = useRef(null);
+  const [objY, setObjY] = useState(cropY);
+
+  const recompute = useCallback(() => {
+    const img = imgRef.current;
+    const container = containerRef.current;
+    if (!img || !container || !img.naturalWidth || !img.naturalHeight) return;
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    if (!cw || !ch) return;
+    const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
+    const scaledH = img.naturalHeight * scale;
+    const extra = scaledH - ch;
+    if (extra <= 0.5) { setObjY(50); return; }
+    const focusPx = (cropY / 100) * scaledH;
+    const top = Math.min(extra, Math.max(0, focusPx - ch / 2));
+    setObjY((top / extra) * 100);
+  }, [cropY]);
+
+  useLayoutEffect(() => {
+    recompute();
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(recompute);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [recompute, src]);
+
   return (
-    <div style={{ height, overflow: 'hidden', flexShrink: 0 }}>
-      <img src={src} style={{ width: '100%', height: `${height}px`, objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+    <div ref={containerRef} style={{ height, width, overflow: 'hidden', flexShrink: 0, ...style }}>
+      <img ref={imgRef} src={src} onLoad={recompute} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${objY}%`, display: 'block' }} alt="" />
     </div>
   );
 }
@@ -168,9 +201,7 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
                   </div>
                   <div style={{ background: '#FFFDF8', padding: '8px 9px 7px', display: photo ? 'flex' : 'block', gap: 9 }}>
                     {photo && (
-                      <div style={{ width: 66, height: 66, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
-                        <img src={cloudinaryTransform(photo.url, 'w_140,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />
-                      </div>
+                      <CroppedPhoto src={cloudinaryTransform(photo.url, 'w_140,q_auto,f_auto')} cropY={entry.cropY} height={66} width={66} style={{ borderRadius: 6 }} />
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{
@@ -210,9 +241,7 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
               >
                 <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 10px 10px 0', borderColor: `transparent ${hexToRgba(accent, 0.5)} transparent transparent`, borderRadius: '0 8px 0 0' }} />
                 {photo && (
-                  <div style={{ width: 66, height: 66, borderRadius: 6, overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={cloudinaryTransform(photo.url, 'w_140,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%` }} alt="" />
-                  </div>
+                  <CroppedPhoto src={cloudinaryTransform(photo.url, 'w_140,q_auto,f_auto')} cropY={entry.cropY} height={66} width={66} style={{ borderRadius: 6 }} />
                 )}
                 <div style={{ flex: photo ? 1 : undefined, minWidth: 0 }}>
                 <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 8, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: hexToRgba(accent, 0.9) }}>{nameLabel}</span>

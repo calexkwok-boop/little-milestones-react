@@ -583,6 +583,9 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
   const imgRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
 
+  // `cropY` means "this % down the photo should stay centered wherever it's shown" — not a raw
+  // scroll position — so cards of other heights (a 140px note thumb vs this editor's frame) can
+  // re-center that same focus point correctly. Convert to/from this editor's own scroll position here.
   function scrollToCropY(y) {
     const img = imgRef.current;
     const container = scrollRef.current;
@@ -590,7 +593,10 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
     const scale = container.offsetWidth / img.naturalWidth;
     const scaledH = img.naturalHeight * scale;
     const extra = scaledH - cardHeight;
-    if (extra > 0) container.scrollTop = (y / 100) * extra;
+    if (extra > 0) {
+      const focusPx = (y / 100) * scaledH;
+      container.scrollTop = Math.min(extra, Math.max(0, focusPx - cardHeight / 2));
+    }
   }
 
   function handleLoad() {
@@ -604,8 +610,8 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
     if (!img || !container) return onSave(cropY);
     const scale = container.offsetWidth / img.naturalWidth;
     const scaledH = img.naturalHeight * scale;
-    const extra = scaledH - cardHeight;
-    const newY = extra > 0 ? Math.round((container.scrollTop / extra) * 100) : 50;
+    const focusPx = container.scrollTop + cardHeight / 2;
+    const newY = scaledH > 0 ? Math.round((focusPx / scaledH) * 100) : 50;
     onSave(Math.min(100, Math.max(0, newY)));
   }
 
@@ -848,7 +854,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
                 <video src={entry.media[0].url} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
               ) : (
                 <>
-                  <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+                  <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
@@ -857,7 +863,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
                 </>
               )}
             </div>
-          ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+          ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} fade />
           }
         </div>
       )}
@@ -902,17 +908,105 @@ function AmazonIcon({ size = 13, aColor = 'currentColor', arrowColor = '#FF9900'
   );
 }
 
+// `cropY` is saved as "the point in the photo that should stay centered" (0-100, top-to-bottom),
+// not a raw scroll-percentage — so it has to be re-projected into an `object-position` value
+// specific to THIS container's actual measured size, otherwise a crop chosen in the (tall) editor
+// frame shows a completely different slice of the photo in a short card (e.g. a 140px note thumb).
+// Works for <img>, CSS background-image, and <video> alike — all it needs is the URL (to preload
+// and read its natural size) and a ref to the container it's actually being rendered into.
+function useImageCropPosition(url, cropY, containerRef) {
+  const [objY, setObjY] = useState(cropY);
+  const dimsRef = useRef(null);
+
+  const recompute = useCallback(() => {
+    const container = containerRef.current;
+    const dims = dimsRef.current;
+    if (!container || !dims) return;
+    const cw = container.clientWidth, ch = container.clientHeight;
+    if (!cw || !ch) return;
+    const scale = Math.max(cw / dims.w, ch / dims.h);
+    const scaledH = dims.h * scale;
+    const extra = scaledH - ch;
+    if (extra <= 0.5) { setObjY(50); return; }
+    const focusPx = (cropY / 100) * scaledH;
+    const top = Math.min(extra, Math.max(0, focusPx - ch / 2));
+    setObjY((top / extra) * 100);
+  }, [cropY, containerRef]);
+
+  useLayoutEffect(() => {
+    if (!url) return;
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      dimsRef.current = { w: img.naturalWidth, h: img.naturalHeight };
+      recompute();
+    };
+    img.src = url;
+    return () => { cancelled = true; };
+  }, [url, recompute]);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(recompute);
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [recompute]);
+
+  return objY;
+}
+
+function CroppedImg({ src, cropY = 50, alt = '', fade = false, onClick, onError, style, className }) {
+  const containerRef = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const objY = useImageCropPosition(src, cropY, containerRef);
+
+  return (
+    <div ref={containerRef} className={className} style={{ width: '100%', height: '100%', ...style }}>
+      <img
+        src={src}
+        alt={alt}
+        onLoad={() => setLoaded(true)}
+        onClick={onClick}
+        onError={onError}
+        loading={fade ? 'lazy' : undefined}
+        style={{
+          width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${objY}%`, display: 'block',
+          ...(fade ? { opacity: loaded ? 1 : 0, transition: 'opacity 0.35s ease' } : {}),
+        }}
+      />
+    </div>
+  );
+}
+
+function CroppedBg({ src, cropY = 50, style, className, children }) {
+  const containerRef = useRef(null);
+  const objY = useImageCropPosition(src, cropY, containerRef);
+  return (
+    <div ref={containerRef} className={className} style={{ ...style, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: `center ${objY}%` }}>
+      {children}
+    </div>
+  );
+}
+
+function CroppedVideo({ src, poster, cropY = 50, style, ...props }) {
+  const videoRef = useRef(null);
+  const objY = useImageCropPosition(poster, cropY, videoRef);
+  return <video ref={videoRef} src={src} poster={poster} style={{ ...style, objectPosition: `center ${objY}%` }} {...props} />;
+}
+
 const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transform }) {
   const [playing, setPlaying] = useState(false);
   if (item.type !== 'video') {
-    return <img src={cloudinaryTransform(item.url, transform)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%` }} alt="" />;
+    return <CroppedImg src={cloudinaryTransform(item.url, transform)} cropY={cropY} />;
   }
   if (playing) {
     return <video src={item.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={e => e.stopPropagation()} />;
   }
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }} onClick={e => { e.stopPropagation(); setPlaying(true); }}>
-      <img src={videoThumbUrl(item.url, `so_0,${transform}`)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%` }} alt="" />
+      <CroppedImg src={videoThumbUrl(item.url, `so_0,${transform}`)} cropY={cropY} />
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 15 }} />
@@ -1075,7 +1169,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
                   <video src={entry.media[0].url} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                 ) : (
                   <>
-                    <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" onError={e => { e.target.style.display = 'none'; }} />
+                    <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={cropY} onError={e => { e.target.style.display = 'none'; }} />
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                       <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
@@ -1084,7 +1178,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
                   </>
                 )}
               </div>
-            ) : <FadeImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%`, display: 'block' }} alt="" />
+            ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} fade />
             }
           </div>
         )}
@@ -2173,7 +2267,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
             ? playingHero
               ? <video src={heroMedia.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               : <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
-            : <FadeImg src={cloudinaryTransform(heroMedia.url, 'w_1200,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${entry.cropY ?? 50}%`, display: 'block' }} />
+            : <CroppedImg src={cloudinaryTransform(heroMedia.url, 'w_1200,q_auto,f_auto')} cropY={entry.cropY ?? 50} fade />
           }
           {heroMedia.type === 'video' && !playingHero && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setPlayingHero(true); }}>
@@ -2532,12 +2626,22 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 style={{ cursor: media[activeSlide]?.type !== 'video' ? 'pointer' : 'default' }}
               >
                 {media.map((item, i) => (
-                  <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0, backgroundImage: item.type === 'video' ? 'none' : `url('${cloudinaryTransform(item.url, 'w_1200,e_sharpen:60,q_auto,f_auto')}')`, backgroundPosition: `center ${cropY}%` }}>
-                    {item.type === 'video'
-                      ? <video src={item.url} poster={videoThumbUrl(item.url, `so_0,e_sharpen:60,q_auto,f_auto`)} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${cropY}%` }} preload="metadata" playsInline controls onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)} />
-                      : <div className="video-play-overlay" style={{ display: 'none' }} />
-                    }
-                  </div>
+                  item.type === 'video' ? (
+                    <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }}>
+                      <CroppedVideo
+                        src={item.url}
+                        poster={videoThumbUrl(item.url, `so_0,e_sharpen:60,q_auto,f_auto`)}
+                        cropY={cropY}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        preload="metadata" playsInline controls
+                        onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)}
+                      />
+                    </div>
+                  ) : (
+                    <CroppedBg key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }} src={cloudinaryTransform(item.url, 'w_1200,e_sharpen:60,q_auto,f_auto')} cropY={cropY}>
+                      <div className="video-play-overlay" style={{ display: 'none' }} />
+                    </CroppedBg>
+                  )
                 ))}
                 {onUpdateCrop && !videoPlaying && (
                   <button
