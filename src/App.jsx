@@ -5306,6 +5306,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
 
   const [notifStatus, setNotifStatus] = useState('checking'); // 'unsupported' | 'ios-need-install' | 'off' | 'on' | 'checking'
   const [notifBusy, setNotifBusy] = useState(false);
+  const [notifError, setNotifError] = useState(null);
 
   useEffect(() => {
     async function check() {
@@ -5340,21 +5341,27 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   async function handleEnableNotifications() {
     if (notifBusy || !supabase || !currentUserId) return;
     setNotifBusy(true);
+    setNotifError(null);
     try {
       const perm = await Notification.requestPermission();
       if (perm !== 'granted') { setNotifStatus('off'); setNotifBusy(false); return; }
+      const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidKey) throw new Error('Missing VAPID key — restart the dev server (env vars only load at startup)');
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY),
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
       });
       const j = sub.toJSON();
-      await supabase.from('push_subscriptions').upsert(
+      const { error } = await supabase.from('push_subscriptions').upsert(
         { user_id: currentUserId, endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth },
         { onConflict: 'endpoint' }
       );
+      if (error) throw error;
       setNotifStatus('on');
-    } catch {
+    } catch (err) {
+      console.error('[push] enable failed:', err);
+      setNotifError(err?.message || String(err));
       setNotifStatus('off');
     }
     setNotifBusy(false);
@@ -5583,6 +5590,9 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                       <div style={{ width: 21, height: 21, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: notifStatus === 'on' ? 22 : 3, transition: 'left 0.15s' }} />
                     </button>
                   </div>
+                )}
+                {notifError && (
+                  <p style={{ fontSize: 11.5, color: '#D4856A', margin: '10px 0 0', lineHeight: 1.5 }}>{notifError}</p>
                 )}
               </div>
             </div>
