@@ -39,13 +39,15 @@ function SharedEntryScreen({ token, effectiveDark }) {
   }
 
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const kidLabel = (entry.kid_names || []).map(k => k.name).join(' & ');
-  const age = entry.kid_names?.[0]?.birthdate ? exactAgeLabel(entry.kid_names[0].birthdate, entry.date) : null;
+  const kids = entry.kid_names || [];
+  const kidLabel = kids.map(k => k.name).join(' & ');
+  const age = kids[0]?.birthdate ? exactAgeLabel(kids[0].birthdate, entry.date) : null;
+  const bodyText = (entry.text || '').replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
 
   return (
     <div className="app-root" data-theme={theme} style={{ overflowY: 'auto' }}>
       <div style={{ padding: '20px 20px 40px' }}>
-        <p style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic', fontWeight: 700, fontSize: 20, color: 'var(--accent)', margin: '0 0 24px', textAlign: 'center' }}>Patina</p>
+        <p style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 22, color: '#C8993E', margin: '0 0 24px', textAlign: 'center' }}>Patina</p>
 
         {entry.media?.[0] && (
           <div style={{ borderRadius: 16, overflow: 'hidden', marginBottom: 18 }}>
@@ -57,14 +59,27 @@ function SharedEntryScreen({ token, effectiveDark }) {
           </div>
         )}
 
-        <div style={{ marginBottom: 18 }}>
-          {kidLabel && <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 2px' }}>{kidLabel}</p>}
-          <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0 }}>{dateLabel}{age ? ` · ${age}` : ''}</p>
-        </div>
+        {kids.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'flex', flexShrink: 0 }}>
+              {kids.map((k, i) => (
+                <span key={i} style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--bg)', marginLeft: i > 0 ? -14 : 0, background: k.accent || '#C8993E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {k.avatarUrl
+                    ? <img src={cloudinaryTransform(k.avatarUrl, 'w_100,h_100,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    : <span style={{ color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: "'Urbanist', sans-serif" }}>{k.name?.[0]?.toUpperCase()}</span>}
+                </span>
+              ))}
+            </div>
+            <div>
+              <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 2px' }}>Dear {kidLabel},</p>
+              <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0 }}>{age ? `${age} old · ` : ''}{dateLabel}</p>
+            </div>
+          </div>
+        )}
 
-        {entry.text && (
+        {bodyText && (
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, lineHeight: 1.7, color: 'var(--text)', margin: '0 0 32px', whiteSpace: 'pre-wrap' }}>
-            {entry.text}
+            {bodyText}
           </p>
         )}
 

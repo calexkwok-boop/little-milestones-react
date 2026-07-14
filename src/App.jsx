@@ -2720,7 +2720,6 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [activeSlide, setActiveSlide] = useState(0);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
-  const [sharing, setSharing] = useState(false);
   const [cropY, setCropY] = useState(entry.cropY ?? 50);
   const [people, setPeople] = useState(entry.people || []);
   const [showPeopleTagger, setShowPeopleTagger] = useState(false);
@@ -2812,12 +2811,6 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
     clearTimeout(toastTimer.current);
     setActionToast(msg);
     toastTimer.current = setTimeout(() => setActionToast(null), 1800);
-  }
-
-  async function handleShare() {
-    setSharing(true);
-    try { await shareEntry(entry, allKids); } catch (e) { if (e?.name !== 'AbortError') console.error(e); }
-    setSharing(false);
   }
 
   return (
@@ -3049,7 +3042,6 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             {[
               { icon: 'ti-edit', label: 'Edit entry', action: () => { setShowActionSheet(false); onEdit(entry); } },
               onToggleShared && { icon: isShared ? 'ti-lock' : 'ti-users', label: isShared ? 'Private' : 'Share', action: () => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, { partner: next, friends: next }); showToast(next ? 'Visible to friends' : 'Post is private'); setShowActionSheet(false); } },
-              { icon: 'ti-share', label: 'Send', action: () => { setShowActionSheet(false); handleShare(); } },
               supabase && { icon: 'ti-link', label: 'Share link', action: () => { setShowActionSheet(false); setShowShareLinkSheet(true); } },
               { icon: 'ti-trash', label: 'Delete entry', action: () => { setShowActionSheet(false); setShowDeleteConfirm(true); }, danger: true },
             ].filter(Boolean).map(item => (
