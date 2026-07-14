@@ -5406,7 +5406,7 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, sharingDefaults = { partner: true, family: false, friends: false }, onToggleSharingDefault, onShowPrivacy, onShowTerms }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -9114,14 +9114,6 @@ export default function App() {
     setReactionToast({ message: `Hidden from friends — ${toUpdate.length} post${toUpdate.length !== 1 ? 's' : ''}` });
   }
 
-  async function handleToggleSharingDefault(key, val) {
-    const next = { ...sharingDefaults, [key]: val };
-    setSharingDefaults(next);
-    if (supabase && session) {
-      await supabase.from('profiles').update({ sharing_defaults: next }).eq('id', session.user.id);
-    }
-  }
-
   async function handleSendFriendRequest(userId, displayName, avatarUrl) {
     if (!supabase || !session) return { error: 'Not signed in' };
     const { data, error } = await supabase
@@ -9590,8 +9582,6 @@ export default function App() {
           discoverable={discoverable}
           onToggleDiscoverable={handleToggleDiscoverable}
           onHidePostsFromFriends={handleHidePostsFromFriends}
-          sharingDefaults={sharingDefaults}
-          onToggleSharingDefault={handleToggleSharingDefault}
           onShowPrivacy={() => setScreen('privacy')}
           onShowTerms={() => setScreen('terms')}
           onSignOut={() => {
