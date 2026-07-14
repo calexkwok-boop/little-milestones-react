@@ -1791,7 +1791,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   );
 
   if (entries.length === 0) {
-    const prompt = 'For all the things you wish they knew, and all the moments you never want them to forget.';
+    const prompt = 'For all the things you wish they knew, and all the moments you never want to forget.';
     return (
       <div className="screen">
         <div className="scroll-area" style={{ display: 'flex', flexDirection: 'column' }}>
@@ -6889,7 +6889,7 @@ function AuthScreen() {
             <img src="/icon-192.png" style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: 'var(--text)', margin: '0 0 10px' }}>Patina</h1>
             <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text-3)', margin: 0, textAlign: 'center' }}>
-              For all the things you wish they knew, and all the moments you never want them to forget.
+              For all the things you wish they knew, and all the moments you never want to forget.
             </p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
@@ -7366,7 +7366,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
               <img src="/icon-192.png" style={{ width: 64, height: 64, borderRadius: 14, display: 'block', marginBottom: 20 }} alt="" />
               <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#C8993E', margin: '0 0 8px', lineHeight: 1.1 }}>Patina</h1>
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text-3)', lineHeight: 1.8, margin: '0 0 32px', textAlign: 'center' }}>
-                For all the things you wish they knew, and all the moments you never want them to forget.
+                For all the things you wish they knew, and all the moments you never want to forget.
                </p>
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 14 }}>
