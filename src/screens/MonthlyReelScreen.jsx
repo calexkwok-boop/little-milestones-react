@@ -310,22 +310,33 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
 
   const [audioDuration, setAudioDuration] = useState(null); // seconds, once the clip's metadata loads
   const totalBaseMs = useMemo(() => slides.reduce((sum, s) => sum + s.durationMs, 0), [slides]);
+  // The song starts playing as soon as it loads — usually during the intro
+  // card, before slides even start their own clock. Left unaccounted, that
+  // head start meant the audio's real playback always finished a few seconds
+  // ahead of the slide schedule, so it hit the end (and looped, since the
+  // <audio> tag loops) before the fade-out ever got a chance to run. Captured
+  // once, when the intro ends, so the scaling budget below reflects how much
+  // of the clip is actually left for the slides to use.
+  const slidesStartAudioTimeRef = useRef(0);
   // Stretch (or shrink) every slide's duration proportionally so the reel's
-  // total runtime matches the music clip's actual length — otherwise the
-  // reel reliably ends with 10+ seconds of a 30s preview never heard.
+  // total runtime matches the music clip's actual remaining length — otherwise
+  // the reel reliably ends with 10+ seconds of a 30s preview never heard.
   const FADE_BUFFER_MS = 900;
   const durationScale = useMemo(() => {
     if (!audioDuration || totalBaseMs === 0) return 1;
-    const available = audioDuration * 1000 - FADE_BUFFER_MS;
+    const available = (audioDuration - slidesStartAudioTimeRef.current) * 1000 - FADE_BUFFER_MS;
     return available > 0 ? available / totalBaseMs : 1;
-  }, [audioDuration, totalBaseMs]);
+  }, [audioDuration, totalBaseMs, showIntro]);
 
   const slideDuration = (slides[index]?.durationMs ?? PHOTO_SLIDE_MS) * durationScale;
 
   // Intro card
   useEffect(() => {
     const t1 = setTimeout(() => setIntroFading(true), 2600);
-    const t2 = setTimeout(() => setShowIntro(false), 3200);
+    const t2 = setTimeout(() => {
+      setShowIntro(false);
+      slidesStartAudioTimeRef.current = audioRef.current?.currentTime || 0;
+    }, 3200);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
@@ -628,7 +639,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
             </div>
             <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Share this reel</p>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.6, textAlign: 'center' }}>
-              Anyone with this link can watch this month's reel — no Patina account needed. This shares exactly what you've seen just now; new photos added later won't appear. You can revoke it anytime.
+              Anyone with this link can watch this month's reel — no Patina account needed.
             </p>
             {shareToken ? (
               <>

@@ -646,7 +646,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
             </div>
             <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Share this reel</p>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.6, textAlign: 'center' }}>
-              Anyone with this link can watch {kid.name.split(' ')[0]}'s birthday reel — no Patina account needed. This shares exactly what you've seen just now. You can revoke it anytime.
+              Anyone with this link can watch {kid.name.split(' ')[0]}'s birthday reel — no Patina account needed.
             </p>
             {shareToken ? (
               <>
