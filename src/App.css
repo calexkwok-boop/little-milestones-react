@@ -343,6 +343,20 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 @keyframes freezeIn { 0% { background: rgba(0,0,0,0); } 50% { background: rgba(0,0,0,0.25); } 100% { background: rgba(0,0,0,0.88); } }
 /* Date caption per slide */
 @keyframes captionIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+/* Monthly reel trip slide — plane arcing from home to the destination dot.
+   Rides an actual CSS motion path (offset-path, set inline alongside this
+   element's animation since the path data has to match the element's own
+   coordinate space) rather than us manually sampling points along the curve
+   and linearly interpolating between them — that earlier approach cut visible
+   straight-line facets through the curve instead of following it smoothly.
+   offset-rotate: auto keeps the icon tangent to the path at every frame for
+   free; this keyframe only has to handle fading in/out and the 0%→100% travel. */
+@keyframes tripFly {
+  0%   { offset-distance: 0%;   opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
 /* Name shimmer on intro card */
 @keyframes shimmer {
   0%   { background-position: -200% center; }

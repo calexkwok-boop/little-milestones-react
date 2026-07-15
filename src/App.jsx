@@ -8,11 +8,13 @@ import { SessionCtx, DataCtx, NotifCtx, useSession, useData, useNotif } from './
 import KidThumb from './KidThumb.jsx';
 import SectionSwitcher from './SectionSwitcher.jsx';
 const LazyBirthdaySlideshowScreen = lazy(() => import('./screens/BirthdaySlideshowScreen'));
+const LazyMonthlyReelScreen = lazy(() => import('./screens/MonthlyReelScreen'));
 import RecapScreen from './screens/RecapScreen';
 const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
 const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
 const LazyNotificationHistoryScreen = lazy(() => import('./screens/NotificationHistoryScreen'));
 const LazySharedEntryScreen = lazy(() => import('./screens/SharedEntryScreen'));
+const LazySharedReelScreen = lazy(() => import('./screens/SharedReelScreen'));
 import BookBuilderScreen from './screens/BookBuilderScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
@@ -3464,13 +3466,12 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         try {
           const exifr = await loadExifr();
           const tags = await exifr.parse(file, ['GPSLatitude', 'GPSLongitude']);
-          if (tags?.GPSLatitude && tags?.GPSLongitude) {
-            const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${tags.GPSLatitude},${tags.GPSLongitude}&key=${import.meta.env.VITE_GOOGLE_PLACES_KEY}`);
-            const geo = await res.json();
-            const components = geo.results?.[0]?.address_components || [];
-            const get = type => components.find(c => c.types.includes(type))?.long_name;
-            const loc = [get('locality') || get('sublocality'), get('administrative_area_level_1')].filter(Boolean).join(', ');
-            if (loc && mountedRef.current) { setLocation(loc); setLocationFromPhoto(true); }
+          if (tags?.GPSLatitude && tags?.GPSLongitude && supabase) {
+            // Routed through the reverse-geocode edge function — Google's
+            // Geocoding API rejects referrer-restricted keys (the only kind
+            // safe to ship in a client bundle), so this can't be a direct fetch.
+            const { data } = await supabase.functions.invoke('reverse-geocode', { body: { lat: tags.GPSLatitude, lng: tags.GPSLongitude } });
+            if (data?.location && mountedRef.current) { setLocation(data.location); setLocationFromPhoto(true); }
             break;
           }
         } catch {}
@@ -3492,14 +3493,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
           try {
             const exifr = await loadExifr();
             const tags = await exifr.parse(file, ['GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef']);
-            if (tags?.GPSLatitude && tags?.GPSLongitude) {
-              const lat = tags.GPSLatitude;
-              const lng = tags.GPSLongitude;
-              const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${import.meta.env.VITE_GOOGLE_PLACES_KEY}`);
-              const geo = await res.json();
-              const comps = geo.results?.[0]?.address_components || [];
-              const getC = type => comps.find(c => c.types.includes(type))?.long_name;
-              location = [getC('locality') || getC('sublocality'), getC('administrative_area_level_1')].filter(Boolean).join(', ');
+            if (tags?.GPSLatitude && tags?.GPSLongitude && supabase) {
+              const { data } = await supabase.functions.invoke('reverse-geocode', { body: { lat: tags.GPSLatitude, lng: tags.GPSLongitude } });
+              location = data?.location || null;
             }
           } catch {}
         }
@@ -5457,7 +5453,7 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onOpenGrowth, onCreateBook, onPreviewMonthlyReel, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -5757,6 +5753,22 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 </div>
               </div>
               <i className="ti ti-arrow-right" style={{ fontSize: 16, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+            </button>
+          )}
+
+          {/* ── MVP preview — remove once the monthly reel has a real entry point ── */}
+          {onPreviewMonthlyReel && (
+            <button onClick={onPreviewMonthlyReel} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: 'var(--bg-card)', border: '1px dashed var(--border)', borderRadius: 14, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(200,153,62,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <i className="ti ti-player-play" style={{ fontSize: 18, color: '#C8993E' }} />
+                </div>
+                <div style={{ textAlign: 'left' }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Preview: Monthly reel (MVP)</p>
+                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Last month's photos, set to music</p>
+                </div>
+              </div>
+              <i className="ti ti-arrow-right" style={{ fontSize: 16, color: 'var(--text-muted)', flexShrink: 0 }} />
             </button>
           )}
 
@@ -7847,6 +7859,7 @@ export default function App() {
   const [activePrompt, setActivePrompt] = useState(null);
   const [birthdaySlideshow, setBirthdaySlideshow] = useState(null);
   const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
+  const [showMonthlyReelPreview, setShowMonthlyReelPreview] = useState(false); // MVP preview trigger — remove once this has a real entry point
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showFriendsPrivacyExplainer, setShowFriendsPrivacyExplainer] = useState(false);
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
@@ -7858,6 +7871,9 @@ export default function App() {
   // read once at mount, checked ahead of every other gate in the render below.
   const [sharedEntryToken] = useState(() => {
     try { return new URLSearchParams(window.location.search).get('shared'); } catch { return null; }
+  });
+  const [sharedReelToken] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('reel'); } catch { return null; }
   });
   const [pendingOpenBirthdayKidId, setPendingOpenBirthdayKidId] = useState(() => {
     try { return new URLSearchParams(window.location.search).get('openBirthday'); } catch { return null; }
@@ -8584,6 +8600,28 @@ export default function App() {
     if (error) return;
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, shareToken: null } : e));
     setActiveEntry(prev => prev?.id === entryId ? { ...prev, shareToken: null } : prev);
+  }
+
+  // Unlike an entry's single mutable share_token column, a reel isn't a
+  // persistent row — it's computed client-side each time. So sharing a reel
+  // freezes a snapshot (the exact slides/song/stats it just showed) into its
+  // own reel_shares row, rather than reusing a token; revoking deletes it.
+  async function handleGenerateReelShare({ reelType, title, payload }) {
+    if (!supabase || !session || !familyId) return null;
+    const { data, error } = await supabase.from('reel_shares').insert({
+      family_id: familyId,
+      created_by: session.user.id,
+      reel_type: reelType,
+      title,
+      payload,
+    }).select('id, share_token').single();
+    if (error || !data) return null;
+    return data;
+  }
+
+  async function handleRevokeReelShare(id) {
+    if (!supabase) return;
+    await supabase.from('reel_shares').delete().eq('id', id);
   }
 
   async function handleToggleFavorite(entryId) {
@@ -9379,6 +9417,14 @@ export default function App() {
     );
   }
 
+  if (sharedReelToken) {
+    return (
+      <Suspense fallback={<div className="app-root" data-theme={effectiveDark ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }} />}>
+        <LazySharedReelScreen token={sharedReelToken} effectiveDark={effectiveDark} />
+      </Suspense>
+    );
+  }
+
   if (authLoading || dataLoading) {
     return (
       <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -9546,7 +9592,7 @@ export default function App() {
           friendKids={friendKids}
           supabase={supabase}
           session={session}
-          socialName={myDisplayName || ''}
+          socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName || ''}
         />
       )}
 
@@ -9705,6 +9751,7 @@ export default function App() {
           currentUserId={session?.user?.id}
           onOpenGrowth={kidId => { setGrowthKidId(kidId); setScreen('growth'); }}
           onCreateBook={() => setScreen('book-builder')}
+          onPreviewMonthlyReel={() => setShowMonthlyReelPreview(true)}
           onDeleteAccount={localMode ? undefined : handleDeleteAccount}
           hasPartner={familyMembers.filter(m => m.user_id !== session?.user?.id).length > 0}
           darkMode={darkMode}
@@ -9818,6 +9865,8 @@ export default function App() {
             age={turningAge(birthdaySlideshow.birthdate)}
             entries={entries}
             onClose={() => setBirthdaySlideshow(null)}
+            onGenerateReelShare={handleGenerateReelShare}
+            onRevokeReelShare={handleRevokeReelShare}
           />
         </Suspense>
       )}
@@ -9834,6 +9883,38 @@ export default function App() {
           />
         </Suspense>
       )}
+
+      {showMonthlyReelPreview && (() => {
+        const d = new Date(TODAY + 'T12:00:00');
+        d.setMonth(d.getMonth() - 1);
+        const year = d.getFullYear(), month = d.getMonth() + 1;
+        const lastMonth = `${year}-${String(month).padStart(2, '0')}`;
+        const lastMonthEntries = entries.filter(e => e.date.startsWith(lastMonth));
+        const stats = {
+          letters: lastMonthEntries.length,
+          milestones: lastMonthEntries.filter(e => e.milestone).length,
+          photos: lastMonthEntries.reduce((sum, e) => sum + (e.media?.length || 0), 0),
+          favorites: lastMonthEntries.filter(e => e.favorited).length,
+        };
+        const monthLabel = new Date(lastMonth + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        return (
+          <Suspense fallback={<div className="screen" />}>
+            <LazyMonthlyReelScreen
+              entries={entries}
+              kids={kids}
+              friendEntries={friendEntries}
+              friendKids={friendKids}
+              year={year}
+              month={month}
+              monthLabel={monthLabel}
+              stats={stats}
+              onClose={() => setShowMonthlyReelPreview(false)}
+              onGenerateReelShare={handleGenerateReelShare}
+              onRevokeReelShare={handleRevokeReelShare}
+            />
+          </Suspense>
+        );
+      })()}
 
       {showNotificationHistory && (
         <Suspense fallback={<div className="screen" />}>

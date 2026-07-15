@@ -31,7 +31,7 @@ function AmazonIcon({ size = 13, aColor = 'currentColor', arrowColor = '#FF9900'
   );
 }
 
-function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false, viewerEntries = [], viewerKids = [] }) {
+function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false, viewerEntries = [], viewerKids = [], onGenerateReelShare, onRevokeReelShare }) {
   const slides = useMemo(() => {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -131,6 +131,11 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
   const [freezeFrame, setFreezeFrame] = useState(false);
   const videoRefs = useRef({});
   const endingRef = useRef(false);
+  const [shareToken, setShareToken] = useState(null);
+  const [shareId, setShareId] = useState(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [showShareSheet, setShowShareSheet] = useState(false);
 
   const confettiParticles = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
     left: `${6 + (i * 37 + 13) % 84}%`,
@@ -389,6 +394,41 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
     return `${years}y ${months}m ${days}d`;
   }
 
+  // Only the fields SharedReelScreen actually renders — not full entry
+  // objects (internal ids, family_id, etc. have no business in a public row).
+  function buildSharePayload() {
+    return {
+      stats: yearStats,
+      song,
+      slides: slides.map(s => ({ type: 'photo', url: s.url, mediaType: s.type, cropY: s.cropY, date: s.date })),
+    };
+  }
+
+  async function handleShare() {
+    if (!onGenerateReelShare || shareBusy) return;
+    setShareBusy(true);
+    const result = await onGenerateReelShare({ reelType: 'birthday', title: `Happy ${ordinal(age)} birthday to ${kid.name}!`, payload: buildSharePayload() });
+    if (result) { setShareToken(result.share_token); setShareId(result.id); }
+    setShareBusy(false);
+  }
+
+  async function handleRevokeShare() {
+    if (!onRevokeReelShare || !shareId || shareBusy) return;
+    setShareBusy(true);
+    await onRevokeReelShare(shareId);
+    setShareToken(null);
+    setShareId(null);
+    setShareBusy(false);
+  }
+
+  function handleCopyShareLink() {
+    if (!shareToken) return;
+    navigator.clipboard.writeText(`${window.location.origin}/?reel=${shareToken}`).then(() => {
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    }).catch(() => {});
+  }
+
   if (slides.length === 0) {
     return (
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.94)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
@@ -453,6 +493,11 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
       {/* Stats closing card */}
       {showStats && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(38,58,44,0.97)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 36px' }}>
+          {onGenerateReelShare && (
+            <button onClick={() => setShowShareSheet(true)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 16, zIndex: 3 }}>
+              <i className="ti ti-share-2" />
+            </button>
+          )}
           {/* Confetti particles */}
           {confettiParticles.map((p, i) => (
             <div key={i} style={{ position: 'absolute', left: p.left, bottom: p.bottom, width: p.size, height: p.size, borderRadius: '50%', background: p.color, animation: `confettiFloat ${p.dur} ease-out ${p.delay} both`, pointerEvents: 'none' }} />
@@ -591,6 +636,40 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
           if (remaining <= 1) a.volume = Math.max(0, remaining);
         }}
       />
+
+      {showShareSheet && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', zIndex: 60 }} onClick={() => setShowShareSheet(false)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <i className="ti ti-share-2" style={{ fontSize: 19, color: 'var(--accent)' }} />
+            </div>
+            <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Share this reel</p>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.6, textAlign: 'center' }}>
+              Anyone with this link can watch {kid.name.split(' ')[0]}'s birthday reel — no Patina account needed. This shares exactly what you've seen just now. You can revoke it anytime.
+            </p>
+            {shareToken ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', marginBottom: 12 }}>
+                  <p style={{ flex: 1, fontSize: 12, color: 'var(--text-2)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {`${window.location.origin}/?reel=${shareToken}`}
+                  </p>
+                </div>
+                <button onClick={handleCopyShareLink} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginBottom: 10 }}>
+                  {shareCopied ? 'Copied!' : 'Copy link'}
+                </button>
+                <button onClick={handleRevokeShare} disabled={shareBusy} style={{ width: '100%', background: 'none', border: 'none', color: '#D4856A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: '4px', opacity: shareBusy ? 0.6 : 1 }}>
+                  Revoke link
+                </button>
+              </>
+            ) : (
+              <button onClick={handleShare} disabled={shareBusy} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", opacity: shareBusy ? 0.6 : 1 }}>
+                {shareBusy ? 'Creating…' : 'Create link'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
