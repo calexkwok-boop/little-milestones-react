@@ -5657,7 +5657,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
               </div>
             </div>
             <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '10px 0 0', paddingTop: 10, borderTop: '1px solid var(--border)', lineHeight: 1.55 }}>
-              Your letters are always kept private between you and your family (added via share link). Friends will only ever see the photo/video, the date, and your child's age for posts in which you mark "All".
+              Your <strong>letters</strong> are always kept private between you and your family (added via share link).
             </p>
           </div>
 
@@ -9902,8 +9902,7 @@ export default function App() {
             <LazyMonthlyReelScreen
               entries={entries}
               kids={kids}
-              friendEntries={friendEntries}
-              friendKids={friendKids}
+              familyMembers={familyMembers}
               year={year}
               month={month}
               monthLabel={monthLabel}

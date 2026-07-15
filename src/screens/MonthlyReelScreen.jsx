@@ -3,7 +3,6 @@ import { cloudinaryTransform, exactAgeLabel } from '../constants.js';
 import { supabase } from '../supabase.js';
 
 const PHOTO_SLIDE_MS = 3200;
-const SAME_AGE_SLIDE_MS = 7000; // two ~3.5s halves, played sequentially
 const MAX_PHOTO_SLIDES = 8;
 
 function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
@@ -56,7 +55,7 @@ function findHomePoint(entries) {
 // One trip highlight per reel, at most — the farthest-from-home entry this
 // month becomes the destination; its photo is the reveal after the arc, and
 // the rest of that trip's photos still surface as ordinary slides elsewhere.
-function findTripThisMonth(monthEntries, homePt, kids) {
+function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
   if (!homePt) return null;
   const tripEntries = monthEntries.filter(e =>
     e.locationLat != null && e.locationLng != null && e.media?.length > 0 &&
@@ -66,134 +65,35 @@ function findTripThisMonth(monthEntries, homePt, kids) {
   const farthest = tripEntries.reduce((a, b) =>
     haversine(homePt.lat, homePt.lng, b.locationLat, b.locationLng) > haversine(homePt.lat, homePt.lng, a.locationLat, a.locationLng) ? b : a
   );
+  const distanceMiles = Math.round(haversine(homePt.lat, homePt.lng, farthest.locationLat, farthest.locationLng));
   const photo = farthest.media.find(m => m.type !== 'video') || farthest.media[0];
   // The slide sorts by the trip's *earliest* day, not the farthest photo's
   // day — so in chronological order the animation always leads into that
   // trip's own photos rather than landing partway through them.
   const earliestDate = tripEntries.reduce((min, e) => e.date < min ? e.date : min, tripEntries[0].date);
+
+  // Whoever actually shows up in the trip — every kid tagged in any of its
+  // entries, and every family member who authored one — not just the one
+  // kid/photo picked to represent it, so the arc reads like "this was your
+  // trip" rather than spotlighting a single person.
+  const tripKidIds = new Set(tripEntries.flatMap(e => e.kids || []));
+  const tripAuthorIds = new Set(tripEntries.map(e => e.userId).filter(Boolean));
+  const tripKids = kids.filter(k => tripKidIds.has(k.id));
+  const tripFamilyMembers = familyMembers.filter(m => tripAuthorIds.has(m.user_id));
+
   return {
     destinationLabel: farthest.location || 'somewhere new',
     date: farthest.date,
     earliestDate,
     destLat: farthest.locationLat,
     destLng: farthest.locationLng,
+    distanceMiles,
     photo: { url: photo.url, mediaType: photo.type, cropY: farthest.cropY ?? 50 },
     photoKid: kids.find(k => farthest.kids.includes(k.id)),
     tripEntryIds: new Set(tripEntries.map(e => e.id)),
+    tripKids,
+    tripFamilyMembers,
   };
-}
-
-// Sibling match (within a family) takes precedence over a friend match, and
-// gets a wider age-day tolerance since siblings are the point of the feature —
-// friends are a fallback for only-children, not the primary case.
-const SIBLING_TOLERANCE_DAYS = 90;
-const FRIEND_TOLERANCE_DAYS = 30;
-
-function ageDays(birthdate, date) {
-  return (new Date(date + 'T12:00:00') - new Date(birthdate + 'T12:00:00')) / 86400000;
-}
-
-const MAX_SAME_AGE_SLIDES = 3;
-
-function findSameAgeMatches({ monthEntries, kids, entries, friendKids, friendEntries }) {
-  // Every media moment from this month, per kid, is a candidate "anchor" —
-  // each one independently looks for its own best age-matched companion.
-  const anchors = [];
-  for (const e of monthEntries) {
-    for (const kidId of e.kids) {
-      const kid = kids.find(k => k.id === kidId);
-      if (!kid?.birthdate) continue;
-      anchors.push({ entry: e, kid, days: ageDays(kid.birthdate, e.date) });
-    }
-  }
-  if (anchors.length === 0) return { matches: [], usedUrls: new Set() };
-
-  function bestSiblingFor(anchor) {
-    let best = null;
-    for (const sibling of kids) {
-      if (sibling.id === anchor.kid.id || !sibling.birthdate) continue;
-      const pool = entries.filter(e => e.kids.includes(sibling.id) && e.media?.length);
-      for (const e of pool) {
-        const diff = Math.abs(anchor.days - ageDays(sibling.birthdate, e.date));
-        if (diff > SIBLING_TOLERANCE_DAYS) continue;
-        if (!best || diff < best.diff) best = { anchor, matchKid: sibling, matchEntry: e, diff, isFriend: false };
-      }
-    }
-    return best;
-  }
-
-  function bestFriendFor(anchor) {
-    let best = null;
-    for (const friendKid of friendKids) {
-      if (!friendKid.birthdate) continue;
-      const pool = friendEntries.filter(e => e.kids?.includes(friendKid.id) && e.media?.length);
-      for (const e of pool) {
-        const diff = Math.abs(anchor.days - ageDays(friendKid.birthdate, e.date));
-        if (diff > FRIEND_TOLERANCE_DAYS) continue;
-        if (!best || diff < best.diff) best = { anchor, matchKid: friendKid, matchEntry: e, diff, isFriend: true };
-      }
-    }
-    return best;
-  }
-
-  // Siblings take precedence at the family level: if any sibling match exists
-  // this month, friends don't come into it at all — friends are strictly a
-  // fallback for a month where no sibling pairing exists.
-  const siblingMatches = anchors.map(bestSiblingFor).filter(Boolean);
-  const pool = siblingMatches.length > 0 ? siblingMatches : anchors.map(bestFriendFor).filter(Boolean);
-  const pickMedia = entry => entry.media.find(m => m.type === 'video') || entry.media[0];
-
-  // The same two entries can surface from both directions (anchor→match and
-  // match→anchor) — collapse those down to one slide, closest matches first.
-  // And if a candidate would reuse a photo (for either kid) already claimed
-  // by an earlier, closer-matching slide, drop it rather than repeat a photo.
-  const seenPairs = new Set();
-  const usedUrls = new Set();
-  const matches = [];
-  for (const m of pool.sort((a, b) => a.diff - b.diff)) {
-    const key = [m.anchor.entry.id, m.matchEntry.id].sort().join('|');
-    if (seenPairs.has(key)) continue;
-    seenPairs.add(key);
-
-    const anchorMedia = pickMedia(m.anchor.entry);
-    const matchMedia = pickMedia(m.matchEntry);
-    if (usedUrls.has(anchorMedia.url) || usedUrls.has(matchMedia.url)) continue;
-    usedUrls.add(anchorMedia.url);
-    usedUrls.add(matchMedia.url);
-
-    matches.push({ ...m, anchorMedia, matchMedia });
-    if (matches.length >= MAX_SAME_AGE_SLIDES) break;
-  }
-  return { matches, usedUrls };
-}
-
-function MediaHalf({ item, kid, active, muted = true }) {
-  const isVideo = item.type === 'video';
-  const videoRef = useRef(null);
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
-    if (active) { el.currentTime = 0; el.play().catch(() => {}); }
-    else el.pause();
-  }, [active]);
-  const poster = isVideo ? videoThumbUrl(item.url, 'so_0,w_800,q_auto,f_auto') : cloudinaryTransform(item.url, 'w_800,q_auto,f_auto');
-  return (
-    <div style={{ position: 'relative', flex: 1, height: '100%', overflow: 'hidden', background: '#111' }}>
-      {isVideo ? (
-        <video ref={videoRef} src={item.url} poster={poster} muted={muted} playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', opacity: active ? 1 : 0.55, transition: 'opacity 0.4s ease' }} />
-      ) : (
-        <img src={poster} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-      )}
-      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 35%)' }} />
-      {/* Moved to the top — the bottom of the frame is where the reel's own
-          chrome (song info, safe-area padding) lives, so text pinned there
-          kept getting crowded/hard to read regardless of a gradient or chip. */}
-      <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.55)', borderRadius: 10, padding: '6px 12px', textAlign: 'center', maxWidth: '86%' }}>
-        <p style={{ margin: 0, fontFamily: "'Urbanist', sans-serif", fontSize: 13, fontWeight: 700, color: '#fff' }}>{kid.name?.split(' ')[0]}</p>
-        <p style={{ margin: '2px 0 0', fontFamily: "'Urbanist', sans-serif", fontSize: 11, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.4, textTransform: 'uppercase' }}>{exactAgeLabel(kid.birthdate, item.date)} old</p>
-      </div>
-    </div>
-  );
 }
 
 const TRIP_ARC_MS = 2600;
@@ -217,9 +117,28 @@ function TripSlide({ trip, active, arcMs, destinationLabel, onPhaseChange }) {
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(38,58,44,0.97)', opacity: phase === 'arc' ? 1 : 0, transition: 'opacity 0.8s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <p style={{ margin: '0 0 20px', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#fff' }}>
+        <p style={{ margin: '0 0 14px', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#fff' }}>
           {new Date(trip.earliestDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
         </p>
+        {/* Everyone who actually appears in the trip's own entries — not a
+            fixed "family of 4," whoever's kids/authors this trip actually has. */}
+        {(trip.tripKids.length + trip.tripFamilyMembers.length) > 0 && (
+          <div style={{ display: 'flex', marginBottom: 20 }}>
+            {[...trip.tripKids, ...trip.tripFamilyMembers].map((person, i) => {
+              const isKid = trip.tripKids.includes(person);
+              const avatarUrl = isKid ? person.avatar : person.avatar_url;
+              const name = isKid ? person.name : (person.real_name || person.display_name || 'Family');
+              const accent = isKid ? (person.accent || '#4A5E50') : '#4A5E50';
+              return (
+                <div key={i} title={name} style={{ width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(38,58,44,0.97)', marginLeft: i > 0 ? -10 : 0, background: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {avatarUrl
+                    ? <img src={cloudinaryTransform(avatarUrl, 'w_68,h_68,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 13, color: '#fff' }}>{name.charAt(0)}</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {/* Fixed pixel size (not %) because offset-path below needs its path
             data in the same coordinate space as the element it's drawn in —
             percentages there wouldn't track a fluid-width container. Reels
@@ -245,6 +164,9 @@ function TripSlide({ trip, active, arcMs, destinationLabel, onPhaseChange }) {
             <div style={{ position: 'absolute', left: 0, top: 0, fontSize: 20, lineHeight: 1, offsetPath: "path('M 24 139 Q 150 8 276 68')", offsetRotate: 'auto 45deg', animation: `tripFly ${arcMs}ms ease-in-out forwards` }}>✈️</div>
           )}
         </div>
+        <p style={{ margin: '14px 0 0', fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.4 }}>
+          {trip.distanceMiles.toLocaleString()} miles from home
+        </p>
       </div>
       <div style={{ position: 'absolute', inset: 0, opacity: phase === 'photo' ? 1 : 0, transition: 'opacity 1s ease' }}>
         <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${photoSrc}')`, backgroundSize: 'cover', backgroundPosition: `center ${trip.photo.cropY}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
@@ -274,52 +196,16 @@ function ReelSlideVideo({ url, active, style }) {
   return <video ref={videoRef} src={url} muted playsInline style={style} />;
 }
 
-// The one non-photo slide type: two kids (siblings, or a friend's kid as a
-// fallback) shown side by side at roughly the same age. Sequencing (play one
-// clip, then the other) only makes sense when there's actually motion to
-// sequence — a pure photo/photo pairing just shows both at once, same as any
-// other slide, rather than artificially splitting into two halves.
-function SameAgeSlide({ match, active, durationMs, hasVideo }) {
-  const [activeSide, setActiveSide] = useState('left');
-  useEffect(() => {
-    if (!hasVideo || !active) { setActiveSide('left'); return; }
-    const t = setTimeout(() => setActiveSide('right'), durationMs / 2);
-    return () => clearTimeout(t);
-  }, [active, durationMs, hasVideo]);
-
-  const leftItem = { ...match.anchorMedia, date: match.anchor.entry.date };
-  const rightItem = { ...match.matchMedia, date: match.matchEntry.date };
-  const leftActive = hasVideo ? (active && activeSide === 'left') : active;
-  const rightActive = hasVideo ? (active && activeSide === 'right') : active;
-
-  return (
-    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ textAlign: 'center', padding: '18px 24px 12px', position: 'relative', zIndex: 2 }}>
-        <p style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#fff' }}>At the same age</p>
-      </div>
-      <div style={{ flex: 1, display: 'flex', gap: 2 }}>
-        <MediaHalf item={leftItem} kid={match.anchor.kid} active={leftActive} />
-        <MediaHalf item={rightItem} kid={match.matchKid} active={rightActive} />
-      </div>
-    </div>
-  );
-}
-
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
-function MonthlyReelScreen({ entries, kids, friendEntries = [], friendKids = [], year, month, monthLabel, stats, onClose, onGenerateReelShare, onRevokeReelShare }) {
+function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, monthLabel, stats, onClose, onGenerateReelShare, onRevokeReelShare }) {
   const monthEntries = useMemo(() => monthEntriesFor(entries, year, month), [entries, year, month]);
-
-  const { matches: sameAgeMatches, usedUrls: sameAgeUsedUrls } = useMemo(
-    () => findSameAgeMatches({ monthEntries, kids, entries, friendKids, friendEntries }),
-    [monthEntries, kids, entries, friendKids, friendEntries]
-  );
 
   // Home is computed from ALL entries (a stable, long-term thing), not just
   // this month's — otherwise a month with only trip photos would have
   // nothing to compare distance against.
   const homePt = useMemo(() => findHomePoint(entries), [entries]);
-  const trip = useMemo(() => findTripThisMonth(monthEntries, homePt, kids), [monthEntries, homePt, kids]);
+  const trip = useMemo(() => findTripThisMonth(monthEntries, homePt, kids, familyMembers), [monthEntries, homePt, kids, familyMembers]);
 
   // The stored location is often a specific address/place name — reverse
   // geocode to "City, State" for the arc label instead. Routed through the
@@ -343,10 +229,9 @@ function MonthlyReelScreen({ entries, kids, friendEntries = [], friendKids = [],
   }, [trip]);
 
   const slides = useMemo(() => {
-    // Pre-seed with whatever the same-age slides and the trip slide already
-    // claimed, so a photo shown there doesn't also show up again as a plain
-    // photo slide.
-    const seen = new Set(sameAgeUsedUrls);
+    // Pre-seed with whatever the trip slide already claimed, so its photo
+    // doesn't also show up again as a plain photo slide.
+    const seen = new Set();
     if (trip) seen.add(trip.photo.url);
     const photoCandidates = [];
     for (const e of monthEntries.slice().sort((a, b) => a.date.localeCompare(b.date))) {
@@ -357,10 +242,6 @@ function MonthlyReelScreen({ entries, kids, friendEntries = [], friendKids = [],
         photoCandidates.push({ type: 'photo', url: m.url, mediaType: m.type, date: e.date, cropY: e.cropY ?? 50, kid, entryId: e.id, durationMs: PHOTO_SLIDE_MS });
       }
     }
-    const sameAgeCandidates = sameAgeMatches.map(match => {
-      const hasVideo = match.anchorMedia.type === 'video' || match.matchMedia.type === 'video';
-      return { type: 'sameAge', match, date: match.anchor.entry.date, hasVideo, durationMs: hasVideo ? SAME_AGE_SLIDE_MS : PHOTO_SLIDE_MS };
-    });
     const tripCandidates = trip ? [{ type: 'trip', trip, date: trip.earliestDate, durationMs: TRIP_ARC_MS + PHOTO_SLIDE_MS }] : [];
 
     // Videos get priority — every video this month makes it into the reel,
@@ -396,7 +277,7 @@ function MonthlyReelScreen({ entries, kids, friendEntries = [], friendKids = [],
     // Chronological order — a trip slide needs to lead into its own trip
     // photos (picture, picture, trip animation, trip pic, trip pic, picture…),
     // so on a tied date the trip slide always sorts first.
-    const combined = [...videoSlides, ...keptImages, ...sameAgeCandidates, ...tripCandidates];
+    const combined = [...videoSlides, ...keptImages, ...tripCandidates];
     combined.sort((a, b) => {
       const byDate = a.date.localeCompare(b.date);
       if (byDate !== 0) return byDate;
@@ -405,7 +286,7 @@ function MonthlyReelScreen({ entries, kids, friendEntries = [], friendKids = [],
       return 0;
     });
     return combined;
-  }, [monthEntries, kids, sameAgeMatches, sameAgeUsedUrls, trip]);
+  }, [monthEntries, kids, trip]);
 
   const [index, setIndex] = useState(0);
   const [showIntro, setShowIntro] = useState(true);
@@ -562,13 +443,6 @@ function MonthlyReelScreen({ entries, kids, friendEntries = [], friendKids = [],
       stats,
       song,
       slides: slides.map(s => {
-        if (s.type === 'sameAge') {
-          return {
-            type: 'sameAge',
-            left: { url: s.match.anchorMedia.url, mediaType: s.match.anchorMedia.type, date: s.match.anchor.entry.date, kidName: s.match.anchor.kid.name.split(' ')[0], kidBirthdate: s.match.anchor.kid.birthdate },
-            right: { url: s.match.matchMedia.url, mediaType: s.match.matchMedia.type, date: s.match.matchEntry.date, kidName: s.match.matchKid.name.split(' ')[0], kidBirthdate: s.match.matchKid.birthdate },
-          };
-        }
         // The arc animation is reel-only — the shared page keeps things
         // simple with just the destination photo, same as the live reel now
         // shows a plain photo (no caption) after its own crossfade.
@@ -619,13 +493,6 @@ function MonthlyReelScreen({ entries, kids, friendEntries = [], friendKids = [],
     <div style={{ position: 'absolute', inset: 0, background: '#000', zIndex: 100, display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {slides.map((s, i) => {
         const isActive = !showIntro && i === index;
-        if (s.type === 'sameAge') {
-          return (
-            <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive || (!showIntro && i === index) ? 1 : 0, transition: 'opacity 0.6s ease' }}>
-              {i === index && <SameAgeSlide match={s.match} active={isActive && !slideshowPaused} durationMs={slideDuration} hasVideo={s.hasVideo} />}
-            </div>
-          );
-        }
         if (s.type === 'trip') {
           return (
             <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 0.6s ease' }}>

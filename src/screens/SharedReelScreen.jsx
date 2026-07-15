@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../supabase.js';
-import { cloudinaryTransform, exactAgeLabel } from '../constants.js';
+import { cloudinaryTransform } from '../constants.js';
 
 const SLIDE_MS = 3800;
 
@@ -97,31 +97,6 @@ function SharedReelScreen({ token, effectiveDark }) {
     <div style={{ position: 'fixed', inset: 0, background: '#000', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {slides.map((s, i) => {
         const isActive = started && !ended && i === index;
-        if (s.type === 'sameAge') {
-          return (
-            <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 1s ease', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ textAlign: 'center', padding: '18px 24px 12px', position: 'relative', zIndex: 2 }}>
-                <p style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#fff' }}>At the same age</p>
-              </div>
-              <div style={{ flex: 1, display: 'flex', gap: 2 }}>
-                {[s.left, s.right].map((half, hi) => {
-                  const isVideo = half.mediaType === 'video';
-                  const poster = isVideo ? videoThumbUrl(half.url, 'so_0,w_800,q_auto,f_auto') : cloudinaryTransform(half.url, 'w_800,q_auto,f_auto');
-                  return (
-                    <div key={hi} style={{ position: 'relative', flex: 1, height: '100%', overflow: 'hidden', background: '#111' }}>
-                      <img src={poster} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 35%)' }} />
-                      <div style={{ position: 'absolute', top: 14, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.55)', borderRadius: 10, padding: '6px 12px', textAlign: 'center', maxWidth: '86%' }}>
-                        <p style={{ margin: 0, fontFamily: "'Urbanist', sans-serif", fontSize: 13, fontWeight: 700, color: '#fff' }}>{half.kidName}</p>
-                        <p style={{ margin: '2px 0 0', fontFamily: "'Urbanist', sans-serif", fontSize: 11, color: 'rgba(255,255,255,0.85)', letterSpacing: 0.4, textTransform: 'uppercase' }}>{exactAgeLabel(half.kidBirthdate, half.date)} old</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        }
         const isVideo = s.mediaType === 'video';
         const thumbSrc = isVideo ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto') : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
         const kbAnim = `kb${(i % 4) + 1} ${SLIDE_MS}ms ease-in-out forwards`;
@@ -156,7 +131,7 @@ function SharedReelScreen({ token, effectiveDark }) {
               </div>
             ))}
           </div>
-          {payload.song && slides[index]?.type !== 'sameAge' && (
+          {payload.song && (
             <div style={{ position: 'relative', zIndex: 1, marginTop: 'auto', padding: '0 20px 32px', textAlign: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
                 <img src={payload.song.artworkUrl} style={{ width: 20, height: 20, borderRadius: 4, flexShrink: 0 }} alt="" />
