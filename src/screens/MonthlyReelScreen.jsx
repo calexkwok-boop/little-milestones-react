@@ -310,32 +310,31 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
 
   const [audioDuration, setAudioDuration] = useState(null); // seconds, once the clip's metadata loads
   const totalBaseMs = useMemo(() => slides.reduce((sum, s) => sum + s.durationMs, 0), [slides]);
-  // The song starts playing as soon as it loads — usually during the intro
-  // card, before slides even start their own clock. Left unaccounted, that
-  // head start meant the audio's real playback always finished a few seconds
-  // ahead of the slide schedule, so it hit the end (and looped, since the
-  // <audio> tag loops) before the fade-out ever got a chance to run. Captured
-  // once, when the intro ends, so the scaling budget below reflects how much
-  // of the clip is actually left for the slides to use.
-  const slidesStartAudioTimeRef = useRef(0);
   // Stretch (or shrink) every slide's duration proportionally so the reel's
-  // total runtime matches the music clip's actual remaining length — otherwise
-  // the reel reliably ends with 10+ seconds of a 30s preview never heard.
+  // total runtime matches the music clip's actual length — otherwise the
+  // reel reliably ends with 10+ seconds of a 30s preview never heard. Safe to
+  // use the clip's full length here (no held-back portion to subtract) since
+  // playback itself doesn't start until the first slide does — see below.
   const FADE_BUFFER_MS = 900;
   const durationScale = useMemo(() => {
     if (!audioDuration || totalBaseMs === 0) return 1;
-    const available = (audioDuration - slidesStartAudioTimeRef.current) * 1000 - FADE_BUFFER_MS;
+    const available = audioDuration * 1000 - FADE_BUFFER_MS;
     return available > 0 ? available / totalBaseMs : 1;
-  }, [audioDuration, totalBaseMs, showIntro]);
+  }, [audioDuration, totalBaseMs]);
 
   const slideDuration = (slides[index]?.durationMs ?? PHOTO_SLIDE_MS) * durationScale;
 
-  // Intro card
+  // Intro card. The music intentionally does NOT start here — holding it
+  // back gives the cover card room to breathe instead of feeling rushed by
+  // a countdown that's already ticking, and it starts exactly in sync with
+  // the first slide once the card fades out (see introEndedRef below).
+  const introEndedRef = useRef(false);
   useEffect(() => {
     const t1 = setTimeout(() => setIntroFading(true), 2600);
     const t2 = setTimeout(() => {
       setShowIntro(false);
-      slidesStartAudioTimeRef.current = audioRef.current?.currentTime || 0;
+      introEndedRef.current = true;
+      if (audioRef.current?.src) audioRef.current.play().catch(() => {});
     }, 3200);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
@@ -358,10 +357,15 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
     loadSong();
   }, []);
 
+  // Loading the clip (so its duration is known in time to compute
+  // durationScale above) happens as soon as it's found. Actually playing it
+  // waits for the intro to have already finished — if that already happened
+  // by the time the clip loads, start right away instead of waiting forever
+  // for an intro-end event that's already passed.
   useEffect(() => {
     if (song && audioRef.current) {
       audioRef.current.src = song.previewUrl;
-      audioRef.current.play().catch(() => {});
+      if (introEndedRef.current) audioRef.current.play().catch(() => {});
     }
   }, [song]);
 
@@ -664,7 +668,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
         </div>
       )}
 
-      <audio ref={audioRef} loop onLoadedMetadata={e => setAudioDuration(e.target.duration)} />
+      <audio ref={audioRef} loop preload="auto" onLoadedMetadata={e => setAudioDuration(e.target.duration)} />
     </div>
   );
 }

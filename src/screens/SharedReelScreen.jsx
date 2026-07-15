@@ -54,6 +54,28 @@ function SharedReelScreen({ token, effectiveDark }) {
     return () => clearTimeout(t);
   }, [started, ended, index, slides.length]);
 
+  // Fade the music out over the final slide instead of just cutting it off
+  // (or leaving it playing straight through) once the recap card appears —
+  // same approach as the live reel.
+  const fadeStartedRef = useRef(false);
+  useEffect(() => {
+    if (!started || slides.length === 0 || index !== slides.length - 1 || fadeStartedRef.current) return;
+    fadeStartedRef.current = true;
+    const fadeDuration = SLIDE_MS + 900;
+    const STEPS = 30;
+    const intervalMs = fadeDuration / STEPS;
+    let step = 0;
+    const a = audioRef.current;
+    const startVol = a ? a.volume : 1;
+    const id = setInterval(() => {
+      step++;
+      const ratio = Math.max(0, 1 - step / STEPS);
+      if (a) a.volume = startVol * ratio;
+      if (step >= STEPS) { clearInterval(id); a?.pause(); }
+    }, intervalMs);
+    return () => clearInterval(id);
+  }, [started, index, slides.length]);
+
   function handleStart() {
     setStarted(true);
     const song = reel?.payload?.song;
