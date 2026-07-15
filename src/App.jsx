@@ -8569,19 +8569,37 @@ export default function App() {
   }
 
   async function handleDeleteEntry(entryId) {
+    const removed = entries.find(e => e.id === entryId);
     setEntries(prev => prev.filter(e => e.id !== entryId));
     setScreen('home');
     setActiveEntry(null);
     if (localMode || !supabase || !session) return;
+    // Likes/comments reference the entry — clear them first so the entries
+    // delete below doesn't get silently blocked by a foreign key constraint.
+    await supabase.from('entry_likes').delete().eq('entry_id', entryId);
+    await supabase.from('entry_comments').delete().eq('entry_id', entryId);
     await supabase.from('entry_media').delete().eq('entry_id', entryId);
-    await supabase.from('entries').delete().eq('id', entryId);
+    const { error } = await supabase.from('entries').delete().eq('id', entryId);
+    if (error) {
+      console.error('Delete entry failed:', error);
+      if (removed) setEntries(prev => prev.some(e => e.id === entryId) ? prev : [removed, ...prev]);
+      alert('Could not delete this entry. Please try again.\n' + error.message);
+    }
   }
 
   async function handleQuickDelete(entryId) {
+    const removed = entries.find(e => e.id === entryId);
     setEntries(prev => prev.filter(e => e.id !== entryId));
     if (localMode || !supabase || !session) return;
+    await supabase.from('entry_likes').delete().eq('entry_id', entryId);
+    await supabase.from('entry_comments').delete().eq('entry_id', entryId);
     await supabase.from('entry_media').delete().eq('entry_id', entryId);
-    await supabase.from('entries').delete().eq('id', entryId);
+    const { error } = await supabase.from('entries').delete().eq('id', entryId);
+    if (error) {
+      console.error('Delete entry failed:', error);
+      if (removed) setEntries(prev => prev.some(e => e.id === entryId) ? prev : [removed, ...prev]);
+      alert('Could not delete this entry. Please try again.\n' + error.message);
+    }
   }
 
   async function handleRefresh() {
