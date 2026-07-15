@@ -1545,6 +1545,10 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   const friendBirthdaysToday = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [friendKids]);
   const friendBirthdayNextWeek = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 7), [friendKids]);
 
+  // "Recent" and "Recently added" already claim these entries at the top of the
+  // feed, so the look-back sections below must not pull the same post back in.
+  const recentAndAddedIds = useMemo(() => new Set([...recent, ...recentlyAdded].map(e => e.id)), [recent, recentlyAdded]);
+
   // FNV-1a hash with good avalanche — consecutive slots pick different entries
   const onceUponATimeScore = (salt, id) => {
     const s = currentSlot + '|' + salt + '|' + String(id).replace(/-/g, '');
@@ -1558,27 +1562,29 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
     const pool = entries.filter(e => e.type !== 'note' && new Date(e.date + 'T12:00:00') < cutoff
+      && !recentAndAddedIds.has(e.id)
       && (kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter))));
     if (pool.length === 0) return null;
     return pool.reduce((best, e) => onceUponATimeScore('letter', e.id) > onceUponATimeScore('letter', best.id) ? e : best);
-  }, [entries, onThisDay, currentSlot, kidFilter]);
+  }, [entries, onThisDay, currentSlot, kidFilter, recentAndAddedIds]);
 
   const onceUponATimeNote = useMemo(() => {
     if (onThisDay.length > 0) return null;
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
     const pool = entries.filter(e => e.type === 'note' && new Date(e.date + 'T12:00:00') < cutoff
+      && !recentAndAddedIds.has(e.id)
       && (kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter))));
     if (pool.length === 0) return null;
     return pool.reduce((best, e) => onceUponATimeScore('note', e.id) > onceUponATimeScore('note', best.id) ? e : best);
-  }, [entries, onThisDay, currentSlot, kidFilter]);
+  }, [entries, onThisDay, currentSlot, kidFilter, recentAndAddedIds]);
 
   const sameAgeGroups = useMemo(() => {
     if (kids.length < 2) return null;
     const kidItems = kids.map(kid => ({
       kid,
       items: entries
-        .filter(e => e.kids[0] === kid.id && e.media?.length > 0)
+        .filter(e => e.kids[0] === kid.id && e.media?.length > 0 && !recentAndAddedIds.has(e.id))
         .map(e => ({ entry: e, ageDays: (new Date(e.date + 'T12:00:00') - new Date(kid.birthdate + 'T12:00:00')) / 86400000 }))
         .filter(x => x.ageDays >= 0),
     })).filter(kd => kd.items.length > 0);
@@ -1604,7 +1610,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
       }
     }
     return groups.length > 0 ? groups : null;
-  }, [entries, kids]);
+  }, [entries, kids, recentAndAddedIds]);
 
   const [sameAgeIdx, setSameAgeIdx] = useState(0);
   useEffect(() => {
@@ -2610,6 +2616,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [detailComments, setDetailComments] = useState([]);
   const [detailCommentText, setDetailCommentText] = useState('');
   const [detailReplyTarget, setDetailReplyTarget] = useState(null);
+  const [showDetailLikeAnim, setShowDetailLikeAnim] = useState(false);
+  const detailLastTapRef = useRef(0);
+  const detailTapTimerRef = useRef(null);
   const detailSwipeStart = useRef(null);
 
   useEffect(() => {
@@ -2622,6 +2631,22 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
       setDetailComments(comments || []);
     });
   }, [entry.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleDetailToggleLike() {
+    if (!supabase || !session) return;
+    const userId = session.user.id;
+    const existing = detailLikes.find(l => l.user_id === userId);
+    if (existing) {
+      setDetailLikes(prev => prev.filter(l => l.user_id !== userId));
+      await supabase.from('entry_likes').delete().eq('entry_id', entry.id).eq('user_id', userId);
+    } else {
+      const optimistic = { id: 'opt-' + Date.now(), user_id: userId, display_name: socialName };
+      setDetailLikes(prev => [...prev, optimistic]);
+      const { data } = await supabase.from('entry_likes').insert({ entry_id: entry.id, user_id: userId, display_name: socialName }).select('id, user_id, display_name').single();
+      if (data) setDetailLikes(prev => prev.map(l => l.id === optimistic.id ? data : l));
+      if (entry.authorId) triggerPush({ targetUserId: entry.authorId, kind: 'like', entryId: entry.id, fromName: socialName });
+    }
+  }
 
   async function handleDetailSubmitComment() {
     const body = detailCommentText.trim();
@@ -2704,7 +2729,23 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               </div>
               <div
                 className="gallery-stage"
-                onClick={() => { if (media[activeSlide]?.type !== 'video') setShowLightbox(true); }}
+                onClick={() => {
+                  if (media[activeSlide]?.type === 'video') return;
+                  const now = Date.now();
+                  if (now - detailLastTapRef.current < 320) {
+                    clearTimeout(detailTapTimerRef.current);
+                    detailLastTapRef.current = 0;
+                    if (supabase && session) {
+                      const alreadyLiked = detailLikes.some(l => l.user_id === session.user.id);
+                      if (!alreadyLiked) handleDetailToggleLike();
+                      setShowDetailLikeAnim(true);
+                      setTimeout(() => setShowDetailLikeAnim(false), 800);
+                    }
+                  } else {
+                    detailLastTapRef.current = now;
+                    detailTapTimerRef.current = setTimeout(() => setShowLightbox(true), 320);
+                  }
+                }}
                 style={{ cursor: media[activeSlide]?.type !== 'video' ? 'pointer' : 'default' }}
               >
                 {media.map((item, i) => (
@@ -2747,6 +2788,11 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                       })()}
                     </span>
                   </button>
+                )}
+                {showDetailLikeAnim && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+                  </div>
                 )}
               </div>
             </>
@@ -2837,14 +2883,21 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <>
               <div style={{ height: 1, background: 'var(--border)' }} />
               {/* Likes */}
-              {detailLikes.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <i className="ti ti-heart-filled" style={{ fontSize: 13, color: '#E05C6A' }} />
-                  <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
-                    {detailLikes.map(l => l.display_name || 'Someone').join(', ')}
-                  </span>
-                </div>
-              )}
+              {(() => {
+                const iLiked = detailLikes.some(l => l.user_id === session?.user?.id);
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button onClick={handleDetailToggleLike} style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: iLiked ? '#E05C6A' : 'var(--text-muted)' }}>
+                      <i className={`ti ti-heart${iLiked ? '-filled' : ''}`} style={{ fontSize: 18 }} />
+                    </button>
+                    {detailLikes.length > 0 && (
+                      <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
+                        {detailLikes.map(l => l.display_name || 'Someone').join(', ')}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
               {/* Threaded comments */}
               {(() => {
                 const topLevel = detailComments.filter(c => !c.parent_id);
@@ -8462,7 +8515,7 @@ export default function App() {
     await supabase.from('entries').update({ favorited: newFavorited }).eq('id', entryId);
   }
 
-  async function uploadToCloudinary(fileOrBlob, resourceType = 'image') {
+  async function uploadToCloudinary(fileOrBlob, resourceType = 'image', attempt = 1) {
     const { data: sig, error: sigError } = await supabase.functions.invoke('sign-upload');
     if (sigError || !sig) throw new Error('Could not authorize upload: ' + (sigError?.message || 'unknown error'));
     const fd = new FormData();
@@ -8481,6 +8534,15 @@ export default function App() {
       }
       const json = await res.json();
       return json.secure_url;
+    } catch (e) {
+      // Videos are the slow, flaky case on mobile data — one dropped connection
+      // shouldn't be the difference between saved and lost, so retry a couple
+      // times with backoff before surfacing a failure to the user.
+      if (resourceType === 'video' && attempt < 3) {
+        await new Promise(r => setTimeout(r, 2000 * attempt));
+        return uploadToCloudinary(fileOrBlob, resourceType, attempt + 1);
+      }
+      throw e;
     } finally {
       clearTimeout(timer);
     }
