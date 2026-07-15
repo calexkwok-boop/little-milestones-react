@@ -3691,7 +3691,6 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
 
 
         {/* Tap to speak */}
-        {!isNote && (
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 28 }}>
           <button
             onClick={toggleListening}
@@ -3711,6 +3710,13 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             </span>
           </button>
         </div>
+
+        {isNote && (voiceMemoBlob || voiceMemoUrl) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 14px', marginBottom: 14 }}>
+            <i className="ti ti-microphone" style={{ fontSize: 15, color: 'var(--accent)', flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-2)' }}>Voice captured</span>
+            <button onClick={() => { setVoiceMemoBlob(null); setVoiceMemoUrl(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><i className="ti ti-x" /></button>
+          </div>
         )}
 
         {/* Prompt banner */}
