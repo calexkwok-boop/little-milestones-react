@@ -744,6 +744,24 @@ function useLongPress(callback, ms = 500) {
   return { onTouchStart, onTouchMove, onTouchEnd, wrapClick, didFire };
 }
 
+// Auto-stops a playing inline video once its container scrolls out of the
+// viewport, so a card the user scrolled past doesn't keep playing (audio and
+// all) behind whatever they scrolled to next. Only watches while `active` is
+// true, so idle feed cards don't each carry a live observer.
+function useVideoAutoPause(containerRef, active, onLeave) {
+  useEffect(() => {
+    if (!active) return;
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) onLeave();
+    }, { threshold: 0 });
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+}
+
 function usePullToRefresh(scrollRef, onRefresh) {
   const startY = useRef(null);
   const [pullY, setPullY] = useState(0);
@@ -783,14 +801,17 @@ function usePullToRefresh(scrollRef, onRefresh) {
   return { handlers, indicator };
 }
 
-function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDelete }) {
+function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDelete, isOwn = true }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const preview = (entry.text || '').replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const actions = [
     { icon: entry.favorited ? 'ti-star-filled' : 'ti-star', label: entry.favorited ? 'Remove from favorites' : 'Add to favorites', color: entry.favorited ? '#C8993E' : 'var(--text)', fn: onFavorite },
-    { icon: 'ti-link', label: 'Share link', color: 'var(--text)', fn: onShare },
-    { icon: 'ti-trash', label: 'Delete', color: '#D4856A', fn: () => setConfirmingDelete(true) },
-  ];
+    // Share-link and delete touch content/ownership, not just the shared
+    // "favorited" flag, so they stay author-only — same rule as the full
+    // entry-detail action sheet.
+    isOwn && { icon: 'ti-link', label: 'Share link', color: 'var(--text)', fn: onShare },
+    isOwn && { icon: 'ti-trash', label: 'Delete', color: '#D4856A', fn: () => setConfirmingDelete(true) },
+  ].filter(Boolean);
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
       <div className="quick-sheet" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg)', borderRadius: '20px 20px 0 0', width: '100%', padding: '12px 0 28px' }}>
@@ -830,6 +851,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
   const photoRef = useRef(null);
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  useVideoAutoPause(photoRef, videoPlaying, () => setVideoPlaying(false));
   const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const preview = cleanText.length > (featured ? 160 : 110)
     ? cleanText.slice(0, featured ? 160 : 110) + '…'
@@ -852,7 +874,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
           {entry.media[0].type === 'video' ? (
             <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
               {videoPlaying ? (
-                <video src={entry.media[0].url} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
               ) : (
                 <>
                   <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} />
@@ -994,19 +1016,28 @@ function CroppedBg({ src, cropY = 50, style, className, children }) {
 function CroppedVideo({ src, poster, cropY = 50, style, ...props }) {
   const videoRef = useRef(null);
   const objY = useImageCropPosition(poster, cropY, videoRef);
+  // Always mounted (native poster attribute, not a poster/video swap), so on
+  // scrolling out of view just pause it directly rather than unmounting.
+  useVideoAutoPause(videoRef, true, () => videoRef.current?.pause());
   return <video ref={videoRef} src={src} poster={poster} style={{ ...style, objectPosition: `center ${objY}%` }} {...props} />;
 }
 
 const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transform }) {
   const [playing, setPlaying] = useState(false);
+  const containerRef = useRef(null);
+  useVideoAutoPause(containerRef, playing, () => setPlaying(false));
   if (item.type !== 'video') {
     return <CroppedImg src={cloudinaryTransform(item.url, transform)} cropY={cropY} />;
   }
   if (playing) {
-    return <video src={item.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={e => e.stopPropagation()} />;
+    return (
+      <div ref={containerRef} style={{ width: '100%', height: '100%' }}>
+        <CroppedVideo src={item.url} poster={videoThumbUrl(item.url, `so_0,${transform}`)} cropY={cropY} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={e => e.stopPropagation()} />
+      </div>
+    );
   }
   return (
-    <div style={{ width: '100%', height: '100%', position: 'relative' }} onClick={e => { e.stopPropagation(); setPlaying(true); }}>
+    <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} onClick={e => { e.stopPropagation(); setPlaying(true); }}>
       <CroppedImg src={videoThumbUrl(item.url, `so_0,${transform}`)} cropY={cropY} />
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1143,6 +1174,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
   const cardH = 250;
   const photoRef = useRef(null);
   const [videoPlaying, setVideoPlaying] = useState(false);
+  useVideoAutoPause(photoRef, videoPlaying, () => setVideoPlaying(false));
   const preview = entry.text.length > 200 ? entry.text.slice(0, 200) + '…' : entry.text;
   const yearLabel = yearsAgo === 1 ? 'One year ago today' : `${yearsAgo} years ago today`;
 
@@ -1168,7 +1200,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
             {entry.media[0].type === 'video' ? (
               <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
                 {videoPlaying ? (
-                  <video src={entry.media[0].url} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                  <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={cropY} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                 ) : (
                   <>
                     <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={cropY} onError={e => { e.target.style.display = 'none'; }} />
@@ -2099,6 +2131,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
         <QuickActionSheet
           entry={longPressEntry}
           allKids={kids}
+          isOwn={longPressEntry.userId === currentUserId}
           onClose={() => setLongPressEntry(null)}
           onFavorite={() => { onToggleFavorite?.(longPressEntry.id); setLongPressEntry(null); }}
           onShare={() => { handleQuickShareLink(longPressEntry); setLongPressEntry(null); }}
@@ -2386,6 +2419,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
 });
 
 function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos, onRefresh, onToggleFavorite, onDeleteEntry, reactionCounts = {}, onBack, onGenerateShareLink }) {
+  const { userId: currentUserId } = useSession() ?? {};
   const [quickToast, setQuickToast] = useState(null);
   function showQuickToast(msg) {
     setQuickToast(msg);
@@ -2510,6 +2544,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         <QuickActionSheet
           entry={longPressEntry}
           allKids={kids}
+          isOwn={longPressEntry.userId === currentUserId}
           onClose={() => setLongPressEntry(null)}
           onFavorite={() => { onToggleFavorite?.(longPressEntry.id); setLongPressEntry(null); }}
           onShare={() => { handleQuickShareLink(longPressEntry); setLongPressEntry(null); }}
@@ -2596,6 +2631,9 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 // ─── Entry detail ────────────────────────────────────────────────────────
 
 function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, allPeople = [], friendKids = [], supabase, session, socialName = '' }) {
+  // Only the author can edit or delete an entry's content — family members
+  // may only adjust the photo crop (handled separately, below).
+  const isOwn = entry.userId === session?.user?.id;
   const isNote = entry.type === 'note';
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
@@ -2776,8 +2814,8 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 )}
                 {media[activeSlide]?.type !== 'video' && (
                   <button
-                    onClick={e => { e.stopPropagation(); setShowPeopleTagger(true); }}
-                    style={{ position: 'absolute', bottom: 12, left: 12, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.38)', borderRadius: 999, padding: '5px 10px 5px 7px', border: 'none', cursor: 'pointer' }}
+                    onClick={e => { e.stopPropagation(); if (isOwn) setShowPeopleTagger(true); }}
+                    style={{ position: 'absolute', bottom: 12, left: 12, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.38)', borderRadius: 999, padding: '5px 10px 5px 7px', border: 'none', cursor: isOwn ? 'pointer' : 'default' }}
                   >
                     <i className="ti ti-user-plus" style={{ fontSize: 12, color: '#fff' }} />
                     <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>
@@ -2820,7 +2858,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                     {exactAgeLabel(k.birthdate, entry.date)} old · {new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}{entry.mood ? ` · ${entry.mood}` : ''}
                   </p>
                   {location && (
-                    <span onClick={() => { setLocationDraft(location); setLocationDraftCoords(null); setEditingLocation(true); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3, cursor: 'pointer' }}>
+                    <span onClick={() => { if (isOwn) { setLocationDraft(location); setLocationDraftCoords(null); setEditingLocation(true); } }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3, cursor: isOwn ? 'pointer' : 'default' }}>
                       <i className="ti ti-map-pin" style={{ fontSize: 11, color: 'var(--text-muted)' }} />
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{location}</span>
                     </span>
@@ -2830,9 +2868,11 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   <button onClick={() => { onToggleFavorite(entry.id); showToast(entry.favorited ? 'Removed from favorites' : 'Saved to favorites'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: entry.favorited ? '#C8993E' : 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
                     <i className={`ti ti-star${entry.favorited ? '-filled' : ''}`} />
                   </button>
-                  <button onClick={() => setShowActionSheet(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
-                    <i className="ti ti-dots" />
-                  </button>
+                  {isOwn && (
+                    <button onClick={() => setShowActionSheet(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
+                      <i className="ti ti-dots" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -4244,10 +4284,23 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
   const [likeAnimId, setLikeAnimId] = useState(null);
   const [playingVideoId, setPlayingVideoId] = useState(null);
   const lastTapRef = useRef({});
+  const mediaRefs = useRef({});
 
   useEffect(() => {
     if (showSearch) searchInputRef.current?.focus();
   }, [showSearch]);
+
+  // Stop the playing video the moment it's scrolled out of view.
+  useEffect(() => {
+    if (!playingVideoId) return;
+    const el = mediaRefs.current[playingVideoId];
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) setPlayingVideoId(id => id === playingVideoId ? null : id);
+    }, { threshold: 0 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [playingVideoId]);
 
   const familyIds = useMemo(() => Object.keys(friendFamilyMap), [friendFamilyMap]);
   const scrollRef = useRef(null);
@@ -4401,6 +4454,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         {/* Photo, no overlay */}
         {entry.media.length > 0 && (
           <div
+            ref={el => { mediaRefs.current[entry.id] = el; }}
             onClick={() => {
               const isVideo = entry.media[0].type === 'video';
               if (isVideo && playingVideoId !== entry.id) { setPlayingVideoId(entry.id); return; }
@@ -4632,6 +4686,19 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
   const [compareAge, setCompareAge] = useState(initialCompareAge ?? 24);
   const [photoViewer, setPhotoViewer] = useState(null); // { entry, kid, ageStr, isFriend, friendName, friendAvatar }
   const [playingVideoId, setPlayingVideoId] = useState(null);
+  const mediaRefs = useRef({});
+
+  // Stop the playing video the moment it's scrolled out of view.
+  useEffect(() => {
+    if (!playingVideoId) return;
+    const el = mediaRefs.current[playingVideoId];
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) setPlayingVideoId(id => id === playingVideoId ? null : id);
+    }, { threshold: 0 });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [playingVideoId]);
 
   const friendInfoMap = useMemo(() => {
     const map = {};
@@ -4880,7 +4947,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                             onClick={() => isFriendKid
                               ? setPhotoViewer({ entry: e, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null })
                               : onOpenEntry(e)}>
-                            <div style={{ borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
+                            <div ref={el => { mediaRefs.current[e.id] = el; }} style={{ borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
                               {playingVideoId === e.id ? (
                                 <div style={{ aspectRatio: '3/4', background: '#000', position: 'relative' }}>
                                   <video
@@ -7730,6 +7797,14 @@ export default function App() {
   const [kids, setKids] = useState(() => localMode ? loadLocalData().kids : []);
   const [entries, setEntries] = useState(() => localMode ? loadLocalData().entries : []);
   const [screen, setScreen] = useState('home');
+  // Several screens (recap/partner-letters/compare/circle-feed/friends) stay
+  // mounted with display:none instead of unmounting when you navigate away,
+  // so any video/audio playing inside them would otherwise keep playing
+  // invisibly. A blanket pause on every navigation is simpler and more
+  // robust than instrumenting every media-playing surface individually.
+  useEffect(() => {
+    document.querySelectorAll('video, audio').forEach(v => { if (!v.paused) v.pause(); });
+  }, [screen]);
   const [circleViewerEntry, setCircleViewerEntry] = useState(null);
   const [journalBackScreen, setJournalBackScreen] = useState('home');
   const [showInstallBanner, setShowInstallBanner] = useState(false);
@@ -8579,11 +8654,13 @@ export default function App() {
     await supabase.from('entry_likes').delete().eq('entry_id', entryId);
     await supabase.from('entry_comments').delete().eq('entry_id', entryId);
     await supabase.from('entry_media').delete().eq('entry_id', entryId);
-    const { error } = await supabase.from('entries').delete().eq('id', entryId);
-    if (error) {
-      console.error('Delete entry failed:', error);
+    // .select() so we can tell a real delete apart from an RLS policy quietly
+    // matching zero rows — Postgrest reports that as success with no error.
+    const { data, error } = await supabase.from('entries').delete().eq('id', entryId).select('id');
+    if (error || !data || data.length === 0) {
+      console.error('Delete entry failed:', error || 'no rows deleted (blocked by RLS?)');
       if (removed) setEntries(prev => prev.some(e => e.id === entryId) ? prev : [removed, ...prev]);
-      alert('Could not delete this entry. Please try again.\n' + error.message);
+      alert('Could not delete this entry. Please try again.\n' + (error?.message || 'You may not have permission to delete this post.'));
     }
   }
 
@@ -8594,11 +8671,13 @@ export default function App() {
     await supabase.from('entry_likes').delete().eq('entry_id', entryId);
     await supabase.from('entry_comments').delete().eq('entry_id', entryId);
     await supabase.from('entry_media').delete().eq('entry_id', entryId);
-    const { error } = await supabase.from('entries').delete().eq('id', entryId);
-    if (error) {
-      console.error('Delete entry failed:', error);
+    // .select() so we can tell a real delete apart from an RLS policy quietly
+    // matching zero rows — Postgrest reports that as success with no error.
+    const { data, error } = await supabase.from('entries').delete().eq('id', entryId).select('id');
+    if (error || !data || data.length === 0) {
+      console.error('Delete entry failed:', error || 'no rows deleted (blocked by RLS?)');
       if (removed) setEntries(prev => prev.some(e => e.id === entryId) ? prev : [removed, ...prev]);
-      alert('Could not delete this entry. Please try again.\n' + error.message);
+      alert('Could not delete this entry. Please try again.\n' + (error?.message || 'You may not have permission to delete this post.'));
     }
   }
 
