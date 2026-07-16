@@ -195,7 +195,7 @@ function SharedReelScreen({ token, effectiveDark }) {
             ))}
           </div>
           <a href="/" style={{ display: 'block', width: '100%', textAlign: 'center', padding: '14px', borderRadius: 12, background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)', color: '#E5C97E', fontSize: 13.5, fontWeight: 600, textDecoration: 'none' }}>
-            Start your own family journal on Patina
+            Never forget a moment, start your own family journal on Patina
           </a>
         </div>
       )}
@@ -208,7 +208,7 @@ function SharedReelScreen({ token, effectiveDark }) {
           countedStats={countedStats}
           onShare={null}
           onReplay={replay}
-          primaryAction={{ label: 'Start your own family journal on Patina', href: '/' }}
+          primaryAction={{ label: 'Never forget a moment, start your own family journal on Patina', href: '/' }}
         />
       )}
 

@@ -433,7 +433,18 @@ export function useReelAudioEngine({ song, song2, totalBaseMs, holdSong1 }) {
 
   // Song 2 ending — fades to silence near its own end, same as a lone song
   // would. No-ops harmlessly if there's no song 2.
-  useEffect(() => attachEndFade(audioRef2.current, () => gainNodeRef2.current, fadeFiredRef2), []);
+  //
+  // Depends on [song2], not []: the shared page gates its whole first render
+  // behind an async row fetch (status starts 'loading', with no <audio> tags
+  // mounted yet at all), so an empty-deps effect fires once on that very
+  // first render with audioRef2.current still null and attachEndFade's
+  // `if (!el) return` no-ops it — permanently, since the effect never runs
+  // again. Keying it to song2 (null until the fetch resolves, same as the
+  // crossfade effect above) makes it re-run once the <audio> element — and a
+  // real ref — actually exist. The live reel already renders its <audio>
+  // tags synchronously on mount, so this was silently correct there; only
+  // the shared page's async gate exposed it.
+  useEffect(() => attachEndFade(audioRef2.current, () => gainNodeRef2.current, fadeFiredRef2), [song2]);
 
   // Stretches (or shrinks) every slide's duration proportionally so the
   // reel's total runtime matches however much music is actually available —
@@ -561,7 +572,7 @@ export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onS
       </button>
 
       {primaryAction.href ? (
-        <a href={primaryAction.href} className="btn btn-gold fade-up" style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", animationDelay: '560ms', textDecoration: 'none', display: 'inline-block' }}>
+        <a href={primaryAction.href} className="btn btn-gold fade-up" style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", animationDelay: '560ms', textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}>
           {primaryAction.label}
         </a>
       ) : (
