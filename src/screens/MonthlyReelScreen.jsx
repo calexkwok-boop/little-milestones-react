@@ -2,6 +2,15 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { cloudinaryTransform, exactAgeLabel } from '../constants.js';
 import { supabase } from '../supabase.js';
 
+// Same "{kid} · {age} old · {date}" caption the live reel builds inline from
+// full kid/date objects it already has — the shared payload only carries
+// plain fields, so this gets precomputed once into a string at share time.
+function captionFor(kid, date) {
+  if (!kid || !date) return null;
+  const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  return `${kid.name?.split(' ')[0]} · ${exactAgeLabel(kid.birthdate, date)} old · ${dateLabel}`;
+}
+
 const PHOTO_SLIDE_MS = 3200;
 // One fewer photo slide, traded for more time on the trip arc animation below.
 const SHORT_MAX_PHOTO_SLIDES = 7;
@@ -645,9 +654,20 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
   function attachEndFade(el, getGain, firedRef) {
     if (!el) return () => {};
     const FADE_TRIGGER_MS = 1800;
+    // Some browsers (observed on iOS WebKit — which Chrome-on-iOS also runs
+    // on, Apple requires it) briefly under-report a still-buffering clip's
+    // duration before it self-corrects upward. Reading that raw value here
+    // could permanently commit to fading way too early on a single bad tick
+    // — there's no way to un-fire `firedRef`. Tracking the highest duration
+    // ever observed and using that ceiling instead is immune to a downward
+    // blip, since a real duration for a fully-declared file only trends up
+    // (or holds steady) as more of it buffers, never legitimately drops.
+    let maxDuration = 0;
     function onTimeUpdate() {
-      if (firedRef.current || !el.duration || !isFinite(el.duration)) return;
-      const remainingMs = (el.duration - el.currentTime) * 1000;
+      if (firedRef.current) return;
+      if (el.duration && isFinite(el.duration)) maxDuration = Math.max(maxDuration, el.duration);
+      if (!maxDuration) return;
+      const remainingMs = (maxDuration - el.currentTime) * 1000;
       if (remainingMs > FADE_TRIGGER_MS) return;
       firedRef.current = true;
       const fadeDuration = Math.max(300, remainingMs - 60);
@@ -675,9 +695,12 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
     if (!song2) return attachEndFade(a, () => gainNodeRef.current, fadeFiredRef1);
 
     const CROSSFADE_MS = 1800;
+    let maxDuration = 0; // ceiling guard against a transient under-reported duration — see attachEndFade above
     function onTimeUpdate() {
-      if (crossfadeTriggeredRef.current || !a.duration || !isFinite(a.duration)) return;
-      const remainingMs = (a.duration - a.currentTime) * 1000;
+      if (crossfadeTriggeredRef.current) return;
+      if (a.duration && isFinite(a.duration)) maxDuration = Math.max(maxDuration, a.duration);
+      if (!maxDuration) return;
+      const remainingMs = (maxDuration - a.currentTime) * 1000;
       if (remainingMs > CROSSFADE_MS) return;
       crossfadeTriggeredRef.current = true;
       const a2 = audioRef2.current;
@@ -814,15 +837,15 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
       song2: song2 || null,
       slides: slides.map(s => {
         // The arc animation is reel-only — the shared page keeps things
-        // simple with just the destination photo, same as the live reel now
-        // shows a plain photo (no caption) after its own crossfade.
+        // simple with just the destination photo after its own crossfade,
+        // captioned the same as any other photo slide.
         if (s.type === 'trip') {
-          return { type: 'photo', url: s.trip.photo.url, mediaType: s.trip.photo.mediaType, cropY: s.trip.photo.cropY, date: s.trip.date };
+          return { type: 'photo', url: s.trip.photo.url, mediaType: s.trip.photo.mediaType, cropY: s.trip.photo.cropY, date: s.trip.date, caption: captionFor(s.trip.photoKid, s.trip.date) };
         }
         if (s.type === 'text') {
           return { type: 'text', subtype: s.subtype, text: s.text, date: s.date, kidName: s.kid?.name?.split(' ')[0] || null, kidAvatar: s.kid?.avatar || null, kidAccent: s.kid?.accent || null };
         }
-        return { type: 'photo', url: s.url, mediaType: s.mediaType, cropY: s.cropY, date: s.date };
+        return { type: 'photo', url: s.url, mediaType: s.mediaType, cropY: s.cropY, date: s.date, caption: captionFor(s.kid, s.date) };
       }),
     };
   }

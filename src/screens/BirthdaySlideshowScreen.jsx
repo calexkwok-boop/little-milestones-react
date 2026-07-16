@@ -397,11 +397,18 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
 
   // Only the fields SharedReelScreen actually renders — not full entry
   // objects (internal ids, family_id, etc. have no business in a public row).
+  // Caption is precomputed into a string here (same "{age} · {month year}"
+  // the live reel builds inline from kid.birthdate) since the shared page
+  // never gets the full kid object, just plain per-slide fields.
   function buildSharePayload() {
     return {
       stats: yearStats,
       song,
-      slides: slides.map(s => ({ type: 'photo', url: s.url, mediaType: s.type, cropY: s.cropY, date: s.date })),
+      slides: slides.map(s => {
+        const a = ageAtDate(kid.birthdate, s.date);
+        const my = new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        return { type: 'photo', url: s.url, mediaType: s.type, cropY: s.cropY, date: s.date, caption: a ? `${a} · ${my}` : my };
+      }),
     };
   }
 

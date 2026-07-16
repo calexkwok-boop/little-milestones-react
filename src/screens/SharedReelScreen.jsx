@@ -124,9 +124,20 @@ function SharedReelScreen({ token, effectiveDark }) {
     if (!el) return () => {};
     let fading = false;
     const FADE_TRIGGER_MS = 1800;
+    // Some browsers (observed on iOS WebKit — which Chrome-on-iOS also runs
+    // on, Apple requires it) briefly under-report a still-buffering clip's
+    // duration before it self-corrects upward. Reading that raw value here
+    // could permanently commit to fading way too early on a single bad tick.
+    // Tracking the highest duration ever observed and using that ceiling
+    // instead is immune to a downward blip, since a real duration for a
+    // fully-declared file only trends up (or holds steady), never legitimately
+    // drops mid-playback.
+    let maxDuration = 0;
     function onTimeUpdate() {
-      if (fading || !el.duration || !isFinite(el.duration)) return;
-      const remainingMs = (el.duration - el.currentTime) * 1000;
+      if (fading) return;
+      if (el.duration && isFinite(el.duration)) maxDuration = Math.max(maxDuration, el.duration);
+      if (!maxDuration) return;
+      const remainingMs = (maxDuration - el.currentTime) * 1000;
       if (remainingMs > FADE_TRIGGER_MS) return;
       fading = true;
       const fadeDuration = Math.max(300, remainingMs - 60);
@@ -160,9 +171,12 @@ function SharedReelScreen({ token, effectiveDark }) {
 
     let triggered = false;
     const CROSSFADE_MS = 1800;
+    let maxDuration = 0; // ceiling guard against a transient under-reported duration — see attachEndFade above
     function onTimeUpdate() {
-      if (triggered || !a.duration || !isFinite(a.duration)) return;
-      const remainingMs = (a.duration - a.currentTime) * 1000;
+      if (triggered) return;
+      if (a.duration && isFinite(a.duration)) maxDuration = Math.max(maxDuration, a.duration);
+      if (!maxDuration) return;
+      const remainingMs = (maxDuration - a.currentTime) * 1000;
       if (remainingMs > CROSSFADE_MS) return;
       triggered = true;
       const a2 = audioRef2.current;
