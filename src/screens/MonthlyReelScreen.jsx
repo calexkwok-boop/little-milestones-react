@@ -310,6 +310,28 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
 
+  // iOS Safari ignores <audio>.volume entirely — it can be read/written but
+  // has no effect on actual output level there, only the hardware volume
+  // buttons do. Routing playback through a Web Audio GainNode instead is the
+  // standard workaround; the node's gain IS respected on iOS. Falls back to
+  // plain .volume elsewhere/if the graph can't be built.
+  const audioCtxRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  function ensureAudioGraph() {
+    if (audioCtxRef.current || !audioRef.current) return;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const source = ctx.createMediaElementSource(audioRef.current);
+      const gain = ctx.createGain();
+      source.connect(gain).connect(ctx.destination);
+      audioCtxRef.current = ctx;
+      gainNodeRef.current = gain;
+    } catch {}
+    audioCtxRef.current?.resume?.().catch(() => {});
+  }
+
   const [audioDuration, setAudioDuration] = useState(null); // seconds, once the clip's metadata loads
   const totalBaseMs = useMemo(() => slides.reduce((sum, s) => sum + s.durationMs, 0), [slides]);
   // Stretch (or shrink) every slide's duration proportionally so the reel's
@@ -336,7 +358,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
     const t2 = setTimeout(() => {
       setShowIntro(false);
       introEndedRef.current = true;
-      if (audioRef.current?.src) audioRef.current.play().catch(() => {});
+      if (audioRef.current?.src) { ensureAudioGraph(); audioRef.current.play().catch(() => {}); }
     }, 3200);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
@@ -367,7 +389,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
   useEffect(() => {
     if (song && audioRef.current) {
       audioRef.current.src = song.previewUrl;
-      if (introEndedRef.current) audioRef.current.play().catch(() => {});
+      if (introEndedRef.current) { ensureAudioGraph(); audioRef.current.play().catch(() => {}); }
     }
   }, [song]);
 
@@ -416,6 +438,11 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
   // catches the "about to end" moment to within ~250ms, not exactly when
   // it's crossed), leaving the clip audibly cut off at ~15-20% volume
   // instead of reaching true silence.
+  //
+  // Fades the GainNode when the Web Audio graph is up (needed on iOS Safari,
+  // which silently ignores <audio>.volume — only the hardware buttons affect
+  // output there), falling back to element .volume if the graph isn't
+  // available for some reason.
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -428,11 +455,13 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
       fading = true;
       const fadeDuration = Math.max(300, remainingMs - 60);
       const STEPS = Math.max(6, Math.round(fadeDuration / 60));
-      const startVol = a.volume;
+      const gain = gainNodeRef.current;
+      const startVol = gain ? gain.gain.value : a.volume;
       let step = 0;
       const id = setInterval(() => {
         step++;
-        a.volume = Math.max(0, startVol * (1 - step / STEPS));
+        const v = Math.max(0, startVol * (1 - step / STEPS));
+        if (gain) gain.gain.value = v; else a.volume = v;
         if (step >= STEPS) { clearInterval(id); a.pause(); }
       }, fadeDuration / STEPS);
     }
@@ -444,7 +473,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
     const next = !slideshowPaused;
     setSlideshowPaused(next);
     if (next) audioRef.current?.pause();
-    else audioRef.current?.play().catch(() => {});
+    else { audioCtxRef.current?.resume?.().catch(() => {}); audioRef.current?.play().catch(() => {}); }
     setShowPauseHint(true);
     setTimeout(() => setShowPauseHint(false), 900);
   }

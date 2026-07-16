@@ -48,6 +48,28 @@ function SharedReelScreen({ token, effectiveDark }) {
   const [ended, setEnded] = useState(false);
   const audioRef = useRef(null);
 
+  // iOS Safari ignores <audio>.volume entirely — it can be read/written but
+  // has no effect on actual output level there, only the hardware volume
+  // buttons do. Routing playback through a Web Audio GainNode instead is the
+  // standard workaround; the node's gain IS respected on iOS. Falls back to
+  // plain .volume elsewhere/if the graph can't be built.
+  const audioCtxRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  function ensureAudioGraph() {
+    if (audioCtxRef.current || !audioRef.current) return;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const source = ctx.createMediaElementSource(audioRef.current);
+      const gain = ctx.createGain();
+      source.connect(gain).connect(ctx.destination);
+      audioCtxRef.current = ctx;
+      gainNodeRef.current = gain;
+    } catch {}
+    audioCtxRef.current?.resume?.().catch(() => {});
+  }
+
   useEffect(() => {
     if (!supabase || !token) { setStatus('not-found'); return; }
     let cancelled = false;
@@ -95,11 +117,13 @@ function SharedReelScreen({ token, effectiveDark }) {
       fading = true;
       const fadeDuration = Math.max(300, remainingMs - 60);
       const STEPS = Math.max(6, Math.round(fadeDuration / 60));
-      const startVol = a.volume;
+      const gain = gainNodeRef.current;
+      const startVol = gain ? gain.gain.value : a.volume;
       let step = 0;
       const id = setInterval(() => {
         step++;
-        a.volume = Math.max(0, startVol * (1 - step / STEPS));
+        const v = Math.max(0, startVol * (1 - step / STEPS));
+        if (gain) gain.gain.value = v; else a.volume = v;
         if (step >= STEPS) { clearInterval(id); a.pause(); }
       }, fadeDuration / STEPS);
     }
@@ -112,6 +136,7 @@ function SharedReelScreen({ token, effectiveDark }) {
     const song = reel?.payload?.song;
     if (song && audioRef.current) {
       audioRef.current.src = song.previewUrl;
+      ensureAudioGraph();
       audioRef.current.play().catch(() => {});
     }
   }
