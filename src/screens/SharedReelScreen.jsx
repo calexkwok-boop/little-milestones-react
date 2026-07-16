@@ -4,6 +4,14 @@ import { cloudinaryTransform } from '../constants.js';
 
 const SLIDE_MS = 3800;
 
+// Text slides (letter excerpts / note quotes, no photo) need real reading
+// time, not the fixed photo-slide duration — same formula as the live reel.
+function slideDurationMs(s) {
+  if (s?.type !== 'text') return SLIDE_MS;
+  const wordCount = (s.text || '').split(/\s+/).length;
+  return Math.min(7500, Math.max(4500, 1400 + wordCount * 220));
+}
+
 function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
   if (!videoUrl || !videoUrl.startsWith('http')) return null;
   if (videoUrl.includes('res.cloudinary.com')) {
@@ -90,7 +98,7 @@ function SharedReelScreen({ token, effectiveDark }) {
     const t = setTimeout(() => {
       if (index + 1 >= slides.length) setEnded(true);
       else setIndex(i => i + 1);
-    }, SLIDE_MS);
+    }, slideDurationMs(slides[index]));
     return () => clearTimeout(t);
   }, [started, ended, index, slides.length]);
 
@@ -135,9 +143,18 @@ function SharedReelScreen({ token, effectiveDark }) {
     setStarted(true);
     const song = reel?.payload?.song;
     if (song && audioRef.current) {
-      audioRef.current.src = song.previewUrl;
+      const a = audioRef.current;
+      // crossOrigin is already set via the JSX attribute, but re-asserting +
+      // forcing a fresh .load() here guards against the browser reusing an
+      // HTTP-cached response fetched in no-cors mode from an earlier session
+      // — a stale opaque cache entry for this exact URL is exactly what
+      // produces the silent-output CORS warning even with the attribute
+      // correctly in place now.
+      a.crossOrigin = 'anonymous';
+      a.src = song.previewUrl;
+      a.load();
       ensureAudioGraph();
-      audioRef.current.play().catch(() => {});
+      a.play().catch(() => {});
     }
   }
 
@@ -175,6 +192,35 @@ function SharedReelScreen({ token, effectiveDark }) {
     <div style={{ position: 'fixed', inset: 0, background: '#000', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {slides.map((s, i) => {
         const isActive = started && !ended && i === index;
+        if (s.type === 'text') {
+          return (
+            <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 0.6s ease', background: 'rgba(38,58,44,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 36px' }}>
+              {(s.kidAvatar || s.kidAccent) && (
+                <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', marginBottom: 18, flexShrink: 0, background: s.kidAccent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {s.kidAvatar
+                    ? <img src={cloudinaryTransform(s.kidAvatar, 'w_112,h_112,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 22, color: '#fff' }}>{s.kidName?.charAt(0)}</span>}
+                </div>
+              )}
+              {s.subtype === 'letter' ? (
+                <>
+                  {s.kidName && (
+                    <p style={{ margin: '0 0 18px', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'rgba(200,153,62,0.85)' }}>Dear {s.kidName},</p>
+                  )}
+                  <p style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 21, lineHeight: 1.55, color: '#fff', textAlign: 'center' }}>{s.text}</p>
+                </>
+              ) : (
+                <>
+                  <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 54, lineHeight: 0.6, color: 'rgba(200,153,62,0.6)', display: 'block', marginBottom: 6 }}>"</span>
+                  <p style={{ margin: '0 0 18px', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, fontSize: 20, lineHeight: 1.5, color: '#fff', textAlign: 'center' }}>{s.text}</p>
+                  {s.kidName && (
+                    <p style={{ margin: 0, fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 700, color: 'rgba(200,153,62,0.85)', letterSpacing: 1, textTransform: 'uppercase' }}>{s.kidName}</p>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        }
         const isVideo = s.mediaType === 'video';
         const thumbSrc = isVideo ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto') : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
         const kbAnim = `kb${(i % 4) + 1} ${SLIDE_MS}ms ease-in-out forwards`;
@@ -203,9 +249,9 @@ function SharedReelScreen({ token, effectiveDark }) {
       {started && !ended && (
         <>
           <div style={{ position: 'relative', zIndex: 10, display: 'flex', gap: 4, padding: '14px 16px 0' }}>
-            {slides.map((_, i) => (
+            {slides.map((s, i) => (
               <div key={i} style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.25)', borderRadius: 2, overflow: 'hidden' }}>
-                <div style={{ height: '100%', background: '#fff', borderRadius: 2, width: i < index ? '100%' : i === index ? '100%' : '0%', transition: i === index ? `width ${SLIDE_MS}ms linear` : 'none' }} />
+                <div style={{ height: '100%', background: '#fff', borderRadius: 2, width: i < index ? '100%' : i === index ? '100%' : '0%', transition: i === index ? `width ${slideDurationMs(s)}ms linear` : 'none' }} />
               </div>
             ))}
           </div>
@@ -290,7 +336,7 @@ function SharedReelScreen({ token, effectiveDark }) {
         </div>
       )}
 
-      <audio ref={audioRef} />
+      <audio ref={audioRef} crossOrigin="anonymous" />
     </div>
   );
 }

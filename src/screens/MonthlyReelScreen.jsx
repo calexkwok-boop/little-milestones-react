@@ -4,7 +4,16 @@ import { supabase } from '../supabase.js';
 
 const PHOTO_SLIDE_MS = 3200;
 // One fewer photo slide, traded for more time on the trip arc animation below.
-const MAX_PHOTO_SLIDES = 7;
+const SHORT_MAX_PHOTO_SLIDES = 7;
+// A month with enough content gets a second song and a bigger photo budget
+// instead of stretching a handful of photos to fill 60 seconds of music —
+// see isLongReel below for the threshold that decides which tier applies.
+const LONG_MAX_PHOTO_SLIDES = 14;
+// Below this many distinct photos/videos, there just isn't enough material to
+// justify a second song — a sparse month gets the original single-song,
+// ~30s reel instead of a two-song reel padded out with repeats or a wall of
+// near-static slides.
+const LONG_REEL_MEDIA_THRESHOLD = 12;
 
 function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
   if (!videoUrl || !videoUrl.startsWith('http')) return null;
@@ -25,6 +34,26 @@ function monthEntriesFor(entries, year, month) {
     const [ey, em] = e.date.split('-').map(Number);
     return ey === year && em === month;
   });
+}
+
+// Text-only letters and notes/prompts (no media) are otherwise invisible to
+// the reel entirely — this is what actually differentiates it from a generic
+// auto-generated photo montage: the family's own written words, not just
+// their photos.
+function monthTextEntriesFor(entries, year, month) {
+  return entries.filter(e => {
+    if (e.media?.length || !e.text?.trim()) return false;
+    const [ey, em] = e.date.split('-').map(Number);
+    return ey === year && em === month;
+  });
+}
+
+function textExcerpt(text, maxLen) {
+  const trimmed = text.trim().replace(/\s+/g, ' ');
+  if (trimmed.length <= maxLen) return trimmed;
+  const cut = trimmed.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > maxLen * 0.6 ? cut.slice(0, lastSpace) : cut) + '…';
 }
 
 // Same "home is the coordinate cluster with the most neighbors within 25
@@ -197,10 +226,51 @@ function ReelSlideVideo({ url, active, style }) {
   return <video ref={videoRef} src={url} muted playsInline style={style} />;
 }
 
+// Text-only letters and notes (no photo) get their own card instead of being
+// silently excluded — the reel's one moment built from the family's own
+// words, not something an auto-generated photo montage could ever produce.
+// Letters get "Dear ___," framing (they're written TO the kid); notes/prompts
+// get a quote-mark treatment (they're an observation ABOUT the kid).
+function TextSlide({ slide }) {
+  const kidFirst = slide.kid?.name?.split(' ')[0];
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: 'rgba(38,58,44,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 36px' }}>
+      {slide.kid && (
+        <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', marginBottom: 18, flexShrink: 0, background: slide.kid.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {slide.kid.avatar
+            ? <img src={cloudinaryTransform(slide.kid.avatar, 'w_112,h_112,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+            : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 22, color: '#fff' }}>{kidFirst?.charAt(0)}</span>}
+        </div>
+      )}
+      {slide.subtype === 'letter' ? (
+        <>
+          {kidFirst && (
+            <p style={{ margin: '0 0 18px', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'rgba(200,153,62,0.85)' }}>Dear {kidFirst},</p>
+          )}
+          <p style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 21, lineHeight: 1.55, color: '#fff', textAlign: 'center' }}>
+            {slide.text}
+          </p>
+        </>
+      ) : (
+        <>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 54, lineHeight: 0.6, color: 'rgba(200,153,62,0.6)', display: 'block', marginBottom: 6 }}>"</span>
+          <p style={{ margin: '0 0 18px', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, fontSize: 20, lineHeight: 1.5, color: '#fff', textAlign: 'center' }}>
+            {slide.text}
+          </p>
+          {kidFirst && (
+            <p style={{ margin: 0, fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 700, color: 'rgba(200,153,62,0.85)', letterSpacing: 1, textTransform: 'uppercase' }}>{kidFirst}</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
 function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, monthLabel, stats, onClose, onGenerateReelShare, onRevokeReelShare }) {
   const monthEntries = useMemo(() => monthEntriesFor(entries, year, month), [entries, year, month]);
+  const monthTextEntries = useMemo(() => monthTextEntriesFor(entries, year, month), [entries, year, month]);
 
   // Home is computed from ALL entries (a stable, long-term thing), not just
   // this month's — otherwise a month with only trip photos would have
@@ -229,7 +299,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
     return () => { cancelled = true; };
   }, [trip]);
 
-  const slides = useMemo(() => {
+  const { slides, isLongReel } = useMemo(() => {
     // Pre-seed with whatever the trip slide already claimed, so its photo
     // doesn't also show up again as a plain photo slide.
     const seen = new Set();
@@ -243,7 +313,36 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
         photoCandidates.push({ type: 'photo', url: m.url, mediaType: m.type, date: e.date, cropY: e.cropY ?? 50, kid, entryId: e.id, durationMs: PHOTO_SLIDE_MS });
       }
     }
+    // A rich month earns a second song and a bigger photo budget instead of
+    // stretching a handful of photos to fill 60 seconds, or repeating itself.
+    const isLongReel = photoCandidates.length >= LONG_REEL_MEDIA_THRESHOLD;
+    const MAX_PHOTO_SLIDES = isLongReel ? LONG_MAX_PHOTO_SLIDES : SHORT_MAX_PHOTO_SLIDES;
     const tripCandidates = trip ? [{ type: 'trip', trip, date: trip.earliestDate, durationMs: TRIP_ARC_MS + PHOTO_SLIDE_MS }] : [];
+
+    // Letters and notes/prompts with no photo attached — otherwise invisible
+    // to the reel. Capped low (unlike photos/videos) since reading text takes
+    // real time and this is meant as a moment, not the reel's main content.
+    const textAll = monthTextEntries.slice().sort((a, b) => a.date.localeCompare(b.date)).map(e => {
+      const kid = kids.find(k => e.kids.includes(k.id));
+      const isLetter = e.type === 'letter';
+      const excerpt = textExcerpt(e.text, isLetter ? 200 : 140);
+      const wordCount = excerpt.split(/\s+/).length;
+      return {
+        type: 'text',
+        subtype: isLetter ? 'letter' : 'note',
+        text: excerpt,
+        date: e.date,
+        kid,
+        durationMs: Math.min(7500, Math.max(4200, 1400 + wordCount * 220)),
+      };
+    });
+    const MAX_TEXT_SLIDES = 2;
+    const textCandidates = textAll.length <= MAX_TEXT_SLIDES ? textAll : (() => {
+      const step = textAll.length / MAX_TEXT_SLIDES;
+      const out = [];
+      for (let i = 0; i < MAX_TEXT_SLIDES; i++) out.push(textAll[Math.floor(i * step)]);
+      return out;
+    })();
 
     // Videos get priority — every video this month makes it into the reel,
     // no matter how many there are. Only the remaining slide budget (if any)
@@ -275,26 +374,43 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
       keptImages = sampleEvenly(imageSlides, imageBudget);
     }
 
-    // Chronological order — a trip slide needs to lead into its own trip
-    // photos (picture, picture, trip animation, trip pic, trip pic, picture…),
-    // so on a tied date the trip slide always sorts first.
-    const combined = [...videoSlides, ...keptImages, ...tripCandidates];
-    combined.sort((a, b) => {
+    // Chronological order for the photo/video/trip spine — a trip slide
+    // needs to lead into its own trip photos (picture, picture, trip
+    // animation, trip pic, trip pic, picture…), so on a tied date the trip
+    // slide always sorts first.
+    const spine = [...videoSlides, ...keptImages, ...tripCandidates];
+    spine.sort((a, b) => {
       const byDate = a.date.localeCompare(b.date);
       if (byDate !== 0) return byDate;
       if (a.type === 'trip') return -1;
       if (b.type === 'trip') return 1;
       return 0;
     });
-    return combined;
-  }, [monthEntries, kids, trip]);
+
+    // Text slides are placed by even spacing across the spine, not by their
+    // real date — two letters written a day apart would otherwise land right
+    // next to each other instead of reading as separate beats scattered
+    // through the reel. Skips the very first/last slot so a quote doesn't
+    // open or close the reel outright.
+    const combined = spine.slice();
+    textCandidates.forEach((textSlide, i) => {
+      const fraction = (i + 1) / (textCandidates.length + 1);
+      const insertAt = Math.min(spine.length, Math.max(1, Math.round(fraction * spine.length)));
+      combined.splice(insertAt + i, 0, textSlide);
+    });
+
+    return { slides: combined, isLongReel };
+  }, [monthEntries, monthTextEntries, kids, trip]);
 
   const [index, setIndex] = useState(0);
   const [showIntro, setShowIntro] = useState(true);
   const [introFading, setIntroFading] = useState(false);
   const [ended, setEnded] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [freezeFrame, setFreezeFrame] = useState(false);
+  const [countedStats, setCountedStats] = useState({ letters: 0, milestones: 0, photos: 0 });
   const [song, setSong] = useState(null);
+  const [song2, setSong2] = useState(null);
   const [slideshowPaused, setSlideshowPaused] = useState(false);
   const [showPauseHint, setShowPauseHint] = useState(false);
   const [slideProgress, setSlideProgress] = useState(0);
@@ -307,16 +423,20 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [shareError, setShareError] = useState(false);
   const audioRef = useRef(null);
+  const audioRef2 = useRef(null);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
+  const [showingSong2, setShowingSong2] = useState(false); // which track the caption/song bar should credit
 
   // iOS Safari ignores <audio>.volume entirely — it can be read/written but
   // has no effect on actual output level there, only the hardware volume
-  // buttons do. Routing playback through a Web Audio GainNode instead is the
-  // standard workaround; the node's gain IS respected on iOS. Falls back to
-  // plain .volume elsewhere/if the graph can't be built.
+  // buttons do. Routing playback through Web Audio GainNodes instead is the
+  // standard workaround; gain IS respected on iOS. Falls back to plain
+  // .volume elsewhere/if the graph can't be built. One shared AudioContext
+  // drives both tracks so the crossfade between them can run through it.
   const audioCtxRef = useRef(null);
   const gainNodeRef = useRef(null);
+  const gainNodeRef2 = useRef(null);
   function ensureAudioGraph() {
     if (audioCtxRef.current || !audioRef.current) return;
     try {
@@ -328,25 +448,54 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
       source.connect(gain).connect(ctx.destination);
       audioCtxRef.current = ctx;
       gainNodeRef.current = gain;
+      if (audioRef2.current) {
+        const source2 = ctx.createMediaElementSource(audioRef2.current);
+        const gain2 = ctx.createGain();
+        gain2.gain.value = 0; // silent until the crossfade ramps it up
+        source2.connect(gain2).connect(ctx.destination);
+        gainNodeRef2.current = gain2;
+      }
     } catch {}
     audioCtxRef.current?.resume?.().catch(() => {});
   }
 
-  const [audioDuration, setAudioDuration] = useState(null); // seconds, once the clip's metadata loads
+  const [audioDuration, setAudioDuration] = useState(null); // seconds, once song 1's metadata loads
+  const [audioDuration2, setAudioDuration2] = useState(null); // seconds, once song 2's metadata loads
   const totalBaseMs = useMemo(() => slides.reduce((sum, s) => sum + s.durationMs, 0), [slides]);
   // Stretch (or shrink) every slide's duration proportionally so the reel's
-  // total runtime matches the music clip's actual length — otherwise the
-  // reel reliably ends with 10+ seconds of a 30s preview never heard. Safe to
-  // use the clip's full length here (no held-back portion to subtract) since
-  // playback itself doesn't start until the first slide does — see below.
+  // total runtime matches however much music is actually available —
+  // otherwise the reel reliably ends with several seconds of a clip never
+  // heard. Safe to use the clip's full length here (no held-back portion to
+  // subtract) since playback itself doesn't start until the first slide does.
+  // A long reel's budget is song 1 + song 2 combined; song 2's real duration
+  // isn't known until its metadata loads (it's preloaded — see below — as
+  // soon as it's found, well before the crossfade actually plays it), so a
+  // ~29s placeholder (the near-universal iTunes preview length, confirmed by
+  // checking a range of tracks) stands in until then.
   const FADE_BUFFER_MS = 900;
+  const totalAudioMs = useMemo(() => {
+    const s1 = audioDuration ? audioDuration * 1000 : 0;
+    if (!isLongReel || !song2) return s1;
+    const s2 = audioDuration2 ? audioDuration2 * 1000 : 29000;
+    return s1 + s2;
+  }, [audioDuration, audioDuration2, isLongReel, song2]);
   const durationScale = useMemo(() => {
-    if (!audioDuration || totalBaseMs === 0) return 1;
-    const available = audioDuration * 1000 - FADE_BUFFER_MS;
+    if (!totalAudioMs || totalBaseMs === 0) return 1;
+    const available = totalAudioMs - FADE_BUFFER_MS;
     return available > 0 ? available / totalBaseMs : 1;
-  }, [audioDuration, totalBaseMs]);
+  }, [totalAudioMs, totalBaseMs]);
 
-  const slideDuration = (slides[index]?.durationMs ?? PHOTO_SLIDE_MS) * durationScale;
+  // Text slides get a readability floor that survives the proportional
+  // scaling above — a tight reel (lots of photos/videos competing for one
+  // ~30s clip) could otherwise compress a letter excerpt down to barely a
+  // second, which defeats the entire point of including it. Worst case this
+  // makes the reel end a couple seconds after the music fades — a much
+  // smaller problem than text nobody can actually read.
+  const MIN_TEXT_READ_MS = 4500;
+  const currentSlide = slides[index];
+  const slideDuration = currentSlide?.type === 'text'
+    ? Math.max(currentSlide.durationMs * durationScale, MIN_TEXT_READ_MS)
+    : (currentSlide?.durationMs ?? PHOTO_SLIDE_MS) * durationScale;
 
   // Intro card. The music intentionally does NOT start here — holding it
   // back gives the cover card room to breathe instead of feeling rushed by
@@ -364,8 +513,8 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
   }, []);
 
   // Background music — same iTunes preview-clip approach as the birthday
-  // reel (a real, legally-served 30s preview, not a hosted copy of the
-  // track): Landslide, Andie Case's cover specifically.
+  // reel (a real, legally-served preview, not a hosted copy of the track):
+  // Landslide, Andie Case's cover specifically.
   useEffect(() => {
     async function loadSong() {
       try {
@@ -381,17 +530,57 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
     loadSong();
   }, []);
 
-  // Loading the clip (so its duration is known in time to compute
-  // durationScale above) happens as soon as it's found. Actually playing it
-  // waits for the intro to have already finished — if that already happened
-  // by the time the clip loads, start right away instead of waiting forever
-  // for an intro-end event that's already passed.
+  // Second song — only fetched for a long (rich-month) reel, so a short reel
+  // never pays for an API call it won't use. Coastline, Hollow Coves —
+  // pairs with Landslide's tone (both quiet and reflective). The track
+  // itself is titled "Coastline" (singular), not "Coastlines".
+  useEffect(() => {
+    if (!isLongReel) return;
+    async function loadSong2() {
+      try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent('hollow coves coastline')}&entity=song&limit=15`);
+        const data = await res.json();
+        const results = (data.results || []).filter(r => r.previewUrl);
+        const pick = results.find(r => /hollow coves/i.test(r.artistName) && /^coastline$/i.test(r.trackName))
+          || results.find(r => /hollow coves/i.test(r.artistName) && /coastline/i.test(r.trackName))
+          || results.find(r => /coastline/i.test(r.trackName))
+          || results[0];
+        if (pick) setSong2({ name: pick.trackName, artist: pick.artistName, artworkUrl: pick.artworkUrl100, previewUrl: pick.previewUrl });
+      } catch {}
+    }
+    loadSong2();
+  }, [isLongReel]);
+
+  // Loading each clip (so its duration is known in time to compute
+  // durationScale above) happens as soon as it's found. Actually playing
+  // song 1 waits for the intro to have already finished — if that already
+  // happened by the time the clip loads, start right away instead of waiting
+  // forever for an intro-end event that's already passed. Song 2 loads early
+  // too (for its duration) but never plays until the crossfade triggers.
   useEffect(() => {
     if (song && audioRef.current) {
-      audioRef.current.src = song.previewUrl;
-      if (introEndedRef.current) { ensureAudioGraph(); audioRef.current.play().catch(() => {}); }
+      const a = audioRef.current;
+      // crossOrigin is already set via the JSX attribute, but re-asserting +
+      // forcing a fresh .load() here guards against the browser reusing an
+      // HTTP-cached response fetched in no-cors mode from an earlier session
+      // (e.g. before this attribute existed) — a stale opaque cache entry for
+      // this exact URL is exactly what produces the silent-output CORS
+      // warning even with the attribute correctly in place now.
+      a.crossOrigin = 'anonymous';
+      a.src = song.previewUrl;
+      a.load();
+      if (introEndedRef.current) { ensureAudioGraph(); a.play().catch(() => {}); }
     }
   }, [song]);
+
+  useEffect(() => {
+    if (song2 && audioRef2.current) {
+      const a2 = audioRef2.current;
+      a2.crossOrigin = 'anonymous';
+      a2.src = song2.previewUrl;
+      a2.load();
+    }
+  }, [song2]);
 
   // Auto-advance
   useEffect(() => {
@@ -399,8 +588,10 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
     const t = setTimeout(() => {
       if (index + 1 >= slides.length) {
         setEnded(true);
-        setTimeout(() => setShowStats(true), 900);
+        setFreezeFrame(true);
+        setTimeout(() => { setFreezeFrame(false); setShowStats(true); }, 2400);
       } else {
+        try { navigator.vibrate?.(8); } catch {}
         setIndex(i => i + 1);
       }
     }, slideDuration);
@@ -422,17 +613,17 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
 
   useEffect(() => { slideElapsedMsRef.current = 0; setSlideProgress(0); }, [index]);
 
-  // Fade the music out over its own last stretch, driven by the audio clip's
-  // real playback position rather than by which slide is showing. Tying the
-  // fade to the visual slide schedule meant any drift between the clip's
-  // actual length and the (estimated, scaled) slide durations — e.g. its
-  // duration not being known yet when early slides start — could let the
-  // clip hit its natural end before the "last slide" fade ever triggered,
-  // cutting it off abruptly. Listening to the element itself always catches
-  // the real ending, however the schedule drifted.
+  // Fades whichever <audio> element is passed in to silence over its own
+  // last stretch, driven by its real playback position rather than by which
+  // slide is showing. Tying a fade to the visual slide schedule meant any
+  // drift between a clip's actual length and the (estimated, scaled) slide
+  // durations — e.g. its duration not being known yet when early slides
+  // start — could let the clip hit its natural end before a schedule-based
+  // fade ever triggered, cutting it off abruptly. Listening to the element
+  // itself always catches the real ending, however the schedule drifted.
   //
-  // The fade's own duration is capped to whatever time is actually left
-  // (not a fixed length) — verified via an isolated Playwright test that a
+  // The fade's own duration is capped to whatever time is actually left (not
+  // a fixed length) — verified via an isolated Playwright test that a
   // fixed-length fade routinely lost its final ~200-300ms to the browser's
   // own native end-of-media pause firing first (since `timeupdate` only
   // catches the "about to end" moment to within ~250ms, not exactly when
@@ -443,39 +634,157 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
   // which silently ignores <audio>.volume — only the hardware buttons affect
   // output there), falling back to element .volume if the graph isn't
   // available for some reason.
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    let fading = false;
+  // Fired-flags live in refs (not local closures) so replay() below can
+  // reset them — otherwise a replayed track's timeupdate handler would see
+  // its fade/crossfade as already-fired from the first playthrough and never
+  // trigger again, since the effect that attached it never re-runs.
+  const fadeFiredRef1 = useRef(false);
+  const fadeFiredRef2 = useRef(false);
+  const crossfadeTriggeredRef = useRef(false);
+
+  function attachEndFade(el, getGain, firedRef) {
+    if (!el) return () => {};
     const FADE_TRIGGER_MS = 1800;
     function onTimeUpdate() {
-      if (fading || !a.duration || !isFinite(a.duration)) return;
-      const remainingMs = (a.duration - a.currentTime) * 1000;
+      if (firedRef.current || !el.duration || !isFinite(el.duration)) return;
+      const remainingMs = (el.duration - el.currentTime) * 1000;
       if (remainingMs > FADE_TRIGGER_MS) return;
-      fading = true;
+      firedRef.current = true;
       const fadeDuration = Math.max(300, remainingMs - 60);
       const STEPS = Math.max(6, Math.round(fadeDuration / 60));
-      const gain = gainNodeRef.current;
-      const startVol = gain ? gain.gain.value : a.volume;
+      const gain = getGain();
+      const startVol = gain ? gain.gain.value : el.volume;
       let step = 0;
       const id = setInterval(() => {
         step++;
         const v = Math.max(0, startVol * (1 - step / STEPS));
-        if (gain) gain.gain.value = v; else a.volume = v;
+        if (gain) gain.gain.value = v; else el.volume = v;
+        if (step >= STEPS) { clearInterval(id); el.pause(); }
+      }, fadeDuration / STEPS);
+    }
+    el.addEventListener('timeupdate', onTimeUpdate);
+    return () => el.removeEventListener('timeupdate', onTimeUpdate);
+  }
+
+  // Song 1 ending: crossfade into song 2 (long reel with one loaded) or just
+  // fade to silence (short reel / song 2 never came through) — decided once,
+  // the first time song 1 nears its own end.
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (!song2) return attachEndFade(a, () => gainNodeRef.current, fadeFiredRef1);
+
+    const CROSSFADE_MS = 1800;
+    function onTimeUpdate() {
+      if (crossfadeTriggeredRef.current || !a.duration || !isFinite(a.duration)) return;
+      const remainingMs = (a.duration - a.currentTime) * 1000;
+      if (remainingMs > CROSSFADE_MS) return;
+      crossfadeTriggeredRef.current = true;
+      const a2 = audioRef2.current;
+      const gain1 = gainNodeRef.current;
+      const gain2 = gainNodeRef2.current;
+      const startVol1 = gain1 ? gain1.gain.value : a.volume;
+      if (a2) { setShowingSong2(true); a2.play().catch(() => {}); }
+      if (gain2) gain2.gain.value = 0;
+      const fadeDuration = Math.max(300, remainingMs - 60);
+      const STEPS = Math.max(6, Math.round(fadeDuration / 60));
+      let step = 0;
+      const id = setInterval(() => {
+        step++;
+        const ratio = step / STEPS;
+        const v1 = Math.max(0, startVol1 * (1 - ratio));
+        if (gain1) gain1.gain.value = v1; else a.volume = v1;
+        if (gain2) gain2.gain.value = Math.min(1, ratio); else if (a2) a2.volume = Math.min(1, ratio);
         if (step >= STEPS) { clearInterval(id); a.pause(); }
       }, fadeDuration / STEPS);
     }
     a.addEventListener('timeupdate', onTimeUpdate);
     return () => a.removeEventListener('timeupdate', onTimeUpdate);
-  }, []);
+  }, [song2]);
+
+  // Song 2 ending (long reel only) — fades to silence near its own end, same
+  // as a lone song would. No-ops harmlessly if song 2 never loaded.
+  useEffect(() => attachEndFade(audioRef2.current, () => gainNodeRef2.current, fadeFiredRef2), []);
+
+  // Preload every slide's image/video-thumb so it's already cached by the
+  // time it becomes active, instead of a possible pop-in on a slow connection.
+  useEffect(() => {
+    slides.forEach(s => {
+      if (s.type === 'text') return;
+      const src = s.type === 'trip'
+        ? (s.trip.photo.mediaType === 'video' ? videoThumbUrl(s.trip.photo.url, 'so_0,w_1600,q_auto,f_auto') : cloudinaryTransform(s.trip.photo.url, 'w_1600,q_auto,f_auto'))
+        : (s.mediaType === 'video' ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto') : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto'));
+      if (src) { const img = new Image(); img.src = src; }
+    });
+  }, [slides]);
+
+  // Count-up animation when the closing stats card appears. Deliberately
+  // keyed only on `showStats`, not `stats` itself — `stats` is a fresh
+  // object literal recomputed by the parent on every one of ITS renders
+  // (not just when the reel opens), so depending on it by reference would
+  // restart this animation on any incidental parent re-render, usually
+  // before it ever got to visibly count up.
+  useEffect(() => {
+    if (!showStats || !stats) return;
+    const DURATION = 1400;
+    const STEPS = 40;
+    const interval = DURATION / STEPS;
+    let step = 0;
+    const t = setInterval(() => {
+      step++;
+      const progress = Math.min(step / STEPS, 1);
+      const ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setCountedStats({
+        letters: Math.round((stats.letters || 0) * ease),
+        milestones: Math.round((stats.milestones || 0) * ease),
+        photos: Math.round((stats.photos || 0) * ease),
+      });
+      if (step >= STEPS) clearInterval(t);
+    }, interval);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showStats]);
 
   function handleTapPause() {
     const next = !slideshowPaused;
     setSlideshowPaused(next);
-    if (next) audioRef.current?.pause();
-    else { audioCtxRef.current?.resume?.().catch(() => {}); audioRef.current?.play().catch(() => {}); }
+    if (next) { audioRef.current?.pause(); audioRef2.current?.pause(); }
+    else {
+      audioCtxRef.current?.resume?.().catch(() => {});
+      (showingSong2 ? audioRef2.current : audioRef.current)?.play().catch(() => {});
+    }
     setShowPauseHint(true);
     setTimeout(() => setShowPauseHint(false), 900);
+  }
+
+  function replay() {
+    setIndex(0);
+    setEnded(false);
+    setShowStats(false);
+    setFreezeFrame(false);
+    setCountedStats({ letters: 0, milestones: 0, photos: 0 });
+    setShowingSong2(false);
+    setSlideshowPaused(false);
+    setShowPauseHint(false);
+    crossfadeTriggeredRef.current = false;
+    fadeFiredRef1.current = false;
+    fadeFiredRef2.current = false;
+    audioCtxRef.current?.resume?.().catch(() => {});
+    const a = audioRef.current;
+    if (a) {
+      a.currentTime = 0;
+      if (gainNodeRef.current) gainNodeRef.current.gain.value = 1; else a.volume = 1;
+      a.play().catch(() => {});
+    }
+    const a2 = audioRef2.current;
+    if (a2) {
+      // Leave its .src alone — it was already preloaded once, so pausing and
+      // rewinding lets the next crossfade reuse it instead of re-fetching
+      // the whole clip from the network again.
+      a2.pause();
+      a2.currentTime = 0;
+      if (gainNodeRef2.current) gainNodeRef2.current.gain.value = 0; else a2.volume = 0;
+    }
   }
 
   function handleTouchStart(e) {
@@ -508,6 +817,9 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
         // shows a plain photo (no caption) after its own crossfade.
         if (s.type === 'trip') {
           return { type: 'photo', url: s.trip.photo.url, mediaType: s.trip.photo.mediaType, cropY: s.trip.photo.cropY, date: s.trip.date };
+        }
+        if (s.type === 'text') {
+          return { type: 'text', subtype: s.subtype, text: s.text, date: s.date, kidName: s.kid?.name?.split(' ')[0] || null, kidAvatar: s.kid?.avatar || null, kidAccent: s.kid?.accent || null };
         }
         return { type: 'photo', url: s.url, mediaType: s.mediaType, cropY: s.cropY, date: s.date };
       }),
@@ -562,6 +874,13 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
             </div>
           );
         }
+        if (s.type === 'text') {
+          return (
+            <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 0.6s ease' }}>
+              <TextSlide slide={s} />
+            </div>
+          );
+        }
         const isVideo = s.mediaType === 'video';
         const thumbSrc = isVideo ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto') : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
         const kbAnim = `kb${(i % 4) + 1} ${slideDuration}ms ease-in-out forwards`;
@@ -576,12 +895,15 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
           </div>
         );
       })}
+      {freezeFrame && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 4, pointerEvents: 'none', animation: 'freezeIn 2.4s ease forwards' }} />
+      )}
 
       <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0.45) 0%, transparent 28%, transparent 55%, rgba(0,0,0,0.75) 100%)', pointerEvents: 'none' }} />
 
       {showPauseHint && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8, pointerEvents: 'none' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'introOut 0.9s ease forwards' }}>
             <i className={`ti ${slideshowPaused ? 'ti-player-pause' : 'ti-player-play'}`} style={{ fontSize: 26, color: '#fff' }} />
           </div>
         </div>
@@ -616,12 +938,12 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
               {slides[index].trip.photoKid.name.split(' ')[0]} · {exactAgeLabel(slides[index].trip.photoKid.birthdate, slides[index].trip.date)} old · {new Date(slides[index].trip.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
             </p>
           )}
-          {song && (
+          {(() => { const activeSong = showingSong2 && song2 ? song2 : song; return activeSong ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-              <img src={song.artworkUrl} style={{ width: 20, height: 20, borderRadius: 4, flexShrink: 0 }} alt="" />
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{song.name} — {song.artist}</p>
+              <img src={activeSong.artworkUrl} style={{ width: 20, height: 20, borderRadius: 4, flexShrink: 0 }} alt="" />
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{activeSong.name} — {activeSong.artist}</p>
             </div>
-          )}
+          ) : null; })()}
         </div>
       )}
 
@@ -644,37 +966,41 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
               <i className="ti ti-share-2" />
             </button>
           )}
-          <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px' }}>{monthLabel}</p>
-          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: '#fff', textAlign: 'center', margin: '0 0 6px', lineHeight: 1.35 }}>
+          <p className="fade-up" style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px', animationDelay: '0ms' }}>{monthLabel}</p>
+          <h1 className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: '#fff', textAlign: 'center', margin: '0 0 6px', lineHeight: 1.35, animationDelay: '120ms' }}>
             "{RECAP_QUOTE}"
           </h1>
-          <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.3)', textAlign: 'center', margin: '0 0 32px', letterSpacing: 0.5 }}>
+          <p className="fade-up" style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.3)', textAlign: 'center', margin: '0 0 32px', letterSpacing: 0.5, animationDelay: '220ms' }}>
             — C.S. Lewis
           </p>
 
-          <div style={{ display: 'flex', gap: 12, width: '100%', marginBottom: 40 }}>
+          <div className="fade-up" style={{ display: 'flex', gap: 12, width: '100%', marginBottom: 40, animationDelay: '340ms' }}>
             <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center' }}>
-              <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{stats.letters}</p>
+              <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{countedStats.letters}</p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0, fontWeight: 600 }}>letter{stats.letters !== 1 ? 's' : ''}</p>
             </div>
             {stats.milestones > 0 && (
               <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center' }}>
-                <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{stats.milestones}</p>
+                <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{countedStats.milestones}</p>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0, fontWeight: 600 }}>milestone{stats.milestones !== 1 ? 's' : ''}</p>
               </div>
             )}
             {stats.photos > 0 && (
               <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center' }}>
-                <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{stats.photos}</p>
+                <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{countedStats.photos}</p>
                 <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0, fontWeight: 600 }}>photo{stats.photos !== 1 ? 's' : ''}</p>
               </div>
             )}
           </div>
 
+          <button onClick={replay} className="fade-up" style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 52, height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 22, marginBottom: 20, animationDelay: '480ms' }}>
+            <i className="ti ti-player-play-filled" style={{ marginLeft: 2 }} />
+          </button>
+
           <button
             onClick={onClose}
-            className="btn btn-gold"
-            style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}
+            className="btn btn-gold fade-up"
+            style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", animationDelay: '560ms' }}
           >
             Keep going
           </button>
@@ -722,7 +1048,8 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
         </div>
       )}
 
-      <audio ref={audioRef} preload="auto" onLoadedMetadata={e => setAudioDuration(e.target.duration)} />
+      <audio ref={audioRef} preload="auto" crossOrigin="anonymous" onLoadedMetadata={e => setAudioDuration(e.target.duration)} />
+      <audio ref={audioRef2} preload="auto" crossOrigin="anonymous" onLoadedMetadata={e => setAudioDuration2(e.target.duration)} />
     </div>
   );
 }
