@@ -2,14 +2,27 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../supabase.js';
 import { cloudinaryTransform } from '../constants.js';
 
-const SLIDE_MS = 3800;
+const BASE_SLIDE_MS = 3800;
+const MIN_TEXT_READ_MS = 4500;
 
 // Text slides (letter excerpts / note quotes, no photo) need real reading
 // time, not the fixed photo-slide duration — same formula as the live reel.
-function slideDurationMs(s) {
-  if (s?.type !== 'text') return SLIDE_MS;
+function baseSlideDurationMs(s) {
+  if (s?.type !== 'text') return BASE_SLIDE_MS;
   const wordCount = (s.text || '').split(/\s+/).length;
-  return Math.min(7500, Math.max(4500, 1400 + wordCount * 220));
+  return Math.min(7500, Math.max(4200, 1400 + wordCount * 220));
+}
+
+// Stretches (or shrinks) every slide's duration proportionally so the whole
+// reel's total runtime matches however much music is actually available —
+// without this, a rich reel's fixed per-slide timing could easily run well
+// past the ~30-60s of music, leaving its last stretch playing in total
+// silence (which reads exactly like "the song cut off early", even though
+// the song itself played its full length on schedule). Text keeps its own
+// readability floor even under heavy scaling — same as the live reel.
+function scaledSlideDurationMs(s, scale) {
+  const base = baseSlideDurationMs(s) * scale;
+  return s?.type === 'text' ? Math.max(base, MIN_TEXT_READ_MS) : base;
 }
 
 function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
@@ -103,15 +116,35 @@ function SharedReelScreen({ token, effectiveDark }) {
   }, [token]);
 
   const slides = reel?.payload?.slides || [];
+  const song2 = reel?.payload?.song2 || null;
+
+  const [audioDuration, setAudioDuration] = useState(null); // seconds, once song 1's metadata loads
+  const [audioDuration2, setAudioDuration2] = useState(null); // seconds, once song 2's metadata loads
+  const totalBaseMs = useMemo(() => slides.reduce((sum, s) => sum + baseSlideDurationMs(s), 0), [slides]);
+  // ~29s is the near-universal iTunes preview length (confirmed by checking
+  // a range of tracks) — stands in for song 2's contribution to the budget
+  // until its own metadata has actually loaded.
+  const FADE_BUFFER_MS = 900;
+  const totalAudioMs = useMemo(() => {
+    const s1 = audioDuration ? audioDuration * 1000 : 0;
+    if (!song2) return s1;
+    const s2 = audioDuration2 ? audioDuration2 * 1000 : 29000;
+    return s1 + s2;
+  }, [audioDuration, audioDuration2, song2]);
+  const durationScale = useMemo(() => {
+    if (!totalAudioMs || totalBaseMs === 0) return 1;
+    const available = totalAudioMs - FADE_BUFFER_MS;
+    return available > 0 ? available / totalBaseMs : 1;
+  }, [totalAudioMs, totalBaseMs]);
 
   useEffect(() => {
     if (!started || ended || slides.length === 0) return;
     const t = setTimeout(() => {
       if (index + 1 >= slides.length) setEnded(true);
       else setIndex(i => i + 1);
-    }, slideDurationMs(slides[index]));
+    }, scaledSlideDurationMs(slides[index], durationScale));
     return () => clearTimeout(t);
-  }, [started, ended, index, slides.length]);
+  }, [started, ended, index, slides.length, durationScale]);
 
   // Fades whichever <audio> element is passed in to silence over its own
   // last stretch, driven by its real playback position rather than the
@@ -166,7 +199,6 @@ function SharedReelScreen({ token, effectiveDark }) {
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    const song2 = reel?.payload?.song2;
     if (!song2) return attachEndFade(a, () => gainNodeRef.current);
 
     let triggered = false;
@@ -208,7 +240,6 @@ function SharedReelScreen({ token, effectiveDark }) {
   function handleStart() {
     setStarted(true);
     const song = reel?.payload?.song;
-    const song2 = reel?.payload?.song2;
     if (song && audioRef.current) {
       const a = audioRef.current;
       // crossOrigin is already set via the JSX attribute, but re-asserting +
@@ -298,7 +329,7 @@ function SharedReelScreen({ token, effectiveDark }) {
         }
         const isVideo = s.mediaType === 'video';
         const thumbSrc = isVideo ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto') : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
-        const kbAnim = `kb${(i % 4) + 1} ${SLIDE_MS}ms ease-in-out forwards`;
+        const kbAnim = `kb${(i % 4) + 1} ${scaledSlideDurationMs(s, durationScale)}ms ease-in-out forwards`;
         return (
           <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 1s ease' }}>
             <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${thumbSrc}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY ?? 50}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
@@ -326,7 +357,7 @@ function SharedReelScreen({ token, effectiveDark }) {
           <div style={{ position: 'relative', zIndex: 10, display: 'flex', gap: 4, padding: '14px 16px 0' }}>
             {slides.map((s, i) => (
               <div key={i} style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.25)', borderRadius: 2, overflow: 'hidden' }}>
-                <div style={{ height: '100%', background: '#fff', borderRadius: 2, width: i < index ? '100%' : i === index ? '100%' : '0%', transition: i === index ? `width ${slideDurationMs(s)}ms linear` : 'none' }} />
+                <div style={{ height: '100%', background: '#fff', borderRadius: 2, width: i < index ? '100%' : i === index ? '100%' : '0%', transition: i === index ? `width ${scaledSlideDurationMs(s, durationScale)}ms linear` : 'none' }} />
               </div>
             ))}
           </div>
@@ -411,8 +442,8 @@ function SharedReelScreen({ token, effectiveDark }) {
         </div>
       )}
 
-      <audio ref={audioRef} crossOrigin="anonymous" />
-      <audio ref={audioRef2} crossOrigin="anonymous" />
+      <audio ref={audioRef} preload="auto" crossOrigin="anonymous" onLoadedMetadata={e => setAudioDuration(e.target.duration)} />
+      <audio ref={audioRef2} preload="auto" crossOrigin="anonymous" onLoadedMetadata={e => setAudioDuration2(e.target.duration)} />
     </div>
   );
 }
