@@ -305,12 +305,33 @@ export function useReelAudioEngine({ song, song2, totalBaseMs, holdSong1 }) {
       a2.crossOrigin = 'anonymous';
       a2.src = song2.previewUrl;
       a2.load();
+      // Covers the live reel's case: song 2 is fetched from iTunes async and
+      // can still be loading when playSong1() (and its unlock priming, see
+      // there) already fired. If song 1 is already underway, this is the
+      // next best chance to prime song 2 before the crossfade needs it.
+      if (song1ReadyRef.current) a2.play().then(() => a2.pause()).catch(() => {});
     }
   }, [song2]);
 
   function playSong1() {
     song1ReadyRef.current = true;
-    if (audioRef.current?.src) { ensureAudioGraph(); audioRef.current.play().catch(() => {}); }
+    if (audioRef.current?.src) {
+      ensureAudioGraph();
+      audioRef.current.play().catch(() => {});
+      // Safari (desktop and iOS) only allows a media element's *first*
+      // play() call to succeed without a fresh user gesture if that first
+      // call itself happened synchronously inside a gesture handler — a
+      // later call from the crossfade's timeupdate callback doesn't count,
+      // and gets silently rejected (swallowed by the .catch below), even
+      // though the gain node's UI-driving state flips right on schedule.
+      // That produced exactly this bug: the "now playing" artwork switches
+      // to song 2 on time, but no audio ever comes out. Priming song 2 here
+      // — playing (silent, since its gain is still 0) then immediately
+      // pausing it, right inside this same gesture — unlocks it so the real
+      // .play() at crossfade time is allowed to actually produce sound.
+      const a2 = audioRef2.current;
+      if (a2?.src) a2.play().then(() => a2.pause()).catch(() => {});
+    }
   }
 
   // Fades whichever <audio> element is passed in to silence over its own
