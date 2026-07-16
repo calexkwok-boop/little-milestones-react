@@ -2420,7 +2420,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
   );
 });
 
-function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos, onRefresh, onToggleFavorite, onDeleteEntry, reactionCounts = {}, onBack, onGenerateShareLink }) {
+function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos, onRefresh, onToggleFavorite, onDeleteEntry, reactionCounts = {}, onBack, onGenerateShareLink, milestonesOnly = false }) {
   const { userId: currentUserId } = useSession() ?? {};
   const [quickToast, setQuickToast] = useState(null);
   function showQuickToast(msg) {
@@ -2457,6 +2457,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
     const q = searchQuery.trim().toLowerCase();
     const filtered = entries
       .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
+      .filter(e => !milestonesOnly || e.milestone)
       .filter(e => {
         if (!q) return true;
         if (q === 'note' || q === 'notes') return e.type === 'note' && !e.prompt;
@@ -2491,7 +2492,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
       result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onOpen={onOpenEntry} onLongPress={handleLongPress} reactionCount={reactionCounts[entry.id]} />);
     });
     return result;
-  }, [entries, kids, kidFilter, searchQuery, onOpenEntry, handleLongPress]);
+  }, [entries, kids, kidFilter, milestonesOnly, searchQuery, onOpenEntry, handleLongPress]);
 
   return (
     <div className="screen" style={{ position: 'relative' }}>
@@ -2500,7 +2501,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         <div className="scrollpad" style={{ paddingBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {onBack && <button className="icon-btn" onClick={onBack} style={{ flexShrink: 0 }}><i className="ti ti-arrow-left" /></button>}
-            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700, flex: 1, textAlign: 'center' }}>{memberCount > 1 ? 'Our letters' : 'My letters'}</h2>
+            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700, flex: 1, textAlign: 'center' }}>{milestonesOnly ? 'Milestones' : memberCount > 1 ? 'Our letters' : 'My letters'}</h2>
             <button className="icon-btn" onClick={() => { setShowSearch(s => !s); setSearchQuery(''); setTimeout(() => searchInputRef.current?.focus(), 50); }} style={{ flexShrink: 0 }}>
               <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
             </button>
@@ -5453,7 +5454,7 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onOpenGrowth, onCreateBook, onPreviewMonthlyReel, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onOpenGrowth, onCreateBook, onPreviewMonthlyReel, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms, onViewKidMoments, onViewKidMilestones }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -5589,11 +5590,19 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>Born {bornLabel}</p>
                 <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
-                  <div className="stat-tile">
+                  <div
+                    className="stat-tile"
+                    onClick={() => onViewKidMoments?.(k.id)}
+                    style={{ cursor: onViewKidMoments ? 'pointer' : undefined }}
+                  >
                     <p style={{ fontSize: 18, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{kEntries.length}</p>
                     <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '3px 0 0' }}>moments</p>
                   </div>
-                  <div className="stat-tile">
+                  <div
+                    className="stat-tile"
+                    onClick={() => onViewKidMilestones?.(k.id)}
+                    style={{ cursor: onViewKidMilestones ? 'pointer' : undefined }}
+                  >
                     <p style={{ fontSize: 18, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{kMilestones}</p>
                     <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '3px 0 0' }}>milestones</p>
                   </div>
@@ -7824,6 +7833,7 @@ export default function App() {
   const journalScrollPos = useRef(0);
   const partnerLettersScrollPos = useRef(0);
   const [kidFilter, setKidFilter] = useState(null);
+  const [journalMilestonesOnly, setJournalMilestonesOnly] = useState(false);
   const [activeEntry, setActiveEntry] = useState(null);
   const [entrySource, setEntrySource] = useState('home');
   const [profileKidId, setProfileKidId] = useState(() => localMode ? (loadLocalData().kids[0]?.id ?? null) : null);
@@ -9497,7 +9507,7 @@ export default function App() {
             onSearch={() => setScreen('search')}
             onAddMoment={() => { setComposeMode('letter'); setScreen('new-entry'); }}
             onStartPrompt={(prompt, kidId) => { setActivePrompt(prompt); setNewEntryInitial({ kidIds: [kidId] }); setComposeMode('note'); setScreen('new-entry'); }}
-            onSeeAll={() => { setJournalBackScreen('home'); setScreen('journal'); }}
+            onSeeAll={() => { setJournalBackScreen('home'); setJournalMilestonesOnly(false); setScreen('journal'); }}
             onCompare={() => setScreen('compare')}
             onUpdateCrop={handleUpdateCrop}
             onGenerateShareLink={handleGenerateShareLink}
@@ -9572,6 +9582,7 @@ export default function App() {
           reactionCounts={reactionCounts}
           onBack={() => setScreen(journalBackScreen)}
           onGenerateShareLink={handleGenerateShareLink}
+          milestonesOnly={journalMilestonesOnly}
         />
       )}
 
@@ -9753,6 +9764,8 @@ export default function App() {
           avatarUploading={avatarUploading}
           currentUserId={session?.user?.id}
           onOpenGrowth={kidId => { setGrowthKidId(kidId); setScreen('growth'); }}
+          onViewKidMoments={kidId => { setKidFilter(kidId); setJournalMilestonesOnly(false); setJournalBackScreen('profile'); setScreen('journal'); }}
+          onViewKidMilestones={kidId => { setKidFilter(kidId); setJournalMilestonesOnly(true); setJournalBackScreen('profile'); setScreen('journal'); }}
           onCreateBook={() => setScreen('book-builder')}
           onPreviewMonthlyReel={() => setShowMonthlyReelPreview(true)}
           onDeleteAccount={localMode ? undefined : handleDeleteAccount}
@@ -9955,7 +9968,7 @@ export default function App() {
         <CelebrationOverlay
           kid={celebration.kid}
           milestoneType={celebration.milestoneType}
-          onDone={() => { const e = celebration.entry; setCelebration(null); if (e) openEntry(e); else setScreen('journal'); }}
+          onDone={() => { const e = celebration.entry; setCelebration(null); if (e) openEntry(e); else { setJournalMilestonesOnly(false); setScreen('journal'); } }}
         />
       )}
 
