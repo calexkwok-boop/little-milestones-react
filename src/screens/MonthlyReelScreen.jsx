@@ -304,6 +304,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
   const [shareBusy, setShareBusy] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
+  const [shareError, setShareError] = useState(false);
   const audioRef = useRef(null);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
@@ -398,31 +399,36 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
 
   useEffect(() => { slideElapsedMsRef.current = 0; setSlideProgress(0); }, [index]);
 
-  // Fade the music out over the final slide, same as the birthday reel —
-  // so it doesn't just cut off abruptly when the recap card appears.
-  // Deliberately doesn't depend on `ended`: that flips true partway through
-  // this fade (when the auto-advance timeout fires), and re-running this
-  // effect on that change used to tear the interval down via its cleanup
-  // before it ever reached the final a.pause() — leaving the (looping)
-  // audio stuck playing indefinitely at whatever volume it was cut off at.
-  const fadeStartedRef = useRef(false);
+  // Fade the music out over its own last ~1.5s, driven by the audio clip's
+  // real playback position rather than by which slide is showing. Tying the
+  // fade to the visual slide schedule meant any drift between the clip's
+  // actual length and the (estimated, scaled) slide durations — e.g. its
+  // duration not being known yet when early slides start — could let the
+  // clip hit its natural end before the "last slide" fade ever triggered,
+  // cutting it off abruptly. Listening to the element itself always catches
+  // the real ending, however the schedule drifted.
   useEffect(() => {
-    if (slides.length === 0 || index !== slides.length - 1 || showIntro || fadeStartedRef.current) return;
-    fadeStartedRef.current = true;
-    const fadeDuration = slideDuration + 900;
-    const STEPS = 30;
-    const intervalMs = fadeDuration / STEPS;
-    let step = 0;
     const a = audioRef.current;
-    const startVol = a ? a.volume : 1;
-    const id = setInterval(() => {
-      step++;
-      const ratio = Math.max(0, 1 - step / STEPS);
-      if (a) a.volume = startVol * ratio;
-      if (step >= STEPS) { clearInterval(id); a?.pause(); }
-    }, intervalMs);
-    return () => clearInterval(id);
-  }, [index, slides.length, showIntro, slideDuration]);
+    if (!a) return;
+    let fading = false;
+    const FADE_MS = 1500;
+    const STEPS = 24;
+    function onTimeUpdate() {
+      if (fading || !a.duration || !isFinite(a.duration)) return;
+      const remainingMs = (a.duration - a.currentTime) * 1000;
+      if (remainingMs > FADE_MS) return;
+      fading = true;
+      const startVol = a.volume;
+      let step = 0;
+      const id = setInterval(() => {
+        step++;
+        a.volume = Math.max(0, startVol * (1 - step / STEPS));
+        if (step >= STEPS) { clearInterval(id); a.pause(); }
+      }, FADE_MS / STEPS);
+    }
+    a.addEventListener('timeupdate', onTimeUpdate);
+    return () => a.removeEventListener('timeupdate', onTimeUpdate);
+  }, []);
 
   function handleTapPause() {
     const next = !slideshowPaused;
@@ -472,8 +478,10 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
   async function handleShare() {
     if (!onGenerateReelShare || shareBusy) return;
     setShareBusy(true);
+    setShareError(false);
     const result = await onGenerateReelShare({ reelType: 'monthly', title: monthLabel, payload: buildSharePayload() });
     if (result) { setShareToken(result.share_token); setShareId(result.id); }
+    else setShareError(true);
     setShareBusy(false);
   }
 
@@ -660,15 +668,22 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
                 </button>
               </>
             ) : (
-              <button onClick={handleShare} disabled={shareBusy} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", opacity: shareBusy ? 0.6 : 1 }}>
-                {shareBusy ? 'Creating…' : 'Create link'}
-              </button>
+              <>
+                <button onClick={handleShare} disabled={shareBusy} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", opacity: shareBusy ? 0.6 : 1 }}>
+                  {shareBusy ? 'Creating…' : 'Create link'}
+                </button>
+                {shareError && (
+                  <p style={{ fontSize: 12, color: '#D4856A', margin: '10px 0 0', textAlign: 'center' }}>
+                    Something went wrong creating the link. Please try again.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
       )}
 
-      <audio ref={audioRef} loop preload="auto" onLoadedMetadata={e => setAudioDuration(e.target.duration)} />
+      <audio ref={audioRef} preload="auto" onLoadedMetadata={e => setAudioDuration(e.target.duration)} />
     </div>
   );
 }

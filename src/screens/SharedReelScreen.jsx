@@ -54,27 +54,32 @@ function SharedReelScreen({ token, effectiveDark }) {
     return () => clearTimeout(t);
   }, [started, ended, index, slides.length]);
 
-  // Fade the music out over the final slide instead of just cutting it off
-  // (or leaving it playing straight through) once the recap card appears —
-  // same approach as the live reel.
-  const fadeStartedRef = useRef(false);
+  // Fade the music out over its own last ~1.5s, driven by the clip's real
+  // playback position rather than the visual slide schedule — so it never
+  // cuts off abruptly even if the two drift out of sync. Same approach as
+  // the live reel.
   useEffect(() => {
-    if (!started || slides.length === 0 || index !== slides.length - 1 || fadeStartedRef.current) return;
-    fadeStartedRef.current = true;
-    const fadeDuration = SLIDE_MS + 900;
-    const STEPS = 30;
-    const intervalMs = fadeDuration / STEPS;
-    let step = 0;
     const a = audioRef.current;
-    const startVol = a ? a.volume : 1;
-    const id = setInterval(() => {
-      step++;
-      const ratio = Math.max(0, 1 - step / STEPS);
-      if (a) a.volume = startVol * ratio;
-      if (step >= STEPS) { clearInterval(id); a?.pause(); }
-    }, intervalMs);
-    return () => clearInterval(id);
-  }, [started, index, slides.length]);
+    if (!a) return;
+    let fading = false;
+    const FADE_MS = 1500;
+    const STEPS = 24;
+    function onTimeUpdate() {
+      if (fading || !a.duration || !isFinite(a.duration)) return;
+      const remainingMs = (a.duration - a.currentTime) * 1000;
+      if (remainingMs > FADE_MS) return;
+      fading = true;
+      const startVol = a.volume;
+      let step = 0;
+      const id = setInterval(() => {
+        step++;
+        a.volume = Math.max(0, startVol * (1 - step / STEPS));
+        if (step >= STEPS) { clearInterval(id); a.pause(); }
+      }, FADE_MS / STEPS);
+    }
+    a.addEventListener('timeupdate', onTimeUpdate);
+    return () => a.removeEventListener('timeupdate', onTimeUpdate);
+  }, []);
 
   function handleStart() {
     setStarted(true);

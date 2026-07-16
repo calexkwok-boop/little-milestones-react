@@ -136,6 +136,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
   const [shareBusy, setShareBusy] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
+  const [shareError, setShareError] = useState(false);
 
   const confettiParticles = useMemo(() => Array.from({ length: 24 }, (_, i) => ({
     left: `${6 + (i * 37 + 13) % 84}%`,
@@ -407,8 +408,10 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
   async function handleShare() {
     if (!onGenerateReelShare || shareBusy) return;
     setShareBusy(true);
+    setShareError(false);
     const result = await onGenerateReelShare({ reelType: 'birthday', title: `Happy ${ordinal(age)} birthday to ${kid.name}!`, payload: buildSharePayload() });
     if (result) { setShareToken(result.share_token); setShareId(result.id); }
+    else setShareError(true);
     setShareBusy(false);
   }
 
@@ -663,9 +666,16 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
                 </button>
               </>
             ) : (
-              <button onClick={handleShare} disabled={shareBusy} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", opacity: shareBusy ? 0.6 : 1 }}>
-                {shareBusy ? 'Creating…' : 'Create link'}
-              </button>
+              <>
+                <button onClick={handleShare} disabled={shareBusy} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", opacity: shareBusy ? 0.6 : 1 }}>
+                  {shareBusy ? 'Creating…' : 'Create link'}
+                </button>
+                {shareError && (
+                  <p style={{ fontSize: 12, color: '#D4856A', margin: '10px 0 0', textAlign: 'center' }}>
+                    Something went wrong creating the link. Please try again.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -8615,7 +8615,10 @@ export default function App() {
       title,
       payload,
     }).select('id, share_token').single();
-    if (error || !data) return null;
+    if (error || !data) {
+      console.error('[reel share] failed to create share link', error);
+      return null;
+    }
     return data;
   }
 
