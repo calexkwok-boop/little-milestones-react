@@ -55,14 +55,18 @@ function SharedReelScreen({ token, effectiveDark }) {
   const [index, setIndex] = useState(0);
   const [ended, setEnded] = useState(false);
   const audioRef = useRef(null);
+  const audioRef2 = useRef(null);
+  const [showingSong2, setShowingSong2] = useState(false);
 
   // iOS Safari ignores <audio>.volume entirely — it can be read/written but
   // has no effect on actual output level there, only the hardware volume
-  // buttons do. Routing playback through a Web Audio GainNode instead is the
-  // standard workaround; the node's gain IS respected on iOS. Falls back to
-  // plain .volume elsewhere/if the graph can't be built.
+  // buttons do. Routing playback through Web Audio GainNodes instead is the
+  // standard workaround; gain IS respected on iOS. Falls back to plain
+  // .volume elsewhere/if the graph can't be built. One shared AudioContext
+  // drives both tracks so the crossfade between them can run through it.
   const audioCtxRef = useRef(null);
   const gainNodeRef = useRef(null);
+  const gainNodeRef2 = useRef(null);
   function ensureAudioGraph() {
     if (audioCtxRef.current || !audioRef.current) return;
     try {
@@ -74,6 +78,13 @@ function SharedReelScreen({ token, effectiveDark }) {
       source.connect(gain).connect(ctx.destination);
       audioCtxRef.current = ctx;
       gainNodeRef.current = gain;
+      if (audioRef2.current) {
+        const source2 = ctx.createMediaElementSource(audioRef2.current);
+        const gain2 = ctx.createGain();
+        gain2.gain.value = 0; // silent until the crossfade ramps it up
+        source2.connect(gain2).connect(ctx.destination);
+        gainNodeRef2.current = gain2;
+      }
     } catch {}
     audioCtxRef.current?.resume?.().catch(() => {});
   }
@@ -102,36 +113,73 @@ function SharedReelScreen({ token, effectiveDark }) {
     return () => clearTimeout(t);
   }, [started, ended, index, slides.length]);
 
-  // Fade the music out over its own last stretch, driven by the clip's real
-  // playback position rather than the visual slide schedule — so it never
-  // cuts off abruptly even if the two drift out of sync. The fade's own
-  // duration is capped to whatever time is actually left (not fixed) —
-  // a fixed-length fade routinely lost its final ~200-300ms to the browser's
-  // own native end-of-media pause firing first. Same approach as the live reel.
-  //
-  // Depends on `status`, not `[]`: the <audio> element only exists once the
-  // reel has finished loading from Supabase (the loading/not-found screens
-  // render without it) — binding once on mount would grab a null ref and
-  // never attach the listener at all.
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
+  // Fades whichever <audio> element is passed in to silence over its own
+  // last stretch, driven by its real playback position rather than the
+  // visual slide schedule — so it never cuts off abruptly even if the two
+  // drift out of sync. The fade's own duration is capped to whatever time is
+  // actually left (not fixed) — a fixed-length fade routinely lost its final
+  // ~200-300ms to the browser's own native end-of-media pause firing first.
+  // Same approach as the live reel.
+  function attachEndFade(el, getGain) {
+    if (!el) return () => {};
     let fading = false;
     const FADE_TRIGGER_MS = 1800;
     function onTimeUpdate() {
-      if (fading || !a.duration || !isFinite(a.duration)) return;
-      const remainingMs = (a.duration - a.currentTime) * 1000;
+      if (fading || !el.duration || !isFinite(el.duration)) return;
+      const remainingMs = (el.duration - el.currentTime) * 1000;
       if (remainingMs > FADE_TRIGGER_MS) return;
       fading = true;
       const fadeDuration = Math.max(300, remainingMs - 60);
       const STEPS = Math.max(6, Math.round(fadeDuration / 60));
-      const gain = gainNodeRef.current;
-      const startVol = gain ? gain.gain.value : a.volume;
+      const gain = getGain();
+      const startVol = gain ? gain.gain.value : el.volume;
       let step = 0;
       const id = setInterval(() => {
         step++;
         const v = Math.max(0, startVol * (1 - step / STEPS));
-        if (gain) gain.gain.value = v; else a.volume = v;
+        if (gain) gain.gain.value = v; else el.volume = v;
+        if (step >= STEPS) { clearInterval(id); el.pause(); }
+      }, fadeDuration / STEPS);
+    }
+    el.addEventListener('timeupdate', onTimeUpdate);
+    return () => el.removeEventListener('timeupdate', onTimeUpdate);
+  }
+
+  // Song 1 ending: crossfade into song 2 (if this reel snapshot has one) or
+  // just fade to silence, same as a single-song reel.
+  //
+  // Depends on `status`, not `[]`: the <audio> elements only exist once the
+  // reel has finished loading from Supabase (the loading/not-found screens
+  // render without them) — binding once on mount would grab a null ref and
+  // never attach the listener at all.
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    const song2 = reel?.payload?.song2;
+    if (!song2) return attachEndFade(a, () => gainNodeRef.current);
+
+    let triggered = false;
+    const CROSSFADE_MS = 1800;
+    function onTimeUpdate() {
+      if (triggered || !a.duration || !isFinite(a.duration)) return;
+      const remainingMs = (a.duration - a.currentTime) * 1000;
+      if (remainingMs > CROSSFADE_MS) return;
+      triggered = true;
+      const a2 = audioRef2.current;
+      const gain1 = gainNodeRef.current;
+      const gain2 = gainNodeRef2.current;
+      const startVol1 = gain1 ? gain1.gain.value : a.volume;
+      if (a2) { setShowingSong2(true); a2.play().catch(() => {}); }
+      if (gain2) gain2.gain.value = 0;
+      const fadeDuration = Math.max(300, remainingMs - 60);
+      const STEPS = Math.max(6, Math.round(fadeDuration / 60));
+      let step = 0;
+      const id = setInterval(() => {
+        step++;
+        const ratio = step / STEPS;
+        const v1 = Math.max(0, startVol1 * (1 - ratio));
+        if (gain1) gain1.gain.value = v1; else a.volume = v1;
+        if (gain2) gain2.gain.value = Math.min(1, ratio); else if (a2) a2.volume = Math.min(1, ratio);
         if (step >= STEPS) { clearInterval(id); a.pause(); }
       }, fadeDuration / STEPS);
     }
@@ -139,9 +187,14 @@ function SharedReelScreen({ token, effectiveDark }) {
     return () => a.removeEventListener('timeupdate', onTimeUpdate);
   }, [status]);
 
+  // Song 2 ending — fades to silence near its own end, same as a lone song
+  // would. No-ops harmlessly if this reel snapshot has no song 2.
+  useEffect(() => attachEndFade(audioRef2.current, () => gainNodeRef2.current), [status]);
+
   function handleStart() {
     setStarted(true);
     const song = reel?.payload?.song;
+    const song2 = reel?.payload?.song2;
     if (song && audioRef.current) {
       const a = audioRef.current;
       // crossOrigin is already set via the JSX attribute, but re-asserting +
@@ -155,6 +208,14 @@ function SharedReelScreen({ token, effectiveDark }) {
       a.load();
       ensureAudioGraph();
       a.play().catch(() => {});
+    }
+    // Song 2 preloads now (so it's ready to go the instant the crossfade
+    // triggers) but never plays until then.
+    if (song2 && audioRef2.current) {
+      const a2 = audioRef2.current;
+      a2.crossOrigin = 'anonymous';
+      a2.src = song2.previewUrl;
+      a2.load();
     }
   }
 
@@ -255,14 +316,14 @@ function SharedReelScreen({ token, effectiveDark }) {
               </div>
             ))}
           </div>
-          {payload.song && (
+          {(() => { const activeSong = showingSong2 && payload.song2 ? payload.song2 : payload.song; return activeSong ? (
             <div style={{ position: 'relative', zIndex: 1, marginTop: 'auto', padding: '0 20px 32px', textAlign: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-                <img src={payload.song.artworkUrl} style={{ width: 20, height: 20, borderRadius: 4, flexShrink: 0 }} alt="" />
-                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{payload.song.name} — {payload.song.artist}</p>
+                <img src={activeSong.artworkUrl} style={{ width: 20, height: 20, borderRadius: 4, flexShrink: 0 }} alt="" />
+                <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{activeSong.name} — {activeSong.artist}</p>
               </div>
             </div>
-          )}
+          ) : null; })()}
         </>
       )}
 
@@ -337,6 +398,7 @@ function SharedReelScreen({ token, effectiveDark }) {
       )}
 
       <audio ref={audioRef} crossOrigin="anonymous" />
+      <audio ref={audioRef2} crossOrigin="anonymous" />
     </div>
   );
 }

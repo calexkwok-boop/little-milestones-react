@@ -811,6 +811,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
       quote: RECAP_QUOTE,
       stats,
       song,
+      song2: song2 || null,
       slides: slides.map(s => {
         // The arc animation is reel-only — the shared page keeps things
         // simple with just the destination photo, same as the live reel now
