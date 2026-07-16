@@ -836,11 +836,26 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
       song,
       song2: song2 || null,
       slides: slides.map(s => {
-        // The arc animation is reel-only — the shared page keeps things
-        // simple with just the destination photo after its own crossfade,
-        // captioned the same as any other photo slide.
+        // Full trip data, not flattened — the shared page renders the same
+        // arc animation the live reel does. destinationLabel uses whatever
+        // was already reverse-geocoded live, so the shared page never needs
+        // to make that call itself (it has no way to — it's an anonymous,
+        // unauthenticated request). tripKids/tripFamilyMembers get merged
+        // into one normalized list since the shared renderer doesn't need to
+        // tell them apart, only the live one's avatar-styling code does.
         if (s.type === 'trip') {
-          return { type: 'photo', url: s.trip.photo.url, mediaType: s.trip.photo.mediaType, cropY: s.trip.photo.cropY, date: s.trip.date, caption: captionFor(s.trip.photoKid, s.trip.date) };
+          return {
+            type: 'trip',
+            earliestDate: s.trip.earliestDate,
+            distanceMiles: s.trip.distanceMiles,
+            destinationLabel: tripDestLabel || s.trip.destinationLabel,
+            photo: { url: s.trip.photo.url, mediaType: s.trip.photo.mediaType, cropY: s.trip.photo.cropY },
+            photoCaption: captionFor(s.trip.photoKid, s.trip.date),
+            tripPeople: [
+              ...s.trip.tripKids.map(k => ({ name: k.name, avatar: k.avatar, accent: k.accent })),
+              ...s.trip.tripFamilyMembers.map(m => ({ name: m.real_name || m.display_name || 'Family', avatar: m.avatar_url, accent: '#4A5E50' })),
+            ],
+          };
         }
         if (s.type === 'text') {
           return { type: 'text', subtype: s.subtype, text: s.text, date: s.date, kidName: s.kid?.name?.split(' ')[0] || null, kidAvatar: s.kid?.avatar || null, kidAccent: s.kid?.accent || null };

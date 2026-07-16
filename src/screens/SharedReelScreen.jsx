@@ -4,10 +4,14 @@ import { cloudinaryTransform } from '../constants.js';
 
 const BASE_SLIDE_MS = 3800;
 const MIN_TEXT_READ_MS = 4500;
+const TRIP_ARC_MS = 4200;
 
 // Text slides (letter excerpts / note quotes, no photo) need real reading
 // time, not the fixed photo-slide duration — same formula as the live reel.
+// Trip slides get the arc animation's own runway on top of the usual photo
+// duration, same as the live reel.
 function baseSlideDurationMs(s) {
+  if (s?.type === 'trip') return TRIP_ARC_MS + BASE_SLIDE_MS;
   if (s?.type !== 'text') return BASE_SLIDE_MS;
   const wordCount = (s.text || '').split(/\s+/).length;
   return Math.min(7500, Math.max(4200, 1400 + wordCount * 220));
@@ -54,6 +58,75 @@ function SharedReelVideo({ url, active, style }) {
   return <video ref={videoRef} src={url} muted playsInline style={style} />;
 }
 
+// Same abstract home-to-destination arc as the live reel's TripSlide, ported
+// to work from the flattened payload fields instead of live kid/family
+// objects. tripPeople is already normalized (kids and family members merged
+// into one {name, avatar, accent} shape) since this renderer doesn't need to
+// tell them apart the way the live one's avatar-styling code does.
+function SharedTripSlide({ trip, active, arcMs }) {
+  const [phase, setPhase] = useState('arc');
+  useEffect(() => {
+    if (!active) { setPhase('arc'); return; }
+    const t = setTimeout(() => setPhase('photo'), arcMs);
+    return () => clearTimeout(t);
+  }, [active, arcMs]);
+
+  const isVideo = trip.photo.mediaType === 'video';
+  const photoSrc = isVideo ? videoThumbUrl(trip.photo.url, 'so_0,w_1600,q_auto,f_auto') : cloudinaryTransform(trip.photo.url, 'w_1600,q_auto,f_auto');
+
+  return (
+    <>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(38,58,44,0.97)', opacity: phase === 'arc' ? 1 : 0, transition: 'opacity 0.8s ease', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ margin: '0 0 14px', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: '#fff' }}>
+          {new Date(trip.earliestDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+        </p>
+        {trip.tripPeople?.length > 0 && (
+          <div style={{ display: 'flex', marginBottom: 20 }}>
+            {trip.tripPeople.map((person, i) => (
+              <div key={i} title={person.name} style={{ width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(38,58,44,0.97)', marginLeft: i > 0 ? -10 : 0, background: person.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {person.avatar
+                  ? <img src={cloudinaryTransform(person.avatar, 'w_68,h_68,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                  : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 13, color: '#fff' }}>{person.name?.charAt(0)}</span>}
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ position: 'relative', width: 300, height: 170 }}>
+          <svg viewBox="0 0 300 170" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', overflow: 'visible' }}>
+            <path d="M 24 139 Q 150 8 276 68" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeDasharray="6 7" />
+          </svg>
+          <div style={{ position: 'absolute', left: 24, top: 139, transform: 'translate(-50%, -50%)', width: 7, height: 7, borderRadius: '50%', background: '#C8993E' }} />
+          <div style={{ position: 'absolute', left: 276, top: 68, transform: 'translate(-50%, -50%)', width: 7, height: 7, borderRadius: '50%', background: '#C8993E' }} />
+          <span style={{ position: 'absolute', left: 24, top: 139 + 12, transform: 'translateX(-50%)', fontSize: 11, color: 'rgba(255,255,255,0.6)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, whiteSpace: 'nowrap' }}>Home</span>
+          <span style={{ position: 'absolute', left: 276, top: 68 + 12, transform: 'translateX(-50%)', fontSize: 11, color: '#E5C97E', fontFamily: "'Urbanist', sans-serif", fontWeight: 700, whiteSpace: 'nowrap', maxWidth: 120, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis' }}>{trip.destinationLabel}</span>
+          {active && phase === 'arc' && (
+            <div style={{ position: 'absolute', left: 0, top: 0, fontSize: 20, lineHeight: 1, offsetPath: "path('M 24 139 Q 150 8 276 68')", offsetRotate: 'auto 45deg', animation: `tripFly ${arcMs}ms ease-in-out forwards` }}>✈️</div>
+          )}
+        </div>
+        <p style={{ margin: '14px 0 0', fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', letterSpacing: 0.4 }}>
+          {trip.distanceMiles.toLocaleString()} miles from home
+        </p>
+      </div>
+      <div style={{ position: 'absolute', inset: 0, opacity: phase === 'photo' ? 1 : 0, transition: 'opacity 1s ease' }}>
+        <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${photoSrc}')`, backgroundSize: 'cover', backgroundPosition: `center ${trip.photo.cropY ?? 50}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
+        {isVideo ? (
+          <SharedReelVideo url={trip.photo.url} active={active && phase === 'photo'} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
+        ) : (
+          <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${photoSrc}')`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }} />
+        )}
+      </div>
+      {phase === 'photo' && trip.photoCaption && (
+        <>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 40%)', pointerEvents: 'none' }} />
+          <div style={{ position: 'absolute', bottom: 64, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.55)', borderRadius: 10, padding: '6px 14px', maxWidth: '86%' }}>
+            <p style={{ margin: 0, fontFamily: "'Urbanist', sans-serif", fontSize: 13, fontWeight: 700, color: '#fff', textAlign: 'center' }}>{trip.photoCaption}</p>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 // A lighter-weight replay than the live reels — same Ken Burns pan and one
 // background track, but a visitor with no account and no prior interaction
 // has to tap to start (browsers block audio autoplay without a gesture on a
@@ -67,6 +140,7 @@ function SharedReelScreen({ token, effectiveDark }) {
   const [started, setStarted] = useState(false);
   const [index, setIndex] = useState(0);
   const [ended, setEnded] = useState(false);
+  const [countedStats, setCountedStats] = useState({ letters: 0, milestones: 0, photos: 0 });
   const audioRef = useRef(null);
   const audioRef2 = useRef(null);
   const [showingSong2, setShowingSong2] = useState(false);
@@ -145,6 +219,29 @@ function SharedReelScreen({ token, effectiveDark }) {
     }, scaledSlideDurationMs(slides[index], durationScale));
     return () => clearTimeout(t);
   }, [started, ended, index, slides.length, durationScale]);
+
+  // Count-up animation when the closing stats card appears
+  useEffect(() => {
+    if (!ended) return;
+    const stats = reel?.payload?.stats;
+    if (!stats) return;
+    const DURATION = 1400;
+    const STEPS = 40;
+    const interval = DURATION / STEPS;
+    let step = 0;
+    const t = setInterval(() => {
+      step++;
+      const progress = Math.min(step / STEPS, 1);
+      const ease = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      setCountedStats({
+        letters: Math.round((stats.letters || 0) * ease),
+        milestones: Math.round((stats.milestones || 0) * ease),
+        photos: Math.round((stats.photos || 0) * ease),
+      });
+      if (step >= STEPS) clearInterval(t);
+    }, interval);
+    return () => clearInterval(t);
+  }, [ended]);
 
   // Fades whichever <audio> element is passed in to silence over its own
   // last stretch, driven by its real playback position rather than the
@@ -298,6 +395,13 @@ function SharedReelScreen({ token, effectiveDark }) {
     <div style={{ position: 'fixed', inset: 0, background: '#000', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {slides.map((s, i) => {
         const isActive = started && !ended && i === index;
+        if (s.type === 'trip') {
+          return (
+            <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 0.6s ease' }}>
+              <SharedTripSlide trip={s} active={isActive} arcMs={TRIP_ARC_MS * durationScale} />
+            </div>
+          );
+        }
         if (s.type === 'text') {
           return (
             <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 0.6s ease', background: 'rgba(38,58,44,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 36px' }}>
@@ -398,13 +502,13 @@ function SharedReelScreen({ token, effectiveDark }) {
               <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 28px' }}>{reel.title}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 32 }}>
                 {[
-                  { n: payload.stats?.photos, singular: 'moment captured', plural: 'moments captured', icon: 'ti-camera' },
-                  { n: payload.stats?.letters, singular: 'letter written', plural: 'letters written', icon: 'ti-feather' },
-                  { n: payload.stats?.milestones, singular: 'milestone celebrated', plural: 'milestones celebrated', icon: 'ti-star' },
-                ].filter(s => s.n > 0).map(({ n, singular, plural, icon }) => (
+                  { n: payload.stats?.photos, displayN: countedStats.photos, singular: 'moment captured', plural: 'moments captured', icon: 'ti-camera' },
+                  { n: payload.stats?.letters, displayN: countedStats.letters, singular: 'letter written', plural: 'letters written', icon: 'ti-feather' },
+                  { n: payload.stats?.milestones, displayN: countedStats.milestones, singular: 'milestone celebrated', plural: 'milestones celebrated', icon: 'ti-star' },
+                ].filter(s => s.n > 0).map(({ n, displayN, singular, plural, icon }) => (
                   <div key={icon} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <i className={`ti ${icon}`} style={{ fontSize: 18, color: '#C8993E', flexShrink: 0, width: 22, textAlign: 'center' }} />
-                    <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, color: 'rgba(255,255,255,0.75)', margin: 0 }}>{n} {n === 1 ? singular : plural}.</p>
+                    <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, color: 'rgba(255,255,255,0.75)', margin: 0 }}>{displayN} {n === 1 ? singular : plural}.</p>
                   </div>
                 ))}
               </div>
@@ -420,12 +524,12 @@ function SharedReelScreen({ token, effectiveDark }) {
               )}
               <div style={{ display: 'flex', gap: 12, width: '100%', marginBottom: 32 }}>
                 {[
-                  { n: payload.stats?.letters, label: 'letter' },
-                  { n: payload.stats?.milestones, label: 'milestone' },
-                  { n: payload.stats?.photos, label: 'photo' },
-                ].filter(s => s.n > 0).map(({ n, label }) => (
+                  { n: payload.stats?.letters, displayN: countedStats.letters, label: 'letter' },
+                  { n: payload.stats?.milestones, displayN: countedStats.milestones, label: 'milestone' },
+                  { n: payload.stats?.photos, displayN: countedStats.photos, label: 'photo' },
+                ].filter(s => s.n > 0).map(({ n, displayN, label }) => (
                   <div key={label} style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center' }}>
-                    <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{n}</p>
+                    <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{displayN}</p>
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0, fontWeight: 600 }}>{label}{n !== 1 ? 's' : ''}</p>
                   </div>
                 ))}
