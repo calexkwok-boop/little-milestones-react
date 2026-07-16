@@ -400,7 +400,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
 
   useEffect(() => { slideElapsedMsRef.current = 0; setSlideProgress(0); }, [index]);
 
-  // Fade the music out over its own last ~1.5s, driven by the audio clip's
+  // Fade the music out over its own last stretch, driven by the audio clip's
   // real playback position rather than by which slide is showing. Tying the
   // fade to the visual slide schedule meant any drift between the clip's
   // actual length and the (estimated, scaled) slide durations — e.g. its
@@ -408,24 +408,33 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
   // clip hit its natural end before the "last slide" fade ever triggered,
   // cutting it off abruptly. Listening to the element itself always catches
   // the real ending, however the schedule drifted.
+  //
+  // The fade's own duration is capped to whatever time is actually left
+  // (not a fixed length) — verified via an isolated Playwright test that a
+  // fixed-length fade routinely lost its final ~200-300ms to the browser's
+  // own native end-of-media pause firing first (since `timeupdate` only
+  // catches the "about to end" moment to within ~250ms, not exactly when
+  // it's crossed), leaving the clip audibly cut off at ~15-20% volume
+  // instead of reaching true silence.
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
     let fading = false;
-    const FADE_MS = 1500;
-    const STEPS = 24;
+    const FADE_TRIGGER_MS = 1800;
     function onTimeUpdate() {
       if (fading || !a.duration || !isFinite(a.duration)) return;
       const remainingMs = (a.duration - a.currentTime) * 1000;
-      if (remainingMs > FADE_MS) return;
+      if (remainingMs > FADE_TRIGGER_MS) return;
       fading = true;
+      const fadeDuration = Math.max(300, remainingMs - 60);
+      const STEPS = Math.max(6, Math.round(fadeDuration / 60));
       const startVol = a.volume;
       let step = 0;
       const id = setInterval(() => {
         step++;
         a.volume = Math.max(0, startVol * (1 - step / STEPS));
         if (step >= STEPS) { clearInterval(id); a.pause(); }
-      }, FADE_MS / STEPS);
+      }, fadeDuration / STEPS);
     }
     a.addEventListener('timeupdate', onTimeUpdate);
     return () => a.removeEventListener('timeupdate', onTimeUpdate);

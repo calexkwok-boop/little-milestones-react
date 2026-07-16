@@ -15,6 +15,24 @@ function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
   } catch { return null; }
 }
 
+// Toggling the `autoPlay` attribute on an already-mounted <video> doesn't
+// reliably (re)start playback in most browsers — autoplay is only honored
+// when the element first attaches with it set. Every slide here is mounted
+// up front (just opacity-crossfaded), so the active slide's video needs an
+// imperative .play()/.pause() instead — same fix as the live reel's
+// ReelSlideVideo. Without it, a video slide just freezes on its first frame
+// for the whole slide duration, then moves on.
+function SharedReelVideo({ url, active, style }) {
+  const videoRef = useRef(null);
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (active) { el.currentTime = 0; el.play().catch(() => {}); }
+    else el.pause();
+  }, [active]);
+  return <video ref={videoRef} src={url} muted playsInline style={style} />;
+}
+
 // A lighter-weight replay than the live reels — same Ken Burns pan and one
 // background track, but a visitor with no account and no prior interaction
 // has to tap to start (browsers block audio autoplay without a gesture on a
@@ -54,28 +72,31 @@ function SharedReelScreen({ token, effectiveDark }) {
     return () => clearTimeout(t);
   }, [started, ended, index, slides.length]);
 
-  // Fade the music out over its own last ~1.5s, driven by the clip's real
+  // Fade the music out over its own last stretch, driven by the clip's real
   // playback position rather than the visual slide schedule — so it never
-  // cuts off abruptly even if the two drift out of sync. Same approach as
-  // the live reel.
+  // cuts off abruptly even if the two drift out of sync. The fade's own
+  // duration is capped to whatever time is actually left (not fixed) —
+  // a fixed-length fade routinely lost its final ~200-300ms to the browser's
+  // own native end-of-media pause firing first. Same approach as the live reel.
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
     let fading = false;
-    const FADE_MS = 1500;
-    const STEPS = 24;
+    const FADE_TRIGGER_MS = 1800;
     function onTimeUpdate() {
       if (fading || !a.duration || !isFinite(a.duration)) return;
       const remainingMs = (a.duration - a.currentTime) * 1000;
-      if (remainingMs > FADE_MS) return;
+      if (remainingMs > FADE_TRIGGER_MS) return;
       fading = true;
+      const fadeDuration = Math.max(300, remainingMs - 60);
+      const STEPS = Math.max(6, Math.round(fadeDuration / 60));
       const startVol = a.volume;
       let step = 0;
       const id = setInterval(() => {
         step++;
         a.volume = Math.max(0, startVol * (1 - step / STEPS));
         if (step >= STEPS) { clearInterval(id); a.pause(); }
-      }, FADE_MS / STEPS);
+      }, fadeDuration / STEPS);
     }
     a.addEventListener('timeupdate', onTimeUpdate);
     return () => a.removeEventListener('timeupdate', onTimeUpdate);
@@ -131,7 +152,7 @@ function SharedReelScreen({ token, effectiveDark }) {
           <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 1s ease' }}>
             <div style={{ position: 'absolute', inset: '-10%', backgroundImage: `url('${thumbSrc}')`, backgroundSize: 'cover', backgroundPosition: `center ${s.cropY ?? 50}%`, filter: 'blur(18px) brightness(0.5)', transform: 'scale(1.1)' }} />
             {isVideo ? (
-              <video src={s.url} muted playsInline autoPlay={isActive} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
+              <SharedReelVideo url={s.url} active={isActive} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
             ) : (
               <div style={{ position: 'absolute', inset: 0, backgroundImage: `url('${thumbSrc}')`, backgroundSize: 'contain', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', animation: isActive ? kbAnim : 'none' }} />
             )}
