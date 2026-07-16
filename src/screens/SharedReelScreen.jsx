@@ -78,6 +78,11 @@ function SharedReelScreen({ token, effectiveDark }) {
   // duration is capped to whatever time is actually left (not fixed) —
   // a fixed-length fade routinely lost its final ~200-300ms to the browser's
   // own native end-of-media pause firing first. Same approach as the live reel.
+  //
+  // Depends on `status`, not `[]`: the <audio> element only exists once the
+  // reel has finished loading from Supabase (the loading/not-found screens
+  // render without it) — binding once on mount would grab a null ref and
+  // never attach the listener at all.
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
@@ -100,7 +105,7 @@ function SharedReelScreen({ token, effectiveDark }) {
     }
     a.addEventListener('timeupdate', onTimeUpdate);
     return () => a.removeEventListener('timeupdate', onTimeUpdate);
-  }, []);
+  }, [status]);
 
   function handleStart() {
     setStarted(true);
