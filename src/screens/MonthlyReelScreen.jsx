@@ -3,7 +3,8 @@ import { cloudinaryTransform, exactAgeLabel } from '../constants.js';
 import { supabase } from '../supabase.js';
 
 const PHOTO_SLIDE_MS = 3200;
-const MAX_PHOTO_SLIDES = 8;
+// One fewer photo slide, traded for more time on the trip arc animation below.
+const MAX_PHOTO_SLIDES = 7;
 
 function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
   if (!videoUrl || !videoUrl.startsWith('http')) return null;
@@ -96,7 +97,7 @@ function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
   };
 }
 
-const TRIP_ARC_MS = 2600;
+const TRIP_ARC_MS = 4200;
 
 // Abstract arc (not a real map — no map library/API key needed, and it fits
 // the reel's illustrated look better than literal map tiles would) from a
