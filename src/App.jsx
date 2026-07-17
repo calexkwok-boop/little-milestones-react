@@ -3298,6 +3298,8 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   const [previewMedia, setPreviewMedia] = useState(null);
   const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
+  const [showNoExifHint, setShowNoExifHint] = useState(false);
+  const noExifHintShownRef = useRef(false);
   const [showExtras, setShowExtras] = useState(
     !!(existingEntry?.mood || existingEntry?.milestone || existingEntry?.song || existingEntry?.people?.length || existingEntry?.voiceMemoUrl || initialMilestone)
   );
@@ -3448,6 +3450,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     const [y, m, d] = entryDate.split('-');
     setEditYear(y); setEditMonth(m); setEditDay(String(parseInt(d)));
     setEditingDate(true);
+    setShowNoExifHint(false);
   }
 
   function applyDate() {
@@ -3494,6 +3497,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       }
     });
     if (!dateFromPhoto) {
+      let foundDate = false;
       for (const file of files) {
         if (file.type.startsWith('image')) {
           try {
@@ -3503,6 +3507,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
               const d = new Date(tags.DateTimeOriginal);
               setEntryDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
               setDateFromPhoto(true);
+              foundDate = true;
               break;
             }
           } catch {}
@@ -3510,8 +3515,16 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
           const d = new Date(file.lastModified);
           setEntryDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
           setDateFromPhoto(true);
+          foundDate = true;
           break;
         }
+      }
+      // Professional/edited photos (gallery downloads, Lightroom exports, etc.) often
+      // have no DateTimeOriginal tag at all — surface that once instead of silently
+      // leaving the date unchanged, so it doesn't read as the feature being broken.
+      if (!foundDate && !noExifHintShownRef.current) {
+        noExifHintShownRef.current = true;
+        setShowNoExifHint(true);
       }
     }
     if (!locationFromPhoto) {
@@ -3772,6 +3785,14 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             </div>
           )}
         </div>
+        )}
+
+        {showNoExifHint && (
+          <div style={{ background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 10, padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <i className="ti ti-calendar-exclamation" style={{ color: '#C8993E', fontSize: 15, flexShrink: 0 }} />
+            <span style={{ flex: 1, fontSize: 12.5, color: 'var(--text-2)' }}>Couldn't read a date from that photo — tap the date above to set it.</span>
+            <button onClick={() => setShowNoExifHint(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, fontSize: 14 }}><i className="ti ti-x" /></button>
+          </div>
         )}
 
         {/* Photo preview */}

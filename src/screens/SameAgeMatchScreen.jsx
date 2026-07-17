@@ -5,16 +5,6 @@ import { exactAge, dateForAge } from '../constants.js';
 let _exifr = null;
 const loadExifr = () => _exifr ?? (_exifr = import('exifr').then(m => m.default));
 
-function addDays(dateStr, delta) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dt = new Date(y, m - 1, d + delta);
-  return dt;
-}
-
-function monthDay(dt) {
-  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
 function toISODate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
@@ -33,6 +23,7 @@ async function extractExifDate(file) {
 
 export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, onCancel, onConfirm }) {
   const [picking, setPicking] = useState(false);
+  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef(null);
   const age = exactAge(sourceKid.birthdate, sourceEntry.date);
   const targetDate = dateForAge(targetKid.birthdate, age);
@@ -42,7 +33,14 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
       ? `${age.months} month${age.months !== 1 ? 's' : ''}, ${age.days} day${age.days !== 1 ? 's' : ''} old`
       : `${age.days} day${age.days !== 1 ? 's' : ''} old`;
   const targetDateLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const rangeLabel = `${monthDay(addDays(targetDate, -14))} – ${monthDay(addDays(targetDate, 14))}, ${targetDate.slice(0, 4)}`;
+  const monthYearLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  function handleCopyMonthYear() {
+    navigator.clipboard.writeText(monthYearLabel).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    }).catch(() => {});
+  }
 
   async function handleFileChange(e) {
     const file = e.target.files?.[0];
@@ -73,15 +71,24 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>
               {targetKid.name.split(' ')[0]} was this old on
             </p>
-            <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontWeight: 700, fontSize: 28, color: '#C8993E', margin: '6px 0 4px' }}>
+            <p style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 21, color: '#C8993E', margin: '6px 0 4px' }}>
               {targetDateLabel}
             </p>
             <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '0 0 16px', maxWidth: '26ch' }}>
               {ageLabel} — same as {sourceKid.name.split(' ')[0]} in this post.
             </p>
-            <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px', fontSize: 13, fontWeight: 600, color: 'var(--text)', textAlign: 'center', width: '100%', maxWidth: 320 }}>
-              📍 Look for photos from {rangeLabel}
+            <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 10px 10px 16px', display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 320 }}>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text)', textAlign: 'left' }}>
+                📍 Look for photos around {monthYearLabel}
+              </span>
+              <button onClick={handleCopyMonthYear} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', color: copied ? 'var(--accent)' : 'var(--text-2)', fontSize: 11.5, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", flexShrink: 0 }}>
+                <i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 13 }} />
+                {copied ? 'Copied' : 'Copy'}
+              </button>
             </div>
+            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '8px 0 0', maxWidth: 320 }}>
+              Copy it, then paste into the search in Photos once it opens.
+            </p>
 
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
             <button className="btn btn-gold" style={{ width: '100%', maxWidth: 320, marginTop: 18, opacity: picking ? 0.7 : 1 }} disabled={picking} onClick={() => fileInputRef.current?.click()}>
