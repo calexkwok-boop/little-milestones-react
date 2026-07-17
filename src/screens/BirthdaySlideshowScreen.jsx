@@ -31,7 +31,7 @@ function AmazonIcon({ size = 13, aColor = 'currentColor', arrowColor = '#FF9900'
   );
 }
 
-function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false, viewerEntries = [], viewerKids = [], onGenerateReelShare, onRevokeReelShare, onStatClick }) {
+function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false, viewerEntries = [], viewerKids = [], onGenerateReelShare, onRevokeReelShare, onStatClick, kids = [], familyMembers = [] }) {
   const slides = useMemo(() => {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -404,6 +404,13 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
     return {
       stats: yearStats,
       song,
+      // Whole family, same as the monthly reel's payload — "whose reel is
+      // this" for a visitor who hasn't watched anything yet, not just the
+      // birthday kid.
+      family: [
+        ...kids.map(k => ({ name: k.name, avatar: k.avatar, accent: k.accent })),
+        ...familyMembers.map(m => ({ name: m.real_name || m.display_name || 'Family', avatar: m.avatar_url, accent: null })),
+      ],
       slides: slides.map(s => {
         const a = ageAtDate(kid.birthdate, s.date);
         const my = new Date(s.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });

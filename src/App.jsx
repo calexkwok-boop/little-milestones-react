@@ -9909,6 +9909,8 @@ export default function App() {
             kid={birthdaySlideshow}
             age={turningAge(birthdaySlideshow.birthdate)}
             entries={entries}
+            kids={kids}
+            familyMembers={familyMembers}
             onClose={() => setBirthdaySlideshow(null)}
             onGenerateReelShare={handleGenerateReelShare}
             onRevokeReelShare={handleRevokeReelShare}
