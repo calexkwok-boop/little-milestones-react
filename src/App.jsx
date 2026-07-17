@@ -1054,7 +1054,8 @@ const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transfor
 const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, onClick, onLongPress }) {
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
-  const accent = entryKids.length > 1 ? MULTI_KID_ACCENT : (entryKids[0]?.accent || kid?.accent || KID_ACCENTS[0]);
+  const sides = entry.sameAgeKidId && allKids ? sameAgeSides(entry, allKids) : null;
+  const accent = sides ? PROMPT_ACCENT : entryKids.length > 1 ? MULTI_KID_ACCENT : (entryKids[0]?.accent || kid?.accent || KID_ACCENTS[0]);
   const tintBg = hexToRgba(accent, 0.13);
   const tintBorder = hexToRgba(accent, 0.3);
   const tintFold = hexToRgba(accent, 0.48);
@@ -1074,8 +1075,8 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
       <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 15px 15px 0', borderColor: `transparent ${tintFold} transparent transparent`, borderRadius: '0 13px 0 0' }} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: featured ? 8 : 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <i className="ti ti-notebook" style={{ fontSize: featured ? 12 : 10, color: accent }} />
-          <span style={{ fontSize: featured ? 10 : 9, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: accent }}>Note</span>
+          <i className={`ti ${sides ? 'ti-arrows-diff' : 'ti-notebook'}`} style={{ fontSize: featured ? 12 : 10, color: accent }} />
+          <span style={{ fontSize: featured ? 10 : 9, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: accent }}>{sides ? 'Same age note' : 'Note'}</span>
         </div>
         {entry.shared === false && <i className="ti ti-lock" style={{ fontSize: featured ? 12 : 10, color: accent }} title="Private" />}
       </div>
@@ -1097,15 +1098,27 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {entryKids.map(k => (
-          <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: k.accent || KID_ACCENTS[0], flexShrink: 0 }} />
-            <KidThumb kid={k} size={featured ? 18 : 15} />
-            <span style={{ fontSize: featured ? 11 : 10, color: 'var(--text-muted)' }}>
-              {exactAgeLabel(k.birthdate, entry.date)} &middot; {dateLabel}
+        {entryKids.map(k => {
+          const kidDate = k.id === entry.sameAgeKidId ? entry.sameAgeDate : entry.date;
+          return (
+            <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: k.accent || KID_ACCENTS[0], flexShrink: 0 }} />
+              <KidThumb kid={k} size={featured ? 18 : 15} />
+              <span style={{ fontSize: featured ? 11 : 10, color: 'var(--text-muted)' }}>
+                {exactAgeLabel(k.birthdate, kidDate)} &middot; {new Date(kidDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              </span>
+            </div>
+          );
+        })}
+        {sides && (() => {
+          const ageDays = (birthdate, date) => (new Date(date + 'T12:00:00') - new Date(birthdate + 'T12:00:00')) / 86400000;
+          const daysApart = Math.round(Math.abs(ageDays(sides.anchor.kid.birthdate, sides.anchor.date) - ageDays(sides.match.kid.birthdate, sides.match.date)));
+          return (
+            <span style={{ fontSize: featured ? 10.5 : 9.5, fontWeight: 600, color: accent, marginTop: 2 }}>
+              {daysApart === 0 ? 'Exact same age' : `${daysApart} day${daysApart !== 1 ? 's' : ''} apart`}
             </span>
-          </div>
-        ))}
+          );
+        })()}
       </div>
     </div>
   );
@@ -1115,6 +1128,7 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
+  const sides = entry.sameAgeKidId && allKids ? sameAgeSides(entry, allKids) : null;
   const previewLen = featured ? 200 : 90;
   const preview = entry.text.length > previewLen ? entry.text.slice(0, previewLen) + '…' : entry.text;
   const photoH = featured ? 140 : 92;
@@ -1128,8 +1142,8 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
       <div style={{ background: PROMPT_ACCENT, padding: featured ? '13px 17px' : '10px 13px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: featured ? 6 : 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <i className="ti ti-bulb" style={{ fontSize: featured ? 13 : 11, color: 'rgba(255,255,255,0.9)' }} />
-            <span style={{ fontSize: featured ? 10 : 9, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>Prompt</span>
+            <i className={`ti ${sides ? 'ti-arrows-diff' : 'ti-bulb'}`} style={{ fontSize: featured ? 13 : 11, color: 'rgba(255,255,255,0.9)' }} />
+            <span style={{ fontSize: featured ? 10 : 9, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>{sides ? 'Same age prompt' : 'Prompt'}</span>
           </div>
           {entry.shared === false && <i className="ti ti-lock" style={{ fontSize: featured ? 12 : 10, color: 'rgba(255,255,255,0.9)' }} title="Private" />}
         </div>
@@ -1159,14 +1173,26 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
           </div>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {entryKids.map(k => (
-            <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <KidThumb kid={k} size={featured ? 18 : 15} />
-              <span style={{ fontSize: featured ? 11 : 10, color: 'var(--text-muted)' }}>
-                {exactAgeLabel(k.birthdate, entry.date)} &middot; {dateLabel}
+          {entryKids.map(k => {
+            const kidDate = k.id === entry.sameAgeKidId ? entry.sameAgeDate : entry.date;
+            return (
+              <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <KidThumb kid={k} size={featured ? 18 : 15} />
+                <span style={{ fontSize: featured ? 11 : 10, color: 'var(--text-muted)' }}>
+                  {exactAgeLabel(k.birthdate, kidDate)} &middot; {new Date(kidDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                </span>
+              </div>
+            );
+          })}
+          {sides && (() => {
+            const ageDays = (birthdate, date) => (new Date(date + 'T12:00:00') - new Date(birthdate + 'T12:00:00')) / 86400000;
+            const daysApart = Math.round(Math.abs(ageDays(sides.anchor.kid.birthdate, sides.anchor.date) - ageDays(sides.match.kid.birthdate, sides.match.date)));
+            return (
+              <span style={{ fontSize: featured ? 10.5 : 9.5, fontWeight: 600, color: PROMPT_ACCENT, marginTop: 2 }}>
+                {daysApart === 0 ? 'Exact same age' : `${daysApart} day${daysApart !== 1 ? 's' : ''} apart`}
               </span>
-            </div>
-          ))}
+            );
+          })()}
         </div>
       </div>
     </div>
@@ -2634,7 +2660,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch }) {
   // Only the author can edit or delete an entry's content — family members
   // may only adjust the photo crop (handled separately, below).
   const isOwn = entry.userId === session?.user?.id;
@@ -2879,13 +2905,15 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             );
           })()}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => (
+            {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => {
+              const kidDate = k.id === entry.sameAgeKidId ? entry.sameAgeDate : entry.date;
+              return (
               <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                 <KidThumb kid={k} size={32} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{k.name}</p>
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>
-                    {exactAgeLabel(k.birthdate, entry.date)} old · {new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}{entry.mood ? ` · ${entry.mood}` : ''}
+                    {exactAgeLabel(k.birthdate, kidDate)} old · {new Date(kidDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}{entry.mood ? ` · ${entry.mood}` : ''}
                   </p>
                   {location && (
                     <span onClick={() => { if (isOwn) { setLocationDraft(location); setLocationDraftCoords(null); setEditingLocation(true); } }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3, cursor: isOwn ? 'pointer' : 'default' }}>
@@ -2914,7 +2942,8 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           {entry.song && <SongPlayer song={entry.song} />}
           {entry.voiceMemoUrl && <VoiceMemoPlayer url={entry.voiceMemoUrl} />}
@@ -3054,6 +3083,26 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{other.name.split(' ')[0]}</span>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingSameAgeMatch && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 12 }} onClick={onCancelSameAgeMatch}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
+            <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 18 }}>
+              <div style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-elevated)' }}>
+                <img src={pendingSameAgeMatch.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+              </div>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Add {pendingSameAgeMatch.targetKid.name.split(' ')[0]} to this post?</p>
+                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '4px 0 0' }}>This photo will be added and the post will show both kids.</p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={onCancelSameAgeMatch}>Cancel</button>
+              <button className="btn btn-gold" style={{ flex: 1 }} onClick={onConfirmSameAgeMatch}>Add photo</button>
             </div>
           </div>
         </div>
@@ -4914,13 +4963,30 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
   const allKidColumns = [...kids, ...selectedFriendKids.map(k => ({ ...k, isFriend: true }))];
   const includedKidColumns = allKidColumns.filter(k => k.isFriend || !excludedKidIds.includes(k.id));
 
-  // Flat sorted list of all entries for the age grid (2+ kids)
+  // Flat sorted list of all entries for the age grid (2+ kids). Same-age merged
+  // posts (one entry, two kids) get shown once per kid — each appearance uses a
+  // per-kid "view" of the entry (that kid's own date/age and their tagged photo)
+  // so it slots into the grid exactly like any other solo photo, just twice.
   const ageGridItems = (filterTab === 'age' && allKidColumns.length >= 2)
     ? includedKidColumns.flatMap(kid => {
         const pool = kid.isFriend ? friendEntries : entries;
-        return pool
-          .filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths) && e.media?.length > 0)
+        const kidList = kid.isFriend ? friendKids : kids;
+        const solo = pool
+          .filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && e.media?.length > 0)
           .map(e => ({ e, kid }));
+        const sameAge = pool
+          .filter(e => e.sameAgeKidId && e.kids.includes(kid.id))
+          .map(e => {
+            const sides = sameAgeSides(e, kidList);
+            if (!sides) return null;
+            const side = e.sameAgeKidId === kid.id ? sides.match : sides.anchor;
+            if (!side.photo) return null;
+            const { years, months } = exactAge(kid.birthdate, side.date);
+            const otherMedia = e.media.filter(m => m !== side.photo);
+            return { e: { ...e, date: side.date, ageMonths: years * 12 + months, media: [side.photo, ...otherMedia] }, kid };
+          })
+          .filter(Boolean);
+        return [...solo, ...sameAge].filter(({ e }) => matchesAgeBucket(e.ageMonths));
       }).sort((a, b) => {
         const toDays = ({ e, kid }) => (kid.birthdate && e.date)
           ? (new Date(e.date) - new Date(kid.birthdate)) / 86400000
@@ -8014,6 +8080,7 @@ export default function App() {
   const [compareTarget, setCompareTarget] = useState(null);
   const [recapTarget, setRecapTarget] = useState(null);
   const [sameAgeMatch, setSameAgeMatch] = useState(null); // { sourceEntry, sourceKid, targetKid }
+  const [pendingSameAgeMatch, setPendingSameAgeMatch] = useState(null); // { sourceEntry, targetKid, photoDate, file, previewUrl } — awaiting explicit confirmation before writing
   // Once a user visits either sub-tab in a merged section, keep the whole
   // group mounted (just hidden) so switching between its tabs is instant —
   // no remount flash, no scroll/filter reset, no refetch.
@@ -9807,6 +9874,16 @@ export default function App() {
           session={session}
           socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName || ''}
           onSameAge={(sourceEntry, sourceKid, targetKid) => { setSameAgeMatch({ sourceEntry, sourceKid, targetKid }); setScreen('same-age-match'); }}
+          pendingSameAgeMatch={pendingSameAgeMatch?.sourceEntry.id === entries.find(e => e.id === activeEntry.id)?.id ? pendingSameAgeMatch : null}
+          onConfirmSameAgeMatch={() => {
+            handleAddSameAgeMatch(pendingSameAgeMatch.sourceEntry, pendingSameAgeMatch.targetKid, pendingSameAgeMatch.photoDate, pendingSameAgeMatch.file);
+            URL.revokeObjectURL(pendingSameAgeMatch.previewUrl);
+            setPendingSameAgeMatch(null);
+          }}
+          onCancelSameAgeMatch={() => {
+            URL.revokeObjectURL(pendingSameAgeMatch.previewUrl);
+            setPendingSameAgeMatch(null);
+          }}
         />
       )}
 
@@ -9817,7 +9894,7 @@ export default function App() {
           targetKid={sameAgeMatch.targetKid}
           onCancel={() => { setScreen('entry-detail'); setSameAgeMatch(null); }}
           onConfirm={(photoDate, file) => {
-            handleAddSameAgeMatch(sameAgeMatch.sourceEntry, sameAgeMatch.targetKid, photoDate, file);
+            setPendingSameAgeMatch({ sourceEntry: sameAgeMatch.sourceEntry, targetKid: sameAgeMatch.targetKid, photoDate, file, previewUrl: URL.createObjectURL(file) });
             setScreen('entry-detail');
             setSameAgeMatch(null);
           }}
