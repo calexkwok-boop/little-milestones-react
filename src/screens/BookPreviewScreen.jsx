@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
-import { cloudinaryTransform } from '../constants.js';
+import { cloudinaryTransform, exactAgeLabel, milestoneInfo } from '../constants.js';
 
 // `cropY` is saved as "the point in the photo that should stay centered" (0-100, top-to-bottom),
 // not a raw scroll-percentage — so it has to be re-projected into an `object-position` value
@@ -268,6 +268,53 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
   );
 }
 
+// A dedicated two-up spread for a linked "same age" pair — deliberately independent
+// of the chronological letter stream (the two photos can be years apart in real time),
+// so it's excluded from the normal per-entry pagination and rendered once as its own page.
+function PairedPage({ entryA, entryB, kids }) {
+  const pair = [entryA, entryB].sort((x, y) => x.date < y.date ? -1 : 1);
+  return (
+    <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '16px 24px 10px', textAlign: 'center' }}>
+        Same age, apart in time
+      </p>
+      <div style={{ display: 'flex', gap: 2 }}>
+        {pair.map((entry, i) => {
+          const photo = entry.media?.find(m => m.type !== 'video');
+          return photo
+            ? <CroppedPhoto key={i} src={cloudinaryTransform(photo.url, 'w_400,q_auto,f_auto')} cropY={entry.cropY} height={150} style={{ flex: 1 }} />
+            : <div key={i} style={{ flex: 1, height: 150, background: '#EDE8DE' }} />;
+        })}
+      </div>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {pair.map((entry, i) => {
+          const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
+          const name = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
+          const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const ageLabel = entryKids[0] ? exactAgeLabel(entryKids[0].birthdate, entry.date) : '';
+          const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
+          const heading = m ? `${name}'s ${m.label.charAt(0).toLowerCase()}${m.label.slice(1)}` : name;
+          return (
+            <div key={i} style={{ flex: 1, padding: '10px 14px 12px', borderLeft: i > 0 ? '1px solid #EDE8DE' : 'none', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12.5, color: '#4A5E50', margin: '0 0 4px', lineHeight: 1.3 }}>{heading}</p>
+              <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#9AA89C', margin: '0 0 8px' }}>{ageLabel} old &middot; {dateLabel}</p>
+              <p style={{
+                fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 9.5, lineHeight: 1.5, color: '#2C3828',
+                margin: 0, whiteSpace: 'pre-wrap', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical',
+              }}>
+                {entry.text}
+              </p>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ padding: '0 24px 12px' }}>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#B8C8B4', margin: 0, textAlign: 'center' }}>Patina</p>
+      </div>
+    </div>
+  );
+}
+
 function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUserId, onNotifyMe, userEmail }) {
   const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
   const sorted = useMemo(() => [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1), [bookEntries]);
@@ -301,7 +348,28 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
         notesByMonth.get(key).push(entry);
       });
 
-      const items = letterEntries.map(entry => ({ sortDate: entry.date, kind: 'letter', entry }));
+      // Detect linked "same age" pairs — build a bidirectional partner map first so
+      // it doesn't matter which side of the link (source vs. the newer matched post)
+      // is encountered first while walking the chronologically-sorted entries below.
+      const partnerOf = new Map();
+      letterEntries.forEach(entry => {
+        if (!entry.linkedEntryId) return;
+        const partner = letterEntries.find(e2 => e2.id === entry.linkedEntryId);
+        if (partner) { partnerOf.set(entry.id, partner); partnerOf.set(partner.id, entry); }
+      });
+
+      const usedIds = new Set();
+      const items = [];
+      letterEntries.forEach(entry => {
+        if (usedIds.has(entry.id)) return;
+        const partner = partnerOf.get(entry.id);
+        if (partner) {
+          usedIds.add(entry.id); usedIds.add(partner.id);
+          items.push({ sortDate: entry.date > partner.date ? entry.date : partner.date, kind: 'paired', entryA: entry, entryB: partner });
+        } else {
+          items.push({ sortDate: entry.date, kind: 'letter', entry });
+        }
+      });
       notesByMonth.forEach((notes, monthKey) => {
         items.push({ sortDate: `${monthKey}-01`, kind: 'notes', monthKey, notes });
       });
@@ -327,6 +395,10 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
           chunks.forEach((chunk, i) => {
             pages.push({ type: 'letter', entry, pageText: chunk, letterNum: thisNum, isContinued: i > 0, hasMore: i < chunks.length - 1, fontSize: fs });
           });
+        } else if (item.kind === 'paired') {
+          // Not folded into the numbered "x / N" letter sequence — like a chapter
+          // divider, it's a standalone spread rather than one more counted letter.
+          pages.push({ type: 'paired', entryA: item.entryA, entryB: item.entryB });
         } else {
           // Notes render at their natural height (no text clamping), so pack a page by an
           // estimated content budget rather than a flat item count — entries that don't fit
@@ -505,6 +577,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
     if (!content) return null;
     if (content.type === 'chapter') return renderChapterPage(content.year);
     if (content.type === 'notes') return <NotesPage notes={content.notes} monthKey={content.monthKey} kids={kids} isContinued={content.isContinued} hasMore={content.hasMore} />;
+    if (content.type === 'paired') return <PairedPage entryA={content.entryA} entryB={content.entryB} kids={kids} />;
     return <LetterPage entry={content.entry} pageText={content.pageText} index={content.letterNum} sortedLength={totalLetters} kids={kids} isContinued={content.isContinued} hasMore={content.hasMore} fontSize={content.fontSize} />;
   };
 
@@ -516,6 +589,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
     if (!content) return '';
     if (content.type === 'chapter') return content.year;
     if (content.type === 'notes') return `Notes · ${new Date(content.monthKey + '-01T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+    if (content.type === 'paired') return 'Same age';
     return `Letter ${content.letterNum + 1} of ${totalLetters}`;
   })();
 

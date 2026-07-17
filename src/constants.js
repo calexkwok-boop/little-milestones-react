@@ -59,6 +59,14 @@ export function exactAgeLabel(birthdate, entryDate) {
   return years + 'y ' + months + 'm ' + days + 'd';
 }
 
+// Inverse of exactAge — given a birthdate and an { years, months, days } age,
+// returns the calendar date (YYYY-MM-DD) that kid was that exact age.
+export function dateForAge(birthdate, { years, months, days }) {
+  const b = localDate(birthdate);
+  const d = new Date(b.getFullYear() + years, b.getMonth() + months, b.getDate() + days);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function milestoneInfo(id) {
   if (!id) return null;
   if (id.startsWith('custom:')) return { id: 'custom', label: id.slice(7), icon: 'ti-star' };

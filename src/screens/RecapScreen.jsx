@@ -3,7 +3,7 @@ import { TODAY, milestoneInfo } from '../constants.js';
 import KidThumb from '../KidThumb.jsx';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 
-function RecapEntryRow({ entry, kids, onOpenEntry }) {
+function RecapEntryRow({ entry, kids, onOpenEntry, nextIsMilestone }) {
   const entryKids = (entry.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
   if (entryKids.length === 0) return null;
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
@@ -14,7 +14,9 @@ function RecapEntryRow({ entry, kids, onOpenEntry }) {
     <div
       onClick={() => onOpenEntry(entry)}
       className={m ? 'journal-entry milestone-entry' : undefined}
-      style={m ? { cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start' } : { cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start', padding: '13px 0', borderBottom: '1px solid #EEF2EA' }}
+      style={m
+        ? { cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start', margin: '10px 0' }
+        : { cursor: 'pointer', display: 'flex', gap: 12, alignItems: 'flex-start', padding: '13px 0', borderBottom: nextIsMilestone ? 'none' : '1px solid #EEF2EA' }}
     >
       <div style={{ display: 'flex', flexShrink: 0 }}>
         {entryKids.map((kid, i) => (
@@ -310,7 +312,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                 })()
               ) : recapFilter === 'favorites' ? (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {periodEntries.filter(e => e.favorited).map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
+                  {periodEntries.filter(e => e.favorited).map((e, i, arr) => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} nextIsMilestone={!!arr[i + 1]?.milestone} />)}
                 </div>
               ) : recapFilter === 'milestones' ? (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -318,7 +320,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                 </div>
               ) : viewMode === 'month' ? (
                 <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {monthEntries.map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
+                  {monthEntries.map((e, i, arr) => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} nextIsMilestone={!!arr[i + 1]?.milestone} />)}
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -329,7 +331,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                         <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
                         <span style={{ fontSize: 11, color: 'var(--border-light)', fontWeight: 600 }}>{group.entries.length}</span>
                       </div>
-                      {group.entries.map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
+                      {group.entries.map((e, i, arr) => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} nextIsMilestone={!!arr[i + 1]?.milestone} />)}
                     </div>
                   ))}
                 </div>

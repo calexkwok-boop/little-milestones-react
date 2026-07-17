@@ -16,6 +16,7 @@ const LazyNotificationHistoryScreen = lazy(() => import('./screens/NotificationH
 const LazySharedEntryScreen = lazy(() => import('./screens/SharedEntryScreen'));
 const LazySharedReelScreen = lazy(() => import('./screens/SharedReelScreen'));
 import BookBuilderScreen from './screens/BookBuilderScreen';
+import SameAgeMatchScreen from './screens/SameAgeMatchScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY, AMAZON_GIFT_FALLBACK_URL,
@@ -2633,7 +2634,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, allPeople = [], friendKids = [], supabase, session, socialName = '' }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge, linkedEntry, onOpenLinkedEntry }) {
   // Only the author can edit or delete an entry's content — family members
   // may only adjust the photo crop (handled separately, below).
   const isOwn = entry.userId === session?.user?.id;
@@ -2649,6 +2650,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [peopleInput, setPeopleInput] = useState('');
   const [isShared, setIsShared] = useState(entry.shared ?? true);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const [showSameAgePicker, setShowSameAgePicker] = useState(false);
   const [showShareLinkSheet, setShowShareLinkSheet] = useState(false);
   const [shareToken, setShareToken] = useState(entry.shareToken ?? null);
   const [shareLinkBusy, setShareLinkBusy] = useState(false);
@@ -2851,6 +2853,23 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <p style={{ fontSize: 15, fontWeight: 700, color: '#7A6030', margin: 0 }}>{m.label}</p>
             </div>
           )}
+          {linkedEntry && (() => {
+            const linkedKid = allKids?.find(ak => linkedEntry.kids.includes(ak.id));
+            const thisKid = allKids?.find(ak => entry.kids.includes(ak.id));
+            if (!linkedKid || !thisKid) return null;
+            const ageDays = (birthdate, date) => (new Date(date + 'T12:00:00') - new Date(birthdate + 'T12:00:00')) / 86400000;
+            const daysApart = Math.round(Math.abs(ageDays(thisKid.birthdate, entry.date) - ageDays(linkedKid.birthdate, linkedEntry.date)));
+            return (
+              <div className="milestone-entry" onClick={() => onOpenLinkedEntry?.(linkedEntry)} style={{ borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, cursor: onOpenLinkedEntry ? 'pointer' : 'default' }}>
+                <i className="ti ti-arrows-diff" style={{ fontSize: 18, color: '#C8993E', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: '#7A6030', margin: 0 }}>Same age as {linkedKid.name.split(' ')[0]}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{daysApart === 0 ? 'Exact match' : `${daysApart} day${daysApart !== 1 ? 's' : ''} apart`}</p>
+                </div>
+                {onOpenLinkedEntry && <i className="ti ti-chevron-right" style={{ fontSize: 16, color: 'var(--text-muted)' }} />}
+              </div>
+            );
+          })()}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => (
               <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
@@ -2868,6 +2887,15 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                  {onSameAge && entry.kids.length === 1 && allKids?.length > 1 && (
+                    <button onClick={() => {
+                      const others = allKids.filter(ak => ak.id !== k.id);
+                      if (others.length === 1) onSameAge(entry, k, others[0]);
+                      else setShowSameAgePicker(true);
+                    }} title="Same age" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--accent)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
+                      <i className="ti ti-arrows-diff" />
+                    </button>
+                  )}
                   <button onClick={() => { onToggleFavorite(entry.id); showToast(entry.favorited ? 'Removed from favorites' : 'Saved to favorites'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: entry.favorited ? '#C8993E' : 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
                     <i className={`ti ti-star${entry.favorited ? '-filled' : ''}`} />
                   </button>
@@ -3006,6 +3034,22 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           )}
         </div>
       </div>
+      {showSameAgePicker && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowSameAgePicker(false)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 36px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 14px', textAlign: 'center' }}>Same age as who?</p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {allKids.filter(ak => !entry.kids.includes(ak.id)).map(other => (
+                <button key={other.id} onClick={() => { setShowSameAgePicker(false); onSameAge(entry, allKids.find(ak => entry.kids.includes(ak.id)), other); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer' }}>
+                  <KidThumb kid={other} size={28} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{other.name.split(' ')[0]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       {showActionSheet && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowActionSheet(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', paddingBottom: 36 }} onClick={e => e.stopPropagation()}>
@@ -3208,7 +3252,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, mode: modeProp, promptText: promptTextProp }) {
+function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, initialDate, linkedEntryId = null, autoOpenMedia = false, mode: modeProp, promptText: promptTextProp }) {
   const [promptText, setPromptText] = useState(promptTextProp || existingEntry?.prompt || null);
   const mode = modeProp || existingEntry?.type || 'letter';
   const isNote = mode === 'note';
@@ -3244,7 +3288,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   const [songSearching, setSongSearching] = useState(false);
   const [showSongPicker, setShowSongPicker] = useState(false);
   const [previewMedia, setPreviewMedia] = useState(null);
-  const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
+  const [entryDate, setEntryDate] = useState(existingEntry?.date || initialDate || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
   const [showExtras, setShowExtras] = useState(
     !!(existingEntry?.mood || existingEntry?.milestone || existingEntry?.song || existingEntry?.people?.length || existingEntry?.voiceMemoUrl || initialMilestone)
@@ -3268,6 +3312,11 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     const onVisibility = () => { if (document.hidden) document.activeElement?.blur(); };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
+  useEffect(() => {
+    if (autoOpenMedia && !existingEntry) uploadInputRef.current?.click();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const mountedRef = useRef(true);
   const compressedFilesRef = useRef(new Map()); // blobUrl → Promise<File>
@@ -3571,6 +3620,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         voiceMemoUrl,
         type: mode,
         prompt: isNote ? (promptText || null) : null,
+        linkedEntryId: existingEntry ? undefined : linkedEntryId,
       });
     } catch (err) {
       alert('Something went wrong saving your entry: ' + (err?.message || String(err)));
@@ -7820,6 +7870,7 @@ function normalizeEntry(e) {
     sharedWith: e.shared_with || { partner: true, family: false, friends: false },
     voiceMemoUrl: e.voice_memo_url || null,
     shareToken: e.share_token || null,
+    linkedEntryId: e.linked_entry_id || null,
   };
 }
 
@@ -7873,6 +7924,7 @@ export default function App() {
   const [friendUserFamilyMap, setFriendUserFamilyMap] = useState({});
   const [compareTarget, setCompareTarget] = useState(null);
   const [recapTarget, setRecapTarget] = useState(null);
+  const [sameAgeMatch, setSameAgeMatch] = useState(null); // { sourceEntry, sourceKid, targetKid }
   // Once a user visits either sub-tab in a merged section, keep the whole
   // group mounted (just hidden) so switching between its tabs is instant —
   // no remount flash, no scroll/filter reset, no refetch.
@@ -8799,7 +8851,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null, linkedEntryId = null }) {
     const shared = Object.values(sharedWith).some(Boolean);
     const primaryKid = kids.find(k => kidIds.includes(k.id)) ?? friendKids.find(k => kidIds.includes(k.id));
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
@@ -8882,6 +8934,7 @@ export default function App() {
         palette,
         media: media.map(item => ({ url: item.url, type: item.type })),
         song: song || null,
+        linkedEntryId,
       };
       setEntries(prev => [newEntry, ...prev]);
       if (milestone) {
@@ -8914,6 +8967,7 @@ export default function App() {
       voice_memo_url: voiceMemoUrlFinal,
       type: entryType,
       prompt,
+      linked_entry_id: linkedEntryId,
     }).select().single();
 
     if (error || !entry) {
@@ -8922,7 +8976,7 @@ export default function App() {
     }
 
     // Optimistically show entry and navigate away immediately
-    const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal };
+    const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, linkedEntryId };
     setEntries(prev => [optimisticEntry, ...prev]);
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone, entry: optimisticEntry });
@@ -9635,11 +9689,38 @@ export default function App() {
           supabase={supabase}
           session={session}
           socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName || ''}
+          onSameAge={(sourceEntry, sourceKid, targetKid) => { setSameAgeMatch({ sourceEntry, sourceKid, targetKid }); setScreen('same-age-match'); }}
+          linkedEntry={entries.find(e => e.id === activeEntry.linkedEntryId) || entries.find(e => e.linkedEntryId === activeEntry.id) || null}
+          onOpenLinkedEntry={openEntry}
+        />
+      )}
+
+      {screen === 'same-age-match' && sameAgeMatch && (
+        <SameAgeMatchScreen
+          sourceEntry={sameAgeMatch.sourceEntry}
+          sourceKid={sameAgeMatch.sourceKid}
+          targetKid={sameAgeMatch.targetKid}
+          onCancel={() => { setScreen('entry-detail'); setSameAgeMatch(null); }}
+          onConfirm={(targetDate) => {
+            const srcMilestone = sameAgeMatch.sourceEntry.milestone;
+            const isCustom = srcMilestone?.startsWith('custom:');
+            setNewEntryInitial({
+              kidIds: [sameAgeMatch.targetKid.id],
+              milestone: srcMilestone ? (isCustom ? 'custom' : srcMilestone) : undefined,
+              customMilestone: isCustom ? srcMilestone.slice(7) : undefined,
+              date: targetDate,
+              linkedEntryId: sameAgeMatch.sourceEntry.id,
+              autoOpenMedia: true,
+            });
+            setComposeMode(sameAgeMatch.sourceEntry.type === 'note' ? 'note' : 'letter');
+            setScreen('new-entry');
+            setSameAgeMatch(null);
+          }}
         />
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
+        <NewEntryScreen kids={kids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} initialDate={newEntryInitial?.date} linkedEntryId={newEntryInitial?.linkedEntryId} autoOpenMedia={newEntryInitial?.autoOpenMedia} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
