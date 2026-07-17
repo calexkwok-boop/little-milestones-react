@@ -532,7 +532,7 @@ export function ReelBottomBar({ activeSlide, activeSong }) {
 // optional share button, and a primary action that's a button on the live
 // reel ("Keep going", closes back to the app) or a link on the shared page
 // ("Start your own family journal", since there's no app to return to).
-export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onShare, onReplay, primaryAction }) {
+export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onShare, onReplay, primaryAction, onStatClick }) {
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#1E2A1E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 32px' }}>
       {onShare && (
@@ -549,18 +549,27 @@ export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onS
       </p>
 
       <div className="fade-up" style={{ display: 'flex', gap: 12, width: '100%', marginBottom: 40, animationDelay: '340ms' }}>
-        <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center' }}>
+        <div
+          onClick={onStatClick ? () => onStatClick(null) : undefined}
+          style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center', cursor: onStatClick ? 'pointer' : undefined }}
+        >
           <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{countedStats.letters}</p>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0, fontWeight: 600 }}>letter{stats.letters !== 1 ? 's' : ''}</p>
         </div>
         {stats.milestones > 0 && (
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center' }}>
+          <div
+            onClick={onStatClick ? () => onStatClick('milestones') : undefined}
+            style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center', cursor: onStatClick ? 'pointer' : undefined }}
+          >
             <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{countedStats.milestones}</p>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0, fontWeight: 600 }}>milestone{stats.milestones !== 1 ? 's' : ''}</p>
           </div>
         )}
         {stats.photos > 0 && (
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center' }}>
+          <div
+            onClick={onStatClick ? () => onStatClick('photos') : undefined}
+            style={{ flex: 1, background: 'rgba(255,255,255,0.07)', borderRadius: 16, padding: '20px 12px', textAlign: 'center', cursor: onStatClick ? 'pointer' : undefined }}
+          >
             <p style={{ fontSize: 36, fontWeight: 800, color: '#C8993E', margin: '0 0 4px', lineHeight: 1 }}>{countedStats.photos}</p>
             <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: 0, fontWeight: 600 }}>photo{stats.photos !== 1 ? 's' : ''}</p>
           </div>

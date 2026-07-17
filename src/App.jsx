@@ -4646,9 +4646,14 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
               </div>
             ) : displayedEntries.length === 0 ? (
               <div className="empty-state">
-                <i className="ti ti-users" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>
-                  {familyIds.length === 0 ? 'Add friends to see the moments they share with you.' : searchQuery ? 'No matches found.' : 'Nothing shared yet.'}
+                <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                  <i className="ti ti-users" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                </div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>
+                  {familyIds.length === 0 ? 'No friends yet' : searchQuery ? 'No matches' : 'Nothing shared yet'}
+                </p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                  {familyIds.length === 0 ? 'Add friends to see the moments they share with you.' : searchQuery ? `No results for "${searchQuery}".` : "When friends share moments, they'll show up here."}
                 </p>
               </div>
             ) : (
@@ -4884,8 +4889,11 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
 
           {filterTab === 'milestone' && !milestoneFilter ? (
             <div className="empty-state">
-              <i className="ti ti-star" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>Pick a milestone above to compare</p>
+              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                <i className="ti ti-star" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>Pick a milestone</p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Choose one above to compare it across ages.</p>
             </div>
           ) : ageGridItems ? (
             /* ── Free-flowing 2-col grid: By Age with 2+ kids ── */
@@ -5307,8 +5315,11 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
 
           {!hasAny && (
             <div className="empty-state">
-              <i className="ti ti-mail" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>No letters yet</p>
+              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                <i className="ti ti-mail" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No letters yet</p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Letters you and your partner write will show up here.</p>
             </div>
           )}
 
@@ -6643,7 +6654,10 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 
           {friends.length === 0 && pendingIncoming.length === 0 && reactionNotifications.length === 0 && birthdayNotifications.length === 0 && !searchQuery && (
             <div className="empty-state">
-              <i className="ti ti-users" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
+              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                <i className="ti ti-users" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No friends yet</p>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>We believe that your personal letters should stay between you and your family. Friends will only see your photos and a little context, nothing more.</p>
             </div>
           )}
@@ -7858,6 +7872,7 @@ export default function App() {
   const [friendFamilyMap, setFriendFamilyMap] = useState({});
   const [friendUserFamilyMap, setFriendUserFamilyMap] = useState({});
   const [compareTarget, setCompareTarget] = useState(null);
+  const [recapTarget, setRecapTarget] = useState(null);
   // Once a user visits either sub-tab in a merged section, keep the whole
   // group mounted (just hidden) so switching between its tabs is instant —
   // no remount flash, no scroll/filter reset, no refetch.
@@ -8562,8 +8577,21 @@ export default function App() {
   // deep-link context so switching sections lands on a generic, not stale, view.
   const switchSection = useCallback((id) => {
     if (id === 'compare') setCompareTarget(null);
+    if (id === 'recap') setRecapTarget(null);
     if (id === 'partner-letters') setLetterAuthorId(null);
     setScreen(id);
+  }, []);
+
+  // Deep-link into the Recap screen (from a reel/slideshow's closing-card
+  // stat tiles) pre-filtered to a specific month and/or stat — reuses
+  // Recap's own filter UI instead of re-implementing it inside the reel.
+  // Like compareTarget above, this only takes effect on Recap's *next*
+  // fresh mount's initial state, not a live re-filter of an already-mounted
+  // Recap screen — same accepted tradeoff this codebase already makes for
+  // compareTarget's own deep-link into Compare.
+  const openRecapFor = useCallback((target) => {
+    setRecapTarget(target);
+    setScreen('recap');
   }, []);
 
   useEffect(() => {
@@ -9638,6 +9666,7 @@ export default function App() {
               onBack={() => setScreen('home')}
               onOpenEntry={openEntry}
               onSwitchSection={switchSection}
+              initialTarget={recapTarget}
             />
           </ScreenErrorBoundary>
         </div>
@@ -9883,6 +9912,7 @@ export default function App() {
             onClose={() => setBirthdaySlideshow(null)}
             onGenerateReelShare={handleGenerateReelShare}
             onRevokeReelShare={handleRevokeReelShare}
+            onStatClick={filter => { const kidId = birthdaySlideshow.id; setBirthdaySlideshow(null); openRecapFor({ viewMode: 'all', kidFilter: kidId, recapFilter: filter }); }}
           />
         </Suspense>
       )}
@@ -9926,6 +9956,7 @@ export default function App() {
               onClose={() => setShowMonthlyReelPreview(false)}
               onGenerateReelShare={handleGenerateReelShare}
               onRevokeReelShare={handleRevokeReelShare}
+              onStatClick={filter => { setShowMonthlyReelPreview(false); openRecapFor({ viewMode: 'month', month: lastMonth, recapFilter: filter }); }}
             />
           </Suspense>
         );

@@ -87,7 +87,7 @@ function SharedEntryScreen({ token, effectiveDark }) {
           href="/"
           style={{ display: 'block', textAlign: 'center', padding: '14px', borderRadius: 12, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--accent)', fontSize: 13.5, fontWeight: 600, textDecoration: 'none' }}
         >
-          Start your own family journal on Patina
+          Never forget a moment, start your own family journal on Patina
         </a>
       </div>
     </div>

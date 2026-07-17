@@ -138,7 +138,7 @@ function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
 
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
-function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, monthLabel, stats, onClose, onGenerateReelShare, onRevokeReelShare }) {
+function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, monthLabel, stats, onClose, onGenerateReelShare, onRevokeReelShare, onStatClick }) {
   const monthEntries = useMemo(() => monthEntriesFor(entries, year, month), [entries, year, month]);
   const monthTextEntries = useMemo(() => monthTextEntriesFor(entries, year, month), [entries, year, month]);
 
@@ -438,6 +438,13 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
       stats,
       song,
       song2: isLongReel ? (song2 || null) : null,
+      // Whole family, not just whoever happens to show up in this month's
+      // slides — this is "whose reel is this" for a visitor who hasn't
+      // watched anything yet, not a cast list of who appears in it.
+      family: [
+        ...kids.map(k => ({ name: k.name, avatar: k.avatar, accent: k.accent })),
+        ...familyMembers.map(m => ({ name: m.real_name || m.display_name || 'Family', avatar: m.avatar_url, accent: null })),
+      ],
       slides: slides.map(s => {
         if (s.type === 'trip') {
           return {
@@ -581,6 +588,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
           onShare={onGenerateReelShare ? () => setShowShareSheet(true) : null}
           onReplay={replay}
           primaryAction={{ label: 'Keep going', onClick: onClose }}
+          onStatClick={onStatClick}
         />
       )}
 

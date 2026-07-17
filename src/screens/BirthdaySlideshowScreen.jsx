@@ -31,7 +31,7 @@ function AmazonIcon({ size = 13, aColor = 'currentColor', arrowColor = '#FF9900'
   );
 }
 
-function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false, viewerEntries = [], viewerKids = [], onGenerateReelShare, onRevokeReelShare }) {
+function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false, viewerEntries = [], viewerKids = [], onGenerateReelShare, onRevokeReelShare, onStatClick }) {
   const slides = useMemo(() => {
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
@@ -530,11 +530,16 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
           {!isFriend && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 48 }}>
               {[
-                { n: countedStats.photos, real: yearStats.photos, singular: 'moment captured', plural: 'moments captured', icon: 'ti-camera' },
-                { n: countedStats.letters, real: yearStats.letters, singular: 'letter written', plural: 'letters written', icon: 'ti-feather' },
-                { n: countedStats.milestones, real: yearStats.milestones, singular: 'milestone celebrated', plural: 'milestones celebrated', icon: 'ti-star' },
-              ].filter(s => s.real > 0).map(({ n, real, singular, plural, icon }, idx) => (
-                <div key={icon} className="fade-up" style={{ display: 'flex', alignItems: 'center', gap: 12, animationDelay: `${400 + idx * 100}ms` }}>
+                { n: countedStats.photos, real: yearStats.photos, singular: 'moment captured', plural: 'moments captured', icon: 'ti-camera', filter: 'photos' },
+                { n: countedStats.letters, real: yearStats.letters, singular: 'letter written', plural: 'letters written', icon: 'ti-feather', filter: null },
+                { n: countedStats.milestones, real: yearStats.milestones, singular: 'milestone celebrated', plural: 'milestones celebrated', icon: 'ti-star', filter: 'milestones' },
+              ].filter(s => s.real > 0).map(({ n, real, singular, plural, icon, filter }, idx) => (
+                <div
+                  key={icon}
+                  className="fade-up"
+                  onClick={onStatClick ? () => onStatClick(filter) : undefined}
+                  style={{ display: 'flex', alignItems: 'center', gap: 12, animationDelay: `${400 + idx * 100}ms`, cursor: onStatClick ? 'pointer' : undefined }}
+                >
                   <i className={`ti ${icon}`} style={{ fontSize: 18, color: '#C8993E', flexShrink: 0, width: 22, textAlign: 'center' }} />
                   <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, color: 'rgba(255,255,255,0.75)', margin: 0 }}>
                     {n} {n === 1 ? singular : plural}.

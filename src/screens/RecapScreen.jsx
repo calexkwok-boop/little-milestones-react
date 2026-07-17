@@ -46,12 +46,12 @@ function RecapEntryRow({ entry, kids, onOpenEntry }) {
   );
 }
 
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
-  const [viewMode, setViewMode] = useState('month');
-  const [selectedMonth, setSelectedMonth] = useState(TODAY.slice(0, 7));
+function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget }) {
+  const [viewMode, setViewMode] = useState(initialTarget?.viewMode || 'month');
+  const [selectedMonth, setSelectedMonth] = useState(initialTarget?.month || TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
-  const [recapFilter, setRecapFilter] = useState(null);
-  const [kidFilter, setKidFilter] = useState(null);
+  const [recapFilter, setRecapFilter] = useState(initialTarget?.recapFilter || null);
+  const [kidFilter, setKidFilter] = useState(initialTarget?.kidFilter || null);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
@@ -193,8 +193,11 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
           {isSearching ? (
             searchResults.length === 0 ? (
               <div className="empty-state">
-                <i className="ti ti-search" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>No matches for "{searchQuery}"</p>
+                <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                  <i className="ti ti-search" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                </div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No matches</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Nothing matches "{searchQuery}".</p>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -252,8 +255,11 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection }) {
 
           {momentCount === 0 ? (
             <div className="empty-state">
-              <i className="ti ti-calendar" style={{ fontSize: 36, color: 'var(--border)', display: 'block', marginBottom: 12 }} />
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>{periodEmpty}</p>
+              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                <i className="ti ti-calendar" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+              </div>
+              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No moments yet</p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>{periodEmpty}</p>
             </div>
           ) : (
             <>

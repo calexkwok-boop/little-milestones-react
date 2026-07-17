@@ -163,6 +163,17 @@ function SharedReelScreen({ token, effectiveDark }) {
 
       {!started && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 9, background: 'rgba(38,58,44,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', textAlign: 'center' }}>
+          {payload.family?.length > 0 && (
+            <div style={{ display: 'flex', marginBottom: 18 }}>
+              {payload.family.map((person, i) => (
+                <div key={i} title={person.name} style={{ width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(38,58,44,0.97)', marginLeft: i > 0 ? -12 : 0, background: person.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  {person.avatar
+                    ? <img src={cloudinaryTransform(person.avatar, 'w_76,h_76,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 14, color: '#fff' }}>{person.name?.charAt(0)}</span>}
+                </div>
+              ))}
+            </div>
+          )}
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'rgba(200,153,62,0.75)', margin: '0 0 16px', letterSpacing: 0.5 }}>
             {isBirthday ? 'A Patina birthday reel' : 'A Patina monthly recap'}
           </p>
