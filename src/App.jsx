@@ -3252,7 +3252,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, initialDate, linkedEntryId = null, autoOpenMedia = false, mode: modeProp, promptText: promptTextProp }) {
+function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, initialDate, linkedEntryId = null, autoOpenMedia = false, mode: modeProp, promptText: promptTextProp, onSameAgeFromDraft }) {
   const [promptText, setPromptText] = useState(promptTextProp || existingEntry?.prompt || null);
   const mode = modeProp || existingEntry?.type || 'letter';
   const isNote = mode === 'note';
@@ -3593,33 +3593,39 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     }
   }
 
+  function buildSavePayload() {
+    return {
+      kids: selectedKids,
+      text: text.trim(),
+      mood: mood || null,
+      milestone: milestoneType === 'custom' ? (customMilestoneText.trim() ? `custom:${customMilestoneText.trim()}` : null) : milestoneType || null,
+      media,
+      fileObjects,
+      compressedFiles: compressedFilesRef.current,
+      date: entryDate,
+      signedAs: signedAs.trim() || null,
+      location: location.trim() || null,
+      locationLat: locationCoords?.lat ?? null,
+      locationLng: locationCoords?.lng ?? null,
+      song: song || null,
+      sharedWith,
+      people: peopleInput.trim() && !people.includes(peopleInput.trim())
+        ? [...people, peopleInput.trim()]
+        : people,
+      voiceMemoBlob,
+      voiceMemoUrl,
+      type: mode,
+      prompt: isNote ? (promptText || null) : null,
+    };
+  }
+
   async function handleSave() {
     if (draftKey) { try { localStorage.removeItem(draftKey); } catch {} }
     setSaving(true);
     try {
       await onSave({
-        kids: selectedKids,
-        text: text.trim(),
-        mood: mood || null,
-        milestone: milestoneType === 'custom' ? (customMilestoneText.trim() ? `custom:${customMilestoneText.trim()}` : null) : milestoneType || null,
-        media,
-        fileObjects,
-        compressedFiles: compressedFilesRef.current,
-        date: entryDate,
+        ...buildSavePayload(),
         entryId: existingEntry?.id,
-        signedAs: signedAs.trim() || null,
-        location: location.trim() || null,
-        locationLat: locationCoords?.lat ?? null,
-        locationLng: locationCoords?.lng ?? null,
-        song: song || null,
-        sharedWith,
-        people: peopleInput.trim() && !people.includes(peopleInput.trim())
-          ? [...people, peopleInput.trim()]
-          : people,
-        voiceMemoBlob,
-        voiceMemoUrl,
-        type: mode,
-        prompt: isNote ? (promptText || null) : null,
         linkedEntryId: existingEntry ? undefined : linkedEntryId,
       });
     } catch (err) {
@@ -3629,7 +3635,23 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     }
   }
 
+  const [showDraftSameAgePicker, setShowDraftSameAgePicker] = useState(false);
+
+  async function handleSameAgeFromDraft(targetKid) {
+    if (draftKey) { try { localStorage.removeItem(draftKey); } catch {} }
+    setSaving(true);
+    try {
+      await onSameAgeFromDraft(buildSavePayload(), targetKid);
+    } catch (err) {
+      alert('Something went wrong saving your entry: ' + (err?.message || String(err)));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const canSave = selectedKids.length > 0 && (text.trim().length > 0 || media.length > 0);
+  const sameAgeTargets = kids.filter(k => k.id !== selectedKids[0]);
+  const canSameAgeFromDraft = !existingEntry && !!onSameAgeFromDraft && selectedKids.length === 1 && media.length > 0 && sameAgeTargets.length > 0;
 
   return (
     <div className="screen" style={{ background: 'var(--bg-card)', position: 'relative' }}>
@@ -3764,6 +3786,11 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                 <button onClick={e => { e.stopPropagation(); const it = media[i]; if (it.url?.startsWith('blob:')) URL.revokeObjectURL(it.url); setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-x" />
                 </button>
+                {i === 0 && canSameAgeFromDraft && (
+                  <button onClick={e => { e.stopPropagation(); if (sameAgeTargets.length === 1) handleSameAgeFromDraft(sameAgeTargets[0]); else setShowDraftSameAgePicker(true); }} title="Same age" style={{ position: 'absolute', bottom: 6, right: 6, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <i className="ti ti-arrows-diff" />
+                  </button>
+                )}
                 {item.type === 'video' && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -4208,6 +4235,24 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
               <button className="btn" style={{ flex: 1, background: '#D4856A', color: '#fff' }} onClick={() => { setShowDeleteConfirm(false); onDelete(existingEntry.id); }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Same-age target-kid picker sheet */}
+      {showDraftSameAgePicker && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDraftSameAgePicker(false)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 36px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 14px', textAlign: 'center' }}>Same age as who?</p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {sameAgeTargets.map(other => (
+                <button key={other.id} onClick={() => { setShowDraftSameAgePicker(false); handleSameAgeFromDraft(other); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer' }}>
+                  <KidThumb kid={other} size={28} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{other.name.split(' ')[0]}</span>
+                </button>
+              ))}
             </div>
           </div>
         </div>
@@ -8851,7 +8896,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null, linkedEntryId = null }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null, linkedEntryId = null, andThen = null }) {
     const shared = Object.values(sharedWith).some(Boolean);
     const primaryKid = kids.find(k => kidIds.includes(k.id)) ?? friendKids.find(k => kidIds.includes(k.id));
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
@@ -8937,7 +8982,9 @@ export default function App() {
         linkedEntryId,
       };
       setEntries(prev => [newEntry, ...prev]);
-      if (milestone) {
+      if (andThen) {
+        andThen(newEntry);
+      } else if (milestone) {
         setCelebration({ kid: primaryKid, milestoneType: milestone, entry: newEntry });
       } else {
         setScreen('home');
@@ -8978,7 +9025,9 @@ export default function App() {
     // Optimistically show entry and navigate away immediately
     const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, linkedEntryId };
     setEntries(prev => [optimisticEntry, ...prev]);
-    if (milestone) {
+    if (andThen) {
+      andThen(optimisticEntry);
+    } else if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone, entry: optimisticEntry });
     } else {
       setScreen('home');
@@ -9720,7 +9769,18 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} initialDate={newEntryInitial?.date} linkedEntryId={newEntryInitial?.linkedEntryId} autoOpenMedia={newEntryInitial?.autoOpenMedia} />
+        <NewEntryScreen kids={kids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} initialDate={newEntryInitial?.date} linkedEntryId={newEntryInitial?.linkedEntryId} autoOpenMedia={newEntryInitial?.autoOpenMedia} onSameAgeFromDraft={(payload, targetKid) => {
+          handleSaveEntry({
+            ...payload,
+            andThen: (savedEntry) => {
+              openEntry(savedEntry);
+              setSameAgeMatch({ sourceEntry: savedEntry, sourceKid: kids.find(k => k.id === payload.kids[0]), targetKid });
+              setScreen('same-age-match');
+            },
+          });
+          setNewEntryInitial(null);
+          setActivePrompt(null);
+        }} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
