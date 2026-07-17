@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../supabase.js';
-import { cloudinaryTransform } from '../constants.js';
+import { cloudinaryTransform, AVATAR_TRANSFORM_SM } from '../constants.js';
 import {
   TRIP_ARC_MS,
   videoThumbUrl, slideDurationMs, ReelSlideVideo, TripSlide, TextSlide,
@@ -168,7 +168,7 @@ function SharedReelScreen({ token, effectiveDark }) {
               {payload.family.map((person, i) => (
                 <div key={i} title={person.name} style={{ width: 38, height: 38, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(38,58,44,0.97)', marginLeft: i > 0 ? -12 : 0, background: person.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   {person.avatar
-                    ? <img src={cloudinaryTransform(person.avatar, 'w_76,h_76,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    ? <img src={cloudinaryTransform(person.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                     : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 14, color: '#fff' }}>{person.name?.charAt(0)}</span>}
                 </div>
               ))}

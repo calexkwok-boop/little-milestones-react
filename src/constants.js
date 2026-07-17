@@ -2,6 +2,14 @@ export const KIDS_INITIAL = [];
 
 export const AMAZON_GIFT_FALLBACK_URL = 'https://www.amazon.com/s?k=gifts+for+kids';
 
+// Two shared avatar transform presets, reused everywhere a kid/friend/member avatar
+// renders — before this, near-identical avatar circles across the app each requested
+// their own slightly different width (w_36, w_40, w_44, w_48...), so the same photo
+// never shared a cached derived asset between screens. Collapsing onto one small and
+// one large size means those views can actually hit the same cache entry.
+export const AVATAR_TRANSFORM_SM = 'w_100,h_100,c_fill,q_auto,f_auto'; // up to ~90px on screen
+export const AVATAR_TRANSFORM_LG = 'w_200,h_200,c_fill,q_auto,f_auto'; // ~100-150px on screen
+
 export const MOODS = ['Proud', 'Joyful', 'Surprised', 'Exhausted', 'Grateful', 'Nostalgic'];
 
 export const MILESTONE_TYPES = [
@@ -99,6 +107,22 @@ export function hexToRgb(hex) {
 export function cloudinaryTransform(url, transforms) {
   if (!url || !url.includes('res.cloudinary.com')) return url;
   return url.replace('/upload/', `/upload/${transforms}/`);
+}
+
+// Cloudinary can render a still frame from a video as a plain jpg — used anywhere
+// a video needs to stand in as a static image (feed thumbnails, and the printed
+// book, which can't play video at all).
+export function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
+  if (!videoUrl || !videoUrl.startsWith('http')) return null;
+  if (videoUrl.includes('res.cloudinary.com')) {
+    return videoUrl
+      .replace('/video/upload/', `/video/upload/${transforms}/`)
+      .replace(/\.[^/.]+$/, '.jpg');
+  }
+  try {
+    const u = new URL(videoUrl);
+    return u.origin + u.pathname.replace(/\.[^/.]+$/, '-thumb.jpg') + u.search;
+  } catch { return null; }
 }
 
 export function entryBgStyle(entry) {

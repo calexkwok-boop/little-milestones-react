@@ -522,7 +522,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
           {/* Kid avatar */}
           <div className="fade-up" style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', marginBottom: 20, flexShrink: 0, background: kid.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', animationDelay: '0ms', animation: 'fadeUp 0.6s ease both 0ms, avatarGlow 2.2s ease-in-out 0.6s infinite' }}>
             {kid.avatar
-              ? <img src={kid.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+              ? <img src={kid.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
               : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 28, color: '#fff' }}>{kid.name?.charAt(0)}</span>
             }
           </div>
@@ -583,7 +583,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
             <i className="ti ti-player-play-filled" style={{ marginLeft: 3 }} />
           </button>
           <div style={{ position: 'absolute', bottom: 28, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <img src="/quill-no-background.png" style={{ width: 15, height: 15, objectFit: 'contain', opacity: 0.25 }} alt="" />
+            <img src="/quill-no-background.png" style={{ width: 15, height: 15, objectFit: 'contain', opacity: 0.25 }} alt="" loading="lazy" />
             <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 12, color: 'rgba(255,255,255,0.25)', letterSpacing: 0.5 }}>Patina</span>
           </div>
         </div>
@@ -604,7 +604,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
             )}
             {(song || song2) && (() => { const s = showingSong2 && song2 ? song2 : song; return s ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center', marginTop: 8 }}>
-                <img src={s.artworkUrl} style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0 }} alt="" />
+                <img src={s.artworkUrl} style={{ width: 22, height: 22, borderRadius: 4, flexShrink: 0 }} alt="" loading="lazy" />
                 <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 200 }}>{s.name} — {s.artist}</p>
               </div>
             ) : null; })()}

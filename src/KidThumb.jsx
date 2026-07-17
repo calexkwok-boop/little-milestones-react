@@ -1,5 +1,5 @@
 import { useState, useEffect, memo } from 'react';
-import { cloudinaryTransform } from './constants.js';
+import { cloudinaryTransform, AVATAR_TRANSFORM_SM } from './constants.js';
 
 const KidThumb = memo(function KidThumb({ kid, size = 24 }) {
   const [broken, setBroken] = useState(false);
@@ -7,7 +7,7 @@ const KidThumb = memo(function KidThumb({ kid, size = 24 }) {
   if (kid.avatar && !broken) {
     return (
       <span className="thumb" style={{ width: size, height: size }}>
-        <img src={cloudinaryTransform(kid.avatar, 'w_100,h_100,c_fill,q_auto,f_auto')} alt={kid.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} />
+        <img src={cloudinaryTransform(kid.avatar, AVATAR_TRANSFORM_SM)} alt={kid.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} loading="lazy" />
       </span>
     );
   }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { cloudinaryTransform } from '../constants.js';
+import { cloudinaryTransform, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG } from '../constants.js';
 
 // Everything in this file is used by BOTH the live in-app reel
 // (MonthlyReelScreen) and its public replay page (SharedReelScreen) — slide
@@ -89,7 +89,7 @@ export function TripSlide({ trip, active, arcMs }) {
             {trip.tripPeople.map((person, i) => (
               <div key={i} title={person.name} style={{ width: 34, height: 34, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(38,58,44,0.97)', marginLeft: i > 0 ? -10 : 0, background: person.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {person.avatar
-                  ? <img src={cloudinaryTransform(person.avatar, 'w_68,h_68,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                  ? <img src={cloudinaryTransform(person.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                   : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 13, color: '#fff' }}>{person.name?.charAt(0)}</span>}
               </div>
             ))}
@@ -158,7 +158,7 @@ export function TextSlide({ slide }) {
       {(avatar || accent || kidFirst) && (
         <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', marginBottom: 18, flexShrink: 0, background: accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {avatar
-            ? <img src={cloudinaryTransform(avatar, 'w_112,h_112,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+            ? <img src={cloudinaryTransform(avatar, AVATAR_TRANSFORM_LG)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
             : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 22, color: '#fff' }}>{kidFirst?.charAt(0)}</span>}
         </div>
       )}
@@ -520,7 +520,7 @@ export function ReelBottomBar({ activeSlide, activeSong }) {
       )}
       {activeSong && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
-          <img src={activeSong.artworkUrl} style={{ width: 20, height: 20, borderRadius: 4, flexShrink: 0 }} alt="" />
+          <img src={activeSong.artworkUrl} style={{ width: 20, height: 20, borderRadius: 4, flexShrink: 0 }} alt="" loading="lazy" />
           <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 220 }}>{activeSong.name} — {activeSong.artist}</p>
         </div>
       )}

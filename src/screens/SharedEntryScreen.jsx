@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../supabase.js';
-import { cloudinaryTransform, exactAgeLabel } from '../constants.js';
+import { cloudinaryTransform, exactAgeLabel, AVATAR_TRANSFORM_SM } from '../constants.js';
 
 function SharedEntryScreen({ token, effectiveDark }) {
   const theme = effectiveDark ? 'dark' : undefined;
@@ -54,7 +54,7 @@ function SharedEntryScreen({ token, effectiveDark }) {
             {entry.media[0].type === 'video' ? (
               <video src={entry.media[0].url} controls playsInline style={{ width: '100%', display: 'block' }} />
             ) : (
-              <img src={cloudinaryTransform(entry.media[0].url, 'w_1000,q_auto,f_auto')} style={{ width: '100%', display: 'block' }} alt="" />
+              <img src={cloudinaryTransform(entry.media[0].url, 'w_1000,q_auto,f_auto')} style={{ width: '100%', display: 'block' }} alt="" loading="lazy" />
             )}
           </div>
         )}
@@ -65,7 +65,7 @@ function SharedEntryScreen({ token, effectiveDark }) {
               {kids.map((k, i) => (
                 <span key={i} style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--bg)', marginLeft: i > 0 ? -14 : 0, background: k.accent || '#C8993E', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {k.avatarUrl
-                    ? <img src={cloudinaryTransform(k.avatarUrl, 'w_100,h_100,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    ? <img src={cloudinaryTransform(k.avatarUrl, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                     : <span style={{ color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: "'Urbanist', sans-serif" }}>{k.name?.[0]?.toUpperCase()}</span>}
                 </span>
               ))}

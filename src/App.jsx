@@ -20,7 +20,8 @@ import SameAgeMatchScreen from './screens/SameAgeMatchScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY, AMAZON_GIFT_FALLBACK_URL,
-  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, cloudinaryTransform, sameAgeSides,
+  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, cloudinaryTransform, sameAgeSides, videoThumbUrl,
+  AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG,
 } from './constants.js';
 
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
@@ -129,19 +130,6 @@ function dataUrlToBlob(dataUrl) {
   const arr = new Uint8Array(bytes.length);
   for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
   return new Blob([arr], { type: mime });
-}
-
-function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
-  if (!videoUrl || !videoUrl.startsWith('http')) return null;
-  if (videoUrl.includes('res.cloudinary.com')) {
-    return videoUrl
-      .replace('/video/upload/', `/video/upload/${transforms}/`)
-      .replace(/\.[^/.]+$/, '.jpg');
-  }
-  try {
-    const u = new URL(videoUrl);
-    return u.origin + u.pathname.replace(/\.[^/.]+$/, '-thumb.jpg') + u.search;
-  } catch { return null; }
 }
 
 // Fire-and-forget push notification to another user — mirrors how notify-partner
@@ -364,7 +352,7 @@ function AvatarImg({ src, alt, fallback }) {
     setBroken(false);
   }, [src]);
   if (!src || broken) return fallback;
-  return <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} />;
+  return <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} loading="lazy" />;
 }
 
 function KidChip({ kid, active, onClick, icon, label }) {
@@ -385,7 +373,7 @@ function AuthorChip({ member, onClick, active }) {
     <div className={`kid-chip ${active ? 'active' : ''}`} onClick={onClick} style={{ cursor: 'pointer', ...(active ? { background: 'var(--accent)' } : {}) }}>
       <span className="thumb" style={member.avatar_url ? {} : { background: 'var(--bg-elevated)', color: 'var(--accent)', fontSize: 10, fontWeight: 700 }}>
         {member.avatar_url
-          ? <img src={cloudinaryTransform(member.avatar_url, 'w_100,h_100,c_fill,q_auto,f_auto')} alt="" />
+          ? <img src={cloudinaryTransform(member.avatar_url, AVATAR_TRANSFORM_SM)} alt="" loading="lazy" />
           : (member.real_name || member.display_name)?.charAt(0)?.toUpperCase() || '?'}
       </span>
       {(member.real_name || member.display_name)?.split(' ')[0] || 'Me'}
@@ -616,7 +604,7 @@ function CropModal({ url, cropY, cardHeight, onSave, onClose }) {
         onScroll={handleScroll}
         style={{ height: cardHeight, overflowY: 'scroll', WebkitOverflowScrolling: 'touch', margin: '0 0' }}
       >
-        <img ref={imgRef} src={url} style={{ width: '100%', display: 'block' }} onLoad={handleLoad} alt="" />
+        <img ref={imgRef} src={url} style={{ width: '100%', display: 'block' }} onLoad={handleLoad} alt="" loading="lazy" />
       </div>
       {loaded && (
         <div style={{ display: 'flex', gap: 16, justifyContent: 'center', padding: '16px 24px 0' }}>
@@ -699,7 +687,7 @@ function BookCropModal({ url, mediaType, cropY, cardHeight, photoWidth, onSave, 
           }}
         >
           <div style={{ paddingTop: topPad, paddingBottom: topPad }}>
-            <img ref={mediaRef} src={isVideo ? videoThumbUrl(url) : url} style={{ width: '100%', display: 'block' }} onLoad={handleReady} alt="" />
+            <img ref={mediaRef} src={isVideo ? videoThumbUrl(url) : url} style={{ width: '100%', display: 'block' }} onLoad={handleReady} alt="" loading="lazy" />
           </div>
         </div>
 
@@ -1727,7 +1715,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 {kids.map((k, i) => (
                   <div key={k.id} onClick={() => { if (!onAvatarUpload) return; avatarUploadKidIdRef.current = k.id; setShowAvatarSheet(true); }} style={{ width: 116, height: 116, borderRadius: '50%', background: k.accent || 'var(--border)', border: '3px solid var(--bg)', marginLeft: i > 0 ? -24 : 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                     {k.avatar
-                      ? <img src={cloudinaryTransform(k.avatar, 'w_232,h_232,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ? <img src={cloudinaryTransform(k.avatar, 'w_232,h_232,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                       : <span style={{ fontSize: 44, fontWeight: 700, color: '#fff' }}>{k.name.charAt(0)}</span>}
                   </div>
                 ))}
@@ -1810,7 +1798,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               {/* Kid avatar */}
               <div style={{ width: 56, height: 56, borderRadius: '50%', overflow: 'hidden', margin: '0 auto 14px', border: '2px solid rgba(200,153,62,0.5)', background: k.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {k.avatar
-                  ? <img src={k.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                  ? <img src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                   : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 22, color: '#fff' }}>{k.name?.charAt(0)}</span>
                 }
               </div>
@@ -2105,7 +2093,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                           </button>
                           <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(200,153,62,0.5)', background: k.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             {k.avatar
-                              ? <img src={k.avatar} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                              ? <img src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                               : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 18, color: '#fff' }}>{k.name?.charAt(0)}</span>
                             }
                           </div>
@@ -2137,7 +2125,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                         <div style={{ height: 136, position: 'relative', overflow: 'hidden', background: hasPhoto ? '#000' : (entry.palette?.bg || 'var(--bg-elevated)'), ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                           <div style={{ position: 'absolute', top: 7, left: 7, width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.92)', border: '1.5px solid rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>
                             {friendAvatar
-                              ? <img src={cloudinaryTransform(friendAvatar, 'w_48,h_48,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ? <img src={cloudinaryTransform(friendAvatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                               : friendName?.charAt(0) || '?'}
                           </div>
                         </div>
@@ -2186,7 +2174,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 16px 12px', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
                 {resolvedAvatar
-                  ? <img src={cloudinaryTransform(resolvedAvatar, 'w_72,h_72,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={cloudinaryTransform(resolvedAvatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                   : resolvedName?.charAt(0) || '?'}
               </div>
               <div style={{ flex: 1 }}>
@@ -2374,7 +2362,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
           {heroMedia.type === 'video'
             ? playingHero
               ? <video src={heroMedia.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              : <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+              : <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
             : <CroppedImg src={cloudinaryTransform(heroMedia.url, 'w_1200,q_auto,f_auto')} cropY={entry.cropY ?? 50} fade />
           }
           {heroMedia.type === 'video' && !playingHero && (
@@ -2432,7 +2420,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
                 {extraMedia.map((mm, i) => (
                   <div key={i} className="journal-thumb" style={{ position: 'relative' }}>
                     {mm.type === 'video'
-                      ? <img src={videoThumbUrl(mm.url, 'so_0,w_200,h_200,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} alt="" />
+                      ? <img src={videoThumbUrl(mm.url, 'so_0,w_200,h_200,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} alt="" loading="lazy" />
                       : <FadeImg src={cloudinaryTransform(mm.url, 'w_200,h_200,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
                     }
                     {mm.type === 'video' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-player-play" style={{ fontSize: 12, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} /></div>}
@@ -2612,7 +2600,7 @@ const SongPlayer = memo(function SongPlayer({ song }) {
         onEnded={() => { setPlaying(false); setProgress(0); }}
         onTimeUpdate={() => { const a = audioRef.current; if (a && a.duration) setProgress(a.currentTime / a.duration); }}
       />
-      <img src={song.artworkUrl} style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" />
+      <img src={song.artworkUrl} style={{ width: 44, height: 44, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
         <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.artist}</p>
@@ -2660,7 +2648,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch }) {
   // Only the author can edit or delete an entry's content — family members
   // may only adjust the photo crop (handled separately, below).
   const isOwn = entry.userId === session?.user?.id;
@@ -2668,6 +2656,12 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
   const [activeSlide, setActiveSlide] = useState(0);
+
+  function handleSetCoverPhoto(photo) {
+    if (!photo || media[0] === photo || !onReorderMedia) return;
+    setActiveSlide(0);
+    onReorderMedia(entry.id, [photo, ...media.filter(m => m !== photo)]);
+  }
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const [cropY, setCropY] = useState(entry.cropY ?? 50);
@@ -2888,15 +2882,25 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <div className="milestone-entry" style={{ borderRadius: 16, padding: 12 }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px', textAlign: 'center' }}>Same age</p>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  {[sides.anchor, sides.match].map((side, i) => (
+                  {[sides.anchor, sides.match].map((side, i) => {
+                    const isCover = !!side.photo && media[0] === side.photo;
+                    return (
                     <div key={i} style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-elevated)' }}>
-                        {side.photo && <img src={cloudinaryTransform(side.photo.url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />}
+                      <div
+                        onClick={() => handleSetCoverPhoto(side.photo)}
+                        title={onReorderMedia && side.photo ? (isCover ? 'Current cover photo' : 'Set as cover photo') : undefined}
+                        style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-elevated)', position: 'relative', cursor: onReorderMedia && side.photo && !isCover ? 'pointer' : 'default' }}
+                      >
+                        {side.photo && <img src={cloudinaryTransform(side.photo.url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />}
+                        {isCover && (
+                          <span style={{ position: 'absolute', top: 5, left: 5, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 8.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', padding: '3px 6px', borderRadius: 6 }}>Cover</span>
+                        )}
                       </div>
                       <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', margin: '6px 0 0', textAlign: 'center' }}>{side.kid.name.split(' ')[0]}</p>
                       <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '1px 0 0', textAlign: 'center' }}>{exactAgeLabel(side.kid.birthdate, side.date)} old</p>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '10px 0 0', textAlign: 'center' }}>
                   {daysApart === 0 ? 'Exact match' : `${daysApart} day${daysApart !== 1 ? 's' : ''} apart`}
@@ -3093,7 +3097,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 18 }}>
               <div style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-elevated)' }}>
-                <img src={pendingSameAgeMatch.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                <img src={pendingSameAgeMatch.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
               </div>
               <div>
                 <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Add {pendingSameAgeMatch.targetKid.name.split(' ')[0]} to this post?</p>
@@ -3803,7 +3807,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                   return (
                     <div key={id} style={{ width: 68, height: 68, borderRadius: '50%', background: k.accent || 'var(--border)', border: '3px solid var(--bg-card)', marginLeft: i > 0 ? -18 : 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       {k.avatar
-                        ? <img src={cloudinaryTransform(k.avatar, 'w_136,h_136,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ? <img src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_LG)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                         : <span style={{ fontSize: 26, fontWeight: 700, color: '#fff' }}>{k.name.charAt(0)}</span>}
                     </div>
                   );
@@ -3859,9 +3863,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
               <div key={i} style={{ width: 165, aspectRatio: '4/3', borderRadius: 12, overflow: 'hidden', position: 'relative', flexShrink: 0, cursor: 'pointer' }} onClick={() => setPreviewMedia(item)}>
                 {item.type === 'video'
                   ? item.thumbnail
-                    ? <img src={item.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                    ? <img src={item.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                     : <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
-                  : <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                  : <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                 }
                 <button onClick={e => { e.stopPropagation(); const it = media[i]; if (it.url?.startsWith('blob:')) URL.revokeObjectURL(it.url); setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <i className="ti ti-x" />
@@ -3972,7 +3976,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
           <div onClick={() => setPreviewMedia(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {previewMedia.type === 'video'
               ? <video src={previewMedia.url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} controls autoPlay playsInline onClick={e => e.stopPropagation()} />
-              : <img src={previewMedia.url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="" />
+              : <img src={previewMedia.url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="" loading="lazy" />
             }
             <button onClick={() => setPreviewMedia(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18 }}>
               <i className="ti ti-x" />
@@ -4235,7 +4239,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             </div>
             {song ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-elevated)', borderRadius: 14, padding: '12px 14px' }}>
-                <img src={song.artworkUrl} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} alt="" />
+                <img src={song.artworkUrl} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '3px 0 0' }}>{song.artist}</p>
@@ -4265,7 +4269,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                         onClick={() => { setSong({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100.replace('100x100bb', '300x300bb'), previewUrl: r.previewUrl }); setSongQuery(''); setSongResults([]); }}
                         style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', border: 'none', borderBottom: i < songResults.length - 1 ? '1px solid var(--border)' : 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: "'Urbanist', sans-serif" }}
                       >
-                        <img src={r.artworkUrl100} style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" />
+                        <img src={r.artworkUrl100} style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.trackName}</p>
                           <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.artistName}</p>
@@ -4612,7 +4616,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px 10px' }}>
           <span className="thumb" style={{ width: 42, height: 42, fontSize: 15, flexShrink: 0 }}>
             {friendInfo.avatar
-              ? <img src={cloudinaryTransform(friendInfo.avatar, 'w_84,h_84,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+              ? <img src={cloudinaryTransform(friendInfo.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
               : (friendInfo.name || '?')[0]}
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -4681,7 +4685,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
               {entryKids.map((k, i) => (
                 <span key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, display: 'inline-block', width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--bg-card)', background: k.accent || 'var(--bg-elevated)', flexShrink: 0 }}>
                   {k.avatar
-                    ? <img src={cloudinaryTransform(k.avatar, 'w_48,h_48,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                    ? <img src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                     : <span style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff' }}>{k.name[0]}</span>
                   }
                 </span>
@@ -4754,7 +4758,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             {/* Profile header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '0 20px 20px' }}>
               {profileInfo?.avatar
-                ? <img src={cloudinaryTransform(profileInfo.avatar, 'w_128,h_128,c_fill,q_auto,f_auto')} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} alt="" />
+                ? <img src={cloudinaryTransform(profileInfo.avatar, AVATAR_TRANSFORM_LG)} style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
                 : <span style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--accent)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
                     {(profileInfo?.name || '?')[0]}
                   </span>
@@ -4780,7 +4784,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                     <div key={entry.id} onClick={() => setSelectedEntry(entry)} style={{ aspectRatio: '1', background: 'var(--border)', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}>
                       {thumb ? (
                         thumb.type === 'video'
-                          ? <img src={videoThumbUrl(thumb.url, 'so_0,w_400,h_400,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                          ? <img src={videoThumbUrl(thumb.url, 'so_0,w_400,h_400,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                           : <img src={cloudinaryTransform(thumb.url, 'w_400,h_400,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                       ) : (
                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -4906,7 +4910,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
   const [excludedKidIds, setExcludedKidIds] = useState([]);
   const [showFriendPicker, setShowFriendPicker] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
-  const ages = [12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
+  const ages = [0, 12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
 
   const selectedFriendKids = friendKids.filter(k => selectedFriendKidIds.includes(k.id));
   const isSearching = searchQuery.trim().length > 0;
@@ -5052,7 +5056,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                   style={{ padding: '7px 14px', ...(compareAge === age ? { background: 'var(--accent)' } : {}) }}
                   onClick={() => setCompareAge(age)}
                 >
-                  {ageLabel(age)}
+                  {age === 0 ? 'Under 1yr' : ageLabel(age)}
                 </div>
               ))}
             </div>
@@ -5114,7 +5118,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                     >
                       <div style={{ width: 18, height: 18, borderRadius: '50%', background: kid.accent || 'var(--border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {kid.avatar
-                          ? <img src={cloudinaryTransform(kid.avatar, 'w_36,h_36,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ? <img src={cloudinaryTransform(kid.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                           : <span style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{kid.name.charAt(0)}</span>}
                       </div>
                       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-2)' }}>{kid.name}</span>
@@ -5190,7 +5194,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                               {playingVideoId !== e.id && (
                                 <div style={{ position: 'absolute', top: 7, right: 7, width: 22, height: 22, borderRadius: '50%', background: kid.accent || 'var(--border)', border: '2px solid rgba(255,255,255,0.9)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
                                   {kid.avatar
-                                    ? <img src={cloudinaryTransform(kid.avatar, 'w_44,h_44,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ? <img src={cloudinaryTransform(kid.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                                     : <span style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{kid.name.charAt(0)}</span>}
                                 </div>
                               )}
@@ -5313,7 +5317,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             <div onClick={e => e.stopPropagation()} style={{ width: '100%', borderRadius: 16, overflow: 'hidden' }}>
               {media?.type === 'video'
                 ? <video src={media.url} controls autoPlay playsInline style={{ width: '100%', display: 'block', maxHeight: '65vh', objectFit: 'contain', background: '#000' }} />
-                : <img src={media?.url || ''} alt="" style={{ width: '100%', display: 'block', maxHeight: '65vh', objectFit: 'contain', background: entry.palette?.bg || '#111' }} />
+                : <img src={media?.url || ''} alt="" style={{ width: '100%', display: 'block', maxHeight: '65vh', objectFit: 'contain', background: entry.palette?.bg || '#111' }} loading="lazy" />
               }
             </div>
             <div style={{ marginTop: 14, alignSelf: 'flex-start', paddingLeft: 4 }}>
@@ -5790,7 +5794,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   onClick={() => { setUploadKidId(k.id); fileInputRef.current?.click(); }}
                   title="Tap to change photo"
                 >
-                  <AvatarImg src={cloudinaryTransform(k.avatar, 'w_200,h_200,c_fill,q_auto,f_auto')} alt={k.name} fallback={<i className="ti ti-camera" />} />
+                  <AvatarImg src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_LG)} alt={k.name} fallback={<i className="ti ti-camera" />} />
                   {avatarUploading && uploadKidId === k.id && (
                     <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <i className="ti ti-loader-2" style={{ fontSize: 22, color: '#fff', animation: 'spin 1s linear infinite' }} />
@@ -5843,7 +5847,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                     onClick={() => { if (!isSelf) return; setActiveFamilyAvatarId(m.id || m.user_id); familyAvatarInputRef.current?.click(); }}
                     style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: isSelf ? 'pointer' : 'default', flexShrink: 0, position: 'relative' }}
                   >
-                    <AvatarImg src={cloudinaryTransform(m.avatar_url, 'w_200,h_200,c_fill,q_auto,f_auto')} alt={m.display_name} fallback={<i className="ti ti-user" style={{ fontSize: 16, color: 'var(--accent)' }} />} />
+                    <AvatarImg src={cloudinaryTransform(m.avatar_url, AVATAR_TRANSFORM_LG)} alt={m.display_name} fallback={<i className="ti ti-user" style={{ fontSize: 16, color: 'var(--accent)' }} />} />
                     {avatarUploading && isSelf && <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-loader-2" style={{ fontSize: 14, color: '#fff', animation: 'spin 1s linear infinite' }} /></div>}
                   </div>
                   <div
@@ -6465,7 +6469,7 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   if (avatarUrl && !broken) {
     return (
       <span className="thumb" style={{ width: size, height: size, flexShrink: 0 }}>
-        <img src={avatarUrl} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} />
+        <img src={cloudinaryTransform(avatarUrl, AVATAR_TRANSFORM_SM)} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} loading="lazy" />
       </span>
     );
   }
@@ -6840,7 +6844,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                             <span key={k.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: isBirthday ? '#C8993E' : 'var(--text-2)', fontWeight: isBirthday ? 700 : 400, background: isBirthday ? 'rgba(200,153,62,0.15)' : 'var(--bg-elevated)', border: isBirthday ? '1px solid rgba(200,153,62,0.35)' : 'none', borderRadius: 999, padding: '3px 10px 3px 4px' }}>
                               <span style={{ width: 20, height: 20, borderRadius: '50%', background: k.accent || KID_ACCENTS[0], overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 {k.avatar
-                                  ? <img src={cloudinaryTransform(k.avatar, 'w_40,h_40,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                                  ? <img src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                                   : <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{k.name?.[0]?.toUpperCase()}</span>}
                               </span>
                               {k.name}
@@ -6894,7 +6898,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                         <span key={k.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text-2)', background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 10px 3px 4px' }}>
                           <span style={{ width: 20, height: 20, borderRadius: '50%', background: k.accent || KID_ACCENTS[0], overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                             {k.avatar
-                              ? <img src={cloudinaryTransform(k.avatar, 'w_40,h_40,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />
+                              ? <img src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                               : <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{k.name?.[0]?.toUpperCase()}</span>}
                           </span>
                           {k.name}
@@ -6923,7 +6927,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                       return (
                         <div key={e.id} style={{ aspectRatio: '1', overflow: 'hidden', cursor: 'pointer', position: 'relative', background: 'var(--bg-elevated)' }}
                           onClick={() => { const entryKids = theirKids.filter(k => (e.kids || []).includes(k.id)); setFriendViewer({ entry: e, entryKids: entryKids.length ? entryKids : theirKids, friendName: name, friendAvatar: avatar }); }}>
-                          <img src={thumbSrc} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                          <img src={thumbSrc} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                           {isVideo && (
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -6954,7 +6958,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
             {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 16px 12px', flexShrink: 0 }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700, color: 'var(--text)', flexShrink: 0 }}>
-                {friendAvatar ? <img src={cloudinaryTransform(friendAvatar, 'w_72,h_72,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : friendName?.charAt(0) || '?'}
+                {friendAvatar ? <img src={cloudinaryTransform(friendAvatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" /> : friendName?.charAt(0) || '?'}
               </div>
               <div style={{ flex: 1 }}>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{friendName || 'Friend'}</p>
@@ -7063,7 +7067,7 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) 
               {tab.id === 'profile' ? (
                 myAvatarUrl ? (
                   <span style={{ width: 48, height: 48, borderRadius: '50%', overflow: 'hidden', display: 'block', border: `2px solid ${tab.group.includes(active) ? 'var(--accent)' : 'transparent'}` }}>
-                    <img src={cloudinaryTransform(myAvatarUrl, 'w_144,h_144,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                    <img src={cloudinaryTransform(myAvatarUrl, AVATAR_TRANSFORM_LG)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                   </span>
                 ) : (
                   <i className={`ti ${tab.icon}`} style={{ fontSize: 38 }} />
@@ -7803,7 +7807,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                 }}
               >
                 {avatar
-                  ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                   : initial
                     ? <span style={{ fontSize: 48, fontWeight: 700, color: '#fff', fontFamily: "'Urbanist', sans-serif" }}>{initial}</span>
                     : <i className="ti ti-camera" style={{ fontSize: 32, color: 'rgba(255,255,255,0.7)' }} />
@@ -7826,7 +7830,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                   border: avatar ? '2px solid #ECE5D6' : 'none',
                 }}>
                   {avatar
-                    ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                     : <span style={{ fontSize: 32, fontWeight: 700, color: '#fff', fontFamily: "'Urbanist', sans-serif" }}>{initial}</span>
                   }
                 </div>
@@ -7940,7 +7944,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                   onClick={() => profilePhotoInputRef.current?.click()}
                 >
                   {profilePhoto
-                    ? <img src={profilePhoto} alt="You" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ? <img src={profilePhoto} alt="You" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                     : <i className="ti ti-camera" style={{ fontSize: 24 }} />
                   }
                 </div>
@@ -8916,6 +8920,38 @@ export default function App() {
     }
   }
 
+  // Cloudinary secure_urls we store are always the raw upload response (no
+  // transformation segment baked in), so the public_id is reliably whatever
+  // sits between the version segment and the file extension.
+  function cloudinaryPublicId(url) {
+    if (!url || !url.includes('res.cloudinary.com')) return null;
+    const m = url.match(/\/upload\/(?:v\d+\/)?(.+?)\.[a-zA-Z0-9]+(?:$|\?)/);
+    return m ? m[1] : null;
+  }
+
+  // Deleting an entry (or replacing its media on edit) only ever removed the
+  // Supabase rows — the actual Cloudinary asset was never destroyed, so every
+  // deleted/replaced photo or video just sat there counting against storage
+  // and bandwidth credits forever. Fire this alongside every deletion/edit path.
+  async function deleteCloudinaryMedia(mediaItems, extraVideoUrls = []) {
+    if (!supabase || !session) return;
+    const resources = [];
+    for (const item of mediaItems || []) {
+      const publicId = cloudinaryPublicId(item?.url);
+      if (publicId) resources.push({ publicId, resourceType: item.type === 'video' ? 'video' : 'image' });
+    }
+    for (const url of extraVideoUrls) {
+      const publicId = cloudinaryPublicId(url);
+      if (publicId) resources.push({ publicId, resourceType: 'video' }); // voice memos upload as 'video'
+    }
+    if (resources.length === 0) return;
+    try {
+      await supabase.functions.invoke('delete-media', { body: { resources } });
+    } catch (err) {
+      console.error('Cloudinary cleanup failed (non-fatal — Supabase rows are already gone):', err);
+    }
+  }
+
   function storagePathsFromMedia(mediaItems) {
     const paths = [];
     const marker = '/object/public/media/';
@@ -8948,7 +8984,9 @@ export default function App() {
       console.error('Delete entry failed:', error || 'no rows deleted (blocked by RLS?)');
       if (removed) setEntries(prev => prev.some(e => e.id === entryId) ? prev : [removed, ...prev]);
       alert('Could not delete this entry. Please try again.\n' + (error?.message || 'You may not have permission to delete this post.'));
+      return;
     }
+    if (removed) deleteCloudinaryMedia(removed.media, removed.voiceMemoUrl ? [removed.voiceMemoUrl] : []);
   }
 
   async function handleQuickDelete(entryId) {
@@ -8965,7 +9003,9 @@ export default function App() {
       console.error('Delete entry failed:', error || 'no rows deleted (blocked by RLS?)');
       if (removed) setEntries(prev => prev.some(e => e.id === entryId) ? prev : [removed, ...prev]);
       alert('Could not delete this entry. Please try again.\n' + (error?.message || 'You may not have permission to delete this post.'));
+      return;
     }
+    if (removed) deleteCloudinaryMedia(removed.media, removed.voiceMemoUrl ? [removed.voiceMemoUrl] : []);
   }
 
   async function handleRefresh() {
@@ -9064,6 +9104,14 @@ export default function App() {
         alert('Could not save your changes. Please try again.\n' + updateError.message);
         return;
       }
+      // Whatever old media/voice memo this edit drops (removed photos, a re-recorded
+      // voice memo) is about to become an orphaned Cloudinary asset otherwise — the
+      // entry_media rows below are gone either way, but nothing destroys the asset itself.
+      const oldEntry = entries.find(e => e.id === entryId);
+      const droppedMedia = (oldEntry?.media || []).filter(m => !media.some(nm => nm.url === m.url));
+      const droppedVoiceMemo = oldEntry?.voiceMemoUrl && oldEntry.voiceMemoUrl !== voiceMemoUrlFinal ? [oldEntry.voiceMemoUrl] : [];
+      deleteCloudinaryMedia(droppedMedia, droppedVoiceMemo);
+
       await supabase.from('entry_media').delete().eq('entry_id', entryId);
       setScreen('home');
       const { saved, failed } = await prepareAndUpload(media, fileObjects, entryId);
@@ -9186,7 +9234,9 @@ export default function App() {
     if (dbError) {
       setKids(prev => prev.map(k => k.id === kidId ? { ...k, avatar: previousAvatar } : k));
       alert('Photo saved locally but failed to sync: ' + dbError.message);
+      return;
     }
+    if (previousAvatar) deleteCloudinaryMedia([{ url: previousAvatar, type: 'image' }]);
   }
 
   async function handleUpdateLocation(entryId, location, lat, lng) {
@@ -9234,6 +9284,18 @@ export default function App() {
     } catch (err) {
       alert('Could not save that photo. Please try again.\n' + (err?.message || ''));
     }
+  }
+
+  // Reorders an entry's photos/videos — used to let the user pick which of a
+  // same-age pair's two photos shows as the post's cover. Media has no explicit
+  // position column, so persisting a new order means delete + re-insert in the
+  // desired sequence (mirroring the same technique handleSaveEntry's edit path
+  // already uses whenever an entry's media set changes).
+  async function handleReorderMedia(entryId, orderedMedia) {
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, media: orderedMedia } : e));
+    if (localMode || !supabase || !session) return;
+    await supabase.from('entry_media').delete().eq('entry_id', entryId);
+    await supabase.from('entry_media').insert(orderedMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type, kid_id: m.kidId ?? null })));
   }
 
   async function handleToggleEntryShared(entryId, sharedWith) {
@@ -9643,6 +9705,7 @@ export default function App() {
     } else {
       // Keep profiles in sync so avatar shows in friend search
       await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', session.user.id);
+      if (previousAvatar) deleteCloudinaryMedia([{ url: previousAvatar, type: 'image' }]);
     }
     setAvatarUploading(false);
   }
@@ -9787,7 +9850,7 @@ export default function App() {
             friends={friends}
             friendFamilyMap={friendFamilyMap}
             onCompareAtAge={(kidId, ageMonths) => {
-              const ages = [12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
+              const ages = [0, 12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
               const bucket = ages.reduce((best, a) => ageMonths >= a ? a : best, ages[0]);
               setCompareTarget({ kidId, compareAge: bucket });
               setScreen('compare');
@@ -9865,6 +9928,7 @@ export default function App() {
           onUpdateLocation={handleUpdateLocation}
           onUpdatePeople={handleUpdatePeople}
           onUpdateKids={handleUpdateKids}
+          onReorderMedia={handleReorderMedia}
           onToggleShared={!localMode ? handleToggleEntryShared : undefined}
           onGenerateShareLink={handleGenerateShareLink}
           onRevokeShareLink={handleRevokeShareLink}
@@ -9942,7 +10006,7 @@ export default function App() {
             friendKids={friendKids}
             friendFamilyMap={friendFamilyMap}
             onCompareAtAge={(kidId, ageMonths) => {
-              const ages = [12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
+              const ages = [0, 12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
               const bucket = ages.reduce((best, a) => ageMonths >= a ? a : best, ages[0]);
               setCompareTarget({ kidId, compareAge: bucket });
               setScreen('compare');

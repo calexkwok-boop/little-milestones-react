@@ -1,5 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
-import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides } from '../constants.js';
+import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl } from '../constants.js';
 
 // `cropY` is saved as "the point in the photo that should stay centered" (0-100, top-to-bottom),
 // not a raw scroll-percentage — so it has to be re-projected into an `object-position` value
@@ -37,7 +37,7 @@ function CroppedPhoto({ src, cropY = 50, height = 200, width, style }) {
 
   return (
     <div ref={containerRef} style={{ height, width, overflow: 'hidden', flexShrink: 0, ...style }}>
-      <img ref={imgRef} src={src} onLoad={recompute} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${objY}%`, display: 'block' }} alt="" />
+      <img ref={imgRef} src={src} onLoad={recompute} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${objY}%`, display: 'block' }} alt="" loading="lazy" />
     </div>
   );
 }
@@ -103,7 +103,7 @@ const LETTER_SIDE_PAD = 48; // 24px left + right
 
 function splitLetterToPages(entry, el, fontSize, pageWidth) {
   const text = entry.text || '';
-  const hasPhoto = entry.media?.length > 0 && entry.media[0].type !== 'video';
+  const hasPhoto = entry.media?.length > 0;
   const textWidth = pageWidth - LETTER_SIDE_PAD;
   const pageHeight = pageWidth * 4 / 3;
   const chunks = [];
@@ -126,12 +126,25 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
   const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
   const salutation = entryKids.map(k => k.name.split(' ')[0]).join(' & ');
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  const photo = !isContinued && entry.media?.length > 0 && entry.media[0].type !== 'video' ? entry.media[0] : null;
+  const photo = !isContinued && entry.media?.length > 0 ? entry.media[0] : null;
+  const photoIsVideo = photo?.type === 'video';
+  const photoSrc = photo ? (photoIsVideo ? videoThumbUrl(photo.url, 'so_0,w_700,q_auto,f_auto') : cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto')) : null;
   const cropY = entry.cropY ?? 50;
   const photoHeight = 220;
   return (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      {photo && <CroppedPhoto src={cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto')} cropY={cropY} height={photoHeight} />}
+      {photoSrc && (
+        <div style={{ position: 'relative' }}>
+          <CroppedPhoto src={photoSrc} cropY={cropY} height={photoHeight} />
+          {photoIsVideo && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 17 }} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <div style={{ flex: 1, padding: '18px 24px 12px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, fontWeight: 700, color: '#B8C8B4', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>
           {dateLabel}{isContinued ? ' — cont\'d' : ''}
@@ -182,7 +195,8 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
             const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
             const isPrompt = !!entry.prompt;
 
-            const photo = entry.media?.find(m => m.type !== 'video');
+            const photo = entry.media?.[0];
+            const photoSrc = photo ? (photo.type === 'video' ? videoThumbUrl(photo.url, 'so_0,w_140,q_auto,f_auto') : cloudinaryTransform(photo.url, 'w_140,q_auto,f_auto')) : null;
 
             if (isPrompt) {
               return (
@@ -201,7 +215,7 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
                   </div>
                   <div style={{ background: '#FFFDF8', padding: '8px 9px 7px', display: photo ? 'flex' : 'block', gap: 9 }}>
                     {photo && (
-                      <CroppedPhoto src={cloudinaryTransform(photo.url, 'w_140,q_auto,f_auto')} cropY={entry.cropY} height={66} width={66} style={{ borderRadius: 6 }} />
+                      <CroppedPhoto src={photoSrc} cropY={entry.cropY} height={66} width={66} style={{ borderRadius: 6 }} />
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{
@@ -283,22 +297,34 @@ function PairedPage({ entry, kids }) {
   return (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '16px 24px 10px', textAlign: 'center' }}>
-        Same age, apart in time
+        At the same age
       </p>
       <div style={{ display: 'flex', gap: 2 }}>
-        {pair.map((side, i) => (
-          side.photo
-            ? <CroppedPhoto key={i} src={cloudinaryTransform(side.photo.url, 'w_400,q_auto,f_auto')} cropY={entry.cropY} height={150} style={{ flex: 1 }} />
-            : <div key={i} style={{ flex: 1, height: 150, background: '#EDE8DE' }} />
-        ))}
+        {pair.map((side, i) => {
+          if (!side.photo) return <div key={i} style={{ flex: 1, height: 150, background: '#EDE8DE' }} />;
+          const isVideo = side.photo.type === 'video';
+          const src = isVideo ? videoThumbUrl(side.photo.url, 'so_0,w_400,q_auto,f_auto') : cloudinaryTransform(side.photo.url, 'w_400,q_auto,f_auto');
+          return (
+            <div key={i} style={{ flex: 1, position: 'relative' }}>
+              <CroppedPhoto src={src} cropY={entry.cropY} height={150} />
+              {isVideo && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 15 }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
-      <div style={{ display: 'flex' }}>
+      <div style={{ display: 'flex', background: 'rgba(200,153,62,0.1)' }}>
         {pair.map((side, i) => {
           const dateLabel = new Date(side.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           return (
-            <div key={i} style={{ flex: 1, padding: '8px 14px 0', borderLeft: i > 0 ? '1px solid #EDE8DE' : 'none' }}>
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12.5, color: '#4A5E50', margin: '0 0 3px' }}>{side.kid.name.split(' ')[0]}</p>
-              <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#9AA89C', margin: 0 }}>{exactAgeLabel(side.kid.birthdate, side.date)} old &middot; {dateLabel}</p>
+            <div key={i} style={{ flex: 1, padding: '8px 14px', borderLeft: i > 0 ? '1px solid rgba(200,153,62,0.25)' : 'none' }}>
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12.5, color: '#9A7526', margin: '0 0 3px' }}>{side.kid.name.split(' ')[0]}</p>
+              <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#B8944A', margin: 0 }}>{exactAgeLabel(side.kid.birthdate, side.date)} old &middot; {dateLabel}</p>
             </div>
           );
         })}
@@ -345,20 +371,20 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       if (!pageWidth || !measureRef.current) return;
       const el = measureRef.current;
 
+      // A merged "same age" entry (entry.sameAgeKidId set) is a single row already —
+      // route it to the paired spread instead of the normal letter/note handling,
+      // regardless of whether it was written as a letter or a note.
       const notesByMonth = new Map();
-      sorted.filter(e => e.type === 'note').forEach(entry => {
+      sorted.filter(e => e.type === 'note' && !e.sameAgeKidId).forEach(entry => {
         const key = entry.date.slice(0, 7);
         if (!notesByMonth.has(key)) notesByMonth.set(key, []);
         notesByMonth.get(key).push(entry);
       });
 
-      // A merged "same age" entry (entry.sameAgeKidId set) is a single row already —
-      // just route it to the paired spread instead of a normal letter page.
-      const items = letterEntries.map(entry => (
-        entry.sameAgeKidId
-          ? { sortDate: entry.date, kind: 'paired', entry }
-          : { sortDate: entry.date, kind: 'letter', entry }
-      ));
+      const items = letterEntries.filter(e => !e.sameAgeKidId).map(entry => ({ sortDate: entry.date, kind: 'letter', entry }));
+      sorted.filter(e => e.sameAgeKidId).forEach(entry => {
+        items.push({ sortDate: entry.date, kind: 'paired', entry });
+      });
       notesByMonth.forEach((notes, monthKey) => {
         items.push({ sortDate: `${monthKey}-01`, kind: 'notes', monthKey, notes });
       });
@@ -377,7 +403,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
         }
         if (item.kind === 'letter') {
           const entry = item.entry;
-          const hasPhoto = entry.media?.length > 0 && entry.media[0].type !== 'video';
+          const hasPhoto = entry.media?.length > 0;
           const fs = letterFontSize((entry.text || '').length, hasPhoto);
           const chunks = splitLetterToPages(entry, el, fs, pageWidth);
           const thisNum = letterNum++;
@@ -396,7 +422,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
           let weight = 0;
           let chunkStart = 0;
           item.notes.forEach((note, idx) => {
-            const hasPhoto = note.media?.some(m => m.type !== 'video');
+            const hasPhoto = note.media?.length > 0;
             const cost = (hasPhoto ? 90 : 45) + (note.prompt ? 35 : 0) + (note.text || '').length;
             if (weight + cost > NOTES_PAGE_BUDGET && chunk.length > 0) {
               pages.push({ type: 'notes', monthKey: item.monthKey, notes: chunk, isContinued: chunkStart > 0, hasMore: true });
@@ -531,7 +557,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
         <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,0.3)', margin: '20px auto 0' }} />
       </div>
       <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" />
+        <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" loading="lazy" />
       </div>
     </div>
   );
@@ -552,7 +578,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
           <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
         </div>
         <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
-          <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" />
+          <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" loading="lazy" />
         </div>
       </div>
     );
