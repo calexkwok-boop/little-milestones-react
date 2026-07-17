@@ -67,6 +67,24 @@ export function dateForAge(birthdate, { years, months, days }) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// For a merged "same age" entry (entry.sameAgeKidId set), resolves the two sides
+// of the split view: the anchor kid (the entry's original subject) and the match
+// kid (folded in later), each with their own photo and the date they were that age.
+// The match photo is the one entry_media row tagged with sameAgeKidId; the anchor
+// photo is whichever photo isn't — no need to retroactively tag old photos.
+export function sameAgeSides(entry, kids) {
+  if (!entry.sameAgeKidId) return null;
+  const matchKid = kids.find(k => k.id === entry.sameAgeKidId);
+  const anchorKid = kids.find(k => entry.kids.includes(k.id) && k.id !== entry.sameAgeKidId);
+  if (!matchKid || !anchorKid) return null;
+  const matchPhoto = entry.media.find(m => m.kidId === entry.sameAgeKidId) || null;
+  const anchorPhoto = entry.media.find(m => m.kidId !== entry.sameAgeKidId) || entry.media[0] || null;
+  return {
+    anchor: { kid: anchorKid, photo: anchorPhoto, date: entry.date },
+    match: { kid: matchKid, photo: matchPhoto, date: entry.sameAgeDate },
+  };
+}
+
 export function milestoneInfo(id) {
   if (!id) return null;
   if (id.startsWith('custom:')) return { id: 'custom', label: id.slice(7), icon: 'ti-star' };

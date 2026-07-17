@@ -20,7 +20,7 @@ import SameAgeMatchScreen from './screens/SameAgeMatchScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY, AMAZON_GIFT_FALLBACK_URL,
-  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, cloudinaryTransform,
+  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, cloudinaryTransform, sameAgeSides,
 } from './constants.js';
 
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
@@ -2634,7 +2634,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge, linkedEntry, onOpenLinkedEntry }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge }) {
   // Only the author can edit or delete an entry's content — family members
   // may only adjust the photo crop (handled separately, below).
   const isOwn = entry.userId === session?.user?.id;
@@ -2853,20 +2853,28 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <p style={{ fontSize: 15, fontWeight: 700, color: '#7A6030', margin: 0 }}>{m.label}</p>
             </div>
           )}
-          {linkedEntry && (() => {
-            const linkedKid = allKids?.find(ak => linkedEntry.kids.includes(ak.id));
-            const thisKid = allKids?.find(ak => entry.kids.includes(ak.id));
-            if (!linkedKid || !thisKid) return null;
+          {entry.sameAgeKidId && allKids && (() => {
+            const sides = sameAgeSides(entry, allKids);
+            if (!sides) return null;
             const ageDays = (birthdate, date) => (new Date(date + 'T12:00:00') - new Date(birthdate + 'T12:00:00')) / 86400000;
-            const daysApart = Math.round(Math.abs(ageDays(thisKid.birthdate, entry.date) - ageDays(linkedKid.birthdate, linkedEntry.date)));
+            const daysApart = Math.round(Math.abs(ageDays(sides.anchor.kid.birthdate, sides.anchor.date) - ageDays(sides.match.kid.birthdate, sides.match.date)));
             return (
-              <div className="milestone-entry" onClick={() => onOpenLinkedEntry?.(linkedEntry)} style={{ borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, cursor: onOpenLinkedEntry ? 'pointer' : 'default' }}>
-                <i className="ti ti-arrows-diff" style={{ fontSize: 18, color: '#C8993E', flexShrink: 0 }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: '#7A6030', margin: 0 }}>Same age as {linkedKid.name.split(' ')[0]}</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{daysApart === 0 ? 'Exact match' : `${daysApart} day${daysApart !== 1 ? 's' : ''} apart`}</p>
+              <div className="milestone-entry" style={{ borderRadius: 16, padding: 12 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px', textAlign: 'center' }}>Same age</p>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {[sides.anchor, sides.match].map((side, i) => (
+                    <div key={i} style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-elevated)' }}>
+                        {side.photo && <img src={cloudinaryTransform(side.photo.url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />}
+                      </div>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', margin: '6px 0 0', textAlign: 'center' }}>{side.kid.name.split(' ')[0]}</p>
+                      <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '1px 0 0', textAlign: 'center' }}>{exactAgeLabel(side.kid.birthdate, side.date)} old</p>
+                    </div>
+                  ))}
                 </div>
-                {onOpenLinkedEntry && <i className="ti ti-chevron-right" style={{ fontSize: 16, color: 'var(--text-muted)' }} />}
+                <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '10px 0 0', textAlign: 'center' }}>
+                  {daysApart === 0 ? 'Exact match' : `${daysApart} day${daysApart !== 1 ? 's' : ''} apart`}
+                </p>
               </div>
             );
           })()}
@@ -3252,7 +3260,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, initialDate, linkedEntryId = null, autoOpenMedia = false, mode: modeProp, promptText: promptTextProp, onSameAgeFromDraft }) {
+function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, mode: modeProp, promptText: promptTextProp }) {
   const [promptText, setPromptText] = useState(promptTextProp || existingEntry?.prompt || null);
   const mode = modeProp || existingEntry?.type || 'letter';
   const isNote = mode === 'note';
@@ -3288,7 +3296,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   const [songSearching, setSongSearching] = useState(false);
   const [showSongPicker, setShowSongPicker] = useState(false);
   const [previewMedia, setPreviewMedia] = useState(null);
-  const [entryDate, setEntryDate] = useState(existingEntry?.date || initialDate || TODAY);
+  const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
   const [showExtras, setShowExtras] = useState(
     !!(existingEntry?.mood || existingEntry?.milestone || existingEntry?.song || existingEntry?.people?.length || existingEntry?.voiceMemoUrl || initialMilestone)
@@ -3314,10 +3322,6 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
 
-  useEffect(() => {
-    if (autoOpenMedia && !existingEntry) uploadInputRef.current?.click();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const mountedRef = useRef(true);
   const compressedFilesRef = useRef(new Map()); // blobUrl → Promise<File>
   const [listening, setListening] = useState(false);
@@ -3593,6 +3597,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     }
   }
 
+  const [sameAgeKidId, setSameAgeKidId] = useState(null);
+  const [sameAgeDate, setSameAgeDate] = useState(null);
+
   function buildSavePayload() {
     return {
       kids: selectedKids,
@@ -3616,6 +3623,8 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       voiceMemoUrl,
       type: mode,
       prompt: isNote ? (promptText || null) : null,
+      sameAgeKidId,
+      sameAgeDate,
     };
   }
 
@@ -3626,7 +3635,6 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       await onSave({
         ...buildSavePayload(),
         entryId: existingEntry?.id,
-        linkedEntryId: existingEntry ? undefined : linkedEntryId,
       });
     } catch (err) {
       alert('Something went wrong saving your entry: ' + (err?.message || String(err)));
@@ -3636,22 +3644,24 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   }
 
   const [showDraftSameAgePicker, setShowDraftSameAgePicker] = useState(false);
+  const [draftSameAgeTarget, setDraftSameAgeTarget] = useState(null); // kid object, once chosen — shows SameAgeMatchScreen
 
-  async function handleSameAgeFromDraft(targetKid) {
-    if (draftKey) { try { localStorage.removeItem(draftKey); } catch {} }
-    setSaving(true);
-    try {
-      await onSameAgeFromDraft(buildSavePayload(), targetKid);
-    } catch (err) {
-      alert('Something went wrong saving your entry: ' + (err?.message || String(err)));
-    } finally {
-      setSaving(false);
-    }
+  // Folds the matched kid + their photo straight into this still-unsaved draft —
+  // no early save/navigate needed, since nothing exists yet to link to.
+  function handleConfirmDraftSameAge(photoDate, file) {
+    const targetKid = draftSameAgeTarget;
+    setDraftSameAgeTarget(null);
+    const url = URL.createObjectURL(file);
+    setMedia(prev => [...prev, { url, type: 'image', kidId: targetKid.id }]);
+    setFileObjects(prev => [...prev, file]);
+    setSelectedKids(prev => prev.includes(targetKid.id) ? prev : [...prev, targetKid.id]);
+    setSameAgeKidId(targetKid.id);
+    setSameAgeDate(photoDate);
   }
 
   const canSave = selectedKids.length > 0 && (text.trim().length > 0 || media.length > 0);
   const sameAgeTargets = kids.filter(k => k.id !== selectedKids[0]);
-  const canSameAgeFromDraft = !existingEntry && !!onSameAgeFromDraft && selectedKids.length === 1 && media.length > 0 && sameAgeTargets.length > 0;
+  const canSameAgeFromDraft = !existingEntry && selectedKids.length === 1 && media.length > 0 && sameAgeTargets.length > 0;
 
   return (
     <div className="screen" style={{ background: 'var(--bg-card)', position: 'relative' }}>
@@ -3787,7 +3797,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                   <i className="ti ti-x" />
                 </button>
                 {i === 0 && canSameAgeFromDraft && (
-                  <button onClick={e => { e.stopPropagation(); if (sameAgeTargets.length === 1) handleSameAgeFromDraft(sameAgeTargets[0]); else setShowDraftSameAgePicker(true); }} title="Same age" style={{ position: 'absolute', bottom: 6, right: 6, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <button onClick={e => { e.stopPropagation(); if (sameAgeTargets.length === 1) setDraftSameAgeTarget(sameAgeTargets[0]); else setShowDraftSameAgePicker(true); }} title="Same age" style={{ position: 'absolute', bottom: 6, right: 6, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <i className="ti ti-arrows-diff" />
                   </button>
                 )}
@@ -4248,13 +4258,25 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 14px', textAlign: 'center' }}>Same age as who?</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
               {sameAgeTargets.map(other => (
-                <button key={other.id} onClick={() => { setShowDraftSameAgePicker(false); handleSameAgeFromDraft(other); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer' }}>
+                <button key={other.id} onClick={() => { setShowDraftSameAgePicker(false); setDraftSameAgeTarget(other); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer' }}>
                   <KidThumb kid={other} size={28} />
                   <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{other.name.split(' ')[0]}</span>
                 </button>
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {draftSameAgeTarget && (
+        <div style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 12 }}>
+          <SameAgeMatchScreen
+            sourceEntry={{ date: entryDate }}
+            sourceKid={kids.find(k => k.id === selectedKids[0])}
+            targetKid={draftSameAgeTarget}
+            onCancel={() => setDraftSameAgeTarget(null)}
+            onConfirm={handleConfirmDraftSameAge}
+          />
         </div>
       )}
 
@@ -7900,7 +7922,7 @@ function normalizeEntry(e) {
     milestone: e.milestone,
     ageMonths: e.age_months,
     palette: e.palette || PALETTES[0],
-    media: (e.entry_media || []).filter(m => m.url?.startsWith('http')).map(m => ({ url: m.url, type: m.type })),
+    media: (e.entry_media || []).filter(m => m.url?.startsWith('http')).map(m => ({ url: m.url, type: m.type, kidId: m.kid_id || null })),
     createdAt: e.created_at || null,
     signedAs: e.signed_as,
     authorId: e.author_id || null,
@@ -7915,7 +7937,8 @@ function normalizeEntry(e) {
     sharedWith: e.shared_with || { partner: true, family: false, friends: false },
     voiceMemoUrl: e.voice_memo_url || null,
     shareToken: e.share_token || null,
-    linkedEntryId: e.linked_entry_id || null,
+    sameAgeKidId: e.same_age_kid_id || null,
+    sameAgeDate: e.same_age_date || null,
   };
 }
 
@@ -8896,7 +8919,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null, linkedEntryId = null, andThen = null }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null, sameAgeKidId = null, sameAgeDate = null }) {
     const shared = Object.values(sharedWith).some(Boolean);
     const primaryKid = kids.find(k => kidIds.includes(k.id)) ?? friendKids.find(k => kidIds.includes(k.id));
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
@@ -8910,12 +8933,12 @@ export default function App() {
         let fileObj = item.type === 'image' && compressedFiles?.has(item.url)
           ? await compressedFiles.get(item.url)
           : fileObjs?.[i];
-        if (!fileObj) return { url: item.url, type: item.type };
+        if (!fileObj) return { url: item.url, type: item.type, kidId: item.kidId ?? null };
         const isVid = item.type === 'video';
         if (isVid && fileObj.size > 100 * 1024 * 1024) return { url: null, type: item.type, err: `Video is ${Math.round(fileObj.size / 1024 / 1024)}MB — please trim it to under 100MB` };
         try {
           const uploaded = await uploadToCloudinary(fileObj, isVid ? 'video' : 'image');
-          return { url: uploaded, type: item.type };
+          return { url: uploaded, type: item.type, kidId: item.kidId ?? null };
         } catch (e) {
           console.error('Media upload failed:', e);
           return { url: null, type: item.type, err: e?.message || 'Unknown error' };
@@ -8925,7 +8948,7 @@ export default function App() {
       const saved = results.filter(r => r.url && !r.url.startsWith('blob:') && !r.url.startsWith('data:'));
       const failed = results.find(r => r.err);
       if (saved.length > 0) {
-        await supabase.from('entry_media').insert(saved.map(m => ({ entry_id: entryRowId, url: m.url, type: m.type })));
+        await supabase.from('entry_media').insert(saved.map(m => ({ entry_id: entryRowId, url: m.url, type: m.type, kid_id: m.kidId ?? null })));
       }
       return { saved, failed };
     }
@@ -8977,14 +9000,13 @@ export default function App() {
         milestone,
         ageMonths,
         palette,
-        media: media.map(item => ({ url: item.url, type: item.type })),
+        media: media.map(item => ({ url: item.url, type: item.type, kidId: item.kidId ?? null })),
         song: song || null,
-        linkedEntryId,
+        sameAgeKidId,
+        sameAgeDate,
       };
       setEntries(prev => [newEntry, ...prev]);
-      if (andThen) {
-        andThen(newEntry);
-      } else if (milestone) {
+      if (milestone) {
         setCelebration({ kid: primaryKid, milestoneType: milestone, entry: newEntry });
       } else {
         setScreen('home');
@@ -9014,7 +9036,8 @@ export default function App() {
       voice_memo_url: voiceMemoUrlFinal,
       type: entryType,
       prompt,
-      linked_entry_id: linkedEntryId,
+      same_age_kid_id: sameAgeKidId,
+      same_age_date: sameAgeDate,
     }).select().single();
 
     if (error || !entry) {
@@ -9023,11 +9046,9 @@ export default function App() {
     }
 
     // Optimistically show entry and navigate away immediately
-    const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, linkedEntryId };
+    const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, sameAgeKidId, sameAgeDate };
     setEntries(prev => [optimisticEntry, ...prev]);
-    if (andThen) {
-      andThen(optimisticEntry);
-    } else if (milestone) {
+    if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone, entry: optimisticEntry });
     } else {
       setScreen('home');
@@ -9098,6 +9119,32 @@ export default function App() {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, kids: kidIds } : e));
     if (!localMode && supabase && session) {
       await supabase.from('entries').update({ kid_ids: kidIds }).eq('id', entryId);
+    }
+  }
+
+  // Folds a second kid + their matching-age photo into an existing single-kid entry,
+  // turning it into one merged post addressed to both — rather than creating a
+  // second, separate entry for the matched kid.
+  async function handleAddSameAgeMatch(sourceEntry, targetKid, photoDate, file) {
+    const newKidIds = [...sourceEntry.kids, targetKid.id];
+    if (localMode || !supabase || !session) {
+      const url = URL.createObjectURL(file);
+      setEntries(prev => prev.map(e => e.id === sourceEntry.id ? {
+        ...e, kids: newKidIds, sameAgeKidId: targetKid.id, sameAgeDate: photoDate,
+        media: [...e.media, { url, type: 'image', kidId: targetKid.id }],
+      } : e));
+      return;
+    }
+    try {
+      const url = await uploadToCloudinary(file, 'image');
+      await supabase.from('entry_media').insert({ entry_id: sourceEntry.id, url, type: 'image', kid_id: targetKid.id });
+      await supabase.from('entries').update({ kid_ids: newKidIds, same_age_kid_id: targetKid.id, same_age_date: photoDate }).eq('id', sourceEntry.id);
+      setEntries(prev => prev.map(e => e.id === sourceEntry.id ? {
+        ...e, kids: newKidIds, sameAgeKidId: targetKid.id, sameAgeDate: photoDate,
+        media: [...e.media, { url, type: 'image', kidId: targetKid.id }],
+      } : e));
+    } catch (err) {
+      alert('Could not save that photo. Please try again.\n' + (err?.message || ''));
     }
   }
 
@@ -9739,8 +9786,6 @@ export default function App() {
           session={session}
           socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName || ''}
           onSameAge={(sourceEntry, sourceKid, targetKid) => { setSameAgeMatch({ sourceEntry, sourceKid, targetKid }); setScreen('same-age-match'); }}
-          linkedEntry={entries.find(e => e.id === activeEntry.linkedEntryId) || entries.find(e => e.linkedEntryId === activeEntry.id) || null}
-          onOpenLinkedEntry={openEntry}
         />
       )}
 
@@ -9750,37 +9795,16 @@ export default function App() {
           sourceKid={sameAgeMatch.sourceKid}
           targetKid={sameAgeMatch.targetKid}
           onCancel={() => { setScreen('entry-detail'); setSameAgeMatch(null); }}
-          onConfirm={(targetDate) => {
-            const srcMilestone = sameAgeMatch.sourceEntry.milestone;
-            const isCustom = srcMilestone?.startsWith('custom:');
-            setNewEntryInitial({
-              kidIds: [sameAgeMatch.targetKid.id],
-              milestone: srcMilestone ? (isCustom ? 'custom' : srcMilestone) : undefined,
-              customMilestone: isCustom ? srcMilestone.slice(7) : undefined,
-              date: targetDate,
-              linkedEntryId: sameAgeMatch.sourceEntry.id,
-              autoOpenMedia: true,
-            });
-            setComposeMode(sameAgeMatch.sourceEntry.type === 'note' ? 'note' : 'letter');
-            setScreen('new-entry');
+          onConfirm={(photoDate, file) => {
+            handleAddSameAgeMatch(sameAgeMatch.sourceEntry, sameAgeMatch.targetKid, photoDate, file);
+            setScreen('entry-detail');
             setSameAgeMatch(null);
           }}
         />
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} initialDate={newEntryInitial?.date} linkedEntryId={newEntryInitial?.linkedEntryId} autoOpenMedia={newEntryInitial?.autoOpenMedia} onSameAgeFromDraft={(payload, targetKid) => {
-          handleSaveEntry({
-            ...payload,
-            andThen: (savedEntry) => {
-              openEntry(savedEntry);
-              setSameAgeMatch({ sourceEntry: savedEntry, sourceKid: kids.find(k => k.id === payload.kids[0]), targetKid });
-              setScreen('same-age-match');
-            },
-          });
-          setNewEntryInitial(null);
-          setActivePrompt(null);
-        }} />
+        <NewEntryScreen kids={kids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (

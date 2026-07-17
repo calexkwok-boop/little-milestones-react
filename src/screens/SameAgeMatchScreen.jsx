@@ -1,5 +1,9 @@
+import { useRef, useState } from 'react';
 import KidThumb from '../KidThumb.jsx';
 import { exactAge, dateForAge } from '../constants.js';
+
+let _exifr = null;
+const loadExifr = () => _exifr ?? (_exifr = import('exifr').then(m => m.default));
 
 function addDays(dateStr, delta) {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -11,7 +15,25 @@ function monthDay(dt) {
   return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function toISODate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Prefers the photo's own EXIF capture date over the computed target — same
+// honesty principle as showing "19 days apart" instead of assuming an exact match.
+async function extractExifDate(file) {
+  if (!file.type.startsWith('image')) return null;
+  try {
+    const exifr = await loadExifr();
+    const tags = await exifr.parse(file, ['DateTimeOriginal']);
+    if (tags?.DateTimeOriginal) return toISODate(new Date(tags.DateTimeOriginal));
+  } catch {}
+  return null;
+}
+
 export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, onCancel, onConfirm }) {
+  const [picking, setPicking] = useState(false);
+  const fileInputRef = useRef(null);
   const age = exactAge(sourceKid.birthdate, sourceEntry.date);
   const targetDate = dateForAge(targetKid.birthdate, age);
   const ageLabel = age.years > 0
@@ -21,6 +43,16 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
       : `${age.days} day${age.days !== 1 ? 's' : ''} old`;
   const targetDateLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const rangeLabel = `${monthDay(addDays(targetDate, -14))} – ${monthDay(addDays(targetDate, 14))}, ${targetDate.slice(0, 4)}`;
+
+  async function handleFileChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setPicking(true);
+    const photoDate = (await extractExifDate(file)) ?? targetDate;
+    setPicking(false);
+    onConfirm(photoDate, file);
+  }
 
   return (
     <div className="screen">
@@ -51,9 +83,10 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
               📍 Look for photos from {rangeLabel}
             </div>
 
-            <button className="btn btn-gold" style={{ width: '100%', maxWidth: 320, marginTop: 18 }} onClick={() => onConfirm(targetDate)}>
+            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+            <button className="btn btn-gold" style={{ width: '100%', maxWidth: 320, marginTop: 18, opacity: picking ? 0.7 : 1 }} disabled={picking} onClick={() => fileInputRef.current?.click()}>
               <i className="ti ti-photo" style={{ fontSize: 17 }} />
-              Find a photo from then
+              {picking ? 'One moment…' : 'Find a photo from then'}
             </button>
             <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, marginTop: 10, padding: 8, fontFamily: "'Urbanist', sans-serif" }}>
               Never mind
