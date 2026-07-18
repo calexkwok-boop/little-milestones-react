@@ -48,7 +48,7 @@ function RecapEntryRow({ entry, kids, onOpenEntry, nextIsMilestone }) {
   );
 }
 
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget }) {
+function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget, onViewMonthRecap }) {
   const [viewMode, setViewMode] = useState(initialTarget?.viewMode || 'month');
   const [selectedMonth, setSelectedMonth] = useState(initialTarget?.month || TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
@@ -234,6 +234,15 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
               >
                 <i className="ti ti-chevron-right" />
               </button>
+              {viewMode === 'month' && onViewMonthRecap && (
+                <button
+                  onClick={() => onViewMonthRecap(selectedMonth)}
+                  title="View this month's recap"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C8993E', fontSize: 16, padding: 4, marginLeft: 2, display: 'flex' }}
+                >
+                  <i className="ti ti-sparkles" />
+                </button>
+              )}
             </div>
           )}
 

@@ -1305,6 +1305,18 @@ function timeAgo(ts) {
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+// Aggregate stats for the monthly recap card — pure function over already-loaded
+// entries (no query), so it's cheap to recompute live for any month, past or
+// present, and automatically picks up entries backfilled after the fact.
+function computeMonthRecap(entriesList, month) {
+  const monthEntries = entriesList.filter(e => e.date.startsWith(month));
+  const milestones = monthEntries.filter(e => e.milestone).length;
+  const photos = monthEntries.reduce((sum, e) => sum + (e.media?.length || 0), 0);
+  const favorites = monthEntries.filter(e => e.favorited).length;
+  const label = new Date(month + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  return { label, letters: monthEntries.length, milestones, photos, favorites };
+}
+
 function daysUntilBirthday(birthdate) {
   const [, bm, bd] = birthdate.split('-').map(Number);
   const [ty, tm, td] = TODAY.split('-').map(Number);
@@ -4840,8 +4852,8 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             </p>
           </div>
         ) : entryKids.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px 0' }}>
-            <div style={{ display: 'flex', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '12px 16px 0' }}>
+            <div style={{ display: 'flex', flexShrink: 0, marginTop: 2 }}>
               {entryKids.map((k, i) => (
                 <span key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, display: 'inline-block', width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--bg-card)', background: k.accent || 'var(--bg-elevated)', flexShrink: 0 }}>
                   {k.avatar
@@ -4851,10 +4863,14 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 </span>
               ))}
             </div>
-            <p style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-2)' }}>
-              {entryKids.map(k => k.name.split(' ')[0]).join(' & ')}
-              {entryKids[0]?.birthdate && ` · ${exactAgeLabel(entryKids[0].birthdate, entry.date)} · ${photoDate}`}
-            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {entryKids.map(k => (
+                <p key={k.id} style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-2)' }}>
+                  {k.name.split(' ')[0]}
+                  {k.birthdate && ` · ${exactAgeLabel(k.birthdate, entry.date)} · ${photoDate}`}
+                </p>
+              ))}
+            </div>
           </div>
         )}
 
@@ -8424,13 +8440,9 @@ export default function App() {
     let seen = {};
     try { seen = JSON.parse(localStorage.getItem(seenKey) || '{}'); } catch {}
     if (seen[lastMonth]) return;
-    const lastMonthEntries = entries.filter(e => e.date.startsWith(lastMonth));
-    if (lastMonthEntries.length === 0) return;
-    const milestones = lastMonthEntries.filter(e => e.milestone).length;
-    const photos = lastMonthEntries.reduce((sum, e) => sum + (e.media?.length || 0), 0);
-    const favorites = lastMonthEntries.filter(e => e.favorited).length;
-    const label = new Date(lastMonth + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    setMonthlyRecap({ label, letters: lastMonthEntries.length, milestones, photos, favorites });
+    const recap = computeMonthRecap(entries, lastMonth);
+    if (recap.letters === 0) return;
+    setMonthlyRecap(recap);
     seen[lastMonth] = true;
     try { localStorage.setItem(seenKey, JSON.stringify(seen)); } catch {}
   }, [entries.length, session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -10179,6 +10191,7 @@ export default function App() {
               onOpenEntry={openEntry}
               onSwitchSection={switchSection}
               initialTarget={recapTarget}
+              onViewMonthRecap={month => setMonthlyRecap({ ...computeMonthRecap(entries, month), fromList: true })}
             />
           </ScreenErrorBoundary>
         </div>
@@ -10551,7 +10564,7 @@ export default function App() {
             className="btn btn-gold"
             style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}
           >
-            Keep going
+            {monthlyRecap.fromList ? 'Back' : 'Keep going'}
           </button>
         </div>
       )}
