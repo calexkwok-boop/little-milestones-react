@@ -1673,14 +1673,14 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     return groups.length > 0 ? groups : null;
   }, [entries, kids, recentAndAddedIds]);
 
-  const [sameAgeIdx, setSameAgeIdx] = useState(0);
-  useEffect(() => {
-    if (sameAgeGroups?.length > 1) {
-      setSameAgeIdx(Math.floor(Math.random() * sameAgeGroups.length));
-    }
-  }, [sameAgeGroups?.length]);
-
-  const sameAgeGroup = sameAgeGroups ? sameAgeGroups[sameAgeIdx % sameAgeGroups.length] : null;
+  // Deterministic per-2-hour-slot pick, same approach as onceUponATimeScore above —
+  // otherwise a plain Math.random() re-rolls on every mount (i.e. every time you
+  // navigate away and back), not just once per slot.
+  const sameAgeGroup = useMemo(() => {
+    if (!sameAgeGroups || sameAgeGroups.length === 0) return null;
+    const h = onceUponATimeScore('sameAge-pick', sameAgeGroups.length);
+    return sameAgeGroups[h % sameAgeGroups.length];
+  }, [sameAgeGroups, currentSlot]);
 
   // "Once upon a time" and "At the same age" both compete for the same kind of home-feed
   // real estate (a nostalgic look-back), so only show one per visit instead of stacking both —
@@ -4553,7 +4553,9 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [likeAnimId, setLikeAnimId] = useState(null);
   const [playingVideoId, setPlayingVideoId] = useState(null);
+  const [zoomedPhoto, setZoomedPhoto] = useState(null); // { url, type }
   const lastTapRef = useRef({});
+  const tapTimerRef = useRef({});
   const mediaRefs = useRef({});
 
   useEffect(() => {
@@ -4579,7 +4581,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     if (!supabase || familyIds.length === 0) return;
     const { data: entriesData } = await supabase
       .from('entries')
-      .select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, entry_media!inner(url, type)')
+      .select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, same_age_dates, entry_media!inner(url, type, kid_id)')
       .in('family_id', familyIds)
       .neq('shared', false)
       .order('created_at', { ascending: false })
@@ -4594,7 +4596,8 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
       ageMonths: e.age_months,
       familyId: e.family_id,
       userId: e.user_id,
-      media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type })),
+      sameAgeDates: e.same_age_dates || null,
+      media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type, kidId: m.kid_id || null })),
     }));
 
     setFeedEntries(normalized);
@@ -4677,6 +4680,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
 
   function renderPost(entry) {
     const entryKids = friendKids.filter(k => entry.kids.includes(k.id));
+    const sides = sameAgeSides(entry, friendKids);
     const friendInfo = friendFamilyMap[entry.familyId] || {};
     const likes = likesMap[entry.id] || [];
     const comments = commentsMap[entry.id] || [];
@@ -4721,8 +4725,67 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           )}
         </div>
 
-        {/* Photo, no overlay */}
-        {entry.media.length > 0 && (
+        {/* Photo — a same-age post shows every kid's photo side by side (2) or as a
+            scrollable strip (3+), instead of just the first kid's cover photo. */}
+        {sides ? (
+          <div style={{ margin: '0 14px', borderRadius: 16, overflow: 'hidden', position: 'relative' }}>
+            <div style={{ display: 'flex', gap: 2, overflowX: sides.length > 2 ? 'auto' : 'hidden' }}>
+              {sides.map((side, i) => {
+                const photo = side.photo;
+                const isVideo = photo?.type === 'video';
+                const videoKey = `${entry.id}:${i}`;
+                const isPlaying = isVideo && playingVideoId === videoKey;
+                return (
+                  <div
+                    key={i}
+                    ref={el => { mediaRefs.current[videoKey] = el; }}
+                    onClick={() => {
+                      if (isVideo && !isPlaying) { setPlayingVideoId(videoKey); return; }
+                      const now = Date.now();
+                      const wasDoubleTap = now - (lastTapRef.current[entry.id] || 0) < 320;
+                      lastTapRef.current[entry.id] = now;
+                      if (wasDoubleTap) {
+                        if (tapTimerRef.current[entry.id]) { clearTimeout(tapTimerRef.current[entry.id]); delete tapTimerRef.current[entry.id]; }
+                        if (!iLiked) handleToggleLike(entry.id);
+                        setLikeAnimId(entry.id);
+                        setTimeout(() => setLikeAnimId(id => id === entry.id ? null : id), 800);
+                        return;
+                      }
+                      if (photo && !isVideo) {
+                        tapTimerRef.current[entry.id] = setTimeout(() => { setZoomedPhoto(photo); delete tapTimerRef.current[entry.id]; }, 320);
+                      }
+                    }}
+                    style={{ flex: sides.length > 2 ? '0 0 70%' : 1, aspectRatio: '4/5', background: 'var(--border)', position: 'relative', cursor: 'pointer' }}
+                  >
+                    {photo && (isVideo ? (
+                      isPlaying ? (
+                        <video src={photo.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                      ) : (
+                        <>
+                          <img src={videoThumbUrl(photo.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+                          </div>
+                        </>
+                      )
+                    ) : (
+                      <img src={cloudinaryTransform(photo.url, 'w_500,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                    ))}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '22px 10px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,0.6))' }}>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#fff' }}>{side.kid.name.split(' ')[0]}</p>
+                      <p style={{ margin: 0, fontSize: 10.5, color: 'rgba(255,255,255,0.85)' }}>{exactAgeLabel(side.kid.birthdate, side.date)} old</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {likeAnimId === entry.id && (
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                <i className="ti ti-heart-filled" style={{ fontSize: 90, color: '#fff', filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+              </div>
+            )}
+          </div>
+        ) : entry.media.length > 0 && (
           <div
             ref={el => { mediaRefs.current[entry.id] = el; }}
             onClick={() => {
@@ -4731,10 +4794,16 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
               const now = Date.now();
               const wasDoubleTap = now - (lastTapRef.current[entry.id] || 0) < 320;
               lastTapRef.current[entry.id] = now;
-              if (!wasDoubleTap) return;
-              if (!iLiked) handleToggleLike(entry.id);
-              setLikeAnimId(entry.id);
-              setTimeout(() => setLikeAnimId(id => id === entry.id ? null : id), 800);
+              if (wasDoubleTap) {
+                if (tapTimerRef.current[entry.id]) { clearTimeout(tapTimerRef.current[entry.id]); delete tapTimerRef.current[entry.id]; }
+                if (!iLiked) handleToggleLike(entry.id);
+                setLikeAnimId(entry.id);
+                setTimeout(() => setLikeAnimId(id => id === entry.id ? null : id), 800);
+                return;
+              }
+              if (!isVideo) {
+                tapTimerRef.current[entry.id] = setTimeout(() => { setZoomedPhoto(entry.media[0]); delete tapTimerRef.current[entry.id]; }, 320);
+              }
             }}
             style={{ margin: '0 14px', borderRadius: 16, overflow: 'hidden', aspectRatio: '4/5', background: 'var(--border)', position: 'relative', cursor: 'pointer' }}
           >
@@ -4760,8 +4829,17 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           </div>
         )}
 
-        {/* Kid caption, below the photo like a letter salutation */}
-        {entryKids.length > 0 && (
+        {/* Kid caption, below the photo like a letter salutation — a same-age post
+            already shows each kid's name/age on their own photo tile above, so this
+            just adds the "same age" framing + how far apart they were. */}
+        {sides ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 16px 0' }}>
+            <i className="ti ti-arrows-diff" style={{ fontSize: 13, color: PROMPT_ACCENT }} />
+            <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: 0.3, color: PROMPT_ACCENT }}>
+              At the same age · {(() => { const d = sameAgeDaysApart(sides); return d === 0 ? 'exact match' : `${d} day${d !== 1 ? 's' : ''} apart`; })()}
+            </p>
+          </div>
+        ) : entryKids.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px 0' }}>
             <div style={{ display: 'flex', flexShrink: 0 }}>
               {entryKids.map((k, i) => (
@@ -4950,6 +5028,22 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           </div>
         );
       })()}
+
+      {/* Single-photo lightbox — a plain tap on any photo (same-age tile or the
+          normal cover photo) enlarges it; a second quick tap likes instead. */}
+      {zoomedPhoto && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setZoomedPhoto(null)}>
+          <button onClick={() => setZoomedPhoto(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
+            <i className="ti ti-x" />
+          </button>
+          <img
+            src={cloudinaryTransform(zoomedPhoto.url, 'w_1600,q_auto,f_auto')}
+            alt=""
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -8771,7 +8865,7 @@ export default function App() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_likes' }, payload => {
         const { entry_id, user_id } = payload.new;
-        if (user_id === currentUserIdRef.current || familyUserIdsRef.current.includes(user_id)) return;
+        if (user_id === currentUserIdRef.current) return;
         if (!ownEntryIdsRef.current.has(entry_id)) return;
         setReactionCounts(prev => {
           const cur = prev[entry_id] || { likes: 0, comments: 0 };
@@ -8795,7 +8889,7 @@ export default function App() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_comments' }, async payload => {
         const { entry_id, user_id } = payload.new;
-        if (familyUserIdsRef.current.includes(user_id)) return;
+        if (user_id === currentUserIdRef.current) return;
         // If this is a reply, check if the parent comment belongs to the current user
         if (payload.new.parent_id) {
           const { data: parentComment } = await supabase.from('entry_comments').select('user_id').eq('id', payload.new.parent_id).single();
