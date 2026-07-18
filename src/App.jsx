@@ -2217,8 +2217,8 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{entryDate}</p>
               </div>
               {onCompareAtAge && circleViewer.entryKids[0] && !isOwn && (
-                <button onClick={e => { e.stopPropagation(); setCircleViewer(null); onCompareAtAge(circleViewer.entryKids[0].id, circleViewer.entry.ageMonths); }} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-elevated)', border: 'none', borderRadius: 999, padding: '8px 12px', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", flexShrink: 0 }}>
-                  <i className="ti ti-arrows-diff" style={{ fontSize: 14 }} /> Compare
+                <button onClick={e => { e.stopPropagation(); setCircleViewer(null); onCompareAtAge(circleViewer.entryKids[0].id, circleViewer.entry.ageMonths, circleViewer.entry.id); }} style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 999, padding: '5px 12px 5px 5px', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", flexShrink: 0 }}>
+                  <KidThumb kid={circleViewer.entryKids[0]} size={22} /> Same age
                 </button>
               )}
               {isOwn && (
@@ -3021,60 +3021,27 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             );
           })() : onSameAge && allKids && (() => {
             // A bare "⇄" icon doesn't explain itself — nobody's going to guess
-            // what it does on first sight. These are the real entry points now;
-            // the old icon-only button (in the per-kid row below) is gone
-            // rather than kept as a redundant second way to do the same thing.
+            // what it does on first sight. A compact duo-avatar pill is the
+            // entry point now (the old icon-only button, in the per-kid row
+            // below, is gone); the full "Same age" card only appears after
+            // tapping, via the match/confirm flow — keeping this inline in
+            // the letter/note stays out of the way of the actual content.
             const anchorKid = allKids.find(ak => ak.id === anchorKidId);
             const others = sameAgeEligibleOthers;
             if (!anchorKid || others.length === 0) return null;
-
-            // Exactly one eligible sibling: preview the actual "Same age" card
-            // this turns into — anchor's real cover photo next to the sibling's
-            // own (faded) avatar with an add badge, so the CTA doubles as a
-            // sneak peek instead of a disconnected button.
-            if (others.length === 1) {
-              const other = others[0];
-              return (
-                <div style={{ borderRadius: 16, padding: 12, background: 'var(--bg-card)', border: '1.5px dashed rgba(200,153,62,0.5)' }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px', textAlign: 'center' }}>Same age</p>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-elevated)' }}>
-                        {media[0] && <img src={cloudinaryTransform(media[0].url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />}
-                      </div>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', margin: '6px 0 0', textAlign: 'center' }}>{anchorKid.name.split(' ')[0]}</p>
-                      <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '1px 0 0', textAlign: 'center' }}>{exactAgeLabel(anchorKid.birthdate, entry.date)} old</p>
-                    </div>
-                    <button
-                      onClick={() => onSameAge(entry, anchorKid, others)}
-                      style={{ flex: 1, minWidth: 0, aspectRatio: '1', borderRadius: 10, border: '1.5px dashed rgba(200,153,62,0.5)', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', cursor: 'pointer', padding: 0 }}
-                    >
-                      <span style={{ opacity: 0.4 }}><KidThumb kid={other} size={42} /></span>
-                      <span style={{ position: 'absolute', bottom: 6, right: 6, width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <i className="ti ti-plus" style={{ fontSize: 12, color: '#fff' }} />
-                      </span>
-                    </button>
-                  </div>
-                  <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '10px 0 0', textAlign: 'center' }}>
-                    Add <span style={{ color: '#C8993E', fontWeight: 700 }}>{other.name.split(' ')[0]}'s</span> photo from this age
-                  </p>
-                </div>
-              );
-            }
-
-            // 2+ eligible siblings: no single photo to preview, so this opens
-            // the "same age as who?" picker instead — a duo-avatar chip stands
-            // in for the arrows icon, more personal and still on-brand.
+            const other = others[0];
             return (
               <button
-                onClick={() => { setSameAgePickerSelection([]); setShowSameAgePicker(true); }}
+                onClick={() => { if (others.length === 1) onSameAge(entry, anchorKid, others); else { setSameAgePickerSelection([]); setShowSameAgePicker(true); } }}
                 style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', borderRadius: 999, padding: '8px 14px 8px 8px', background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}
               >
                 <span style={{ position: 'relative', width: 34, height: 26, flexShrink: 0 }}>
                   <span style={{ position: 'absolute', left: 0, top: 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-card)' }}><KidThumb kid={anchorKid} size={22} /></span>
-                  <span style={{ position: 'absolute', left: 14, top: 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-card)' }}><KidThumb kid={others[0]} size={22} /></span>
+                  <span style={{ position: 'absolute', left: 14, top: 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-card)' }}><KidThumb kid={other} size={22} /></span>
                 </span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>Compare at the same age</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>
+                  {others.length === 1 ? `Compare with ${other.name.split(' ')[0]} at the same age` : 'Compare at the same age'}
+                </span>
                 <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
               </button>
             );
@@ -4886,10 +4853,10 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           </div>
           {onCompareAtAge && entry.ageMonths != null && (
             <button
-              onClick={() => onCompareAtAge(entryKids[0]?.id ?? null, entry.ageMonths)}
-              style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-elevated)', border: 'none', borderRadius: 999, padding: '8px 12px', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", flexShrink: 0 }}
+              onClick={() => onCompareAtAge(entryKids[0]?.id ?? null, entry.ageMonths, entry.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 999, padding: '5px 12px 5px 5px', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", flexShrink: 0 }}
             >
-              <i className="ti ti-arrows-diff" style={{ fontSize: 14 }} /> Compare
+              {entryKids[0] ? <KidThumb kid={entryKids[0]} size={22} /> : <i className="ti ti-arrows-diff" style={{ fontSize: 14 }} />} Same age
             </button>
           )}
         </div>
@@ -5277,11 +5244,12 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
 
 // ─── Compare screen ──────────────────────────────────────────────────────
 
-function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], friends = [], currentUserId, onBack, onOpenEntry, initialFriendKidId = null, initialCompareAge = null, onSwitchSection, onSameAge }) {
+function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], friends = [], currentUserId, onBack, onOpenEntry, initialFriendKidId = null, initialCompareAge = null, initialEntryId = null, onSwitchSection, onSameAge }) {
   const [filterTab, setFilterTab] = useState('age');
   const [compareAge, setCompareAge] = useState(initialCompareAge ?? 24);
   const [photoViewer, setPhotoViewer] = useState(null); // { entry, kid, ageStr, isFriend, friendName, friendAvatar }
   const [playingVideoId, setPlayingVideoId] = useState(null);
+  const [highlightEntryId, setHighlightEntryId] = useState(null);
   const mediaRefs = useRef({});
 
   // Stop the playing video the moment it's scrolled out of view.
@@ -5314,6 +5282,35 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
   const [showFriendPicker, setShowFriendPicker] = useState(false);
   const [pickerQuery, setPickerQuery] = useState('');
   const ages = [0, 12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
+
+  // CompareScreen is kept mounted in the background (see keepsakesGroupMounted
+  // in App), so initialFriendKidId/initialCompareAge only apply via useState
+  // on the very first mount — a later "Compare" tap from the friends feed
+  // updates the props but wouldn't otherwise reach an already-mounted screen.
+  useEffect(() => {
+    if (!initialFriendKidId) return;
+    setSelectedFriendKidIds(prev => prev.includes(initialFriendKidId) ? prev : [...prev, initialFriendKidId]);
+    setFilterTab('age');
+  }, [initialFriendKidId]);
+  useEffect(() => {
+    if (initialCompareAge == null) return;
+    setCompareAge(initialCompareAge);
+  }, [initialCompareAge]);
+  // Jumping to the right age bucket isn't enough if that bucket has several
+  // photos — scroll straight to the one that was tapped and flash it briefly
+  // so it's obvious which card is "the" one. Deferred a beat so the age-bucket
+  // and friend-kid effects above have a chance to re-render the grid first.
+  useEffect(() => {
+    if (!initialEntryId) return;
+    const t = setTimeout(() => {
+      const el = mediaRefs.current[initialEntryId];
+      if (!el) return;
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightEntryId(initialEntryId);
+      setTimeout(() => setHighlightEntryId(id => id === initialEntryId ? null : id), 1800);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [initialEntryId]);
 
   const selectedFriendKids = friendKids.filter(k => selectedFriendKidIds.includes(k.id));
   const isSearching = searchQuery.trim().length > 0;
@@ -5393,7 +5390,19 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             return { e: { ...e, date: side.date, ageMonths: years * 12 + months, media: [side.photo, ...otherMedia] }, kid };
           })
           .filter(Boolean);
-        return [...solo, ...sameAge].filter(({ e }) => matchesAgeBucket(e.ageMonths));
+        // A multi-kid entry that isn't a same-age match (e.g. two siblings, or
+        // a friend's two kids, tagged together in one photo) still belongs on
+        // each tagged kid's own age timeline — it was just missing from the
+        // grid entirely before. Recompute this kid's actual age at the entry's
+        // date rather than trusting the stored age_months, which only reflects
+        // whichever kid was primary when the entry was created.
+        const multiKid = pool
+          .filter(e => e.kids.length > 1 && !e.sameAgeDates && e.kids.includes(kid.id) && e.media?.length > 0 && kid.birthdate)
+          .map(e => {
+            const { years, months } = exactAge(kid.birthdate, e.date);
+            return { e: { ...e, ageMonths: years * 12 + months }, kid };
+          });
+        return [...solo, ...sameAge, ...multiKid].filter(({ e }) => matchesAgeBucket(e.ageMonths));
       }).sort((a, b) => {
         const toDays = ({ e, kid }) => (kid.birthdate && e.date)
           ? (new Date(e.date) - new Date(kid.birthdate)) / 86400000
@@ -5604,7 +5613,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                             onClick={() => isFriendKid
                               ? setPhotoViewer({ entry: e, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null })
                               : onOpenEntry(e)}>
-                            <div ref={el => { mediaRefs.current[e.id] = el; }} style={{ borderRadius: 10, overflow: 'hidden', position: 'relative' }}>
+                            <div ref={el => { mediaRefs.current[e.id] = el; }} style={{ borderRadius: 10, overflow: 'hidden', position: 'relative', boxShadow: e.id === highlightEntryId ? '0 0 0 3px var(--accent)' : 'none', transition: 'box-shadow 0.3s' }}>
                               {playingVideoId === e.id ? (
                                 <div style={{ aspectRatio: '3/4', background: '#000', position: 'relative' }}>
                                   <video
@@ -10503,10 +10512,10 @@ export default function App() {
             friendKids={friendKids}
             friends={friends}
             friendFamilyMap={friendFamilyMap}
-            onCompareAtAge={(kidId, ageMonths) => {
+            onCompareAtAge={(kidId, ageMonths, entryId) => {
               const ages = [0, 12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
               const bucket = ages.reduce((best, a) => ageMonths >= a ? a : best, ages[0]);
-              setCompareTarget({ kidId, compareAge: bucket });
+              setCompareTarget({ kidId, compareAge: bucket, entryId: entryId ?? null });
               setScreen('compare');
             }}
             pendingOpenEntryId={pendingOpenEntryId}
@@ -10676,10 +10685,10 @@ export default function App() {
             familyMemberIds={familyMembers.filter(m => m.user_id !== session?.user?.id).map(m => m.user_id)}
             onSearchUsers={handleSearchUsers}
             onSendRequest={handleSendFriendRequest}
-            onCompareAtAge={(kidId, ageMonths) => {
+            onCompareAtAge={(kidId, ageMonths, entryId) => {
               const ages = [0, 12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
               const bucket = ages.reduce((best, a) => ageMonths >= a ? a : best, ages[0]);
-              setCompareTarget({ kidId, compareAge: bucket });
+              setCompareTarget({ kidId, compareAge: bucket, entryId: entryId ?? null });
               setScreen('compare');
             }}
             onSwitchSection={switchSection}
@@ -10700,6 +10709,7 @@ export default function App() {
             onOpenEntry={openEntry}
             initialFriendKidId={compareTarget?.kidId ?? null}
             initialCompareAge={compareTarget?.compareAge ?? null}
+            initialEntryId={compareTarget?.entryId ?? null}
             onSwitchSection={switchSection}
             onSameAge={(sourceEntry, sourceKid, targets) => {
               // Same-age's match/confirm flow always lands back on entry-detail
