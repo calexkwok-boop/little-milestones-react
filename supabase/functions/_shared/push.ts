@@ -35,7 +35,7 @@ const PUSH_COOLDOWN_MINUTES = 15;
 // Always writes to notification_log first, regardless of mute state, cooldown,
 // or whether any subscription exists — that table is the durable "everything
 // ever sent to you" history, independent of whether an OS-level push fired.
-export async function sendPushToUser(admin: any, userId: string, payload: PushPayload) {
+export async function sendPushToUser(admin: any, userId: string, payload: PushPayload, fromUserId?: string) {
   let onCooldown = false;
   if (payload.tag) {
     const cutoff = new Date(Date.now() - PUSH_COOLDOWN_MINUTES * 60000).toISOString();
@@ -51,6 +51,7 @@ export async function sendPushToUser(admin: any, userId: string, payload: PushPa
 
   await admin.from('notification_log').insert({
     user_id: userId,
+    from_user_id: fromUserId ?? null,
     kind: payload.kind,
     title: payload.title,
     body: payload.body,

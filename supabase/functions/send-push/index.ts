@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     const payload = buildPayload(kind, ctx);
     if (!payload) return json({ error: `Unknown kind: ${kind}` }, 400);
 
-    const result = await sendPushToUser(admin, targetUserId, payload);
+    const result = await sendPushToUser(admin, targetUserId, payload, user.id);
 
     return json({ ok: true, ...result });
   } catch (err) {

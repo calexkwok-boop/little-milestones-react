@@ -1394,6 +1394,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   const [showAvatarSheet, setShowAvatarSheet] = useState(false);
   const [circleViewer, setCircleViewer] = useState(null);
   const [viewerPlaying, setViewerPlaying] = useState(false);
+  const [viewerPlayingIdx, setViewerPlayingIdx] = useState(null); // which same-age side's video is playing, if any
   const [viewerLikes, setViewerLikes] = useState([]);
   const [viewerComments, setViewerComments] = useState([]);
   const [viewerCommentText, setViewerCommentText] = useState('');
@@ -1433,6 +1434,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   // Load likes + comments when lightbox opens
   useEffect(() => {
     setViewerPlaying(false);
+    setViewerPlayingIdx(null);
     if (!circleViewer) { setViewerLikes([]); setViewerComments([]); setViewerCommentText(''); setReplyTarget(null); return; }
     Promise.all([
       supabase.from('entry_likes').select('id, user_id, display_name').eq('entry_id', circleViewer.entry.id),
@@ -2192,7 +2194,8 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
         </div>
       )}
       {circleViewer && (() => {
-        const { entry, kidLabel, age, friendName, friendAvatar, entryDate, isOwn } = circleViewer;
+        const { entry, kidLabel, age, friendName, friendAvatar, entryDate, isOwn, entryKids } = circleViewer;
+        const sides = sameAgeSides(entry, entryKids);
         const bgStyle = entryBgStyle(entry);
         const heroMedia = entry.media?.[0] || null;
         const isVideo = heroMedia?.type === 'video';
@@ -2227,42 +2230,101 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               </button>
             </div>
 
-            {/* Photo/video — fixed square, double-tap to like */}
-            <div
-              style={{ width: '100%', aspectRatio: '1', flexShrink: 0, ...(isVideo && viewerPlaying ? {} : bgStyle), backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', cursor: 'pointer', overflow: 'hidden' }}
-              onClick={e => {
-                e.stopPropagation();
-                if (isVideo && !viewerPlaying) { setViewerPlaying(true); return; }
-                const now = Date.now();
-                if (now - lastTapRef.current < 320) {
-                  const alreadyLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
-                  if (!alreadyLiked && !isOwn) handleToggleLike();
-                  setShowLikeAnim(true);
-                  setTimeout(() => setShowLikeAnim(false), 800);
-                }
-                lastTapRef.current = now;
-              }}
-            >
-              {isVideo && viewerPlaying && (
-                <video src={heroMedia.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
-              )}
-              {isVideo && !viewerPlaying && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+            {/* Photo/video — a same-age post shows every kid's photo (split for 2,
+                scrollable strip for 3+) instead of just the first kid's cover photo */}
+            {sides ? (
+              <div style={{ width: '100%', flexShrink: 0, position: 'relative' }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', gap: 2, overflowX: sides.length > 2 ? 'auto' : 'hidden' }}>
+                  {sides.map((side, i) => {
+                    const photo = side.photo;
+                    const isVid = photo?.type === 'video';
+                    const playing = viewerPlayingIdx === i;
+                    return (
+                      <div
+                        key={i}
+                        onClick={e => {
+                          e.stopPropagation();
+                          if (isVid && !playing) { setViewerPlayingIdx(i); return; }
+                          const now = Date.now();
+                          if (now - lastTapRef.current < 320) {
+                            const alreadyLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
+                            if (!alreadyLiked && !isOwn) handleToggleLike();
+                            setShowLikeAnim(true);
+                            setTimeout(() => setShowLikeAnim(false), 800);
+                          }
+                          lastTapRef.current = now;
+                        }}
+                        style={{ flex: sides.length > 2 ? '0 0 80%' : 1, aspectRatio: '1', background: 'var(--bg-elevated)', position: 'relative', cursor: 'pointer' }}
+                      >
+                        {photo && (isVid ? (
+                          playing ? (
+                            <video src={photo.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                          ) : (
+                            <>
+                              <img src={videoThumbUrl(photo.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+                              </div>
+                            </>
+                          )
+                        ) : (
+                          <img src={cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
-              {showLikeAnim && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                  <i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
-                </div>
-              )}
-            </div>
+                {showLikeAnim && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div
+                style={{ width: '100%', aspectRatio: '1', flexShrink: 0, ...(isVideo && viewerPlaying ? {} : bgStyle), backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', cursor: 'pointer', overflow: 'hidden' }}
+                onClick={e => {
+                  e.stopPropagation();
+                  if (isVideo && !viewerPlaying) { setViewerPlaying(true); return; }
+                  const now = Date.now();
+                  if (now - lastTapRef.current < 320) {
+                    const alreadyLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
+                    if (!alreadyLiked && !isOwn) handleToggleLike();
+                    setShowLikeAnim(true);
+                    setTimeout(() => setShowLikeAnim(false), 800);
+                  }
+                  lastTapRef.current = now;
+                }}
+              >
+                {isVideo && viewerPlaying && (
+                  <video src={heroMedia.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                )}
+                {isVideo && !viewerPlaying && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+                  </div>
+                )}
+                {showLikeAnim && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Kid name + heart inline, then scrollable comments */}
             <div style={{ padding: '12px 16px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, borderBottom: viewerComments.length > 0 ? '1px solid var(--border)' : 'none' }} onClick={e => e.stopPropagation()}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ margin: '0 0 1px', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{kidLabel}</p>
-                {age && <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{age}</p>}
+                {sides ? sides.map((side, i) => (
+                  <p key={i} style={{ margin: i === 0 ? '0 0 1px' : '2px 0 0', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>
+                    {side.kid.name} <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--text-3)' }}>{exactAgeLabel(side.kid.birthdate, side.date)}</span>
+                  </p>
+                )) : (
+                  <>
+                    <p style={{ margin: '0 0 1px', fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{kidLabel}</p>
+                    {age && <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{age}</p>}
+                  </>
+                )}
               </div>
               {(() => {
                 const userHasLiked = viewerLikes.some(l => l.user_id === session?.user?.id);
@@ -8975,7 +9037,7 @@ export default function App() {
     if (!supabase || !session?.user?.id) return;
     supabase
       .from('notification_log')
-      .select('id, kind, title, body, url, created_at')
+      .select('id, kind, title, body, url, created_at, from_user_id')
       .eq('user_id', session.user.id)
       .is('read_at', null)
       .in('kind', ['like', 'comment', 'reply'])
@@ -8987,7 +9049,7 @@ export default function App() {
           id: row.id,
           type: row.kind,
           fromName: null,
-          fromUserId: null,
+          fromUserId: row.from_user_id || null,
           entryId: entryIdFromNotifUrl(row.url),
           kidNames: null,
           body: row.body,
