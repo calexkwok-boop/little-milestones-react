@@ -98,7 +98,11 @@ Deno.serve(async (req) => {
 
     for (const kid of kids || []) {
       const days = daysUntilBirthday(kid.birthdate, today);
-      if (days !== 0 && days !== 7) continue;
+      // Matches the in-app banner window (any day 0-7 out, not just exactly
+      // day-of and day-7) — the "friend-bday" id below doesn't encode the
+      // specific day count for the "coming up" case, so widening this still
+      // only ever sends one push for the week, whichever day it first lands on.
+      if (days < 0 || days > 7) continue;
       const age = turningAge(kid.birthdate, today);
       const owners = membersByFamily.get(kid.family_id) || [];
 
