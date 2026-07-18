@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { sendPushToUser, isSameFamily } from '../_shared/push.ts';
+import { sendPushToUser } from '../_shared/push.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,8 +19,8 @@ function truncate(text: string, max: number) {
 }
 
 // Builds the notification content server-side per `kind`, rather than trusting
-// client-supplied title/body text. All of these are friend-to-friend events —
-// same-family (partner) senders are filtered out before this is called.
+// client-supplied title/body text. Covers both friend-to-friend and
+// partner-to-partner events — family senders push notify the same as friends.
 function buildPayload(kind: string, ctx: Record<string, unknown>) {
   const fromName = (ctx.fromName as string) || 'Someone';
   const category = 'friend_activity' as const;
@@ -56,13 +56,6 @@ Deno.serve(async (req) => {
     if (targetUserId === user.id) return json({ ok: true, skipped: 'self' }); // never push yourself
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
-
-    // A partner's reactions never toast in-app (App.jsx's realtime listener
-    // excludes same-family senders) — push shouldn't reach them either, and
-    // it shouldn't show up in notification history for the same reason.
-    if (await isSameFamily(admin, user.id, targetUserId)) {
-      return json({ ok: true, skipped: 'partner' });
-    }
 
     const payload = buildPayload(kind, ctx);
     if (!payload) return json({ error: `Unknown kind: ${kind}` }, 400);

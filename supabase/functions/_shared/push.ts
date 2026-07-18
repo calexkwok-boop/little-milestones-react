@@ -93,16 +93,3 @@ export async function sendPushToUser(admin: any, userId: string, payload: PushPa
 
   return { sent };
 }
-
-// Mirrors the client-side exclusion already in App.jsx's realtime listener
-// (`familyUserIdsRef.current.includes(user_id)`) — a family member (partner)
-// never toasts in-app for their own reactions, so push shouldn't reach them
-// for those either.
-export async function isSameFamily(admin: any, userIdA: string, userIdB: string): Promise<boolean> {
-  const [{ data: famA }, { data: famB }] = await Promise.all([
-    admin.from('family_members').select('family_id').eq('user_id', userIdA),
-    admin.from('family_members').select('family_id').eq('user_id', userIdB),
-  ]);
-  const idsA = new Set((famA || []).map((f: { family_id: string }) => f.family_id));
-  return (famB || []).some((f: { family_id: string }) => idsA.has(f.family_id));
-}
