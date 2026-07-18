@@ -3021,21 +3021,60 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             );
           })() : onSameAge && allKids && (() => {
             // A bare "⇄" icon doesn't explain itself — nobody's going to guess
-            // what it does on first sight. This labeled pill is the real entry
-            // point now; the old icon-only button (in the per-kid row below)
-            // is gone rather than kept as a redundant second way to do the same thing.
+            // what it does on first sight. These are the real entry points now;
+            // the old icon-only button (in the per-kid row below) is gone
+            // rather than kept as a redundant second way to do the same thing.
             const anchorKid = allKids.find(ak => ak.id === anchorKidId);
             const others = sameAgeEligibleOthers;
             if (!anchorKid || others.length === 0) return null;
+
+            // Exactly one eligible sibling: preview the actual "Same age" card
+            // this turns into — anchor's real cover photo next to the sibling's
+            // own (faded) avatar with an add badge, so the CTA doubles as a
+            // sneak peek instead of a disconnected button.
+            if (others.length === 1) {
+              const other = others[0];
+              return (
+                <div style={{ borderRadius: 16, padding: 12, background: 'var(--bg-card)', border: '1.5px dashed rgba(200,153,62,0.5)' }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px', textAlign: 'center' }}>Same age</p>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-elevated)' }}>
+                        {media[0] && <img src={cloudinaryTransform(media[0].url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />}
+                      </div>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', margin: '6px 0 0', textAlign: 'center' }}>{anchorKid.name.split(' ')[0]}</p>
+                      <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: '1px 0 0', textAlign: 'center' }}>{exactAgeLabel(anchorKid.birthdate, entry.date)} old</p>
+                    </div>
+                    <button
+                      onClick={() => onSameAge(entry, anchorKid, others)}
+                      style={{ flex: 1, minWidth: 0, aspectRatio: '1', borderRadius: 10, border: '1.5px dashed rgba(200,153,62,0.5)', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', cursor: 'pointer', padding: 0 }}
+                    >
+                      <span style={{ opacity: 0.4 }}><KidThumb kid={other} size={42} /></span>
+                      <span style={{ position: 'absolute', bottom: 6, right: 6, width: 20, height: 20, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <i className="ti ti-plus" style={{ fontSize: 12, color: '#fff' }} />
+                      </span>
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 10.5, color: 'var(--text-muted)', margin: '10px 0 0', textAlign: 'center' }}>
+                    Add <span style={{ color: '#C8993E', fontWeight: 700 }}>{other.name.split(' ')[0]}'s</span> photo from this age
+                  </p>
+                </div>
+              );
+            }
+
+            // 2+ eligible siblings: no single photo to preview, so this opens
+            // the "same age as who?" picker instead — a duo-avatar chip stands
+            // in for the arrows icon, more personal and still on-brand.
             return (
               <button
-                onClick={() => { if (others.length === 1) onSameAge(entry, anchorKid, others); else { setSameAgePickerSelection([]); setShowSameAgePicker(true); } }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', background: 'var(--bg-elevated)', border: '1px dashed var(--border)', borderRadius: 12, padding: '12px 14px', cursor: 'pointer', textAlign: 'left' }}
+                onClick={() => { setSameAgePickerSelection([]); setShowSameAgePicker(true); }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', borderRadius: 999, padding: '8px 14px 8px 8px', background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}
               >
-                <i className="ti ti-arrows-diff" style={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>
-                  {others.length === 1 ? `Compare with ${others[0].name.split(' ')[0]} at the same age` : 'Compare at the same age'}
+                <span style={{ position: 'relative', width: 34, height: 26, flexShrink: 0 }}>
+                  <span style={{ position: 'absolute', left: 0, top: 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-card)' }}><KidThumb kid={anchorKid} size={22} /></span>
+                  <span style={{ position: 'absolute', left: 14, top: 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-card)' }}><KidThumb kid={others[0]} size={22} /></span>
                 </span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>Compare at the same age</span>
                 <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
               </button>
             );
