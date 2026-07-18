@@ -2753,6 +2753,21 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   // Every kid folded in later gets compared against this same anchor.
   const anchorKidId = entry.kids.find(id => !(entry.sameAgeDates || {})[id]);
   const sides = allKids ? sameAgeSides(entry, allKids) : null;
+  // Only offer siblings who've actually reached the anchor's age at this entry —
+  // otherwise the match flow ends up asking for a photo dated in the future
+  // (e.g. a 2-year-old "at age 8").
+  const sameAgeEligibleOthers = useMemo(() => {
+    if (!allKids) return [];
+    const anchorKid = allKids.find(ak => ak.id === anchorKidId);
+    if (!anchorKid) return [];
+    const anchorAge = exactAge(anchorKid.birthdate, entry.date);
+    const anchorAgeMonths = anchorAge.years * 12 + anchorAge.months;
+    return allKids.filter(ak => {
+      if (entry.kids.includes(ak.id) || ak.archivedAt) return false;
+      const { years, months } = exactAge(ak.birthdate, TODAY);
+      return years * 12 + months >= anchorAgeMonths;
+    });
+  }, [allKids, anchorKidId, entry.kids, entry.date]);
   const [activeSlide, setActiveSlide] = useState(0);
 
   function handleSetCoverPhoto(photo) {
@@ -3010,7 +3025,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             // point now; the old icon-only button (in the per-kid row below)
             // is gone rather than kept as a redundant second way to do the same thing.
             const anchorKid = allKids.find(ak => ak.id === anchorKidId);
-            const others = allKids.filter(ak => !entry.kids.includes(ak.id) && !ak.archivedAt);
+            const others = sameAgeEligibleOthers;
             if (!anchorKid || others.length === 0) return null;
             return (
               <button
@@ -3192,7 +3207,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px', textAlign: 'center' }}>Same age as who?</p>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px', textAlign: 'center' }}>Pick as many as you'd like to add.</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 20 }}>
-              {allKids.filter(ak => !entry.kids.includes(ak.id) && !ak.archivedAt).map(other => {
+              {sameAgeEligibleOthers.map(other => {
                 const selected = sameAgePickerSelection.includes(other.id);
                 return (
                   <button
