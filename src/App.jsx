@@ -139,6 +139,13 @@ function triggerPush(body) {
   supabase.functions.invoke('send-push', { body }).catch(() => {});
 }
 
+// notification_log.url is written server-side as `/?open=<entryId>` (see
+// send-push/index.ts buildPayload) — pulls the entryId back out for tap-through.
+function entryIdFromNotifUrl(url) {
+  const m = /\?open=([^&]+)/.exec(url || '');
+  return m ? m[1] : null;
+}
+
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -6967,10 +6974,19 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.4 }}>
-                        <strong>{n.fromName}</strong>
-                        {n.type === 'like' ? ` liked ${n.kidNames}'s photo` : n.type === 'reply' ? ` replied to your comment` : ` commented on ${n.kidNames}'s photo`}
+                        {n.fromLog ? (
+                          // Backfilled from notification_log — body is already the
+                          // fully-formatted text built server-side (buildPayload),
+                          // not separate fromName/kidNames fields to reconstruct from.
+                          n.body
+                        ) : (
+                          <>
+                            <strong>{n.fromName}</strong>
+                            {n.type === 'like' ? ` liked ${n.kidNames}'s photo` : n.type === 'reply' ? ` replied to your comment` : ` commented on ${n.kidNames}'s photo`}
+                          </>
+                        )}
                       </p>
-                      {(n.type === 'comment' || n.type === 'reply') && n.body && (
+                      {!n.fromLog && (n.type === 'comment' || n.type === 'reply') && n.body && (
                         <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text-2)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>&ldquo;{n.body}&rdquo;</p>
                       )}
                       {n.ts && <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>{timeAgo(n.ts)}</p>}
@@ -8966,6 +8982,41 @@ export default function App() {
     return () => { supabase.removeChannel(replyCh); };
   }, [session?.user?.id]);
 
+  // Backfill unread activity from notification_log on load — the realtime
+  // listeners above only ever populate reactionNotifications for events that
+  // arrive while a socket is actually connected, so anything that happened
+  // while the app was closed (exactly when a push notification would have
+  // mattered) would otherwise never show up as a badge or Activity row at all.
+  useEffect(() => {
+    if (!supabase || !session?.user?.id) return;
+    supabase
+      .from('notification_log')
+      .select('id, kind, title, body, url, created_at')
+      .eq('user_id', session.user.id)
+      .is('read_at', null)
+      .in('kind', ['like', 'comment', 'reply'])
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        const backfilled = data.map(row => ({
+          id: row.id,
+          type: row.kind,
+          fromName: null,
+          fromUserId: null,
+          entryId: entryIdFromNotifUrl(row.url),
+          kidNames: null,
+          body: row.body,
+          ts: new Date(row.created_at).getTime(),
+          fromLog: true,
+        }));
+        setReactionNotifications(prev => {
+          const ids = new Set(prev.map(n => n.id));
+          return [...prev, ...backfilled.filter(n => !ids.has(n.id))];
+        });
+      });
+  }, [session?.user?.id]);
+
   const screenRef = useRef(screen);
   useEffect(() => { screenRef.current = screen; }, [screen]);
 
@@ -9904,14 +9955,30 @@ export default function App() {
       // on a deterministic id and relies on the row still existing (ignoreDuplicates)
       // to avoid recreating a notification for a birthday still inside the 7-day window.
       supabase.from('birthday_notifications').update({ dismissed: true }).eq('user_id', session.user.id).then(() => {});
+      // Also clears whatever was backfilled from notification_log on load, so it
+      // doesn't reappear as unread the next time the app opens.
+      supabase.from('notification_log').update({ read_at: new Date().toISOString() }).eq('user_id', session.user.id).is('read_at', null).then(() => {});
     }
     setBirthdayNotifications([]);
     setReactionToast({ message: 'All caught up' });
   }, [session?.user?.id]);
 
   const handleDismissReaction = useCallback(id => {
-    setReactionNotifications(p => p.filter(n => n.id !== id));
-    if (supabase && session?.user?.id) supabase.from('dismissed_notifications').insert({ user_id: session.user.id, notification_id: id }).then(() => {});
+    setReactionNotifications(p => {
+      const target = p.find(n => n.id === id);
+      if (supabase && session?.user?.id) {
+        // Items backfilled from notification_log are real rows there — mark
+        // that row read directly rather than going through the separate
+        // dismissed_notifications table used for purely-live (never persisted
+        // with this exact id) reaction notifications.
+        if (target?.fromLog) {
+          supabase.from('notification_log').update({ read_at: new Date().toISOString() }).eq('id', id).then(() => {});
+        } else {
+          supabase.from('dismissed_notifications').insert({ user_id: session.user.id, notification_id: id }).then(() => {});
+        }
+      }
+      return p.filter(n => n.id !== id);
+    });
   }, [session?.user?.id]);
 
   const handleDismissBirthday = useCallback(id => {
