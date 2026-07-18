@@ -48,7 +48,7 @@ function RecapEntryRow({ entry, kids, onOpenEntry, nextIsMilestone }) {
   );
 }
 
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget, onViewMonthRecap }) {
+function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget, onViewMonthRecap, onWatchMonthReel }) {
   const [viewMode, setViewMode] = useState(initialTarget?.viewMode || 'month');
   const [selectedMonth, setSelectedMonth] = useState(initialTarget?.month || TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
@@ -241,6 +241,15 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C8993E', fontSize: 16, padding: 4, marginLeft: 2, display: 'flex' }}
                 >
                   <i className="ti ti-sparkles" />
+                </button>
+              )}
+              {viewMode === 'month' && onWatchMonthReel && (
+                <button
+                  onClick={() => onWatchMonthReel(selectedMonth)}
+                  title="Watch this month's reel"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C8993E', fontSize: 16, padding: 4, display: 'flex' }}
+                >
+                  <i className="ti ti-player-play" />
                 </button>
               )}
             </div>
