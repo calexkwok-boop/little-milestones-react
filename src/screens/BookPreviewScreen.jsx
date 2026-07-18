@@ -282,31 +282,35 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
   );
 }
 
-// A dedicated two-up spread for a merged "same age" entry (entry.sameAgeKidId set) —
-// one post addressed to both kids, each with their own photo and age. Deliberately
-// independent of the chronological letter stream (the two photos can be years apart
+// A dedicated spread for a merged "same age" entry (entry.sameAgeDates set) — one
+// post addressed to every tagged kid, each with their own photo and age. Two kids
+// keeps the original fixed two-column layout; 3+ wraps into a grid since a book
+// page can't scroll the way the app's filmstrip variant does. Deliberately
+// independent of the chronological letter stream (the photos can be years apart
 // in real time), so it's excluded from the normal per-entry pagination and rendered
 // once as its own page.
 function PairedPage({ entry, kids }) {
   const sides = sameAgeSides(entry, kids);
   if (!sides) return null;
-  const pair = [sides.anchor, sides.match];
-  const names = pair.map(s => s.kid.name.split(' ')[0]).join(' & ');
+  const twoUp = sides.length === 2;
+  const names = sides.map(s => s.kid.name.split(' ')[0]).join(' & ');
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const heading = m ? `${names}'s ${m.label.charAt(0).toLowerCase()}${m.label.slice(1)}` : names;
+  const cardHeight = twoUp ? 150 : 110;
   return (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '16px 24px 10px', textAlign: 'center' }}>
         At the same age
       </p>
-      <div style={{ display: 'flex', gap: 2 }}>
-        {pair.map((side, i) => {
-          if (!side.photo) return <div key={i} style={{ flex: 1, height: 150, background: '#EDE8DE' }} />;
+      <div style={{ display: 'flex', flexWrap: twoUp ? 'nowrap' : 'wrap', gap: 2 }}>
+        {sides.map((side, i) => {
+          const cardStyle = twoUp ? { flex: 1, position: 'relative' } : { flex: '1 1 30%', minWidth: '30%', position: 'relative' };
+          if (!side.photo) return <div key={i} style={{ ...cardStyle, height: cardHeight, background: '#EDE8DE' }} />;
           const isVideo = side.photo.type === 'video';
-          const src = isVideo ? videoThumbUrl(side.photo.url, 'so_0,w_400,q_auto,f_auto') : cloudinaryTransform(side.photo.url, 'w_400,q_auto,f_auto');
+          const src = isVideo ? videoThumbUrl(side.photo.url, `so_0,w_${twoUp ? 400 : 300},q_auto,f_auto`) : cloudinaryTransform(side.photo.url, `w_${twoUp ? 400 : 300},q_auto,f_auto`);
           return (
-            <div key={i} style={{ flex: 1, position: 'relative' }}>
-              <CroppedPhoto src={src} cropY={entry.cropY} height={150} />
+            <div key={i} style={cardStyle}>
+              <CroppedPhoto src={src} cropY={entry.cropY} height={cardHeight} />
               {isVideo && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -318,11 +322,13 @@ function PairedPage({ entry, kids }) {
           );
         })}
       </div>
-      <div style={{ display: 'flex', background: 'rgba(200,153,62,0.1)' }}>
-        {pair.map((side, i) => {
+      <div style={{ display: 'flex', flexWrap: twoUp ? 'nowrap' : 'wrap', background: 'rgba(200,153,62,0.1)' }}>
+        {sides.map((side, i) => {
           const dateLabel = new Date(side.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
           return (
-            <div key={i} style={{ flex: 1, padding: '8px 14px', borderLeft: i > 0 ? '1px solid rgba(200,153,62,0.25)' : 'none' }}>
+            <div key={i} style={twoUp
+              ? { flex: 1, padding: '8px 14px', borderLeft: i > 0 ? '1px solid rgba(200,153,62,0.25)' : 'none' }
+              : { flex: '1 1 30%', minWidth: '30%', padding: '6px 10px' }}>
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12.5, color: '#9A7526', margin: '0 0 3px' }}>{side.kid.name.split(' ')[0]}</p>
               <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#B8944A', margin: 0 }}>{exactAgeLabel(side.kid.birthdate, side.date)} old &middot; {dateLabel}</p>
             </div>
@@ -371,18 +377,18 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       if (!pageWidth || !measureRef.current) return;
       const el = measureRef.current;
 
-      // A merged "same age" entry (entry.sameAgeKidId set) is a single row already —
+      // A merged "same age" entry (entry.sameAgeDates set) is a single row already —
       // route it to the paired spread instead of the normal letter/note handling,
       // regardless of whether it was written as a letter or a note.
       const notesByMonth = new Map();
-      sorted.filter(e => e.type === 'note' && !e.sameAgeKidId).forEach(entry => {
+      sorted.filter(e => e.type === 'note' && !e.sameAgeDates).forEach(entry => {
         const key = entry.date.slice(0, 7);
         if (!notesByMonth.has(key)) notesByMonth.set(key, []);
         notesByMonth.get(key).push(entry);
       });
 
-      const items = letterEntries.filter(e => !e.sameAgeKidId).map(entry => ({ sortDate: entry.date, kind: 'letter', entry }));
-      sorted.filter(e => e.sameAgeKidId).forEach(entry => {
+      const items = letterEntries.filter(e => !e.sameAgeDates).map(entry => ({ sortDate: entry.date, kind: 'letter', entry }));
+      sorted.filter(e => e.sameAgeDates).forEach(entry => {
         items.push({ sortDate: entry.date, kind: 'paired', entry });
       });
       notesByMonth.forEach((notes, monthKey) => {

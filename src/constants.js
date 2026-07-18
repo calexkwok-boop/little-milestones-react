@@ -75,22 +75,33 @@ export function dateForAge(birthdate, { years, months, days }) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// For a merged "same age" entry (entry.sameAgeKidId set), resolves the two sides
-// of the split view: the anchor kid (the entry's original subject) and the match
-// kid (folded in later), each with their own photo and the date they were that age.
-// The match photo is the one entry_media row tagged with sameAgeKidId; the anchor
-// photo is whichever photo isn't — no need to retroactively tag old photos.
+// For a merged "same age" entry (entry.sameAgeDates set), resolves one side per
+// tagged kid — the anchor kid (the entry's original subject, no key in sameAgeDates,
+// uses the entry's own date) plus every kid folded in later (their date comes from
+// sameAgeDates, their photo is the one entry_media row tagged with their kid id).
+// Returns null when the entry isn't a same-age pairing at all. Supports any number
+// of kids — 2 is the common case, but nothing here assumes exactly 2.
 export function sameAgeSides(entry, kids) {
-  if (!entry.sameAgeKidId) return null;
-  const matchKid = kids.find(k => k.id === entry.sameAgeKidId);
-  const anchorKid = kids.find(k => entry.kids.includes(k.id) && k.id !== entry.sameAgeKidId);
-  if (!matchKid || !anchorKid) return null;
-  const matchPhoto = entry.media.find(m => m.kidId === entry.sameAgeKidId) || null;
-  const anchorPhoto = entry.media.find(m => m.kidId !== entry.sameAgeKidId) || entry.media[0] || null;
-  return {
-    anchor: { kid: anchorKid, photo: anchorPhoto, date: entry.date },
-    match: { kid: matchKid, photo: matchPhoto, date: entry.sameAgeDate },
-  };
+  if (!entry.sameAgeDates || Object.keys(entry.sameAgeDates).length === 0) return null;
+  return entry.kids
+    .map(id => kids.find(k => k.id === id))
+    .filter(Boolean)
+    .map(kid => {
+      const isMatched = kid.id in entry.sameAgeDates;
+      const date = isMatched ? entry.sameAgeDates[kid.id] : entry.date;
+      const photo = isMatched
+        ? entry.media.find(m => m.kidId === kid.id) || null
+        : entry.media.find(m => !m.kidId) || entry.media[0] || null;
+      return { kid, photo, date };
+    });
+}
+
+// Spread across a same-age group's dates, in days — 0 for an exact match, otherwise
+// how far apart the furthest two kids' ages were when their photos were taken.
+export function sameAgeDaysApart(sides) {
+  const ageDays = s => (new Date(s.date + 'T12:00:00') - new Date(s.kid.birthdate + 'T12:00:00')) / 86400000;
+  const days = sides.map(ageDays);
+  return Math.round(Math.max(...days) - Math.min(...days));
 }
 
 export function milestoneInfo(id) {

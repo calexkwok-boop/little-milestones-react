@@ -21,7 +21,7 @@ async function extractExifDate(file) {
   return null;
 }
 
-export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, onCancel, onConfirm }) {
+export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, stepLabel, onCancel, onConfirm }) {
   const [picking, setPicking] = useState(false);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef(null);
@@ -58,7 +58,10 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <button className="icon-btn" onClick={onCancel}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: '0 auto', fontWeight: 700, fontFamily: "'Urbanist', sans-serif" }}>Same age as {sourceKid.name.split(' ')[0]}</h2>
+            <div style={{ margin: '0 auto', textAlign: 'center' }}>
+              <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700, fontFamily: "'Urbanist', sans-serif" }}>Same age as {sourceKid.name.split(' ')[0]}</h2>
+              {stepLabel && <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', fontWeight: 600 }}>Kid {stepLabel}</p>}
+            </div>
             <div style={{ width: 36 }} />
           </div>
 

@@ -20,7 +20,7 @@ import SameAgeMatchScreen from './screens/SameAgeMatchScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY, AMAZON_GIFT_FALLBACK_URL,
-  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, cloudinaryTransform, sameAgeSides, videoThumbUrl,
+  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl,
   AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG,
 } from './constants.js';
 
@@ -856,7 +856,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
           <i className="ti ti-lock" style={{ color: '#fff', fontSize: 12 }} />
         </div>
       )}
-      {entry.media && entry.media.length > 0 && (
+      {entry.media && entry.media.length === 1 && (
         <div
           ref={photoRef}
           onClick={e => { if (lp.didFire.current) { lp.didFire.current = false; return; } e.stopPropagation(); onClick?.(); }}
@@ -879,6 +879,18 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
             </div>
           ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} fade />
           }
+        </div>
+      )}
+      {entry.media && entry.media.length > 1 && (
+        <div
+          onClick={e => { if (lp.didFire.current) { lp.didFire.current = false; return; } e.stopPropagation(); onClick?.(); }}
+          style={{ display: 'flex', gap: 2, overflowX: 'auto', height: cardH, cursor: 'pointer' }}
+        >
+          {entry.media.map((item, i) => (
+            <div key={i} style={{ flexShrink: 0, width: cardH * (4 / 3), height: cardH, position: 'relative' }}>
+              <FeedMediaThumb item={item} cropY={cropY} transform="w_800,e_sharpen:60,q_auto,f_auto" />
+            </div>
+          ))}
         </div>
       )}
       <div style={{ padding: '16px 18px 14px' }}>
@@ -1042,7 +1054,7 @@ const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transfor
 const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, onClick, onLongPress }) {
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
-  const sides = entry.sameAgeKidId && allKids ? sameAgeSides(entry, allKids) : null;
+  const sides = allKids ? sameAgeSides(entry, allKids) : null;
   const accent = sides ? PROMPT_ACCENT : entryKids.length > 1 ? MULTI_KID_ACCENT : (entryKids[0]?.accent || kid?.accent || KID_ACCENTS[0]);
   const tintBg = hexToRgba(accent, 0.13);
   const tintBorder = hexToRgba(accent, 0.3);
@@ -1087,7 +1099,7 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {entryKids.map(k => {
-          const kidDate = k.id === entry.sameAgeKidId ? entry.sameAgeDate : entry.date;
+          const kidDate = entry.sameAgeDates?.[k.id] ?? entry.date;
           return (
             <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: k.accent || KID_ACCENTS[0], flexShrink: 0 }} />
@@ -1099,8 +1111,7 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
           );
         })}
         {sides && (() => {
-          const ageDays = (birthdate, date) => (new Date(date + 'T12:00:00') - new Date(birthdate + 'T12:00:00')) / 86400000;
-          const daysApart = Math.round(Math.abs(ageDays(sides.anchor.kid.birthdate, sides.anchor.date) - ageDays(sides.match.kid.birthdate, sides.match.date)));
+          const daysApart = sameAgeDaysApart(sides);
           return (
             <span style={{ fontSize: featured ? 10.5 : 9.5, fontWeight: 600, color: accent, marginTop: 2 }}>
               {daysApart === 0 ? 'Exact same age' : `${daysApart} day${daysApart !== 1 ? 's' : ''} apart`}
@@ -1116,7 +1127,7 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const entryKids = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).filter(Boolean);
-  const sides = entry.sameAgeKidId && allKids ? sameAgeSides(entry, allKids) : null;
+  const sides = allKids ? sameAgeSides(entry, allKids) : null;
   const previewLen = featured ? 200 : 90;
   const preview = entry.text.length > previewLen ? entry.text.slice(0, previewLen) + '…' : entry.text;
   const photoH = featured ? 140 : 92;
@@ -1162,7 +1173,7 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           {entryKids.map(k => {
-            const kidDate = k.id === entry.sameAgeKidId ? entry.sameAgeDate : entry.date;
+            const kidDate = entry.sameAgeDates?.[k.id] ?? entry.date;
             return (
               <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                 <KidThumb kid={k} size={featured ? 18 : 15} />
@@ -1173,8 +1184,7 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
             );
           })}
           {sides && (() => {
-            const ageDays = (birthdate, date) => (new Date(date + 'T12:00:00') - new Date(birthdate + 'T12:00:00')) / 86400000;
-            const daysApart = Math.round(Math.abs(ageDays(sides.anchor.kid.birthdate, sides.anchor.date) - ageDays(sides.match.kid.birthdate, sides.match.date)));
+            const daysApart = sameAgeDaysApart(sides);
             return (
               <span style={{ fontSize: featured ? 10.5 : 9.5, fontWeight: 600, color: PROMPT_ACCENT, marginTop: 2 }}>
                 {daysApart === 0 ? 'Exact same age' : `${daysApart} day${daysApart !== 1 ? 's' : ''} apart`}
@@ -1590,9 +1600,11 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
 
   const birthdayToday = useMemo(() => kids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [kids]);
   const birthdayTodayIds = useMemo(() => new Set(birthdayToday.map(k => k.id)), [birthdayToday]);
-  const birthdayNextWeek = useMemo(() => kids.filter(k => daysUntilBirthday(k.birthdate) === 7 && !birthdayTodayIds.has(k.id)), [kids, birthdayTodayIds]);
+  // Anywhere in the final week counts, not just exactly 7 days out — a birthday
+  // 3 days away should still surface the banner, not just the 7-day and day-of marks.
+  const birthdayNextWeek = useMemo(() => kids.filter(k => { const d = daysUntilBirthday(k.birthdate); return d > 0 && d <= 7; }), [kids]);
   const friendBirthdaysToday = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [friendKids]);
-  const friendBirthdayNextWeek = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 7), [friendKids]);
+  const friendBirthdayNextWeek = useMemo(() => friendKids.filter(k => { if (!k.birthdate) return false; const d = daysUntilBirthday(k.birthdate); return d > 0 && d <= 7; }), [friendKids]);
 
   // "Recent" and "Recently added" already claim these entries at the top of the
   // feed, so the look-back sections below must not pull the same post back in.
@@ -2655,6 +2667,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const isNote = entry.type === 'note';
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const media = entry.media || [];
+  // The kid this entry was originally about — the one with no key in sameAgeDates.
+  // Every kid folded in later gets compared against this same anchor.
+  const anchorKidId = entry.kids.find(id => !(entry.sameAgeDates || {})[id]);
   const [activeSlide, setActiveSlide] = useState(0);
 
   function handleSetCoverPhoto(photo) {
@@ -2671,6 +2686,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [isShared, setIsShared] = useState(entry.shared ?? true);
   const [showActionSheet, setShowActionSheet] = useState(false);
   const [showSameAgePicker, setShowSameAgePicker] = useState(false);
+  const [sameAgePickerSelection, setSameAgePickerSelection] = useState([]);
   const [showShareLinkSheet, setShowShareLinkSheet] = useState(false);
   const [shareToken, setShareToken] = useState(entry.shareToken ?? null);
   const [shareLinkBusy, setShareLinkBusy] = useState(false);
@@ -2873,19 +2889,19 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <p style={{ fontSize: 15, fontWeight: 700, color: '#7A6030', margin: 0 }}>{m.label}</p>
             </div>
           )}
-          {entry.sameAgeKidId && allKids && (() => {
+          {allKids && (() => {
             const sides = sameAgeSides(entry, allKids);
             if (!sides) return null;
-            const ageDays = (birthdate, date) => (new Date(date + 'T12:00:00') - new Date(birthdate + 'T12:00:00')) / 86400000;
-            const daysApart = Math.round(Math.abs(ageDays(sides.anchor.kid.birthdate, sides.anchor.date) - ageDays(sides.match.kid.birthdate, sides.match.date)));
+            const daysApart = sameAgeDaysApart(sides);
+            const twoUp = sides.length === 2;
             return (
               <div className="milestone-entry" style={{ borderRadius: 16, padding: 12 }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px', textAlign: 'center' }}>Same age</p>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {[sides.anchor, sides.match].map((side, i) => {
+                <div style={twoUp ? { display: 'flex', gap: 8 } : { display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+                  {sides.map((side, i) => {
                     const isCover = !!side.photo && media[0] === side.photo;
                     return (
-                    <div key={i} style={{ flex: 1, minWidth: 0 }}>
+                    <div key={i} style={twoUp ? { flex: 1, minWidth: 0 } : { width: 92, flexShrink: 0 }}>
                       <div
                         onClick={() => handleSetCoverPhoto(side.photo)}
                         title={onReorderMedia && side.photo ? (isCover ? 'Current cover photo' : 'Set as cover photo') : undefined}
@@ -2909,8 +2925,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             );
           })()}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => {
-              const kidDate = k.id === entry.sameAgeKidId ? entry.sameAgeDate : entry.date;
+            {(() => {
+              return (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => {
+              const kidDate = entry.sameAgeDates?.[k.id] ?? entry.date;
               return (
               <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                 <KidThumb kid={k} size={32} />
@@ -2927,11 +2944,11 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  {onSameAge && entry.kids.length === 1 && allKids?.length > 1 && (
+                  {onSameAge && k.id === anchorKidId && allKids?.length > entry.kids.length && (
                     <button onClick={() => {
-                      const others = allKids.filter(ak => ak.id !== k.id);
-                      if (others.length === 1) onSameAge(entry, k, others[0]);
-                      else setShowSameAgePicker(true);
+                      const others = allKids.filter(ak => !entry.kids.includes(ak.id));
+                      if (others.length === 1) onSameAge(entry, k, others);
+                      else { setSameAgePickerSelection([]); setShowSameAgePicker(true); }
                     }} title="Same age" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--accent)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
                       <i className="ti ti-arrows-diff" />
                     </button>
@@ -2947,7 +2964,8 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 </div>
               </div>
               );
-            })}
+            });
+            })()}
           </div>
           {entry.song && <SongPlayer song={entry.song} />}
           {entry.voiceMemoUrl && <VoiceMemoPlayer url={entry.voiceMemoUrl} />}
@@ -3077,17 +3095,38 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
       </div>
       {showSameAgePicker && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowSameAgePicker(false)}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 36px' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
-            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 14px', textAlign: 'center' }}>Same age as who?</p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {allKids.filter(ak => !entry.kids.includes(ak.id)).map(other => (
-                <button key={other.id} onClick={() => { setShowSameAgePicker(false); onSameAge(entry, allKids.find(ak => entry.kids.includes(ak.id)), other); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer' }}>
-                  <KidThumb kid={other} size={28} />
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{other.name.split(' ')[0]}</span>
-                </button>
-              ))}
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px', textAlign: 'center' }}>Same age as who?</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px', textAlign: 'center' }}>Pick as many as you'd like to add.</p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 20 }}>
+              {allKids.filter(ak => !entry.kids.includes(ak.id)).map(other => {
+                const selected = sameAgePickerSelection.includes(other.id);
+                return (
+                  <button
+                    key={other.id}
+                    onClick={() => setSameAgePickerSelection(prev => selected ? prev.filter(id => id !== other.id) : [...prev, other.id])}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--bg-elevated)' : 'transparent', cursor: 'pointer' }}
+                  >
+                    <KidThumb kid={other} size={28} />
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{other.name.split(' ')[0]}</span>
+                    {selected && <i className="ti ti-check" style={{ fontSize: 14, color: 'var(--accent)' }} />}
+                  </button>
+                );
+              })}
             </div>
+            <button
+              className="btn btn-gold"
+              style={{ width: '100%', opacity: sameAgePickerSelection.length > 0 ? 1 : 0.4 }}
+              disabled={sameAgePickerSelection.length === 0}
+              onClick={() => {
+                const targets = allKids.filter(ak => sameAgePickerSelection.includes(ak.id));
+                setShowSameAgePicker(false);
+                onSameAge(entry, allKids.find(ak => ak.id === anchorKidId), targets);
+              }}
+            >
+              {sameAgePickerSelection.length > 1 ? `Continue with ${sameAgePickerSelection.length}` : 'Continue'}
+            </button>
           </div>
         </div>
       )}
@@ -3663,8 +3702,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     }
   }
 
-  const [sameAgeKidId, setSameAgeKidId] = useState(null);
-  const [sameAgeDate, setSameAgeDate] = useState(null);
+  const [sameAgeDates, setSameAgeDates] = useState({});
 
   function buildSavePayload() {
     return {
@@ -3689,8 +3727,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       voiceMemoUrl,
       type: mode,
       prompt: isNote ? (promptText || null) : null,
-      sameAgeKidId,
-      sameAgeDate,
+      sameAgeDates: Object.keys(sameAgeDates).length > 0 ? sameAgeDates : null,
     };
   }
 
@@ -3710,24 +3747,35 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   }
 
   const [showDraftSameAgePicker, setShowDraftSameAgePicker] = useState(false);
+  const [draftSameAgePickerSelection, setDraftSameAgePickerSelection] = useState([]);
   const [draftSameAgeTarget, setDraftSameAgeTarget] = useState(null); // kid object, once chosen — shows SameAgeMatchScreen
+  const [draftSameAgeQueue, setDraftSameAgeQueue] = useState([]); // remaining kids after draftSameAgeTarget, when several were picked at once
+  const [draftSameAgeQueueTotal, setDraftSameAgeQueueTotal] = useState(0);
 
   // Folds the matched kid + their photo straight into this still-unsaved draft —
-  // no early save/navigate needed, since nothing exists yet to link to.
+  // no early save/navigate needed, since nothing exists yet to link to. If more
+  // kids were queued up from a multi-select in the picker, moves on to the next
+  // one instead of closing, so picking several kids only asks for one photo at a time.
   function handleConfirmDraftSameAge(photoDate, file) {
     const targetKid = draftSameAgeTarget;
-    setDraftSameAgeTarget(null);
     const url = URL.createObjectURL(file);
     setMedia(prev => [...prev, { url, type: 'image', kidId: targetKid.id }]);
     setFileObjects(prev => [...prev, file]);
     setSelectedKids(prev => prev.includes(targetKid.id) ? prev : [...prev, targetKid.id]);
-    setSameAgeKidId(targetKid.id);
-    setSameAgeDate(photoDate);
+    setSameAgeDates(prev => ({ ...prev, [targetKid.id]: photoDate }));
+    if (draftSameAgeQueue.length > 0) {
+      const [next, ...rest] = draftSameAgeQueue;
+      setDraftSameAgeQueue(rest);
+      setDraftSameAgeTarget(next);
+    } else {
+      setDraftSameAgeTarget(null);
+      setDraftSameAgeQueueTotal(0);
+    }
   }
 
   const canSave = selectedKids.length > 0 && (text.trim().length > 0 || media.length > 0);
-  const sameAgeTargets = kids.filter(k => k.id !== selectedKids[0]);
-  const canSameAgeFromDraft = !existingEntry && selectedKids.length === 1 && media.length > 0 && sameAgeTargets.length > 0;
+  const sameAgeTargets = kids.filter(k => !selectedKids.includes(k.id));
+  const canSameAgeFromDraft = !existingEntry && media.length > 0 && sameAgeTargets.length > 0;
 
   return (
     <div className="screen" style={{ background: 'var(--bg-card)', position: 'relative' }}>
@@ -3858,7 +3906,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         )}
 
         {media.length > 0 && (
-          <div style={{ marginBottom: 20, display: 'flex', gap: 8, justifyContent: 'center', overflowX: 'auto', paddingBottom: 2 }}>
+          <div style={{ marginBottom: 20, display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
             {media.map((item, i) => (
               <div key={i} style={{ width: 165, aspectRatio: '4/3', borderRadius: 12, overflow: 'hidden', position: 'relative', flexShrink: 0, cursor: 'pointer' }} onClick={() => setPreviewMedia(item)}>
                 {item.type === 'video'
@@ -3871,7 +3919,16 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                   <i className="ti ti-x" />
                 </button>
                 {i === 0 && canSameAgeFromDraft && (
-                  <button onClick={e => { e.stopPropagation(); if (sameAgeTargets.length === 1) setDraftSameAgeTarget(sameAgeTargets[0]); else setShowDraftSameAgePicker(true); }} title="Same age" style={{ position: 'absolute', bottom: 6, right: 6, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <button onClick={e => {
+                    e.stopPropagation();
+                    if (sameAgeTargets.length === 1) {
+                      setDraftSameAgeQueueTotal(1);
+                      setDraftSameAgeTarget(sameAgeTargets[0]);
+                    } else {
+                      setDraftSameAgePickerSelection([]);
+                      setShowDraftSameAgePicker(true);
+                    }
+                  }} title="Same age" style={{ position: 'absolute', bottom: 6, right: 6, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <i className="ti ti-arrows-diff" />
                   </button>
                 )}
@@ -4327,17 +4384,41 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       {/* Same-age target-kid picker sheet */}
       {showDraftSameAgePicker && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDraftSameAgePicker(false)}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 36px' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
-            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 14px', textAlign: 'center' }}>Same age as who?</p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {sameAgeTargets.map(other => (
-                <button key={other.id} onClick={() => { setShowDraftSameAgePicker(false); setDraftSameAgeTarget(other); }} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer' }}>
-                  <KidThumb kid={other} size={28} />
-                  <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{other.name.split(' ')[0]}</span>
-                </button>
-              ))}
+            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px', textAlign: 'center' }}>Same age as who?</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px', textAlign: 'center' }}>Pick as many as you'd like to add.</p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 20 }}>
+              {sameAgeTargets.map(other => {
+                const selected = draftSameAgePickerSelection.includes(other.id);
+                return (
+                  <button
+                    key={other.id}
+                    onClick={() => setDraftSameAgePickerSelection(prev => selected ? prev.filter(id => id !== other.id) : [...prev, other.id])}
+                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: `1px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--bg-elevated)' : 'transparent', cursor: 'pointer' }}
+                  >
+                    <KidThumb kid={other} size={28} />
+                    <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{other.name.split(' ')[0]}</span>
+                    {selected && <i className="ti ti-check" style={{ fontSize: 14, color: 'var(--accent)' }} />}
+                  </button>
+                );
+              })}
             </div>
+            <button
+              className="btn btn-gold"
+              style={{ width: '100%', opacity: draftSameAgePickerSelection.length > 0 ? 1 : 0.4 }}
+              disabled={draftSameAgePickerSelection.length === 0}
+              onClick={() => {
+                const targets = sameAgeTargets.filter(k => draftSameAgePickerSelection.includes(k.id));
+                const [first, ...rest] = targets;
+                setShowDraftSameAgePicker(false);
+                setDraftSameAgeQueueTotal(targets.length);
+                setDraftSameAgeQueue(rest);
+                setDraftSameAgeTarget(first);
+              }}
+            >
+              {draftSameAgePickerSelection.length > 1 ? `Continue with ${draftSameAgePickerSelection.length}` : 'Continue'}
+            </button>
           </div>
         </div>
       )}
@@ -4348,7 +4429,8 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             sourceEntry={{ date: entryDate }}
             sourceKid={kids.find(k => k.id === selectedKids[0])}
             targetKid={draftSameAgeTarget}
-            onCancel={() => setDraftSameAgeTarget(null)}
+            stepLabel={draftSameAgeQueueTotal > 1 ? `${draftSameAgeQueueTotal - draftSameAgeQueue.length} of ${draftSameAgeQueueTotal}` : null}
+            onCancel={() => { setDraftSameAgeTarget(null); setDraftSameAgeQueue([]); setDraftSameAgeQueueTotal(0); }}
             onConfirm={handleConfirmDraftSameAge}
           />
         </div>
@@ -4979,12 +5061,12 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
           .filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && e.media?.length > 0)
           .map(e => ({ e, kid }));
         const sameAge = pool
-          .filter(e => e.sameAgeKidId && e.kids.includes(kid.id))
+          .filter(e => e.sameAgeDates && e.kids.includes(kid.id))
           .map(e => {
             const sides = sameAgeSides(e, kidList);
             if (!sides) return null;
-            const side = e.sameAgeKidId === kid.id ? sides.match : sides.anchor;
-            if (!side.photo) return null;
+            const side = sides.find(s => s.kid.id === kid.id);
+            if (!side || !side.photo) return null;
             const { years, months } = exactAge(kid.birthdate, side.date);
             const otherMedia = e.media.filter(m => m !== side.photo);
             return { e: { ...e, date: side.date, ageMonths: years * 12 + months, media: [side.photo, ...otherMedia] }, kid };
@@ -8028,8 +8110,7 @@ function normalizeEntry(e) {
     sharedWith: e.shared_with || { partner: true, family: false, friends: false },
     voiceMemoUrl: e.voice_memo_url || null,
     shareToken: e.share_token || null,
-    sameAgeKidId: e.same_age_kid_id || null,
-    sameAgeDate: e.same_age_date || null,
+    sameAgeDates: e.same_age_dates || null,
   };
 }
 
@@ -9047,7 +9128,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null, sameAgeKidId = null, sameAgeDate = null }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null, sameAgeDates = null }) {
     const shared = Object.values(sharedWith).some(Boolean);
     const primaryKid = kids.find(k => kidIds.includes(k.id)) ?? friendKids.find(k => kidIds.includes(k.id));
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
@@ -9138,8 +9219,7 @@ export default function App() {
         palette,
         media: media.map(item => ({ url: item.url, type: item.type, kidId: item.kidId ?? null })),
         song: song || null,
-        sameAgeKidId,
-        sameAgeDate,
+        sameAgeDates,
       };
       setEntries(prev => [newEntry, ...prev]);
       if (milestone) {
@@ -9172,8 +9252,7 @@ export default function App() {
       voice_memo_url: voiceMemoUrlFinal,
       type: entryType,
       prompt,
-      same_age_kid_id: sameAgeKidId,
-      same_age_date: sameAgeDate,
+      same_age_dates: sameAgeDates,
     }).select().single();
 
     if (error || !entry) {
@@ -9182,7 +9261,7 @@ export default function App() {
     }
 
     // Optimistically show entry and navigate away immediately
-    const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, sameAgeKidId, sameAgeDate };
+    const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, sameAgeDates };
     setEntries(prev => [optimisticEntry, ...prev]);
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone, entry: optimisticEntry });
@@ -9260,29 +9339,30 @@ export default function App() {
     }
   }
 
-  // Folds a second kid + their matching-age photo into an existing single-kid entry,
-  // turning it into one merged post addressed to both — rather than creating a
-  // second, separate entry for the matched kid.
+  // Folds another kid + their matching-age photo into an existing entry, turning
+  // it into one merged post addressed to all of them — rather than creating a
+  // separate entry per matched kid. Returns the updated entry (or null on failure)
+  // so a caller matching several kids in a row can chain off the freshest kid_ids/
+  // sameAgeDates instead of a stale pre-update reference.
   async function handleAddSameAgeMatch(sourceEntry, targetKid, photoDate, file) {
     const newKidIds = [...sourceEntry.kids, targetKid.id];
+    const newSameAgeDates = { ...(sourceEntry.sameAgeDates || {}), [targetKid.id]: photoDate };
     if (localMode || !supabase || !session) {
       const url = URL.createObjectURL(file);
-      setEntries(prev => prev.map(e => e.id === sourceEntry.id ? {
-        ...e, kids: newKidIds, sameAgeKidId: targetKid.id, sameAgeDate: photoDate,
-        media: [...e.media, { url, type: 'image', kidId: targetKid.id }],
-      } : e));
-      return;
+      const updated = { ...sourceEntry, kids: newKidIds, sameAgeDates: newSameAgeDates, media: [...sourceEntry.media, { url, type: 'image', kidId: targetKid.id }] };
+      setEntries(prev => prev.map(e => e.id === sourceEntry.id ? updated : e));
+      return updated;
     }
     try {
       const url = await uploadToCloudinary(file, 'image');
       await supabase.from('entry_media').insert({ entry_id: sourceEntry.id, url, type: 'image', kid_id: targetKid.id });
-      await supabase.from('entries').update({ kid_ids: newKidIds, same_age_kid_id: targetKid.id, same_age_date: photoDate }).eq('id', sourceEntry.id);
-      setEntries(prev => prev.map(e => e.id === sourceEntry.id ? {
-        ...e, kids: newKidIds, sameAgeKidId: targetKid.id, sameAgeDate: photoDate,
-        media: [...e.media, { url, type: 'image', kidId: targetKid.id }],
-      } : e));
+      await supabase.from('entries').update({ kid_ids: newKidIds, same_age_dates: newSameAgeDates }).eq('id', sourceEntry.id);
+      const updated = { ...sourceEntry, kids: newKidIds, sameAgeDates: newSameAgeDates, media: [...sourceEntry.media, { url, type: 'image', kidId: targetKid.id }] };
+      setEntries(prev => prev.map(e => e.id === sourceEntry.id ? updated : e));
+      return updated;
     } catch (err) {
       alert('Could not save that photo. Please try again.\n' + (err?.message || ''));
+      return null;
     }
   }
 
@@ -9937,12 +10017,22 @@ export default function App() {
           supabase={supabase}
           session={session}
           socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName || ''}
-          onSameAge={(sourceEntry, sourceKid, targetKid) => { setSameAgeMatch({ sourceEntry, sourceKid, targetKid }); setScreen('same-age-match'); }}
+          onSameAge={(sourceEntry, sourceKid, targets) => {
+            const [targetKid, ...queue] = targets;
+            setSameAgeMatch({ sourceEntry, sourceKid, targetKid, queue, queueTotal: targets.length });
+            setScreen('same-age-match');
+          }}
           pendingSameAgeMatch={pendingSameAgeMatch?.sourceEntry.id === entries.find(e => e.id === activeEntry.id)?.id ? pendingSameAgeMatch : null}
-          onConfirmSameAgeMatch={() => {
-            handleAddSameAgeMatch(pendingSameAgeMatch.sourceEntry, pendingSameAgeMatch.targetKid, pendingSameAgeMatch.photoDate, pendingSameAgeMatch.file);
-            URL.revokeObjectURL(pendingSameAgeMatch.previewUrl);
+          onConfirmSameAgeMatch={async () => {
+            const { sourceEntry, sourceKid, targetKid, queue, photoDate, file, previewUrl, queueTotal } = pendingSameAgeMatch;
+            const updated = await handleAddSameAgeMatch(sourceEntry, targetKid, photoDate, file);
+            URL.revokeObjectURL(previewUrl);
             setPendingSameAgeMatch(null);
+            if (updated && queue.length > 0) {
+              const [nextTarget, ...rest] = queue;
+              setSameAgeMatch({ sourceEntry: updated, sourceKid, targetKid: nextTarget, queue: rest, queueTotal });
+              setScreen('same-age-match');
+            }
           }}
           onCancelSameAgeMatch={() => {
             URL.revokeObjectURL(pendingSameAgeMatch.previewUrl);
@@ -9956,9 +10046,10 @@ export default function App() {
           sourceEntry={sameAgeMatch.sourceEntry}
           sourceKid={sameAgeMatch.sourceKid}
           targetKid={sameAgeMatch.targetKid}
+          stepLabel={sameAgeMatch.queueTotal > 1 ? `${sameAgeMatch.queueTotal - sameAgeMatch.queue.length} of ${sameAgeMatch.queueTotal}` : null}
           onCancel={() => { setScreen('entry-detail'); setSameAgeMatch(null); }}
           onConfirm={(photoDate, file) => {
-            setPendingSameAgeMatch({ sourceEntry: sameAgeMatch.sourceEntry, targetKid: sameAgeMatch.targetKid, photoDate, file, previewUrl: URL.createObjectURL(file) });
+            setPendingSameAgeMatch({ sourceEntry: sameAgeMatch.sourceEntry, sourceKid: sameAgeMatch.sourceKid, targetKid: sameAgeMatch.targetKid, queue: sameAgeMatch.queue, queueTotal: sameAgeMatch.queueTotal, photoDate, file, previewUrl: URL.createObjectURL(file) });
             setScreen('entry-detail');
             setSameAgeMatch(null);
           }}
