@@ -1592,9 +1592,10 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   // necessarily "more written about right now"). Only shows once someone's actually
   // overdue, and never repeats a prompt already answered for that specific kid.
   const promptOfDay = useMemo(() => {
-    if (kids.length === 0) return null;
+    const activeKidsForPrompt = kids.filter(k => !k.archivedAt);
+    if (activeKidsForPrompt.length === 0) return null;
     const now = Date.now();
-    const gaps = kids.map(kid => {
+    const gaps = activeKidsForPrompt.map(kid => {
       const kidEntries = entries.filter(e => e.kids.includes(kid.id));
       const lastActivity = kidEntries.reduce((max, e) => Math.max(max, entryAddedTime(e)), 0);
       const days = lastActivity ? (now - lastActivity) / 86400000 : Infinity;
@@ -1619,11 +1620,11 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     try { return localStorage.getItem('patina-prompt-of-day-dismissed') === todayString(); } catch { return false; }
   });
 
-  const birthdayToday = useMemo(() => kids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [kids]);
+  const birthdayToday = useMemo(() => kids.filter(k => k.birthdate && !k.archivedAt && daysUntilBirthday(k.birthdate) === 0), [kids]);
   const birthdayTodayIds = useMemo(() => new Set(birthdayToday.map(k => k.id)), [birthdayToday]);
   // Anywhere in the final week counts, not just exactly 7 days out — a birthday
   // 3 days away should still surface the banner, not just the 7-day and day-of marks.
-  const birthdayNextWeek = useMemo(() => kids.filter(k => { const d = daysUntilBirthday(k.birthdate); return d > 0 && d <= 7; }), [kids]);
+  const birthdayNextWeek = useMemo(() => kids.filter(k => { if (k.archivedAt) return false; const d = daysUntilBirthday(k.birthdate); return d > 0 && d <= 7; }), [kids]);
   const friendBirthdaysToday = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [friendKids]);
   const friendBirthdayNextWeek = useMemo(() => friendKids.filter(k => { if (!k.birthdate) return false; const d = daysUntilBirthday(k.birthdate); return d > 0 && d <= 7; }), [friendKids]);
 
@@ -3025,9 +3026,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  {onSameAge && k.id === anchorKidId && allKids?.length > entry.kids.length && (
+                  {onSameAge && k.id === anchorKidId && allKids?.some(ak => !entry.kids.includes(ak.id) && !ak.archivedAt) && (
                     <button onClick={() => {
-                      const others = allKids.filter(ak => !entry.kids.includes(ak.id));
+                      const others = allKids.filter(ak => !entry.kids.includes(ak.id) && !ak.archivedAt);
                       if (others.length === 1) onSameAge(entry, k, others);
                       else { setSameAgePickerSelection([]); setShowSameAgePicker(true); }
                     }} title="Same age" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--accent)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
@@ -3181,7 +3182,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px', textAlign: 'center' }}>Same age as who?</p>
             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px', textAlign: 'center' }}>Pick as many as you'd like to add.</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 20 }}>
-              {allKids.filter(ak => !entry.kids.includes(ak.id)).map(other => {
+              {allKids.filter(ak => !entry.kids.includes(ak.id) && !ak.archivedAt).map(other => {
                 const selected = sameAgePickerSelection.includes(other.id);
                 return (
                   <button
@@ -4618,9 +4619,9 @@ function CelebrationOverlay({ kid, milestoneType, onDone }) {
 
 // ─── Circle feed screen ───────────────────────────────────────────────────
 
-function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCompareAtAge, onSwitchSection }) {
+function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCompareAtAge, onSwitchSection, friends = [], familyMemberIds = [], onSearchUsers, onSendRequest }) {
   const { userId: currentUserId, myDisplayName, familyMembers = [] } = useSession() ?? {};
-  const { pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
+  const { pendingRequestCount = 0, circleBadge = 0, friendRequests = [] } = useNotif() ?? {};
   const socialName = familyMembers.find(m => m.user_id === currentUserId)?.real_name || myDisplayName || '';
   const [loading, setLoading] = useState(true);
   const [feedEntries, setFeedEntries] = useState([]);
@@ -4628,6 +4629,14 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
   const [commentsMap, setCommentsMap] = useState({}); // entryId -> [{id, user_id, display_name, body, created_at}]
   const [commentDrafts, setCommentDrafts] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
+  // Searching here filters posts already shared with you, which misses anyone
+  // you haven't friended yet — so the same query also checks discoverable
+  // users, same as the Activity tab's search, instead of making people switch
+  // tabs just to find and add someone.
+  const [userSearchResults, setUserSearchResults] = useState([]);
+  const [userSearching, setUserSearching] = useState(false);
+  const [sentIds, setSentIds] = useState(new Set());
+  const userSearchTimer = useRef(null);
   const [showSearch, setShowSearch] = useState(false);
   const searchInputRef = useRef(null);
   const [profileFamilyId, setProfileFamilyId] = useState(null);
@@ -4739,6 +4748,22 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     if (data) setCommentsMap(prev => ({ ...prev, [entryId]: (prev[entryId] || []).map(c => c.id === temp.id ? data : c) }));
     const owner = feedEntries.find(e => e.id === entryId)?.userId;
     if (owner) triggerPush({ targetUserId: owner, kind: 'comment', entryId, fromName: socialName, commentPreview: body });
+  }
+
+  function friendUserId(fr) {
+    return fr.requester_id === currentUserId ? fr.addressee_id : fr.requester_id;
+  }
+
+  function handleSearchQueryChange(val) {
+    setSearchQuery(val);
+    clearTimeout(userSearchTimer.current);
+    if (!val.trim() || !onSearchUsers) { setUserSearchResults([]); return; }
+    userSearchTimer.current = setTimeout(async () => {
+      setUserSearching(true);
+      const results = await onSearchUsers(val);
+      setUserSearchResults(results || []);
+      setUserSearching(false);
+    }, 300);
   }
 
   const displayedEntries = useMemo(() => {
@@ -5051,7 +5076,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 0' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Friends</h2>
-              <button className="icon-btn" onClick={() => { if (showSearch) setSearchQuery(''); setShowSearch(s => !s); }}>
+              <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setUserSearchResults([]); } setShowSearch(s => !s); }}>
                 <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
               </button>
             </div>
@@ -5069,13 +5094,65 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 <input
                   ref={searchInputRef}
                   value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="Search by name…"
+                  onChange={e => handleSearchQueryChange(e.target.value)}
+                  placeholder="Search people…"
                   style={{ width: '100%', boxSizing: 'border-box', paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10, border: '1px solid var(--border)', borderRadius: 12, fontSize: 14, background: 'var(--bg-input)', color: 'var(--text)', fontFamily: 'Inter, sans-serif', outline: 'none' }}
                 />
               </div>
             )}
 
+            {/* Same query also checks for people to add — not just filtering
+                posts you already have shared with you — so finding and adding
+                someone new doesn't require switching to the Activity tab. */}
+            {showSearch && searchQuery && (
+              <div style={{ margin: '0 16px 16px' }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>People</p>
+                {userSearching ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>
+                    <i className="ti ti-loader-2" style={{ fontSize: 16, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+                  </div>
+                ) : userSearchResults.length === 0 ? (
+                  <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0 }}>No users found</p>
+                ) : (
+                  <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                    {userSearchResults.map((user, idx) => {
+                      const isFriend = friends.some(f => friendUserId(f) === user.id);
+                      const isPending = friendRequests.some(r => r.requester_id === currentUserId && r.addressee_id === user.id) || sentIds.has(user.id);
+                      const isFamily = familyMemberIds.includes(user.id);
+                      return (
+                        <div key={user.id} style={{ padding: '12px 16px', borderBottom: idx < userSearchResults.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <FriendAvatar name={user.display_name} avatarUrl={user.avatar_url} />
+                            <p style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{user.display_name || 'User'}</p>
+                            {isFamily ? (
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>Family</span>
+                            ) : isFriend ? (
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Friends</span>
+                            ) : isPending ? (
+                              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Sent</span>
+                            ) : (
+                              <button
+                                style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}
+                                onClick={async () => {
+                                  const { error } = await onSendRequest?.(user.id, user.display_name, user.avatar_url);
+                                  if (!error) setSentIds(prev => new Set([...prev, user.id]));
+                                }}
+                              >
+                                Add
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {searchQuery && (
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 16px 8px' }}>Posts</p>
+            )}
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
                 <i className="ti ti-loader-2" style={{ fontSize: 28, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
@@ -5085,12 +5162,14 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
                   <i className="ti ti-users" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
                 </div>
-                <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>
-                  {familyIds.length === 0 ? 'No friends yet' : searchQuery ? 'No matches' : 'Nothing shared yet'}
+                <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: searchQuery && familyIds.length > 0 ? 0 : '0 0 6px' }}>
+                  {familyIds.length === 0 ? 'No friends yet' : searchQuery ? `No posts match "${searchQuery}"` : 'Nothing shared yet'}
                 </p>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-                  {familyIds.length === 0 ? 'Add friends to see the moments they share with you.' : searchQuery ? `No results for "${searchQuery}".` : "When friends share moments, they'll show up here."}
-                </p>
+                {!(searchQuery && familyIds.length > 0) && (
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                    {familyIds.length === 0 ? 'Add friends to see the moments they share with you.' : "When friends share moments, they'll show up here."}
+                  </p>
+                )}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '0 16px 16px' }}>
@@ -5934,13 +6013,14 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
 
 // ─── Profile / manage kids ─────────────────────────────────────────────────
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms, onViewKidMoments, onViewKidMilestones }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, familyName, onUpdateFamilyName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onArchiveKid, onRestoreKid, onEraseKid, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms, onViewKidMoments, onViewKidMilestones }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showHidePostsPrompt, setShowHidePostsPrompt] = useState(false);
+  const [justEnabledNotifs, setJustEnabledNotifs] = useState(false);
   const [hidingPosts, setHidingPosts] = useState(false);
   const [activeFamilyAvatarId, setActiveFamilyAvatarId] = useState(null);
   const [inviteCode, setInviteCode] = useState(null);
@@ -5949,10 +6029,15 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
   const [nameInput, setNameInput] = useState(myDisplayName);
   const [editingRealName, setEditingRealName] = useState(false);
   const [realNameInput, setRealNameInput] = useState('');
+  const [editingFamilyName, setEditingFamilyName] = useState(false);
+  const [familyNameInput, setFamilyNameInput] = useState('');
   const [editingKid, setEditingKid] = useState(null);
   const [kidNameInput, setKidNameInput] = useState('');
   const [kidSexInput, setKidSexInput] = useState(null);
   const [kidWishlistInput, setKidWishlistInput] = useState('');
+  const [removeChoiceKid, setRemoveChoiceKid] = useState(null);
+  const [erasingKid, setErasingKid] = useState(null);
+  const [eraseNameInput, setEraseNameInput] = useState('');
   const [addingKid, setAddingKid] = useState(false);
   const [newName, setNewName] = useState('');
   const [newBdMonth, setNewBdMonth] = useState('');
@@ -6035,7 +6120,13 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>Your Family</h2>
+            <h2
+              onClick={onUpdateFamilyName ? () => { setFamilyNameInput(familyName || ''); setEditingFamilyName(true); } : undefined}
+              style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700, cursor: onUpdateFamilyName ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+            >
+              {familyName || 'Your Family'}
+              {onUpdateFamilyName && <i className="ti ti-pencil" style={{ fontSize: 12, color: 'var(--text-muted)' }} />}
+            </h2>
             <div style={{ width: 36 }} />
           </div>
 
@@ -6043,7 +6134,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           <input ref={familyAvatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFamilyAvatarFile} />
 
           {/* ── Kids ── */}
-          {kids.map(k => {
+          {kids.filter(k => !k.archivedAt).map(k => {
             const kEntries = entries.filter(e => e.kids.includes(k.id));
             const kMilestones = kEntries.filter(e => e.milestone).length;
             const bornLabel = (() => { const [y,m,d] = k.birthdate.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); })();
@@ -6097,6 +6188,24 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
               </div>
             );
           })}
+
+          {onRestoreKid && kids.some(k => k.archivedAt) && (
+            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+              <p style={{ ...sectionLabel, margin: 0, padding: '12px 16px 0' }}>Archived</p>
+              {kids.filter(k => k.archivedAt).map((k, i, arr) => (
+                <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <KidThumb kid={k} size={32} />
+                  <p style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{k.name}</p>
+                  <button
+                    onClick={() => onRestoreKid?.(k.id)}
+                    style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, color: 'var(--accent)', cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}
+                  >
+                    Restore
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* ── Parents card ── */}
           <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
@@ -6192,32 +6301,43 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Birthdays, friend activity, and gentle nudges</p>
                       </div>
                       <button
-                        onClick={notifStatus === 'on' ? handleDisableNotifications : handleEnableNotifications}
+                        onClick={() => { if (notifStatus === 'on') { handleDisableNotifications(); } else { handleEnableNotifications(); setJustEnabledNotifs(true); } }}
                         disabled={notifBusy || notifStatus === 'checking'}
                         style={{ width: 46, height: 27, borderRadius: 999, border: 'none', background: notifStatus === 'on' ? 'var(--accent)' : 'var(--border)', position: 'relative', cursor: 'pointer', flexShrink: 0, opacity: notifBusy ? 0.6 : 1 }}
                       >
                         <div style={{ width: 21, height: 21, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: notifStatus === 'on' ? 22 : 3, transition: 'left 0.15s' }} />
                       </button>
                     </div>
-                    {notifStatus === 'on' && (
-                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        {[['birthday_reminders', 'Birthdays'], ['friend_activity', 'Friend activity'], ['partner_activity', 'Partner activity'], ['prompt_nudges', 'Gentle nudges']].map(([key, label]) => (
-                          <div
-                            key={key}
-                            onClick={() => setNotifPref(key, !notifPrefs[key])}
-                            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '6px 0', cursor: 'pointer' }}
-                          >
-                            <p style={{ fontSize: 12.5, color: 'var(--text-2)', margin: 0 }}>{label}</p>
-                            <div style={{
-                              width: 19, height: 19, borderRadius: 6, flexShrink: 0,
-                              border: notifPrefs[key] ? 'none' : '1.5px solid var(--border)',
-                              background: notifPrefs[key] ? 'var(--accent)' : 'transparent',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.15s',
-                            }}>
-                              {notifPrefs[key] && <i className="ti ti-check" style={{ fontSize: 13, color: '#fff', fontWeight: 700 }} />}
-                            </div>
-                          </div>
-                        ))}
+                    {/* A one-time nudge right after enabling, not a permanent settings
+                        drawer — stays open while adjusting multiple categories, closes
+                        on "Done" (or if push gets turned back off). */}
+                    {notifStatus === 'on' && justEnabledNotifs && (
+                      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                        <p style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text-2)', margin: '0 0 10px' }}>What would you like to hear about?</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+                          {[['birthday_reminders', 'Birthdays'], ['friend_activity', 'Friend activity'], ['partner_activity', 'Partner activity'], ['prompt_nudges', 'Gentle nudges']].map(([key, label]) => (
+                            <button
+                              key={key}
+                              onClick={() => setNotifPref(key, !notifPrefs[key])}
+                              style={{
+                                border: `1px solid ${notifPrefs[key] ? 'var(--accent)' : 'var(--border)'}`,
+                                borderRadius: 10, padding: '10px 8px', fontSize: 12.5, fontWeight: 600,
+                                fontFamily: "'Urbanist', sans-serif", cursor: 'pointer',
+                                background: notifPrefs[key] ? 'var(--accent)' : 'var(--bg-input)',
+                                color: notifPrefs[key] ? '#fff' : 'var(--text-2)',
+                              }}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => setJustEnabledNotifs(false)}
+                          className="btn btn-outline"
+                          style={{ width: '100%', fontSize: 13, padding: '9px 16px' }}
+                        >
+                          Done
+                        </button>
                       </div>
                     )}
                   </>
@@ -6393,6 +6513,66 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 >
                   Save
                 </button>
+                {onArchiveKid && (
+                  <button
+                    onClick={() => { setRemoveChoiceKid(editingKid); setEditingKid(null); }}
+                    style={{ display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', color: '#D4856A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginTop: 16, padding: 0 }}
+                  >
+                    Remove from family
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Archive vs. delete-completely choice sheet */}
+          {removeChoiceKid && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 21, padding: '0 16px' }} onClick={() => setRemoveChoiceKid(null)}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 16px' }}>Remove {removeChoiceKid.name} from your family?</p>
+                <button
+                  onClick={() => { onArchiveKid?.(removeChoiceKid.id); setRemoveChoiceKid(null); }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer', marginBottom: 10 }}
+                >
+                  <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: '0 0 3px' }}>Archive</p>
+                  <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>{removeChoiceKid.name} won't show up for new letters, but everything you've already written stays exactly as it is.</p>
+                </button>
+                <button
+                  onClick={() => { setErasingKid(removeChoiceKid); setRemoveChoiceKid(null); setEraseNameInput(''); }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', background: 'rgba(212,133,106,0.1)', border: '1px solid rgba(212,133,106,0.35)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer', marginBottom: 14 }}
+                >
+                  <p style={{ fontSize: 14, fontWeight: 700, color: '#D4856A', margin: '0 0 3px' }}>Delete completely</p>
+                  <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Permanently deletes {removeChoiceKid.name} and every photo/letter that's only about them. Letters shared with a sibling keep the sibling's side but lose theirs. This can't be undone.</p>
+                </button>
+                <button onClick={() => setRemoveChoiceKid(null)} style={{ display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: 0 }}>
+                  Never mind
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Delete-completely confirmation — requires typing the kid's name */}
+          {erasingKid && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 21, padding: '0 16px' }} onClick={() => setErasingKid(null)}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: '#D4856A', margin: '0 0 4px' }}>Delete {erasingKid.name} completely?</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.5 }}>This can't be undone. Type <strong>{erasingKid.name}</strong> to confirm.</p>
+                <input
+                  className="input-field"
+                  value={eraseNameInput}
+                  onChange={e => setEraseNameInput(e.target.value)}
+                  placeholder={erasingKid.name}
+                  style={{ marginBottom: 20, fontSize: 16 }}
+                  autoFocus
+                />
+                <button
+                  className="btn"
+                  style={{ width: '100%', background: '#D4856A', color: '#fff', opacity: eraseNameInput.trim() === erasingKid.name ? 1 : 0.4 }}
+                  disabled={eraseNameInput.trim() !== erasingKid.name}
+                  onClick={() => { onEraseKid?.(erasingKid.id); setErasingKid(null); }}
+                >
+                  Delete completely
+                </button>
               </div>
             </div>
           )}
@@ -6428,6 +6608,31 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                     if (nameInput.trim()) onUpdateDisplayName(nameInput.trim());
                     setEditingName(false);
                   }}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Edit family name sheet */}
+          {editingFamilyName && (
+            <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20, padding: '0 16px' }} onClick={() => setEditingFamilyName(false)}>
+              <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>Family name</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 12px' }}>Shown just to you, for now</p>
+                <input
+                  className="input-field"
+                  value={familyNameInput}
+                  onChange={e => setFamilyNameInput(e.target.value)}
+                  placeholder="e.g. The Smiths"
+                  style={{ marginBottom: 20, fontSize: 18 }}
+                  autoFocus
+                />
+                <button
+                  className="btn btn-primary"
+                  style={{ width: '100%' }}
+                  onClick={() => { onUpdateFamilyName?.(familyNameInput.trim()); setEditingFamilyName(false); }}
                 >
                   Save
                 </button>
@@ -8293,6 +8498,10 @@ export default function App() {
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [kids, setKids] = useState(() => localMode ? loadLocalData().kids : []);
+  // Archived kids stay in `kids` (so their existing letters/photos keep resolving
+  // name/birthdate/avatar correctly) but drop out of anywhere you'd pick a kid for
+  // something new — new-letter picker, home avatar row, same-age targets, etc.
+  const activeKids = useMemo(() => kids.filter(k => !k.archivedAt), [kids]);
   const [entries, setEntries] = useState(() => localMode ? loadLocalData().entries : []);
   const [screen, setScreen] = useState('home');
   // Several screens (recap/partner-letters/compare/circle-feed/friends) stay
@@ -8317,6 +8526,7 @@ export default function App() {
   const [growthKidId, setGrowthKidId] = useState(null);
   const [celebration, setCelebration] = useState(null);
   const [familyId, setFamilyId] = useState(null);
+  const [familyName, setFamilyName] = useState(null);
   const [familyMembers, setFamilyMembers] = useState([]);
   const [myDisplayName, setMyDisplayName] = useState('');
   const [joiningFamily, setJoiningFamily] = useState(false);
@@ -8546,12 +8756,17 @@ export default function App() {
         ? supabase.from('entries').select('*, entry_media(*)').eq('family_id', currentFamilyId).order('date', { ascending: false })
         : supabase.from('entries').select('*, entry_media(*)').eq('user_id', session.user.id).order('date', { ascending: false });
       const kidsQ = currentFamilyId
-        ? supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url').eq('family_id', currentFamilyId).order('created_at')
-        : supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url').eq('user_id', session.user.id).order('created_at');
-      const [{ data: kidsData, error: kidsError }, { data: entriesData, error: entriesError }] = await Promise.all([
+        ? supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url, archived_at').eq('family_id', currentFamilyId).order('created_at')
+        : supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url, archived_at').eq('user_id', session.user.id).order('created_at');
+      const familyNameQ = currentFamilyId
+        ? supabase.from('families').select('name').eq('id', currentFamilyId).maybeSingle()
+        : Promise.resolve({ data: null });
+      const [{ data: kidsData, error: kidsError }, { data: entriesData, error: entriesError }, { data: familyRow }] = await Promise.all([
         kidsQ,
         entriesQ,
+        familyNameQ,
       ]);
+      if (currentFamilyId) setFamilyName(familyRow?.name ?? null);
 
       // Bad/expired session — sign out so the login screen appears
       if (kidsError && !kidsData) {
@@ -8592,7 +8807,7 @@ export default function App() {
       }
 
       if (kidsData) {
-        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null })));
+        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null, archivedAt: k.archived_at || null })));
         setProfileKidId(kidsData[0]?.id ?? null);
       }
       if (entriesData) {
@@ -9542,6 +9757,13 @@ export default function App() {
     }
   }
 
+  async function handleUpdateFamilyName(name) {
+    setFamilyName(name || null);
+    if (!localMode && supabase && familyId) {
+      await supabase.from('families').update({ name: name || null }).eq('id', familyId);
+    }
+  }
+
   // Folds another kid + their matching-age photo into an existing entry, turning
   // it into one merged post addressed to all of them — rather than creating a
   // separate entry per matched kid. Returns the updated entry (or null on failure)
@@ -9638,10 +9860,10 @@ export default function App() {
     if (existingMemberships?.length > 0) {
       const existingFamilyId = existingMemberships[0].family_id;
       setFamilyId(existingFamilyId);
-      const { data: kidsData } = await supabase.from('kids').select('id, name, birthdate, accent, avatar_url, sex, growth_log, wishlist_url').eq('family_id', existingFamilyId).order('created_at');
+      const { data: kidsData } = await supabase.from('kids').select('id, name, birthdate, accent, avatar_url, sex, growth_log, wishlist_url, archived_at').eq('family_id', existingFamilyId).order('created_at');
       if (kidsData?.length > 0) {
         // Already have kids — just load them
-        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null })));
+        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null, archivedAt: k.archived_at || null })));
         setProfileKidId(kidsData[0]?.id ?? null);
         setPostOnboardInvite(true);
         return { success: true, familyId: existingFamilyId };
@@ -9744,12 +9966,12 @@ export default function App() {
     setFamilyId(invite.family_id);
     setMyDisplayName(displayName);
     const [{ data: kidsData }, { data: entriesData }, { data: membersData }] = await Promise.all([
-      supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url').eq('family_id', invite.family_id).order('created_at'),
+      supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url, archived_at').eq('family_id', invite.family_id).order('created_at'),
       supabase.from('entries').select('*, entry_media(*)').eq('family_id', invite.family_id).order('date', { ascending: false }),
       supabase.from('family_members').select('id, user_id, family_id, display_name, avatar_url').eq('family_id', invite.family_id),
     ]);
     if (kidsData) {
-      setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null })));
+      setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null, archivedAt: k.archived_at || null })));
       setProfileKidId(kidsData[0]?.id ?? null);
     }
     if (entriesData) {
@@ -9801,6 +10023,78 @@ export default function App() {
     setKids(prev => prev.map(k => k.id === kidId ? { ...k, wishlistUrl } : k));
     if (localMode || !supabase || !session) return;
     await supabase.from('kids').update({ wishlist_url: wishlistUrl }).eq('id', kidId);
+  }
+
+  // Archiving keeps every existing letter/photo intact — it only stops a kid
+  // from showing up on new-letter pickers, the home avatar row, same-age
+  // targets, birthday checks, and wishlist nudges (all of which read from
+  // `activeKids`, not the raw `kids` list, so old entries keep rendering fine).
+  async function handleArchiveKid(kidId) {
+    const archivedAt = new Date().toISOString();
+    setKids(prev => prev.map(k => k.id === kidId ? { ...k, archivedAt } : k));
+    if (localMode || !supabase || !session) return;
+    await supabase.from('kids').update({ archived_at: archivedAt }).eq('id', kidId);
+  }
+
+  async function handleRestoreKid(kidId) {
+    setKids(prev => prev.map(k => k.id === kidId ? { ...k, archivedAt: null } : k));
+    if (localMode || !supabase || !session) return;
+    await supabase.from('kids').update({ archived_at: null }).eq('id', kidId);
+  }
+
+  // Permanently erases a kid: entries solely about them are fully deleted
+  // (mirroring handleDeleteEntry's cascade), entries shared with a sibling
+  // just lose this kid's side (their tagged photo + kid_ids/same_age_dates
+  // entry), then the kid row itself and its avatar asset are removed.
+  async function handleEraseKid(kidId) {
+    const kid = kids.find(k => k.id === kidId);
+    if (!kid) return;
+    const affected = entries.filter(e => e.kids.includes(kidId));
+    const soloEntries = affected.filter(e => e.kids.length === 1);
+    const sharedEntries = affected.filter(e => e.kids.length > 1);
+
+    setKids(prev => prev.filter(k => k.id !== kidId));
+    const soloIds = new Set(soloEntries.map(e => e.id));
+    setEntries(prev => prev
+      .filter(e => !soloIds.has(e.id))
+      .map(e => {
+        if (!sharedEntries.some(se => se.id === e.id)) return e;
+        const newSameAgeDates = e.sameAgeDates ? { ...e.sameAgeDates } : null;
+        if (newSameAgeDates) { delete newSameAgeDates[kidId]; }
+        return {
+          ...e,
+          kids: e.kids.filter(id => id !== kidId),
+          media: e.media.filter(m => m.kidId !== kidId),
+          sameAgeDates: newSameAgeDates && Object.keys(newSameAgeDates).length > 0 ? newSameAgeDates : null,
+        };
+      }));
+
+    if (localMode || !supabase || !session) return;
+
+    for (const entry of soloEntries) {
+      await supabase.from('entry_likes').delete().eq('entry_id', entry.id);
+      await supabase.from('entry_comments').delete().eq('entry_id', entry.id);
+      await supabase.from('entry_media').delete().eq('entry_id', entry.id);
+      await supabase.from('entries').delete().eq('id', entry.id);
+      deleteCloudinaryMedia(entry.media, entry.voiceMemoUrl ? [entry.voiceMemoUrl] : []);
+    }
+
+    for (const entry of sharedEntries) {
+      const droppedMedia = entry.media.filter(m => m.kidId === kidId);
+      await supabase.from('entry_media').delete().eq('entry_id', entry.id).eq('kid_id', kidId);
+      const newKidIds = entry.kids.filter(id => id !== kidId);
+      const newSameAgeDates = entry.sameAgeDates ? { ...entry.sameAgeDates } : null;
+      if (newSameAgeDates) delete newSameAgeDates[kidId];
+      await supabase.from('entries').update({
+        kid_ids: newKidIds,
+        same_age_dates: newSameAgeDates && Object.keys(newSameAgeDates).length > 0 ? newSameAgeDates : null,
+      }).eq('id', entry.id);
+      if (droppedMedia.length > 0) deleteCloudinaryMedia(droppedMedia);
+    }
+
+    if (kid.avatar) deleteCloudinaryMedia([{ url: kid.avatar, type: 'image' }]);
+    await supabase.from('birthday_notifications').delete().eq('kid_id', kidId);
+    await supabase.from('kids').delete().eq('id', kidId);
   }
 
   async function handleAddKid({ name, birthdate, sex }) {
@@ -10276,7 +10570,7 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={kids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
+        <NewEntryScreen kids={activeKids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
@@ -10317,6 +10611,10 @@ export default function App() {
             onBack={() => setScreen('home')}
             friendKids={friendKids}
             friendFamilyMap={friendFamilyMap}
+            friends={friends}
+            familyMemberIds={familyMembers.filter(m => m.user_id !== session?.user?.id).map(m => m.user_id)}
+            onSearchUsers={handleSearchUsers}
+            onSendRequest={handleSendFriendRequest}
             onCompareAtAge={(kidId, ageMonths) => {
               const ages = [0, 12, 18, 24, 36, 48, 60, 72, 84, 96, 108, 120];
               const bucket = ages.reduce((best, a) => ageMonths >= a ? a : best, ages[0]);
@@ -10421,6 +10719,8 @@ export default function App() {
           onAvatarUpload={handleAvatarUpload}
           familyMembers={familyMembers}
           myDisplayName={myDisplayName}
+          familyName={familyName}
+          onUpdateFamilyName={handleUpdateFamilyName}
           onInvite={handleInvitePartner}
           onUpdateDisplayName={handleUpdateDisplayName}
           onUpdateRealName={handleUpdateRealName}
@@ -10428,6 +10728,9 @@ export default function App() {
           onRenameKid={handleRenameKid}
           onUpdateKidSex={handleUpdateKidSex}
           onUpdateKidWishlist={handleUpdateKidWishlist}
+          onArchiveKid={handleArchiveKid}
+          onRestoreKid={handleRestoreKid}
+          onEraseKid={handleEraseKid}
           onFamilyAvatarUpload={handleFamilyAvatarUpload}
           avatarUploading={avatarUploading}
           currentUserId={session?.user?.id}

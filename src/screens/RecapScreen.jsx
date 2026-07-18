@@ -278,8 +278,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
                 <i className="ti ti-calendar" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
               </div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No moments yet</p>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>{periodEmpty}</p>
+              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: 0 }}>{periodEmpty}</p>
             </div>
           ) : (
             <>
