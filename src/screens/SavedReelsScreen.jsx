@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { TODAY, cloudinaryTransform } from '../constants.js';
+import { useState, useEffect, useRef } from 'react';
+import { cloudinaryTransform } from '../constants.js';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 
 function formatRangeLabel(startDate, endDate) {
@@ -23,18 +23,110 @@ function reelThumbPhoto(entries, reel) {
   return null;
 }
 
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+// Composes an ISO 'YYYY-MM-DD' from separate month/day/year fields — only
+// once all three are actually filled in (year needs all 4 digits), same
+// rule NewEntryScreen's date editor uses.
+function composeDate(month, day, year) {
+  if (!month || !day || !year || year.length !== 4) return '';
+  return `${year}-${month}-${String(day).padStart(2, '0')}`;
+}
+
+const SWIPE_REVEAL = 72; // px of delete-action revealed once swiped open
+const SWIPE_OPEN_THRESHOLD = 36; // drag past this far left and it snaps open instead of springing back
+
+// A swipeable row — dragging left reveals a delete action underneath,
+// matching the standard iOS/Android "swipe to delete" list pattern instead of
+// a permanently-visible trash icon cluttering every row. `open` (whether
+// this row is currently revealed) is owned by the parent so opening one row
+// can close any other that was already open.
+function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onDelete }) {
+  const [dragX, setDragX] = useState(open ? -SWIPE_REVEAL : 0);
+  const dragState = useRef(null); // { startX, startOffset, moved }
+
+  useEffect(() => { if (!dragState.current) setDragX(open ? -SWIPE_REVEAL : 0); }, [open]);
+
+  function handleTouchStart(e) {
+    dragState.current = { startX: e.touches[0].clientX, startOffset: open ? -SWIPE_REVEAL : 0, moved: false };
+  }
+  function handleTouchMove(e) {
+    if (!dragState.current) return;
+    const dx = e.touches[0].clientX - dragState.current.startX;
+    if (Math.abs(dx) > 6) dragState.current.moved = true;
+    setDragX(Math.max(-SWIPE_REVEAL, Math.min(0, dragState.current.startOffset + dx)));
+  }
+  function handleTouchEnd() {
+    if (!dragState.current) return;
+    const shouldOpen = dragX < -SWIPE_OPEN_THRESHOLD;
+    setDragX(shouldOpen ? -SWIPE_REVEAL : 0);
+    if (shouldOpen) onOpen(); else if (open) onClose();
+    dragState.current = null;
+  }
+  function handleClick() {
+    if (dragState.current?.moved) return; // this click is the tail end of a drag, not a tap
+    if (open) { onClose(); return; }
+    onWatch();
+  }
+
+  return (
+    <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden' }}>
+      <button
+        onClick={() => onDelete(reel)}
+        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: SWIPE_REVEAL, background: '#D4856A', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+      >
+        <i className="ti ti-trash" style={{ fontSize: 18, color: '#fff' }} />
+      </button>
+      <div
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={handleClick}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', cursor: 'pointer',
+          transform: `translateX(${dragX}px)`, transition: dragState.current ? 'none' : 'transform 0.2s ease', position: 'relative',
+        }}
+      >
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+          {thumbPhoto ? (
+            <>
+              <img src={cloudinaryTransform(thumbPhoto.url, 'w_100,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+              <div style={{ position: 'absolute', bottom: 3, right: 3, width: 15, height: 15, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <i className="ti ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
+              </div>
+            </>
+          ) : (
+            <i className="ti ti-player-play-filled" style={{ fontSize: 16, color: '#C8993E' }} />
+          )}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</p>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{formatRangeLabel(reel.startDate, reel.endDate)}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSection, onCreateReel, onDeleteReel, onWatchReel }) {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startMonth, setStartMonth] = useState('');
+  const [startDay, setStartDay] = useState('');
+  const [startYear, setStartYear] = useState('');
+  const [endMonth, setEndMonth] = useState('');
+  const [endDay, setEndDay] = useState('');
+  const [endYear, setEndYear] = useState('');
   const [saving, setSaving] = useState(false);
   const [song, setSong] = useState(null);
   const [songQuery, setSongQuery] = useState('');
   const [songResults, setSongResults] = useState([]);
   const [songSearching, setSongSearching] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // the reel pending delete confirmation, or null
+  const [openSwipeId, setOpenSwipeId] = useState(null); // which reel row, if any, is currently swiped open
 
+  const startDate = composeDate(startMonth, startDay, startYear);
+  const endDate = composeDate(endMonth, endDay, endYear);
   const canSave = startDate && endDate && startDate <= endDate;
 
   // Same debounced iTunes search NewEntryScreen's song picker uses — a custom
@@ -57,8 +149,8 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
 
   function resetForm() {
     setTitle('');
-    setStartDate('');
-    setEndDate('');
+    setStartMonth(''); setStartDay(''); setStartYear('');
+    setEndMonth(''); setEndDay(''); setEndYear('');
     setSong(null);
     setSongQuery('');
     setSongResults([]);
@@ -114,40 +206,18 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {savedReels.map(reel => {
-                const thumbPhoto = reelThumbPhoto(entries, reel);
-                return (
-                <div
+              {savedReels.map(reel => (
+                <ReelRow
                   key={reel.id}
-                  onClick={() => onWatchReel(reel)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', cursor: 'pointer' }}
-                >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
-                    {thumbPhoto ? (
-                      <>
-                        <img src={cloudinaryTransform(thumbPhoto.url, 'w_100,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
-                        <div style={{ position: 'absolute', bottom: 3, right: 3, width: 15, height: 15, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <i className="ti ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
-                        </div>
-                      </>
-                    ) : (
-                      <i className="ti ti-player-play-filled" style={{ fontSize: 16, color: '#C8993E' }} />
-                    )}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</p>
-                    <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{formatRangeLabel(reel.startDate, reel.endDate)}</p>
-                  </div>
-                  <button
-                    className="icon-btn"
-                    onClick={e => { e.stopPropagation(); setDeleteTarget(reel); }}
-                    style={{ width: 32, height: 32, fontSize: 14, color: '#D4856A', borderColor: 'rgba(212,133,106,0.35)', background: 'rgba(212,133,106,0.08)', flexShrink: 0 }}
-                  >
-                    <i className="ti ti-trash" />
-                  </button>
-                </div>
-                );
-              })}
+                  reel={reel}
+                  thumbPhoto={reelThumbPhoto(entries, reel)}
+                  open={openSwipeId === reel.id}
+                  onOpen={() => setOpenSwipeId(reel.id)}
+                  onClose={() => setOpenSwipeId(id => id === reel.id ? null : id)}
+                  onWatch={() => onWatchReel(reel)}
+                  onDelete={r => { setDeleteTarget(r); setOpenSwipeId(null); }}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -168,27 +238,34 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
               onChange={e => setTitle(e.target.value)}
               style={{ marginBottom: 12 }}
             />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
               <div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, margin: '0 0 6px' }}>Start</p>
-                <input
-                  className="input-field"
-                  type="date"
-                  value={startDate}
-                  max={endDate || TODAY}
-                  onChange={e => setStartDate(e.target.value)}
-                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ position: 'relative', flex: 2.2 }}>
+                    <select value={startMonth} onChange={e => setStartMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 32px 12px 12px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: startMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
+                      <option value="" disabled>Month</option>
+                      {MONTH_NAMES.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
+                    </select>
+                    <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 12, pointerEvents: 'none' }} />
+                  </div>
+                  <input type="number" placeholder="Day" value={startDay} min={1} max={31} onChange={e => setStartDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
+                  <input type="number" placeholder="Year" value={startYear} min={1900} max={2100} onChange={e => setStartYear(e.target.value)} style={{ flex: 1.4, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
+                </div>
               </div>
               <div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, margin: '0 0 6px' }}>End</p>
-                <input
-                  className="input-field"
-                  type="date"
-                  value={endDate}
-                  min={startDate || undefined}
-                  max={TODAY}
-                  onChange={e => setEndDate(e.target.value)}
-                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ position: 'relative', flex: 2.2 }}>
+                    <select value={endMonth} onChange={e => setEndMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 32px 12px 12px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: endMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
+                      <option value="" disabled>Month</option>
+                      {MONTH_NAMES.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
+                    </select>
+                    <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 12, pointerEvents: 'none' }} />
+                  </div>
+                  <input type="number" placeholder="Day" value={endDay} min={1} max={31} onChange={e => setEndDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
+                  <input type="number" placeholder="Year" value={endYear} min={1900} max={2100} onChange={e => setEndYear(e.target.value)} style={{ flex: 1.4, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
+                </div>
               </div>
             </div>
 
