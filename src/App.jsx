@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react';
+import { createPortal } from 'react-dom';
 import './App.css';
 // exifr is only needed when reading photo metadata — lazy-load so it's excluded from the initial bundle
 let _exifr = null;
@@ -10,6 +11,7 @@ import SectionSwitcher from './SectionSwitcher.jsx';
 const LazyBirthdaySlideshowScreen = lazy(() => import('./screens/BirthdaySlideshowScreen'));
 const LazyMonthlyReelScreen = lazy(() => import('./screens/MonthlyReelScreen'));
 import RecapScreen from './screens/RecapScreen';
+import SavedReelsScreen from './screens/SavedReelsScreen';
 const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
 const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
 const LazyNotificationHistoryScreen = lazy(() => import('./screens/NotificationHistoryScreen'));
@@ -1322,6 +1324,19 @@ function computeMonthRecap(entriesList, month) {
   const favorites = monthEntries.filter(e => e.favorited).length;
   const label = new Date(month + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   return { label, letters: monthEntries.length, milestones, photos, favorites };
+}
+
+// Same as computeMonthRecap, but for an arbitrary date range instead of a
+// calendar month — a custom "saved reel" spanning e.g. a trip that crosses a
+// month boundary. `startDate`/`endDate` are ISO 'YYYY-MM-DD', inclusive, and
+// compare correctly as plain strings. `label` is caller-supplied since an
+// arbitrary range has no single natural label the way a month does.
+function computeRangeRecap(entriesList, startDate, endDate, label) {
+  const rangeEntries = entriesList.filter(e => e.date >= startDate && e.date <= endDate);
+  const milestones = rangeEntries.filter(e => e.milestone).length;
+  const photos = rangeEntries.reduce((sum, e) => sum + (e.media?.length || 0), 0);
+  const favorites = rangeEntries.filter(e => e.favorited).length;
+  return { label, letters: rangeEntries.length, milestones, photos, favorites };
 }
 
 function daysUntilBirthday(birthdate) {
@@ -2740,6 +2755,91 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
   );
 });
 
+// ─── Coachmark ───────────────────────────────────────────────────────────
+// A one-time contextual tooltip that spotlights a real UI element the moment
+// it's actually on screen, instead of explaining a feature in the abstract
+// before there's any content to point at (see the "no onboarding at all"
+// discoverability hole this was built to fix). Dismissal — a tap anywhere,
+// same as most coachmark UIs — is remembered per user per feature id via
+// localStorage, mirroring the existing `patina-recap-seen-*` / bday-dismissed
+// pattern elsewhere in this file, so it only ever interrupts once.
+function useCoachmarkSeen(id, userId) {
+  const key = `patina-coachmarks-seen-${userId || 'anon'}`;
+  const [seen, setSeen] = useState(() => {
+    try { return !!JSON.parse(localStorage.getItem(key) || '{}')[id]; } catch { return false; }
+  });
+  const markSeen = useCallback(() => {
+    setSeen(true);
+    try {
+      const all = JSON.parse(localStorage.getItem(key) || '{}');
+      all[id] = true;
+      localStorage.setItem(key, JSON.stringify(all));
+    } catch {}
+  }, [key, id]);
+  return [seen, markSeen];
+}
+
+function Coachmark({ id, userId, active, targetRef, text, placement = 'bottom' }) {
+  const [seen, markSeen] = useCoachmarkSeen(id, userId);
+  const [rect, setRect] = useState(null);
+
+  useEffect(() => {
+    if (seen || !active || !targetRef.current) { setRect(null); return; }
+    function measure() { if (targetRef.current) setRect(targetRef.current.getBoundingClientRect()); }
+    measure();
+    window.addEventListener('resize', measure);
+    window.addEventListener('scroll', measure, true);
+    return () => { window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true); };
+  }, [seen, active, targetRef]);
+
+  // Any tap anywhere dismisses it — including the real button underneath the
+  // spotlight, which still fires its own click normally since this listener
+  // only observes (capture phase, no preventDefault/stopPropagation).
+  useEffect(() => {
+    if (seen || !active || !rect) return;
+    function onAnyClick() { markSeen(); }
+    document.addEventListener('click', onAnyClick, true);
+    return () => document.removeEventListener('click', onAnyClick, true);
+  }, [seen, active, rect, markSeen]);
+
+  if (seen || !active || !rect) return null;
+  const pad = 6;
+  const bubbleWidth = 210;
+  const left = Math.max(16, Math.min(rect.left, window.innerWidth - bubbleWidth - 16));
+  // Rendered via a portal straight into <body> rather than in place — every
+  // `.screen` plays a mount animation that animates `transform`, which makes
+  // it a new containing block for any `position: fixed` descendant for the
+  // duration of that animation. Left in place, these overlays would measure
+  // the target correctly (getBoundingClientRect is always viewport-relative)
+  // but then render themselves relative to that animating screen instead of
+  // the real viewport — visibly offset from the button they're supposed to
+  // be spotlighting. A portal sidesteps the whole containing-block problem.
+  return createPortal(
+    <>
+      <div
+        style={{
+          position: 'fixed', zIndex: 9998, pointerEvents: 'none',
+          top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2,
+          borderRadius: 999, boxShadow: '0 0 0 2000px rgba(20,26,20,0.62)',
+        }}
+      />
+      <div
+        style={{
+          position: 'fixed', zIndex: 9999, left, width: bubbleWidth,
+          top: placement === 'bottom' ? rect.bottom + 14 : undefined,
+          bottom: placement === 'top' ? window.innerHeight - rect.top + 14 : undefined,
+          background: '#2C3828', color: '#F8F4EC', borderRadius: 14, padding: '12px 14px',
+          fontSize: 12, lineHeight: 1.5, fontFamily: "'Urbanist', sans-serif", boxShadow: '0 8px 20px rgba(0,0,0,0.3)', pointerEvents: 'none',
+        }}
+      >
+        {text}
+        <div style={{ marginTop: 8, fontSize: 10.5, fontWeight: 700, color: '#C8D9C4', textTransform: 'uppercase', letterSpacing: 0.5 }}>Got it →</div>
+      </div>
+    </>,
+    document.body
+  );
+}
+
 // ─── Entry detail ────────────────────────────────────────────────────────
 
 function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge, onRemoveSameAgeMatch, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch }) {
@@ -2987,7 +3087,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <p style={{ fontSize: 15, fontWeight: 700, color: '#7A6030', margin: 0 }}>{m.label}</p>
             </div>
           )}
-          {sides ? (() => {
+          {sides && (() => {
             const daysApart = sameAgeDaysApart(sides);
             const twoUp = sides.length === 2;
             return (
@@ -3033,32 +3133,6 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   {daysApart === 0 ? 'Exact match' : `${daysApart} day${daysApart !== 1 ? 's' : ''} apart`}
                 </p>
               </div>
-            );
-          })() : onSameAge && allKids && (() => {
-            // A bare "⇄" icon doesn't explain itself — nobody's going to guess
-            // what it does on first sight. A compact duo-avatar pill is the
-            // entry point now (the old icon-only button, in the per-kid row
-            // below, is gone); the full "Same age" card only appears after
-            // tapping, via the match/confirm flow — keeping this inline in
-            // the letter/note stays out of the way of the actual content.
-            const anchorKid = allKids.find(ak => ak.id === anchorKidId);
-            const others = sameAgeEligibleOthers;
-            if (!anchorKid || others.length === 0) return null;
-            const other = others[0];
-            return (
-              <button
-                onClick={() => { if (others.length === 1) onSameAge(entry, anchorKid, others); else { setSameAgePickerSelection([]); setShowSameAgePicker(true); } }}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', borderRadius: 999, padding: '8px 14px 8px 8px', background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}
-              >
-                <span style={{ position: 'relative', width: 34, height: 26, flexShrink: 0 }}>
-                  <span style={{ position: 'absolute', left: 0, top: 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-card)' }}><KidThumb kid={anchorKid} size={22} /></span>
-                  <span style={{ position: 'absolute', left: 14, top: 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-card)' }}><KidThumb kid={other} size={22} /></span>
-                </span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>
-                  {others.length === 1 ? `Compare with ${other.name.split(' ')[0]} at the same age` : 'Compare at the same age'}
-                </span>
-                <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
-              </button>
             );
           })()}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -3137,6 +3211,33 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               )}
             </>
           )}
+          {!sides && onSameAge && allKids && (() => {
+            // A bare "⇄" icon doesn't explain itself — nobody's going to guess
+            // what it does on first sight. A compact duo-avatar pill is the
+            // entry point now (the old icon-only button, in the per-kid row
+            // above, is gone). Sits below the letter/note itself rather than
+            // above the kid info — a secondary, trailing action instead of
+            // something competing with the actual content for attention.
+            const anchorKid = allKids.find(ak => ak.id === anchorKidId);
+            const others = sameAgeEligibleOthers;
+            if (!anchorKid || others.length === 0) return null;
+            const other = others[0];
+            return (
+              <button
+                onClick={() => { if (others.length === 1) onSameAge(entry, anchorKid, others); else { setSameAgePickerSelection([]); setShowSameAgePicker(true); } }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', borderRadius: 999, padding: '8px 14px 8px 8px', background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}
+              >
+                <span style={{ position: 'relative', width: 34, height: 26, flexShrink: 0 }}>
+                  <span style={{ position: 'absolute', left: 0, top: 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-card)' }}><KidThumb kid={anchorKid} size={22} /></span>
+                  <span style={{ position: 'absolute', left: 14, top: 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-card)' }}><KidThumb kid={other} size={22} /></span>
+                </span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>
+                  {others.length === 1 ? `Compare with ${other.name.split(' ')[0]} at the same age` : 'Compare at the same age'}
+                </span>
+                <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
+              </button>
+            );
+          })()}
           {supabase && session && (
             <>
               <div style={{ height: 1, background: 'var(--border)' }} />
@@ -3904,6 +4005,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   const canSave = selectedKids.length > 0 && (text.trim().length > 0 || media.length > 0);
   const sameAgeTargets = kids.filter(k => !selectedKids.includes(k.id));
   const canSameAgeFromDraft = !existingEntry && media.length > 0 && sameAgeTargets.length > 0;
+  const draftSameAgeBtnRef = useRef(null);
 
   return (
     <div className="screen" style={{ background: 'var(--bg-card)', position: 'relative' }}>
@@ -4034,7 +4136,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         )}
 
         {media.length > 0 && (
-          <div style={{ marginBottom: 20, display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+          <div style={{ marginBottom: 20, display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2, justifyContent: media.length === 1 ? 'center' : 'flex-start' }}>
             {media.map((item, i) => (
               <div key={i} style={{ width: 165, aspectRatio: '4/3', borderRadius: 12, overflow: 'hidden', position: 'relative', flexShrink: 0, cursor: 'pointer' }} onClick={() => setPreviewMedia(item)}>
                 {item.type === 'video'
@@ -4047,18 +4149,28 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                   <i className="ti ti-x" />
                 </button>
                 {i === 0 && canSameAgeFromDraft && (
-                  <button onClick={e => {
-                    e.stopPropagation();
-                    if (sameAgeTargets.length === 1) {
-                      setDraftSameAgeQueueTotal(1);
-                      setDraftSameAgeTarget(sameAgeTargets[0]);
-                    } else {
-                      setDraftSameAgePickerSelection([]);
-                      setShowDraftSameAgePicker(true);
-                    }
-                  }} title="Same age" style={{ position: 'absolute', bottom: 6, right: 6, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <i className="ti ti-arrows-diff" />
-                  </button>
+                  <>
+                    <button ref={draftSameAgeBtnRef} onClick={e => {
+                      e.stopPropagation();
+                      if (sameAgeTargets.length === 1) {
+                        setDraftSameAgeQueueTotal(1);
+                        setDraftSameAgeTarget(sameAgeTargets[0]);
+                      } else {
+                        setDraftSameAgePickerSelection([]);
+                        setShowDraftSameAgePicker(true);
+                      }
+                    }} title="Same age" style={{ position: 'absolute', bottom: 6, right: 6, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <i className="ti ti-arrows-diff" />
+                    </button>
+                    <Coachmark
+                      id="draft-same-age-badge"
+                      userId={currentUserId}
+                      active={true}
+                      targetRef={draftSameAgeBtnRef}
+                      placement="top"
+                      text="This photo can be matched to a sibling at the same age — tap the icon to start a comparison."
+                    />
+                  </>
                 )}
                 {item.type === 'video' && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
@@ -5466,7 +5578,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
 
             <div>
               <SectionSwitcher
-                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
+                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }, { id: 'reels', label: 'Reels' }]}
                 active="compare"
                 onChange={onSwitchSection}
               />
@@ -5974,7 +6086,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
 
             <div>
               <SectionSwitcher
-                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }]}
+                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }, { id: 'reels', label: 'Reels' }]}
                 active="partner-letters"
                 onChange={onSwitchSection}
               />
@@ -8688,6 +8800,8 @@ export default function App() {
   const [birthdaySlideshow, setBirthdaySlideshow] = useState(null);
   const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
   const [reelMonth, setReelMonth] = useState(null); // 'YYYY-MM' string — which month's reel to watch, or null when closed
+  const [rangeReel, setRangeReel] = useState(null); // { startDate, endDate, title } — the currently-open custom-range reel, or null when closed
+  const [savedReels, setSavedReels] = useState([]); // saved_reels rows: { id, title, startDate, endDate }
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showFriendsPrivacyExplainer, setShowFriendsPrivacyExplainer] = useState(false);
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
@@ -8950,6 +9064,11 @@ export default function App() {
       // Seed last-seen so the badge doesn't fire for all pre-existing entries on first load
       const lsKey = `patina-last-seen-${session.user.id}`;
       if (!localStorage.getItem(lsKey)) localStorage.setItem(lsKey, new Date().toISOString());
+
+      if (currentFamilyId) {
+        const { data: savedReelsData } = await supabase.from('saved_reels').select('id, title, start_date, end_date, created_at').eq('family_id', currentFamilyId).order('created_at', { ascending: false });
+        if (savedReelsData) setSavedReels(savedReelsData.map(r => ({ id: r.id, title: r.title, startDate: r.start_date, endDate: r.end_date })));
+      }
 
       // Load friend data (gracefully skipped if tables don't exist yet)
       try {
@@ -9395,7 +9514,7 @@ export default function App() {
 
   useEffect(() => {
     if (screen === 'circle-feed' || screen === 'friends') setCircleGroupMounted(true);
-    if (screen === 'recap' || screen === 'partner-letters' || screen === 'compare') setKeepsakesGroupMounted(true);
+    if (screen === 'recap' || screen === 'partner-letters' || screen === 'compare' || screen === 'reels') setKeepsakesGroupMounted(true);
   }, [screen]);
 
   const openEntry = useCallback((entry) => {
@@ -9462,6 +9581,37 @@ export default function App() {
   async function handleRevokeReelShare(id) {
     if (!supabase) return;
     await supabase.from('reel_shares').delete().eq('id', id);
+  }
+
+  // Saves the *definition* of a custom-range reel (title + date range) — not
+  // a frozen snapshot like reel_shares. It's regenerated live from current
+  // entries every time it's opened (see the rangeReel render block), so
+  // entries added later within that range enrich it automatically.
+  async function handleCreateSavedReel({ title, startDate, endDate }) {
+    if (localMode || !supabase || !session || !familyId) {
+      const reel = { id: Date.now(), title, startDate, endDate };
+      setSavedReels(prev => [reel, ...prev]);
+      return reel;
+    }
+    const { data, error } = await supabase.from('saved_reels').insert({
+      family_id: familyId,
+      created_by: session.user.id,
+      title,
+      start_date: startDate,
+      end_date: endDate,
+    }).select('id, title, start_date, end_date').single();
+    if (error || !data) {
+      alert('Could not save this reel. Please try again.\n' + (error?.message || ''));
+      return null;
+    }
+    const reel = { id: data.id, title: data.title, startDate: data.start_date, endDate: data.end_date };
+    setSavedReels(prev => [reel, ...prev]);
+    return reel;
+  }
+
+  async function handleDeleteSavedReel(id) {
+    setSavedReels(prev => prev.filter(r => r.id !== id));
+    if (!localMode && supabase) await supabase.from('saved_reels').delete().eq('id', id);
   }
 
   async function handleToggleFavorite(entryId) {
@@ -10709,8 +10859,22 @@ export default function App() {
               onOpenEntry={openEntry}
               onSwitchSection={switchSection}
               initialTarget={recapTarget}
-              onViewMonthRecap={month => setMonthlyRecap({ ...computeMonthRecap(entries, month), fromList: true })}
               onWatchMonthReel={month => setReelMonth(month)}
+            />
+          </ScreenErrorBoundary>
+        </div>
+      )}
+
+      {keepsakesGroupMounted && (
+        <div style={{ display: screen === 'reels' ? 'contents' : 'none' }}>
+          <ScreenErrorBoundary onBack={() => setScreen('home')}>
+            <SavedReelsScreen
+              savedReels={savedReels}
+              onBack={() => setScreen('home')}
+              onSwitchSection={switchSection}
+              onCreateReel={handleCreateSavedReel}
+              onDeleteReel={handleDeleteSavedReel}
+              onWatchReel={reel => setRangeReel({ startDate: reel.startDate, endDate: reel.endDate, title: reel.title })}
             />
           </ScreenErrorBoundary>
         </div>
@@ -10999,20 +11163,43 @@ export default function App() {
         const [y, m] = reelMonth.split('-').map(Number);
         const recap = computeMonthRecap(entries, reelMonth);
         const stats = { letters: recap.letters, milestones: recap.milestones, photos: recap.photos, favorites: recap.favorites };
+        const startDate = `${reelMonth}-01`;
+        const endDate = `${reelMonth}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
         return (
           <Suspense fallback={<div className="screen" />}>
             <LazyMonthlyReelScreen
               entries={entries}
               kids={kids}
               familyMembers={familyMembers}
-              year={y}
-              month={m}
+              startDate={startDate}
+              endDate={endDate}
               monthLabel={recap.label}
               stats={stats}
               onClose={() => setReelMonth(null)}
               onGenerateReelShare={handleGenerateReelShare}
               onRevokeReelShare={handleRevokeReelShare}
               onStatClick={filter => { const month = reelMonth; setReelMonth(null); openRecapFor({ viewMode: 'month', month, recapFilter: filter }); }}
+            />
+          </Suspense>
+        );
+      })()}
+      {rangeReel && (() => {
+        const recap = computeRangeRecap(entries, rangeReel.startDate, rangeReel.endDate, rangeReel.title);
+        const stats = { letters: recap.letters, milestones: recap.milestones, photos: recap.photos, favorites: recap.favorites };
+        return (
+          <Suspense fallback={<div className="screen" />}>
+            <LazyMonthlyReelScreen
+              entries={entries}
+              kids={kids}
+              familyMembers={familyMembers}
+              startDate={rangeReel.startDate}
+              endDate={rangeReel.endDate}
+              monthLabel={rangeReel.title}
+              stats={stats}
+              reelType="range"
+              onClose={() => setRangeReel(null)}
+              onGenerateReelShare={handleGenerateReelShare}
+              onRevokeReelShare={handleRevokeReelShare}
             />
           </Suspense>
         );

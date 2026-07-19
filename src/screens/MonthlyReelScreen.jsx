@@ -30,24 +30,24 @@ const LONG_MAX_PHOTO_SLIDES = 14;
 // near-static slides.
 const LONG_REEL_MEDIA_THRESHOLD = 12;
 
-function monthEntriesFor(entries, year, month) {
-  return entries.filter(e => {
-    if (!e.media?.length) return false;
-    const [ey, em] = e.date.split('-').map(Number);
-    return ey === year && em === month;
-  });
+// `startDate`/`endDate` are ISO 'YYYY-MM-DD' strings, inclusive on both ends —
+// these compare correctly as plain strings, so no Date parsing is needed. A
+// calendar-month reel is just the special case where the caller computed
+// startDate/endDate as that month's first/last day.
+function entriesInRange(entries, startDate, endDate) {
+  return entries.filter(e => e.date >= startDate && e.date <= endDate);
+}
+
+function monthEntriesFor(entries, startDate, endDate) {
+  return entriesInRange(entries, startDate, endDate).filter(e => e.media?.length);
 }
 
 // Text-only letters and notes/prompts (no media) are otherwise invisible to
 // the reel entirely — this is what actually differentiates it from a generic
 // auto-generated photo montage: the family's own written words, not just
 // their photos.
-function monthTextEntriesFor(entries, year, month) {
-  return entries.filter(e => {
-    if (e.media?.length || !e.text?.trim()) return false;
-    const [ey, em] = e.date.split('-').map(Number);
-    return ey === year && em === month;
-  });
+function monthTextEntriesFor(entries, startDate, endDate) {
+  return entriesInRange(entries, startDate, endDate).filter(e => !e.media?.length && e.text?.trim());
 }
 
 function textExcerpt(text, maxLen) {
@@ -138,9 +138,9 @@ function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
 
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
-function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, monthLabel, stats, onClose, onGenerateReelShare, onRevokeReelShare, onStatClick }) {
-  const monthEntries = useMemo(() => monthEntriesFor(entries, year, month), [entries, year, month]);
-  const monthTextEntries = useMemo(() => monthTextEntriesFor(entries, year, month), [entries, year, month]);
+function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', onClose, onGenerateReelShare, onRevokeReelShare, onStatClick }) {
+  const monthEntries = useMemo(() => monthEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
+  const monthTextEntries = useMemo(() => monthTextEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
 
   // Home is computed from ALL entries (a stable, long-term thing), not just
   // this month's — otherwise a month with only trip photos would have
@@ -469,7 +469,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], year, month, mon
     if (!onGenerateReelShare || shareBusy) return;
     setShareBusy(true);
     setShareError(false);
-    const result = await onGenerateReelShare({ reelType: 'monthly', title: monthLabel, payload: buildSharePayload() });
+    const result = await onGenerateReelShare({ reelType, title: monthLabel, payload: buildSharePayload() });
     if (result) { setShareToken(result.share_token); setShareId(result.id); }
     else setShareError(true);
     setShareBusy(false);
