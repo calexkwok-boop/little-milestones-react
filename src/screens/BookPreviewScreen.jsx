@@ -101,7 +101,7 @@ function splitTextToFit(text, el, fontSize, width, maxHeight) {
 const LETTER_TOP_PAD = 18, LETTER_BOTTOM_PAD = 12, LETTER_DATE_H = 21, LETTER_DEAR_H = 25, LETTER_SIGNED_H = 23, LETTER_FOOTER_H = 35;
 const LETTER_PHOTO_H = 220;
 const LETTER_SIDE_PAD = 48; // 24px left + right
-const LETTER_AUDIO_ITEM_H = 60; // one AudioQRCard, incl. its bottom margin
+const LETTER_AUDIO_ITEM_H = 64; // one AudioQRCard: 8px padding top/bottom + 1px border top/bottom + 36px content row + 8px bottom margin, plus a couple px buffer
 
 function splitLetterToPages(entry, el, fontSize, pageWidth) {
   const text = entry.text || '';
@@ -145,8 +145,8 @@ function AudioQRCard({ title, subtitle, art, qrValue }) {
         {subtitle && <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 8, color: '#7A8C78', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</p>}
         <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7, color: '#B8944A', margin: '2px 0 0', letterSpacing: 0.4, textTransform: 'uppercase' }}>Scan to listen</p>
       </div>
-      <div style={{ background: '#fff', padding: 3, borderRadius: 4, flexShrink: 0 }}>
-        <QRCodeSVG value={qrValue} size={36} level="M" fgColor="#2C3828" />
+      <div style={{ background: '#fff', padding: 2, borderRadius: 4, flexShrink: 0, width: 32, height: 32 }}>
+        <QRCodeSVG value={qrValue} size={32} level="M" fgColor="#2C3828" />
       </div>
     </div>
   );
