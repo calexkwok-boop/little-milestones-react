@@ -84,7 +84,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Keepsakes</h2>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
               </div>
               <button className="icon-btn" onClick={() => setShowCreate(true)}>
                 <i className="ti ti-plus" />
@@ -101,7 +101,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
           </div>
 
           <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-            A monthly recap always covers one calendar month — build a reel for any other stretch of time here instead, like a trip that doesn't line up with month boundaries.
+            Build a reel for any stretch of time — a trip, a season, anything that doesn't fit neatly into one calendar month.
           </p>
 
           {savedReels.length === 0 ? (

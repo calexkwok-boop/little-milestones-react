@@ -5234,7 +5234,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Friends</h2>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Friends</h2>
               </div>
               <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setUserSearchResults([]); } setShowSearch(s => !s); }}>
                 <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
@@ -5575,7 +5575,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Keepsakes</h2>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
               </div>
               <button className="icon-btn" onClick={() => filterTab === 'search' ? switchTab('age') : switchTab('search')}>
                 <i className={`ti ${filterTab === 'search' ? 'ti-x' : 'ti-search'}`} />
@@ -6084,7 +6084,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
               <div onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} style={{ textAlign: 'center', cursor: 'pointer' }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Keepsakes</h2>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
               </div>
               {hasAny ? (
                 <button className="icon-btn" onClick={() => { if (showSearch) setQuery(''); setShowSearch(s => !s); }}>
@@ -7320,7 +7320,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Friends</h2>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Friends</h2>
               </div>
               <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setSearchResults([]); } setShowSearch(s => !s); }}>
                 <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
