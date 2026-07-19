@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl } from '../constants.js';
 
 // `cropY` is saved as "the point in the photo that should stay centered" (0-100, top-to-bottom),
@@ -100,10 +101,12 @@ function splitTextToFit(text, el, fontSize, width, maxHeight) {
 const LETTER_TOP_PAD = 18, LETTER_BOTTOM_PAD = 12, LETTER_DATE_H = 21, LETTER_DEAR_H = 25, LETTER_SIGNED_H = 23, LETTER_FOOTER_H = 35;
 const LETTER_PHOTO_H = 220;
 const LETTER_SIDE_PAD = 48; // 24px left + right
+const LETTER_AUDIO_ITEM_H = 60; // one AudioQRCard, incl. its bottom margin
 
 function splitLetterToPages(entry, el, fontSize, pageWidth) {
   const text = entry.text || '';
   const hasPhoto = entry.media?.length > 0;
+  const audioItemCount = (entry.song?.previewUrl ? 1 : 0) + (entry.voiceMemoUrl ? 1 : 0);
   const textWidth = pageWidth - LETTER_SIDE_PAD;
   const pageHeight = pageWidth * 4 / 3;
   const chunks = [];
@@ -112,14 +115,41 @@ function splitLetterToPages(entry, el, fontSize, pageWidth) {
   do {
     const photoH = isFirst && hasPhoto ? LETTER_PHOTO_H : 0;
     const dearH = isFirst ? LETTER_DEAR_H : 0;
+    const audioH = isFirst ? audioItemCount * LETTER_AUDIO_ITEM_H : 0;
     const signedH = entry.signedAs ? LETTER_SIGNED_H : 0; // reserved on every page, since we don't know the last chunk yet
-    const available = pageHeight - photoH - LETTER_TOP_PAD - LETTER_BOTTOM_PAD - LETTER_DATE_H - dearH - signedH - LETTER_FOOTER_H;
+    const available = pageHeight - photoH - audioH - LETTER_TOP_PAD - LETTER_BOTTOM_PAD - LETTER_DATE_H - dearH - signedH - LETTER_FOOTER_H;
     const [chunk, remainder] = splitTextToFit(rest, el, fontSize, textWidth, Math.max(available, 60));
     chunks.push(chunk);
     rest = remainder;
     isFirst = false;
   } while (rest.length > 0);
   return chunks;
+}
+
+// Printed pages can't play audio, so a song or voice memo gets a scannable QR
+// code linking straight to the clip instead. The title/artist (and album art,
+// for a song) print alongside it as a fallback — if Apple ever rotates the
+// iTunes preview URL a printed QR code points at, the words are still there.
+function AudioQRCard({ title, subtitle, art, qrValue }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(74,94,80,0.06)', border: '1px solid rgba(74,94,80,0.15)', borderRadius: 10, padding: '8px 10px', marginBottom: 8 }}>
+      {art ? (
+        <img src={art} style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
+      ) : (
+        <div style={{ width: 36, height: 36, borderRadius: 6, background: '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <i className="ti ti-microphone" style={{ fontSize: 15, color: '#fff' }} />
+        </div>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9.5, fontWeight: 700, color: '#2C3828', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</p>
+        {subtitle && <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 8, color: '#7A8C78', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subtitle}</p>}
+        <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7, color: '#B8944A', margin: '2px 0 0', letterSpacing: 0.4, textTransform: 'uppercase' }}>Scan to listen</p>
+      </div>
+      <div style={{ background: '#fff', padding: 3, borderRadius: 4, flexShrink: 0 }}>
+        <QRCodeSVG value={qrValue} size={36} level="M" fgColor="#2C3828" />
+      </div>
+    </div>
+  );
 }
 
 function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, hasMore, fontSize }) {
@@ -131,18 +161,15 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
   const photoSrc = photo ? (photoIsVideo ? videoThumbUrl(photo.url, 'so_0,w_700,q_auto,f_auto') : cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto')) : null;
   const cropY = entry.cropY ?? 50;
   const photoHeight = 220;
+  const audioItems = !isContinued ? [
+    entry.song?.previewUrl && { title: entry.song.name, subtitle: entry.song.artist, art: entry.song.artworkUrl, qrValue: entry.song.previewUrl },
+    entry.voiceMemoUrl && { title: 'Voice memo', subtitle: salutation, art: null, qrValue: entry.voiceMemoUrl },
+  ].filter(Boolean) : [];
   return (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {photoSrc && (
         <div style={{ position: 'relative' }}>
           <CroppedPhoto src={photoSrc} cropY={cropY} height={photoHeight} />
-          {photoIsVideo && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 17 }} />
-              </div>
-            </div>
-          )}
         </div>
       )}
       <div style={{ flex: 1, padding: '18px 24px 12px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
@@ -152,6 +179,7 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
         {!isContinued && (
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: '#4A5E50', margin: '0 0 8px' }}>Dear {salutation},</p>
         )}
+        {audioItems.map((item, i) => <AudioQRCard key={i} {...item} />)}
         <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: fontSize, color: '#2C3828', lineHeight: 1.72, margin: 0, whiteSpace: 'pre-wrap', overflow: 'hidden' }}>
           {pageText}
         </p>
@@ -311,13 +339,6 @@ function PairedPage({ entry, kids }) {
           return (
             <div key={i} style={cardStyle}>
               <CroppedPhoto src={src} cropY={entry.cropY} height={cardHeight} />
-              {isVideo && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.42)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 15 }} />
-                  </div>
-                </div>
-              )}
             </div>
           );
         })}
