@@ -138,7 +138,7 @@ function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
 
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
-function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, onClose, onGenerateReelShare, onRevokeReelShare, onStatClick }) {
+function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onStatClick }) {
   const monthEntries = useMemo(() => monthEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
   const monthTextEntries = useMemo(() => monthTextEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
 
@@ -295,6 +295,8 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   const [shareCopied, setShareCopied] = useState(false);
   const [showShareSheet, setShowShareSheet] = useState(false);
   const [shareError, setShareError] = useState(false);
+  const [savingReel, setSavingReel] = useState(false);
+  const [savedReel, setSavedReel] = useState(false);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
 
@@ -479,6 +481,18 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     setShareBusy(false);
   }
 
+  // Only a live monthly reel needs this — a custom-range reel opened from
+  // Keepsakes → Reels is by definition already saved (that's where it came
+  // from); a monthly reel otherwise has no way to be revisited directly
+  // without re-navigating Recap's month picker.
+  async function handleSaveReel() {
+    if (!onSaveReel || savingReel || savedReel) return;
+    setSavingReel(true);
+    const result = await onSaveReel();
+    setSavingReel(false);
+    if (result) setSavedReel(true);
+  }
+
   async function handleRevokeShare() {
     if (!onRevokeReelShare || !shareId || shareBusy) return;
     setShareBusy(true);
@@ -592,6 +606,8 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
           stats={stats}
           countedStats={countedStats}
           onShare={onGenerateReelShare ? () => setShowShareSheet(true) : null}
+          onSave={onSaveReel ? handleSaveReel : null}
+          saved={savedReel}
           onReplay={replay}
           primaryAction={{ label: 'Keep going', onClick: onClose }}
           onStatClick={onStatClick}

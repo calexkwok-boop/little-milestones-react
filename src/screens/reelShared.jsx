@@ -532,9 +532,14 @@ export function ReelBottomBar({ activeSlide, activeSong }) {
 // optional share button, and a primary action that's a button on the live
 // reel ("Keep going", closes back to the app) or a link on the shared page
 // ("Start your own family journal", since there's no app to return to).
-export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onShare, onReplay, primaryAction, onStatClick }) {
+export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onShare, onSave, saved, onReplay, primaryAction, onStatClick }) {
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#1E2A1E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 32px' }}>
+      {onSave && (
+        <button onClick={onSave} disabled={saved} style={{ position: 'absolute', top: 16, right: onShare ? 60 : 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: saved ? 'default' : 'pointer', color: saved ? '#C8993E' : '#fff', fontSize: 16 }}>
+          <i className={`ti ${saved ? 'ti-bookmark-filled' : 'ti-bookmark'}`} />
+        </button>
+      )}
       {onShare && (
         <button onClick={onShare} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 16 }}>
           <i className="ti ti-share-2" />

@@ -11201,6 +11201,7 @@ export default function App() {
               onClose={() => setReelMonth(null)}
               onGenerateReelShare={handleGenerateReelShare}
               onRevokeReelShare={handleRevokeReelShare}
+              onSaveReel={() => handleCreateSavedReel({ title: recap.label, startDate, endDate, song: null })}
               onStatClick={filter => { const month = reelMonth; setReelMonth(null); openRecapFor({ viewMode: 'month', month, recapFilter: filter }); }}
             />
           </Suspense>
