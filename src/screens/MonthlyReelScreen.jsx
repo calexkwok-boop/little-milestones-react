@@ -138,7 +138,7 @@ function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
 
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
-function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', onClose, onGenerateReelShare, onRevokeReelShare, onStatClick }) {
+function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, onClose, onGenerateReelShare, onRevokeReelShare, onStatClick }) {
   const monthEntries = useMemo(() => monthEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
   const monthTextEntries = useMemo(() => monthTextEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
 
@@ -283,7 +283,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   const [ended, setEnded] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [freezeFrame, setFreezeFrame] = useState(false);
-  const [song, setSong] = useState(null);
+  const [song, setSong] = useState(customSong);
   const [song2, setSong2] = useState(null);
   const [slideshowPaused, setSlideshowPaused] = useState(false);
   const [showPauseHint, setShowPauseHint] = useState(false);
@@ -309,7 +309,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     audioRef, audioRef2, audioElementProps, audioElementProps2,
     showingSong2, activeSong, durationScale,
     playSong1, pauseAll, resumeActive, replay: replayAudio,
-  } = useReelAudioEngine({ song, song2: isLongReel ? song2 : null, totalBaseMs, holdSong1: true });
+  } = useReelAudioEngine({ song, song2: (!customSong && isLongReel) ? song2 : null, totalBaseMs, holdSong1: true });
 
   const currentSlide = slides[index];
   const slideDuration = slideDurationMs(currentSlide, durationScale);
@@ -326,8 +326,11 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
 
   // Background music — same iTunes preview-clip approach as the birthday
   // reel (a real, legally-served preview, not a hosted copy of the track):
-  // Landslide, Andie Case's cover specifically.
+  // Landslide, Andie Case's cover specifically. Skipped entirely when the
+  // caller already supplied a customSong (a custom-range reel the user
+  // picked their own soundtrack for) — that's used as-is instead.
   useEffect(() => {
+    if (customSong) return;
     async function loadSong() {
       try {
         const res = await fetch('https://itunes.apple.com/search?term=landslide+andie+case&entity=song&limit=15');
@@ -340,14 +343,15 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       } catch {}
     }
     loadSong();
-  }, []);
+  }, [customSong]);
 
   // Second song — only fetched for a long (rich-month) reel, so a short reel
   // never pays for an API call it won't use. Coastline, Hollow Coves —
   // pairs with Landslide's tone (both quiet and reflective). The track
-  // itself is titled "Coastline" (singular), not "Coastlines".
+  // itself is titled "Coastline" (singular), not "Coastlines". A custom reel
+  // always gets exactly the one song the user picked, regardless of length.
   useEffect(() => {
-    if (!isLongReel) return;
+    if (!isLongReel || customSong) return;
     async function loadSong2() {
       try {
         const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent('hollow coves coastline')}&entity=song&limit=15`);
@@ -361,7 +365,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       } catch {}
     }
     loadSong2();
-  }, [isLongReel]);
+  }, [isLongReel, customSong]);
 
   // Auto-advance
   useEffect(() => {
@@ -437,7 +441,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       quote: RECAP_QUOTE,
       stats,
       song,
-      song2: isLongReel ? (song2 || null) : null,
+      song2: (!customSong && isLongReel) ? (song2 || null) : null,
       // Whole family, not just whoever happens to show up in this month's
       // slides — this is "whose reel is this" for a visitor who hasn't
       // watched anything yet, not a cast list of who appears in it.
@@ -570,7 +574,9 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       {/* Opening title card */}
       {showIntro && (
         <div style={{ position: 'absolute', inset: 0, zIndex: 9, background: 'rgba(38,58,44,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', transition: 'opacity 0.6s ease', opacity: introFading ? 0 : 1 }}>
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'rgba(200,153,62,0.75)', margin: '0 0 16px', letterSpacing: 0.5 }}>Your month with Patina</p>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'rgba(200,153,62,0.75)', margin: '0 0 16px', letterSpacing: 0.5 }}>
+            {reelType === 'range' ? 'Patina' : 'Your month with Patina'}
+          </p>
           <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 44, fontWeight: 700, margin: 0, lineHeight: 1, textAlign: 'center', padding: '0 24px', color: '#fff' }}>
             {monthLabel}
           </p>

@@ -9066,8 +9066,8 @@ export default function App() {
       if (!localStorage.getItem(lsKey)) localStorage.setItem(lsKey, new Date().toISOString());
 
       if (currentFamilyId) {
-        const { data: savedReelsData } = await supabase.from('saved_reels').select('id, title, start_date, end_date, created_at').eq('family_id', currentFamilyId).order('created_at', { ascending: false });
-        if (savedReelsData) setSavedReels(savedReelsData.map(r => ({ id: r.id, title: r.title, startDate: r.start_date, endDate: r.end_date })));
+        const { data: savedReelsData } = await supabase.from('saved_reels').select('id, title, start_date, end_date, song, created_at').eq('family_id', currentFamilyId).order('created_at', { ascending: false });
+        if (savedReelsData) setSavedReels(savedReelsData.map(r => ({ id: r.id, title: r.title, startDate: r.start_date, endDate: r.end_date, song: r.song || null })));
       }
 
       // Load friend data (gracefully skipped if tables don't exist yet)
@@ -9587,9 +9587,9 @@ export default function App() {
   // a frozen snapshot like reel_shares. It's regenerated live from current
   // entries every time it's opened (see the rangeReel render block), so
   // entries added later within that range enrich it automatically.
-  async function handleCreateSavedReel({ title, startDate, endDate }) {
+  async function handleCreateSavedReel({ title, startDate, endDate, song = null }) {
     if (localMode || !supabase || !session || !familyId) {
-      const reel = { id: Date.now(), title, startDate, endDate };
+      const reel = { id: Date.now(), title, startDate, endDate, song };
       setSavedReels(prev => [reel, ...prev]);
       return reel;
     }
@@ -9599,12 +9599,13 @@ export default function App() {
       title,
       start_date: startDate,
       end_date: endDate,
-    }).select('id, title, start_date, end_date').single();
+      song,
+    }).select('id, title, start_date, end_date, song').single();
     if (error || !data) {
       alert('Could not save this reel. Please try again.\n' + (error?.message || ''));
       return null;
     }
-    const reel = { id: data.id, title: data.title, startDate: data.start_date, endDate: data.end_date };
+    const reel = { id: data.id, title: data.title, startDate: data.start_date, endDate: data.end_date, song: data.song || null };
     setSavedReels(prev => [reel, ...prev]);
     return reel;
   }
@@ -10874,7 +10875,7 @@ export default function App() {
               onSwitchSection={switchSection}
               onCreateReel={handleCreateSavedReel}
               onDeleteReel={handleDeleteSavedReel}
-              onWatchReel={reel => setRangeReel({ startDate: reel.startDate, endDate: reel.endDate, title: reel.title })}
+              onWatchReel={reel => setRangeReel({ startDate: reel.startDate, endDate: reel.endDate, title: reel.title, song: reel.song || null })}
             />
           </ScreenErrorBoundary>
         </div>
@@ -11197,6 +11198,7 @@ export default function App() {
               monthLabel={rangeReel.title}
               stats={stats}
               reelType="range"
+              customSong={rangeReel.song}
               onClose={() => setRangeReel(null)}
               onGenerateReelShare={handleGenerateReelShare}
               onRevokeReelShare={handleRevokeReelShare}

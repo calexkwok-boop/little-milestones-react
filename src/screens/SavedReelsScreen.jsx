@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TODAY } from '../constants.js';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 
@@ -17,20 +17,46 @@ function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateRe
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const [song, setSong] = useState(null);
+  const [songQuery, setSongQuery] = useState('');
+  const [songResults, setSongResults] = useState([]);
+  const [songSearching, setSongSearching] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // the reel pending delete confirmation, or null
 
   const canSave = startDate && endDate && startDate <= endDate;
+
+  // Same debounced iTunes search NewEntryScreen's song picker uses — a custom
+  // reel gets exactly the song the user picked, instead of the fixed
+  // Landslide/Coastline tracks a monthly reel auto-selects for its mood.
+  useEffect(() => {
+    const q = songQuery.trim();
+    if (q.length < 2) { setSongResults([]); return; }
+    const t = setTimeout(async () => {
+      setSongSearching(true);
+      try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=8`);
+        const data = await res.json();
+        setSongResults((data.results || []).filter(r => r.previewUrl));
+      } catch {}
+      setSongSearching(false);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [songQuery]);
 
   function resetForm() {
     setTitle('');
     setStartDate('');
     setEndDate('');
+    setSong(null);
+    setSongQuery('');
+    setSongResults([]);
   }
 
   async function handleSave() {
     if (!canSave || saving) return;
     setSaving(true);
     const label = title.trim() || formatRangeLabel(startDate, endDate);
-    const reel = await onCreateReel({ title: label, startDate, endDate });
+    const reel = await onCreateReel({ title: label, startDate, endDate, song });
     setSaving(false);
     setShowCreate(false);
     resetForm();
@@ -87,11 +113,9 @@ function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateRe
                     <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{formatRangeLabel(reel.startDate, reel.endDate)}</p>
                   </div>
                   <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      if (window.confirm(`Delete the "${reel.title}" reel? This can't be undone.`)) onDeleteReel(reel.id);
-                    }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--text-muted)', fontSize: 16, display: 'flex', flexShrink: 0 }}
+                    className="icon-btn"
+                    onClick={e => { e.stopPropagation(); setDeleteTarget(reel); }}
+                    style={{ width: 32, height: 32, fontSize: 14, color: '#D4856A', borderColor: 'rgba(212,133,106,0.35)', background: 'rgba(212,133,106,0.08)', flexShrink: 0 }}
                   >
                     <i className="ti ti-trash" />
                   </button>
@@ -118,7 +142,7 @@ function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateRe
               style={{ marginBottom: 12 }}
             />
             <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, margin: '0 0 6px' }}>Start</p>
                 <input
                   className="input-field"
@@ -128,7 +152,7 @@ function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateRe
                   onChange={e => setStartDate(e.target.value)}
                 />
               </div>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, margin: '0 0 6px' }}>End</p>
                 <input
                   className="input-field"
@@ -141,6 +165,50 @@ function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateRe
               </div>
             </div>
 
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, margin: '0 0 6px' }}>Soundtrack (optional)</p>
+            {song ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-elevated)', borderRadius: 14, padding: '12px 14px', marginBottom: 20 }}>
+                <img src={song.artworkUrl} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{song.artist}</p>
+                </div>
+                <button onClick={() => setSong(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--accent)', fontFamily: "'Urbanist', sans-serif", padding: 0, fontWeight: 600, flexShrink: 0 }}>Change</button>
+              </div>
+            ) : (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ position: 'relative', marginBottom: songResults.length > 0 ? 8 : 0 }}>
+                  <input
+                    className="input-field"
+                    value={songQuery}
+                    onChange={e => setSongQuery(e.target.value)}
+                    placeholder="Search for a song… (defaults to a mood track if left blank)"
+                    style={{ paddingRight: 40 }}
+                  />
+                  {songSearching && (
+                    <i className="ti ti-loader-2" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite', color: 'var(--text-muted)', fontSize: 16 }} />
+                  )}
+                </div>
+                {songResults.length > 0 && (
+                  <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+                    {songResults.map((r, i) => (
+                      <button
+                        key={r.trackId}
+                        onClick={() => { setSong({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100.replace('100x100bb', '300x300bb'), previewUrl: r.previewUrl }); setSongQuery(''); setSongResults([]); }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', border: 'none', borderBottom: i < songResults.length - 1 ? '1px solid var(--border)' : 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: "'Urbanist', sans-serif" }}
+                      >
+                        <img src={r.artworkUrl100} style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.trackName}</p>
+                          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.artistName}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <button
               className="btn btn-gold"
               style={{ width: '100%', opacity: canSave && !saving ? 1 : 0.5 }}
@@ -149,6 +217,22 @@ function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateRe
             >
               {saving ? 'Building…' : 'Build reel'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setDeleteTarget(null)}>
+          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <i className="ti ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
+            </div>
+            <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px', textAlign: 'center' }}>Delete "{deleteTarget.title}"?</p>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center' }}>This can't be undone.</p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setDeleteTarget(null)}>Cancel</button>
+              <button className="btn" style={{ flex: 1, background: '#D4856A', color: '#fff' }} onClick={() => { onDeleteReel(deleteTarget.id); setDeleteTarget(null); }}>Delete</button>
+            </div>
           </div>
         </div>
       )}
