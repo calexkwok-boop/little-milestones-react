@@ -168,8 +168,8 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
               onChange={e => setTitle(e.target.value)}
               style={{ marginBottom: 12 }}
             />
-            <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+              <div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, margin: '0 0 6px' }}>Start</p>
                 <input
                   className="input-field"
@@ -179,7 +179,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
                   onChange={e => setStartDate(e.target.value)}
                 />
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.4, margin: '0 0 6px' }}>End</p>
                 <input
                   className="input-field"
