@@ -2742,7 +2742,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge, onRemoveSameAgeMatch, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch }) {
   // Only the author can edit or delete an entry's content — family members
   // may only adjust the photo crop (handled separately, below).
   const isOwn = entry.userId === session?.user?.id;
@@ -2996,6 +2996,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 <div style={twoUp ? { display: 'flex', gap: 8 } : { display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
                   {sides.map((side, i) => {
                     const isCover = !!side.photo && media[0] === side.photo;
+                    const isMatched = side.kid.id in (entry.sameAgeDates || {});
                     return (
                     <div key={i} style={twoUp ? { flex: 1, minWidth: 0 } : { width: 92, flexShrink: 0 }}>
                       <div
@@ -3006,6 +3007,20 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                         {side.photo && <img src={cloudinaryTransform(side.photo.url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />}
                         {isCover && (
                           <span style={{ position: 'absolute', top: 5, left: 5, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 8.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', padding: '3px 6px', borderRadius: 6 }}>Cover</span>
+                        )}
+                        {isOwn && isMatched && onRemoveSameAgeMatch && (
+                          <button
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (window.confirm(`Remove ${side.kid.name.split(' ')[0]}'s photo from this match? This will delete that photo and can't be undone.`)) {
+                                onRemoveSameAgeMatch(entry, side.kid.id);
+                              }
+                            }}
+                            title={`Remove ${side.kid.name.split(' ')[0]} from this match`}
+                            style={{ position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 2 }}
+                          >
+                            <i className="ti ti-x" style={{ fontSize: 11, color: '#fff' }} />
+                          </button>
                         )}
                       </div>
                       <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', margin: '6px 0 0', textAlign: 'center' }}>{side.kid.name.split(' ')[0]}</p>
@@ -8991,10 +9006,12 @@ export default function App() {
             });
             setFriendFamilyMap(ffMap);
             if (friendFamilyIds.length > 0) {
-              const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+              // No time cutoff — the friends feed is a normal scrollable list, so
+              // there's no reason to silently hide a friend's older posts instead
+              // of just letting people scroll to them.
               const [{ data: fKids }, { data: fEntries }] = await Promise.all([
                 supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, family_id, wishlist_url').in('family_id', friendFamilyIds),
-                supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, prompt, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }),
+                supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, prompt, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).order('created_at', { ascending: false }),
               ]);
               setFriendKids((fKids || []).map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, userId: k.user_id, familyId: k.family_id, wishlistUrl: k.wishlist_url || null })));
               setFriendEntries((fEntries || []).filter(e => e.shared !== false).map(e => ({ ...normalizeEntry(e), familyId: e.family_id })));
@@ -9582,8 +9599,7 @@ export default function App() {
     if (localMode || !supabase || !session) return;
     const promises = [supabase.from('entries').select('*, entry_media(*)').eq('family_id', familyId).order('date', { ascending: false })];
     if (friendFamilyIds.length > 0) {
-      const twoWeeksAgo = new Date(); twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
-      promises.push(supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, prompt, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).gte('created_at', twoWeeksAgo.toISOString()).order('created_at', { ascending: false }));
+      promises.push(supabase.from('entries').select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, shared, shared_with, type, prompt, entry_media(url, type)').in('family_id', friendFamilyIds).neq('shared', false).order('created_at', { ascending: false }));
     }
     const [{ data }, friendResult] = await Promise.all(promises);
     if (data) {
@@ -9860,6 +9876,30 @@ export default function App() {
       alert('Could not save that photo. Please try again.\n' + (err?.message || ''));
       return null;
     }
+  }
+
+  // The inverse of handleAddSameAgeMatch — undoes a wrong match by deleting the
+  // matched kid's photo outright and reverting the entry back to its original
+  // solo post. (An earlier version spun the removed photo off into its own new
+  // note instead of deleting it — but that new note inherited the original
+  // post's likes/comments, which made it look like the post itself had just
+  // been renamed rather than actually undone. A plain delete is what "undo a
+  // mistaken match" actually means, so that's what this does now.)
+  async function handleRemoveSameAgeMatch(entry, kidId) {
+    if (!(entry.sameAgeDates?.[kidId])) return; // only a matched (non-anchor) kid can be removed
+    const removedMedia = entry.media.filter(m => m.kidId === kidId);
+    const remainingMedia = entry.media.filter(m => m.kidId !== kidId);
+    const newKidIds = entry.kids.filter(id => id !== kidId);
+    const newSameAgeDates = { ...entry.sameAgeDates };
+    delete newSameAgeDates[kidId];
+
+    if (!localMode && supabase && session) {
+      await supabase.from('entry_media').delete().eq('entry_id', entry.id).eq('kid_id', kidId);
+      await supabase.from('entries').update({ kid_ids: newKidIds, same_age_dates: newSameAgeDates }).eq('id', entry.id);
+      deleteCloudinaryMedia(removedMedia);
+    }
+    const updatedEntry = { ...entry, kids: newKidIds, sameAgeDates: newSameAgeDates, media: remainingMedia };
+    setEntries(prev => prev.map(e => e.id === entry.id ? updatedEntry : e));
   }
 
   // Reorders an entry's photos/videos — used to let the user pick which of a
@@ -10605,6 +10645,7 @@ export default function App() {
             setSameAgeMatch({ sourceEntry, sourceKid, targetKid, queue, queueTotal: targets.length });
             setScreen('same-age-match');
           }}
+          onRemoveSameAgeMatch={handleRemoveSameAgeMatch}
           pendingSameAgeMatch={pendingSameAgeMatch?.sourceEntry.id === entries.find(e => e.id === activeEntry.id)?.id ? pendingSameAgeMatch : null}
           onConfirmSameAgeMatch={async () => {
             const { sourceEntry, sourceKid, targetKid, queue, photoDate, file, previewUrl, queueTotal } = pendingSameAgeMatch;

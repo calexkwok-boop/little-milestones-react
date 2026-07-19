@@ -698,8 +698,8 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       <div style={{ padding: '8px 20px 28px', flexShrink: 0 }}>
         <button className="btn btn-gold" style={{ width: '100%', borderRadius: 14 }}
           onClick={() => setShowWaitlist(true)}>
-          <i className="ti ti-shopping-cart" style={{ fontSize: 16 }} />
-          Order this book
+          <i className="ti ti-bell" style={{ fontSize: 16 }} />
+          Join the book waitlist
         </button>
       </div>
 
