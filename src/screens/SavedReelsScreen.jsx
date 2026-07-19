@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { TODAY } from '../constants.js';
+import { TODAY, cloudinaryTransform } from '../constants.js';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 
 function formatRangeLabel(startDate, endDate) {
@@ -11,7 +11,19 @@ function formatRangeLabel(startDate, endDate) {
   return startDate === endDate ? endLabel : `${startLabel} – ${endLabel}`;
 }
 
-function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateReel, onDeleteReel, onWatchReel }) {
+// A little "movie poster" for the list row — the first photo actually in
+// that reel's date range, rather than a generic icon standing in for every
+// reel alike.
+function reelThumbPhoto(entries, reel) {
+  for (const e of entries) {
+    if (e.date < reel.startDate || e.date > reel.endDate) continue;
+    const photo = e.media?.find(m => m.type !== 'video');
+    if (photo) return photo;
+  }
+  return null;
+}
+
+function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSection, onCreateReel, onDeleteReel, onWatchReel }) {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -70,7 +82,10 @@ function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateRe
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Keepsakes</h2>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Keepsakes</h2>
+              </div>
               <button className="icon-btn" onClick={() => setShowCreate(true)}>
                 <i className="ti ti-plus" />
               </button>
@@ -78,7 +93,7 @@ function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateRe
 
             <div>
               <SectionSwitcher
-                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }, { id: 'reels', label: 'Reels' }]}
+                tabs={[{ id: 'recap', label: 'Recap', icon: 'ti-sparkles' }, { id: 'partner-letters', label: 'All letters', icon: 'ti-mail' }, { id: 'compare', label: 'At the same age', icon: 'ti-arrows-diff' }, { id: 'reels', label: 'Reels', icon: 'ti-player-play' }]}
                 active="reels"
                 onChange={onSwitchSection}
               />
@@ -99,14 +114,25 @@ function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateRe
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {savedReels.map(reel => (
+              {savedReels.map(reel => {
+                const thumbPhoto = reelThumbPhoto(entries, reel);
+                return (
                 <div
                   key={reel.id}
                   onClick={() => onWatchReel(reel)}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', cursor: 'pointer' }}
                 >
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <i className="ti ti-player-play-filled" style={{ fontSize: 16, color: '#C8993E' }} />
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
+                    {thumbPhoto ? (
+                      <>
+                        <img src={cloudinaryTransform(thumbPhoto.url, 'w_100,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                        <div style={{ position: 'absolute', bottom: 3, right: 3, width: 15, height: 15, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <i className="ti ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
+                        </div>
+                      </>
+                    ) : (
+                      <i className="ti ti-player-play-filled" style={{ fontSize: 16, color: '#C8993E' }} />
+                    )}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.title}</p>
@@ -120,7 +146,8 @@ function SavedReelsScreen({ savedReels = [], onBack, onSwitchSection, onCreateRe
                     <i className="ti ti-trash" />
                   </button>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

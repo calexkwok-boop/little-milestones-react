@@ -158,7 +158,10 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Keepsakes</h2>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Keepsakes</h2>
+              </div>
               <button className="icon-btn" onClick={() => { if (showSearch) setSearchQuery(''); setShowSearch(s => !s); }}>
                 <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
               </button>
@@ -166,7 +169,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
 
             <div>
               <SectionSwitcher
-                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }, { id: 'reels', label: 'Reels' }]}
+                tabs={[{ id: 'recap', label: 'Recap', icon: 'ti-sparkles' }, { id: 'partner-letters', label: 'All letters', icon: 'ti-mail' }, { id: 'compare', label: 'At the same age', icon: 'ti-arrows-diff' }, { id: 'reels', label: 'Reels', icon: 'ti-player-play' }]}
                 active="recap"
                 onChange={onSwitchSection}
               />

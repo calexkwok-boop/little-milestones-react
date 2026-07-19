@@ -5232,14 +5232,17 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 0' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Friends</h2>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Friends</h2>
+              </div>
               <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setUserSearchResults([]); } setShowSearch(s => !s); }}>
                 <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
               </button>
             </div>
             <div style={{ padding: '10px 20px 18px' }}>
               <SectionSwitcher
-                tabs={[{ id: 'circle-feed', label: 'Glimpse' }, { id: 'friends', label: 'Activity', badge: pendingRequestCount + circleBadge }]}
+                tabs={[{ id: 'circle-feed', label: 'Glimpse', icon: 'ti-eye' }, { id: 'friends', label: 'Activity', icon: 'ti-activity', badge: pendingRequestCount + circleBadge }]}
                 active="circle-feed"
                 onChange={onSwitchSection}
               />
@@ -5570,7 +5573,10 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Keepsakes</h2>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Keepsakes</h2>
+              </div>
               <button className="icon-btn" onClick={() => filterTab === 'search' ? switchTab('age') : switchTab('search')}>
                 <i className={`ti ${filterTab === 'search' ? 'ti-x' : 'ti-search'}`} />
               </button>
@@ -5578,7 +5584,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
 
             <div>
               <SectionSwitcher
-                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }, { id: 'reels', label: 'Reels' }]}
+                tabs={[{ id: 'recap', label: 'Recap', icon: 'ti-sparkles' }, { id: 'partner-letters', label: 'All letters', icon: 'ti-mail' }, { id: 'compare', label: 'At the same age', icon: 'ti-arrows-diff' }, { id: 'reels', label: 'Reels', icon: 'ti-player-play' }]}
                 active="compare"
                 onChange={onSwitchSection}
               />
@@ -6076,7 +6082,10 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <h2 onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center', cursor: 'pointer' }}>Keepsakes</h2>
+              <div onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} style={{ textAlign: 'center', cursor: 'pointer' }}>
+                <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Keepsakes</h2>
+              </div>
               {hasAny ? (
                 <button className="icon-btn" onClick={() => { if (showSearch) setQuery(''); setShowSearch(s => !s); }}>
                   <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
@@ -6086,7 +6095,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
 
             <div>
               <SectionSwitcher
-                tabs={[{ id: 'recap', label: 'Recap' }, { id: 'partner-letters', label: 'All letters' }, { id: 'compare', label: 'At the same age' }, { id: 'reels', label: 'Reels' }]}
+                tabs={[{ id: 'recap', label: 'Recap', icon: 'ti-sparkles' }, { id: 'partner-letters', label: 'All letters', icon: 'ti-mail' }, { id: 'compare', label: 'At the same age', icon: 'ti-arrows-diff' }, { id: 'reels', label: 'Reels', icon: 'ti-player-play' }]}
                 active="partner-letters"
                 onChange={onSwitchSection}
               />
@@ -7309,7 +7318,10 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 700, color: 'var(--accent)', margin: 0, textAlign: 'center' }}>Friends</h2>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#C8993E', margin: 0 }}>Friends</h2>
+              </div>
               <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setSearchResults([]); } setShowSearch(s => !s); }}>
                 <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
               </button>
@@ -7317,7 +7329,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 
             <div>
               <SectionSwitcher
-                tabs={[{ id: 'circle-feed', label: 'Glimpse' }, { id: 'friends', label: 'Activity' }]}
+                tabs={[{ id: 'circle-feed', label: 'Glimpse', icon: 'ti-eye' }, { id: 'friends', label: 'Activity', icon: 'ti-activity' }]}
                 active="friends"
                 onChange={onSwitchSection}
               />
@@ -10870,6 +10882,7 @@ export default function App() {
         <div style={{ display: screen === 'reels' ? 'contents' : 'none' }}>
           <ScreenErrorBoundary onBack={() => setScreen('home')}>
             <SavedReelsScreen
+              entries={entries}
               savedReels={savedReels}
               onBack={() => setScreen('home')}
               onSwitchSection={switchSection}
