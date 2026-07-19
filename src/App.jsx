@@ -2625,7 +2625,10 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         <div className="scrollpad" style={{ paddingBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {onBack && <button className="icon-btn" onClick={onBack} style={{ flexShrink: 0 }}><i className="ti ti-arrow-left" /></button>}
-            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700, flex: 1, textAlign: 'center' }}>{milestonesOnly ? 'Milestones' : memberCount > 1 ? 'Our letters' : 'My letters'}</h2>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{milestonesOnly ? 'Milestones' : memberCount > 1 ? 'Our letters' : 'My letters'}</h2>
+            </div>
             <button className="icon-btn" onClick={() => { setShowSearch(s => !s); setSearchQuery(''); setTimeout(() => searchInputRef.current?.focus(), 50); }} style={{ flexShrink: 0 }}>
               <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
             </button>
@@ -6216,7 +6219,10 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>Search</h2>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>Search</h2>
+            </div>
             <div style={{ width: 36 }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 14px' }}>
@@ -6369,13 +6375,16 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2
-              onClick={onUpdateFamilyName ? () => { setFamilyNameInput(familyName || ''); setEditingFamilyName(true); } : undefined}
-              style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700, cursor: onUpdateFamilyName ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: 5 }}
-            >
-              {familyName || 'Your Family'}
-              {onUpdateFamilyName && <i className="ti ti-pencil" style={{ fontSize: 12, color: 'var(--text-muted)' }} />}
-            </h2>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+              <h2
+                onClick={onUpdateFamilyName ? () => { setFamilyNameInput(familyName || ''); setEditingFamilyName(true); } : undefined}
+                style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, color: 'var(--accent)', margin: 0, fontWeight: 700, cursor: onUpdateFamilyName ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+              >
+                {familyName || 'Your Family'}
+                {onUpdateFamilyName && <i className="ti ti-pencil" style={{ fontSize: 12, color: 'var(--text-muted)' }} />}
+              </h2>
+            </div>
             <div style={{ width: 36 }} />
           </div>
 
@@ -7001,7 +7010,7 @@ function PrivacyPolicyScreen({ onBack }) {
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Privacy Policy</h2>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Privacy Policy</h2>
           </div>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 20px' }}>Effective July 4, 2026</p>
 
@@ -7037,7 +7046,7 @@ function TermsScreen({ onBack }) {
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Terms of Service</h2>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Terms of Service</h2>
           </div>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 20px' }}>Effective July 4, 2026</p>
 

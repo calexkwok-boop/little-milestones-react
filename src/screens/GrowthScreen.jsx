@@ -239,7 +239,7 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <KidThumb kid={kid} size={22} />
-              <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{kid.name}'s growth</h2>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{kid.name}'s growth</h2>
             </div>
             <button className="icon-btn" onClick={() => setAddingEntry(true)}><i className="ti ti-plus" /></button>
           </div>

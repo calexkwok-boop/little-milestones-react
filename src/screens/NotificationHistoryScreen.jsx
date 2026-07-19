@@ -68,7 +68,10 @@ function NotificationHistoryScreen({ currentUserId, onBack, onOpenEntry, onOpenB
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-            <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700, fontFamily: "'Urbanist', sans-serif" }}>Notifications</h2>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>Notifications</h2>
+            </div>
             {unreadCount > 0 ? (
               <button onClick={markAllRead} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 12, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", fontWeight: 500, padding: 0 }}>Mark all read</button>
             ) : <div style={{ width: 24 }} />}

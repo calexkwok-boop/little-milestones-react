@@ -59,7 +59,8 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
           <div style={{ display: 'flex', alignItems: 'center' }}>
             <button className="icon-btn" onClick={onCancel}><i className="ti ti-arrow-left" /></button>
             <div style={{ margin: '0 auto', textAlign: 'center' }}>
-              <h2 style={{ fontSize: 16, color: 'var(--accent)', margin: 0, fontWeight: 700, fontFamily: "'Urbanist', sans-serif" }}>Same age as {sourceKid.name.split(' ')[0]}</h2>
+              <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>Same age as {sourceKid.name.split(' ')[0]}</h2>
               {stepLabel && <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0', fontWeight: 600 }}>Kid {stepLabel}</p>}
             </div>
             <div style={{ width: 36 }} />
