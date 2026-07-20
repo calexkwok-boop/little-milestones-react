@@ -83,8 +83,8 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
   }, [entries, searchQuery, kids]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const segTabStyle = (tab) => ({
-    border: 'none', borderRadius: 7, padding: '11px 16px',
-    fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    border: 'none', borderRadius: 7, padding: '8px 12px',
+    fontFamily: 'Inter, sans-serif', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
     background: viewMode === tab ? 'var(--bg-input)' : 'transparent',
     color: viewMode === tab ? 'var(--accent)' : 'var(--text-muted)',
     boxShadow: viewMode === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',

@@ -72,10 +72,12 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
     <div className="scroll-area">
     <div className="scrollpad">
 
-      {/* Header — matches GrowthScreen / RecapScreen pattern */}
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
         <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-        <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent)', margin: '0 auto', fontFamily: "'Urbanist', sans-serif" }}>Create a book</h2>
+        <div style={{ margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Create a book</h2>
+        </div>
         <div style={{ width: 36 }} />
       </div>
 

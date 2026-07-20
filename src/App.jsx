@@ -5488,14 +5488,6 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
     : isMilestoneFiltering ? 'None logged yet'
     : 'No moments yet at this age';
 
-  const tabStyle = (tab) => ({
-    border: 'none', borderRadius: 7, padding: '11px 16px',
-    fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-    background: filterTab === tab ? 'var(--bg-input)' : 'transparent',
-    color: filterTab === tab ? 'var(--accent)' : 'var(--text-muted)',
-    boxShadow: filterTab === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-  });
-
   // Own kids are always present (never removed, only faded when excluded); friend kids are added/removed outright.
   const allKidColumns = [...kids, ...selectedFriendKids.map(k => ({ ...k, isFriend: true }))];
   const includedKidColumns = allKidColumns.filter(k => k.isFriend || !excludedKidIds.includes(k.id));
@@ -5574,15 +5566,22 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
       <div className="scroll-area">
         <div className="scrollpad">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-              <div style={{ textAlign: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              </div>
+              <div style={{ textAlign: 'center', flexShrink: 0 }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
                 <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
               </div>
-              <button className="icon-btn" onClick={() => filterTab === 'search' ? switchTab('age') : switchTab('search')}>
-                <i className={`ti ${filterTab === 'search' ? 'ti-x' : 'ti-search'}`} />
-              </button>
+              <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                <button className="icon-btn" onClick={() => filterTab === 'milestone' ? switchTab('age') : switchTab('milestone')}>
+                  <i className={`ti ${filterTab === 'milestone' ? 'ti-x' : 'ti-star'}`} />
+                </button>
+                <button className="icon-btn" onClick={() => filterTab === 'search' ? switchTab('age') : switchTab('search')}>
+                  <i className={`ti ${filterTab === 'search' ? 'ti-x' : 'ti-search'}`} />
+                </button>
+              </div>
             </div>
 
             <div>
@@ -5591,13 +5590,6 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                 active="compare"
                 onChange={onSwitchSection}
               />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 9, padding: 3 }}>
-              <button style={tabStyle('age')} onClick={() => switchTab('age')}>By Age</button>
-              <button style={tabStyle('milestone')} onClick={() => switchTab('milestone')}>Milestones</button>
             </div>
           </div>
 
@@ -5780,13 +5772,26 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                                   </div>
                                 </div>
                               )}
-                              {playingVideoId !== e.id && (
-                                <div style={{ position: 'absolute', top: 7, right: 7, width: 22, height: 22, borderRadius: '50%', background: kid.accent || 'var(--border)', border: '2px solid rgba(255,255,255,0.9)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3 }}>
-                                  {kid.avatar
-                                    ? <img src={cloudinaryTransform(kid.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-                                    : <span style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{kid.name.charAt(0)}</span>}
-                                </div>
-                              )}
+                              {playingVideoId !== e.id && (() => {
+                                // A post written to more than one kid (siblings tagged together,
+                                // or a same-age match) should show every kid it's written to here,
+                                // not just whichever kid this particular grid appearance belongs to.
+                                const pool = kid.isFriend ? friendKids : kids;
+                                const badgeKids = e.kids.length > 1
+                                  ? [...e.kids.filter(id => id !== kid.id).map(id => pool.find(k => k.id === id)).filter(Boolean), kid]
+                                  : [kid];
+                                return (
+                                  <div style={{ position: 'absolute', top: 7, right: 7, display: 'flex', zIndex: 3 }}>
+                                    {badgeKids.map((bk, i) => (
+                                      <div key={bk.id} style={{ width: 22, height: 22, borderRadius: '50%', background: bk.accent || 'var(--border)', border: '2px solid rgba(255,255,255,0.9)', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: i > 0 ? -10 : 0, flexShrink: 0 }}>
+                                        {bk.avatar
+                                          ? <img src={cloudinaryTransform(bk.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                                          : <span style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{bk.name.charAt(0)}</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
                         );
