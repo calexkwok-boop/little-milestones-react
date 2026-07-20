@@ -138,7 +138,7 @@ function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
 
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
-function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onStatClick }) {
+function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onUnsaveReel, onStatClick }) {
   const monthEntries = useMemo(() => monthEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
   const monthTextEntries = useMemo(() => monthTextEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
 
@@ -297,6 +297,8 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   const [shareError, setShareError] = useState(false);
   const [savingReel, setSavingReel] = useState(false);
   const [savedReel, setSavedReel] = useState(false);
+  const [savedReelId, setSavedReelId] = useState(null);
+  const [saveToast, setSaveToast] = useState(null);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
 
@@ -485,12 +487,27 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   // Keepsakes → Reels is by definition already saved (that's where it came
   // from); a monthly reel otherwise has no way to be revisited directly
   // without re-navigating Recap's month picker.
-  async function handleSaveReel() {
-    if (!onSaveReel || savingReel || savedReel) return;
+  async function handleToggleSaveReel() {
+    if (!onSaveReel || savingReel) return;
+    if (savedReel) {
+      setSavingReel(true);
+      await onUnsaveReel?.(savedReelId);
+      setSavingReel(false);
+      setSavedReel(false);
+      setSavedReelId(null);
+      setSaveToast('Removed from Keepsakes');
+      setTimeout(() => setSaveToast(null), 1800);
+      return;
+    }
     setSavingReel(true);
     const result = await onSaveReel();
     setSavingReel(false);
-    if (result) setSavedReel(true);
+    if (result) {
+      setSavedReel(true);
+      setSavedReelId(result.id);
+      setSaveToast('Saved to Keepsakes');
+      setTimeout(() => setSaveToast(null), 1800);
+    }
   }
 
   async function handleRevokeShare() {
@@ -606,8 +623,10 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
           stats={stats}
           countedStats={countedStats}
           onShare={onGenerateReelShare ? () => setShowShareSheet(true) : null}
-          onSave={onSaveReel ? handleSaveReel : null}
+          onSave={onSaveReel ? handleToggleSaveReel : null}
           saved={savedReel}
+          savingSave={savingReel}
+          saveToast={saveToast}
           onReplay={replay}
           primaryAction={{ label: 'Keep going', onClick: onClose }}
           onStatClick={onStatClick}
