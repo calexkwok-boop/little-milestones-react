@@ -8822,7 +8822,7 @@ export default function App() {
   const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
   const [reelMonth, setReelMonth] = useState(null); // 'YYYY-MM' string — which month's reel to watch, or null when closed
   const [rangeReel, setRangeReel] = useState(null); // { startDate, endDate, title } — the currently-open custom-range reel, or null when closed
-  const [savedReels, setSavedReels] = useState([]); // saved_reels rows: { id, title, startDate, endDate }
+  const [savedReels, setSavedReels] = useState([]); // saved_reels rows: { id, title, startDate, endDate, song, song2, durationSec }
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showFriendsPrivacyExplainer, setShowFriendsPrivacyExplainer] = useState(false);
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
@@ -9087,8 +9087,8 @@ export default function App() {
       if (!localStorage.getItem(lsKey)) localStorage.setItem(lsKey, new Date().toISOString());
 
       if (currentFamilyId) {
-        const { data: savedReelsData } = await supabase.from('saved_reels').select('id, title, start_date, end_date, song, created_at').eq('family_id', currentFamilyId).order('created_at', { ascending: false });
-        if (savedReelsData) setSavedReels(savedReelsData.map(r => ({ id: r.id, title: r.title, startDate: r.start_date, endDate: r.end_date, song: r.song || null })));
+        const { data: savedReelsData } = await supabase.from('saved_reels').select('id, title, start_date, end_date, song, song2, duration_sec, created_at').eq('family_id', currentFamilyId).order('created_at', { ascending: false });
+        if (savedReelsData) setSavedReels(savedReelsData.map(r => ({ id: r.id, title: r.title, startDate: r.start_date, endDate: r.end_date, song: r.song || null, song2: r.song2 || null, durationSec: r.duration_sec || 30 })));
       }
 
       // Load friend data (gracefully skipped if tables don't exist yet)
@@ -9608,9 +9608,9 @@ export default function App() {
   // a frozen snapshot like reel_shares. It's regenerated live from current
   // entries every time it's opened (see the rangeReel render block), so
   // entries added later within that range enrich it automatically.
-  async function handleCreateSavedReel({ title, startDate, endDate, song = null }) {
+  async function handleCreateSavedReel({ title, startDate, endDate, song = null, song2 = null, durationSec = 30 }) {
     if (localMode || !supabase || !session || !familyId) {
-      const reel = { id: Date.now(), title, startDate, endDate, song };
+      const reel = { id: Date.now(), title, startDate, endDate, song, song2, durationSec };
       setSavedReels(prev => [reel, ...prev]);
       return reel;
     }
@@ -9621,12 +9621,14 @@ export default function App() {
       start_date: startDate,
       end_date: endDate,
       song,
-    }).select('id, title, start_date, end_date, song').single();
+      song2,
+      duration_sec: durationSec,
+    }).select('id, title, start_date, end_date, song, song2, duration_sec').single();
     if (error || !data) {
       alert('Could not save this reel. Please try again.\n' + (error?.message || ''));
       return null;
     }
-    const reel = { id: data.id, title: data.title, startDate: data.start_date, endDate: data.end_date, song: data.song || null };
+    const reel = { id: data.id, title: data.title, startDate: data.start_date, endDate: data.end_date, song: data.song || null, song2: data.song2 || null, durationSec: data.duration_sec || 30 };
     setSavedReels(prev => [reel, ...prev]);
     return reel;
   }
@@ -10897,7 +10899,7 @@ export default function App() {
               onSwitchSection={switchSection}
               onCreateReel={handleCreateSavedReel}
               onDeleteReel={handleDeleteSavedReel}
-              onWatchReel={reel => setRangeReel({ startDate: reel.startDate, endDate: reel.endDate, title: reel.title, song: reel.song || null })}
+              onWatchReel={reel => setRangeReel({ startDate: reel.startDate, endDate: reel.endDate, title: reel.title, song: reel.song || null, song2: reel.song2 || null, durationSec: reel.durationSec || 30 })}
             />
           </ScreenErrorBoundary>
         </div>
@@ -11223,6 +11225,8 @@ export default function App() {
               stats={stats}
               reelType="range"
               customSong={rangeReel.song}
+              customSong2={rangeReel.song2}
+              forceLongReel={rangeReel.durationSec === 60}
               onClose={() => setRangeReel(null)}
               onGenerateReelShare={handleGenerateReelShare}
               onRevokeReelShare={handleRevokeReelShare}

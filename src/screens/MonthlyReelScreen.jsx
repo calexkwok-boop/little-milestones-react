@@ -42,12 +42,13 @@ function monthEntriesFor(entries, startDate, endDate) {
   return entriesInRange(entries, startDate, endDate).filter(e => e.media?.length);
 }
 
-// Text-only letters and notes/prompts (no media) are otherwise invisible to
-// the reel entirely — this is what actually differentiates it from a generic
-// auto-generated photo montage: the family's own written words, not just
-// their photos.
+// Every letter/note with written words is a candidate here, media or not —
+// this is what actually differentiates the reel from a generic auto-generated
+// photo montage: the family's own written words, not just their photos. A
+// letter with a photo attached still gets its photo in the photo pipeline
+// below; this is what earns its words their own separate beat in the reel.
 function monthTextEntriesFor(entries, startDate, endDate) {
-  return entriesInRange(entries, startDate, endDate).filter(e => !e.media?.length && e.text?.trim());
+  return entriesInRange(entries, startDate, endDate).filter(e => e.text?.trim());
 }
 
 function textExcerpt(text, maxLen) {
@@ -138,7 +139,7 @@ function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
 
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
-function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onUnsaveReel, onStatClick }) {
+function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, customSong2 = null, forceLongReel = null, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onUnsaveReel, onStatClick }) {
   const monthEntries = useMemo(() => monthEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
   const monthTextEntries = useMemo(() => monthTextEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
 
@@ -187,13 +188,15 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     }
     // A rich month earns a second song and a bigger photo budget instead of
     // stretching a handful of photos to fill 60 seconds, or repeating itself.
-    const isLongReel = photoCandidates.length >= LONG_REEL_MEDIA_THRESHOLD;
+    // A custom-range reel skips this guess entirely — the user picked "30
+    // seconds" or "1 minute" explicitly, via forceLongReel.
+    const isLongReel = forceLongReel != null ? forceLongReel : photoCandidates.length >= LONG_REEL_MEDIA_THRESHOLD;
     const MAX_PHOTO_SLIDES = isLongReel ? LONG_MAX_PHOTO_SLIDES : SHORT_MAX_PHOTO_SLIDES;
     const tripCandidates = trip ? [trip] : [];
 
-    // Letters and notes/prompts with no photo attached — otherwise invisible
-    // to the reel. Capped low (unlike photos/videos) since reading text takes
-    // real time and this is meant as a moment, not the reel's main content.
+    // Letters and notes/prompts, photo attached or not — capped low (unlike
+    // photos/videos) since reading text takes real time and this is meant as
+    // a moment, not the reel's main content.
     const textAll = monthTextEntries.slice().sort((a, b) => a.date.localeCompare(b.date)).map(e => {
       const kid = kids.find(k => e.kids.includes(k.id));
       const isLetter = e.type === 'letter';
@@ -234,19 +237,30 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       return out;
     }
 
+    // Videos and letters are the guaranteed content (all videos above; up to
+    // MAX_TEXT_SLIDES letters below) — plain photos are the filler, so which
+    // ones make the cut is randomized rather than picked by a fixed stride,
+    // instead of the same evenly-spaced photos showing up every time a reel
+    // for this range is regenerated.
+    function sampleRandom(arr, n) {
+      if (arr.length <= n) return arr;
+      const shuffled = arr.slice().sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, n);
+    }
+
     // A trip is "a bigger deal" — its photos get first claim on roughly half
     // the image budget (or all of them, if there are fewer) instead of being
-    // sampled evenly alongside the rest of the month on equal footing. The
-    // remaining budget is sampled evenly across the month as before.
+    // sampled alongside the rest of the range on equal footing. The remaining
+    // budget is filled randomly from the rest.
     let keptImages;
     if (trip) {
       const tripImages = imageSlides.filter(s => trip.tripEntryIds.has(s.entryId));
       const otherImages = imageSlides.filter(s => !trip.tripEntryIds.has(s.entryId));
       const tripBudget = Math.min(tripImages.length, Math.ceil(imageBudget / 2));
       const otherBudget = Math.max(0, imageBudget - tripBudget);
-      keptImages = [...sampleEvenly(tripImages, tripBudget), ...sampleEvenly(otherImages, otherBudget)];
+      keptImages = [...sampleRandom(tripImages, tripBudget), ...sampleRandom(otherImages, otherBudget)];
     } else {
-      keptImages = sampleEvenly(imageSlides, imageBudget);
+      keptImages = sampleRandom(imageSlides, imageBudget);
     }
 
     // Chronological order for the photo/video/trip spine — a trip slide
@@ -275,7 +289,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     });
 
     return { slides: combined, isLongReel };
-  }, [monthEntries, monthTextEntries, kids, trip]);
+  }, [monthEntries, monthTextEntries, kids, trip, forceLongReel]);
 
   const [index, setIndex] = useState(0);
   const [showIntro, setShowIntro] = useState(true);
@@ -284,7 +298,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   const [showStats, setShowStats] = useState(false);
   const [freezeFrame, setFreezeFrame] = useState(false);
   const [song, setSong] = useState(customSong);
-  const [song2, setSong2] = useState(null);
+  const [song2, setSong2] = useState(customSong2);
   const [slideshowPaused, setSlideshowPaused] = useState(false);
   const [showPauseHint, setShowPauseHint] = useState(false);
   const [slideProgress, setSlideProgress] = useState(0);
@@ -313,7 +327,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     audioRef, audioRef2, audioElementProps, audioElementProps2,
     showingSong2, activeSong, durationScale,
     playSong1, pauseAll, resumeActive, replay: replayAudio,
-  } = useReelAudioEngine({ song, song2: (!customSong && isLongReel) ? song2 : null, totalBaseMs, holdSong1: true });
+  } = useReelAudioEngine({ song, song2: isLongReel ? song2 : null, totalBaseMs, holdSong1: true });
 
   const currentSlide = slides[index];
   const slideDuration = slideDurationMs(currentSlide, durationScale);
@@ -349,13 +363,14 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     loadSong();
   }, [customSong]);
 
-  // Second song — only fetched for a long (rich-month) reel, so a short reel
-  // never pays for an API call it won't use. Coastline, Hollow Coves —
-  // pairs with Landslide's tone (both quiet and reflective). The track
-  // itself is titled "Coastline" (singular), not "Coastlines". A custom reel
-  // always gets exactly the one song the user picked, regardless of length.
+  // Second song — only fetched for a long reel (rich month, or a custom range
+  // reel the user explicitly built at 1 minute), so a short reel never pays
+  // for an API call it won't use. Coastline, Hollow Coves — pairs with
+  // Landslide's tone (both quiet and reflective). The track itself is titled
+  // "Coastline" (singular), not "Coastlines". Skipped when the caller already
+  // supplied a customSong2 — the user picked their own second soundtrack.
   useEffect(() => {
-    if (!isLongReel || customSong) return;
+    if (!isLongReel || customSong2) return;
     async function loadSong2() {
       try {
         const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent('hollow coves coastline')}&entity=song&limit=15`);
@@ -369,7 +384,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       } catch {}
     }
     loadSong2();
-  }, [isLongReel, customSong]);
+  }, [isLongReel, customSong2]);
 
   // Auto-advance
   useEffect(() => {
@@ -445,7 +460,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       quote: RECAP_QUOTE,
       stats,
       song,
-      song2: (!customSong && isLongReel) ? (song2 || null) : null,
+      song2: isLongReel ? (song2 || null) : null,
       // Whole family, not just whoever happens to show up in this month's
       // slides — this is "whose reel is this" for a visitor who hasn't
       // watched anything yet, not a cast list of who appears in it.
