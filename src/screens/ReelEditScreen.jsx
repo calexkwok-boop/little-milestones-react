@@ -7,9 +7,10 @@ import {
 
 // Stable identity for a candidate/slide across renders — a photo/video keyed
 // by its media url (matches how buildReelCandidates already dedupes), a
-// letter by its source entry, the trip by nothing (there's ever only one).
+// letter by its source entry, a trip by its own derived id (a range can
+// surface more than one).
 function keyForSlide(s) {
-  if (s.type === 'trip') return 'trip';
+  if (s.type === 'trip') return `trip-${s.id}`;
   if (s.type === 'text') return `letter-${s.entryId}`;
   return `media-${s.url}`;
 }
@@ -26,7 +27,10 @@ function cardLabel(item) {
 function CardThumb({ item, wide }) {
   if (item.type === 'trip') {
     return (
-      <div style={{ width: wide ? 96 : 62, height: 62, borderRadius: 11, background: 'linear-gradient(135deg, rgba(200,153,62,0.35), rgba(74,94,80,0.5))', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>✈️</div>
+      <div style={{ width: 78, height: 62, borderRadius: 11, background: 'linear-gradient(135deg, rgba(200,153,62,0.35), rgba(74,94,80,0.5))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, flexShrink: 0, padding: '0 6px', boxSizing: 'border-box' }}>
+        <span style={{ fontSize: 17 }}>✈️</span>
+        <span style={{ fontSize: 8, fontWeight: 700, color: '#3a4a3f', textAlign: 'center', lineHeight: 1.15, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{item.destinationLabel}</span>
+      </div>
     );
   }
   if (item.type === 'text') {
@@ -109,7 +113,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     [entries, kids, familyMembers, reel.startDate, reel.endDate]
   );
   const [slideList, setSlideList] = useState(() => {
-    if (reel.slideRefs && reel.slideRefs.length > 0) return resolveSlideRefs(reel.slideRefs, candidates, candidates.trip);
+    if (reel.slideRefs && reel.slideRefs.length > 0) return resolveSlideRefs(reel.slideRefs, candidates);
     return autoSampleSlides(candidates, { forceLongReel: reel.durationSec === 60, reelId: reel.id }).slides;
   });
 
@@ -117,11 +121,44 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   // computed fresh, so a reel reopened later can surface genuinely new
   // content (a photo added since it was last edited) to pull in manually,
   // even though playback itself no longer auto-enriches once slide_refs
-  // is set.
-  const availableList = useMemo(() => {
+  // is set. Split into three so finding a specific video or letter doesn't
+  // mean scrolling past a wall of photos first.
+  const availablePhotos = useMemo(() => {
     const usedKeys = new Set(slideList.map(keyForSlide));
-    return [...candidates.photoCandidates, ...candidates.textCandidates].filter(c => !usedKeys.has(keyForSlide(c)));
+    return candidates.photoCandidates.filter(c => c.mediaType !== 'video' && !usedKeys.has(keyForSlide(c)));
   }, [candidates, slideList]);
+  const availableVideos = useMemo(() => {
+    const usedKeys = new Set(slideList.map(keyForSlide));
+    return candidates.photoCandidates.filter(c => c.mediaType === 'video' && !usedKeys.has(keyForSlide(c)));
+  }, [candidates, slideList]);
+  const availableLetters = useMemo(() => {
+    const usedKeys = new Set(slideList.map(keyForSlide));
+    return candidates.textCandidates.filter(c => !usedKeys.has(keyForSlide(c)));
+  }, [candidates, slideList]);
+  const availableTrips = useMemo(() => {
+    const usedKeys = new Set(slideList.map(keyForSlide));
+    return candidates.trips.filter(c => !usedKeys.has(keyForSlide(c)));
+  }, [candidates, slideList]);
+
+  // Three separate ceilings rather than one lump number — photos/videos
+  // share a flexible, duration-dependent budget (videos always get in
+  // uncapped, photos fill whatever's left), while letters and the trip
+  // slide have their own small, fixed caps that don't move with duration.
+  // Keeping them apart means removing a letter visibly frees a letter slot
+  // instead of nudging one ambiguous shared total.
+  const mediaBudget = useMemo(() => {
+    const maxPhotoBudget = durationSec === 60 ? 14 : 7;
+    const videoCount = candidates.photoCandidates.filter(c => c.mediaType === 'video').length;
+    const imageCount = candidates.photoCandidates.length - videoCount;
+    const imageBudget = Math.max(0, maxPhotoBudget - videoCount);
+    return videoCount + Math.min(imageBudget, imageCount);
+  }, [candidates, durationSec]);
+  const letterCap = Math.min(2, candidates.textCandidates.length);
+  const tripCap = candidates.trips.length;
+
+  const mediaInReel = useMemo(() => slideList.filter(s => s.type === 'photo').length, [slideList]);
+  const lettersInReel = useMemo(() => slideList.filter(s => s.type === 'text').length, [slideList]);
+  const tripsInReel = useMemo(() => slideList.filter(s => s.type === 'trip').length, [slideList]);
 
   function removeFromSlides(key) {
     setSlideList(prev => prev.filter(s => keyForSlide(s) !== key));
@@ -134,7 +171,10 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   // (not the card itself) only once a drag is actually confirmed, and only
   // then calls preventDefault — so an ordinary scroll is never intercepted.
   const slideStripRef = useRef(null);
-  const availStripRef = useRef(null);
+  const availPhotosStripRef = useRef(null);
+  const availVideosStripRef = useRef(null);
+  const availLettersStripRef = useRef(null);
+  const availTripsStripRef = useRef(null);
   const dragRef = useRef(null); // { key, item, fromList, startX, startY, active, timer }
   const dropRef = useRef(null); // { list, index } — read at drop time, kept in a ref to avoid stale closures
   const [draggingKey, setDraggingKey] = useState(null);
@@ -159,19 +199,25 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   useEffect(() => {
     function computeDropTarget(clientX, clientY) {
       const slideRect = slideStripRef.current?.getBoundingClientRect();
-      const availRect = availStripRef.current?.getBoundingClientRect();
-      let list = null;
-      if (slideRect && clientY >= slideRect.top - 24 && clientY <= slideRect.bottom + 24) list = 'slide';
-      else if (availRect && clientY >= availRect.top - 24 && clientY <= availRect.bottom + 24) list = 'avail';
-      if (!list) return null;
-      const container = list === 'slide' ? slideStripRef.current : availStripRef.current;
-      const cardEls = [...container.querySelectorAll('[data-card-key]')];
-      let index = cardEls.length;
-      for (let i = 0; i < cardEls.length; i++) {
-        const r = cardEls[i].getBoundingClientRect();
-        if (clientX < r.left + r.width / 2) { index = i; break; }
+      if (slideRect && clientY >= slideRect.top - 24 && clientY <= slideRect.bottom + 24) {
+        const cardEls = [...slideStripRef.current.querySelectorAll('[data-card-key]')];
+        let index = cardEls.length;
+        for (let i = 0; i < cardEls.length; i++) {
+          const r = cardEls[i].getBoundingClientRect();
+          if (clientX < r.left + r.width / 2) { index = i; break; }
+        }
+        return { list: 'slide', index };
       }
-      return { list, index };
+      // Order within an available strip doesn't matter, so any of the three
+      // zones just needs to register as a generic "avail" drop — but keep
+      // track of which one, purely so its strip can highlight while hovered.
+      for (const [zone, ref] of [['photo', availPhotosStripRef], ['video', availVideosStripRef], ['letter', availLettersStripRef], ['trip', availTripsStripRef]]) {
+        const rect = ref.current?.getBoundingClientRect();
+        if (rect && clientY >= rect.top - 24 && clientY <= rect.bottom + 24) {
+          return { list: 'avail', zone };
+        }
+      }
+      return null;
     }
 
     function onMove(e) {
@@ -257,7 +303,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         key={key}
         data-card-key={key}
         onTouchStart={e => onCardTouchStart(e, item, fromList)}
-        style={{ width: item.type === 'text' || item.type === 'trip' ? (item.type === 'text' ? 96 : 62) : 62, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1 }}
+        style={{ width: item.type === 'text' ? 96 : item.type === 'trip' ? 78 : 62, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1 }}
       >
         {fromList === 'slide' && (
           <button
@@ -285,6 +331,27 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     out.push(<span key="__drop_indicator__">{renderDropIndicator(list)}</span>);
     out.push(...cards.slice(idx));
     return out;
+  }
+
+  function availStrip(zone, label, items, containerRef) {
+    const hovered = draggingKey && dropTarget?.list === 'avail' && dropTarget.zone === zone;
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>{label}</p>
+        <div
+          ref={containerRef}
+          style={{
+            display: 'flex', gap: 9, overflowX: draggingKey ? 'hidden' : 'auto', padding: '10px 3px', margin: '-7px -3px 0',
+            minHeight: items.length === 0 ? 40 : undefined, borderRadius: 14,
+            outline: hovered ? '1.5px dashed #C8993E' : 'none', outlineOffset: -2,
+          }}
+        >
+          {items.length === 0
+            ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>None from this range</span>
+            : items.map(item => renderCard(item, 'avail'))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -368,7 +435,11 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
           <div style={{ marginBottom: 16 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
               <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', margin: 0 }}>In this reel</p>
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>{slideList.length} slide{slideList.length !== 1 ? 's' : ''}</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{mediaInReel}/{mediaBudget} photos+videos</span>
+                {letterCap > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{lettersInReel}/{letterCap} letters</span>}
+                {tripCap > 0 && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>{tripsInReel}/{tripCap} trip{tripCap !== 1 ? 's' : ''}</span>}
+              </div>
             </div>
             <div
               ref={slideStripRef}
@@ -387,18 +458,11 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
           </div>
 
           <div>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
-              <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Not in this reel yet</p>
-              <p style={{ fontSize: 10, color: 'var(--text-muted)', margin: 0 }}>drag one up ↑</p>
-            </div>
-            <div
-              ref={availStripRef}
-              style={{ display: 'flex', gap: 9, overflowX: draggingKey ? 'hidden' : 'auto', padding: '10px 3px', margin: '-7px -3px 0', minHeight: availableList.length === 0 ? 40 : undefined }}
-            >
-              {availableList.length === 0
-                ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Everything from this range is already in the reel</span>
-                : stripWithIndicator('avail', availableList, availStripRef)}
-            </div>
+            <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px' }}>Not in this reel yet</p>
+            {availStrip('photo', 'Photos', availablePhotos, availPhotosStripRef)}
+            {availStrip('video', 'Videos', availableVideos, availVideosStripRef)}
+            {availStrip('letter', 'Letters', availableLetters, availLettersStripRef)}
+            {candidates.trips.length > 0 && availStrip('trip', 'Trips', availableTrips, availTripsStripRef)}
           </div>
 
           <p style={{ textAlign: 'center', fontSize: 10, color: 'var(--text-muted)', margin: '14px 0 0', padding: '0 8px', lineHeight: 1.5 }}>

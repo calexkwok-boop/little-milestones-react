@@ -23,14 +23,8 @@ function reelThumbPhoto(entries, reel) {
   return null;
 }
 
-const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-// Composes an ISO 'YYYY-MM-DD' from separate month/day/year fields — only
-// once all three are actually filled in (year needs all 4 digits), same
-// rule NewEntryScreen's date editor uses.
-function composeDate(month, day, year) {
-  if (!month || !day || !year || year.length !== 4) return '';
-  return `${year}-${month}-${String(day).padStart(2, '0')}`;
+function formatDateLong(iso) {
+  return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 const SWIPE_REVEAL = 144; // px of edit+delete actions revealed once swiped open (two 72px buttons)
@@ -117,23 +111,16 @@ function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onEdit, onD
 function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSection, onStartBuilding, onDeleteReel, onWatchReel, onEditReel }) {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState('');
-  const [startMonth, setStartMonth] = useState('');
-  const [startDay, setStartDay] = useState('');
-  const [startYear, setStartYear] = useState('');
-  const [endMonth, setEndMonth] = useState('');
-  const [endDay, setEndDay] = useState('');
-  const [endYear, setEndYear] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null); // the reel pending delete confirmation, or null
   const [openSwipeId, setOpenSwipeId] = useState(null); // which reel row, if any, is currently swiped open
 
-  const startDate = composeDate(startMonth, startDay, startYear);
-  const endDate = composeDate(endMonth, endDay, endYear);
   const canContinue = startDate && endDate && startDate <= endDate;
 
   function resetForm() {
     setTitle('');
-    setStartMonth(''); setStartDay(''); setStartYear('');
-    setEndMonth(''); setEndDay(''); setEndYear('');
+    setStartDate(''); setEndDate('');
   }
 
   // Just enough to know what the reel covers — title, length, soundtrack,
@@ -247,31 +234,35 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
                   <div style={{ position: 'relative', marginBottom: 14 }}>
                     <div style={{ position: 'absolute', left: -16, top: 5, width: 7, height: 7, borderRadius: '50%', background: '#C8993E', border: '2px solid var(--bg-elevated)' }} />
                     <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Start</p>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <div style={{ position: 'relative', flex: 2.2 }}>
-                        <select value={startMonth} onChange={e => setStartMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 32px 12px 12px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: startMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
-                          <option value="" disabled>Month</option>
-                          {MONTH_NAMES.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
-                        </select>
-                        <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 12, pointerEvents: 'none' }} />
-                      </div>
-                      <input type="number" placeholder="Day" value={startDay} min={1} max={31} onChange={e => setStartDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
-                      <input type="number" placeholder="Year" value={startYear} min={1900} max={2100} onChange={e => setStartYear(e.target.value)} style={{ flex: 1.4, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', background: 'var(--bg-input)' }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>📅</span>
+                      <span style={{ flex: 1, fontSize: 14, color: startDate ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>
+                        {startDate ? formatDateLong(startDate) : 'Choose a date'}
+                      </span>
+                      <input
+                        type="date"
+                        value={startDate}
+                        max={endDate || undefined}
+                        onChange={e => setStartDate(e.target.value)}
+                        style={{ position: 'absolute', inset: 0, opacity: 0, border: 'none', margin: 0, padding: 0, cursor: 'pointer' }}
+                      />
                     </div>
                   </div>
                   <div style={{ position: 'relative' }}>
                     <div style={{ position: 'absolute', left: -16, top: 5, width: 7, height: 7, borderRadius: '50%', background: '#C8993E', border: '2px solid var(--bg-elevated)' }} />
                     <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>End</p>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <div style={{ position: 'relative', flex: 2.2 }}>
-                        <select value={endMonth} onChange={e => setEndMonth(e.target.value)} style={{ width: '100%', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 32px 12px 12px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: endMonth ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}>
-                          <option value="" disabled>Month</option>
-                          {MONTH_NAMES.map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
-                        </select>
-                        <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 12, pointerEvents: 'none' }} />
-                      </div>
-                      <input type="number" placeholder="Day" value={endDay} min={1} max={31} onChange={e => setEndDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
-                      <input type="number" placeholder="Year" value={endYear} min={1900} max={2100} onChange={e => setEndYear(e.target.value)} style={{ flex: 1.4, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 8px', fontSize: 14, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', background: 'var(--bg-input)' }}>
+                      <span style={{ fontSize: 16, flexShrink: 0 }}>📅</span>
+                      <span style={{ flex: 1, fontSize: 14, color: endDate ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>
+                        {endDate ? formatDateLong(endDate) : 'Choose a date'}
+                      </span>
+                      <input
+                        type="date"
+                        value={endDate}
+                        min={startDate || undefined}
+                        onChange={e => setEndDate(e.target.value)}
+                        style={{ position: 'absolute', inset: 0, opacity: 0, border: 'none', margin: 0, padding: 0, cursor: 'pointer' }}
+                      />
                     </div>
                   </div>
                 </div>

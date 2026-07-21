@@ -104,56 +104,76 @@ export function findHomePoint(entries) {
   return { lat: best.locationLat, lng: best.locationLng };
 }
 
-// One trip highlight per reel, at most — the farthest-from-home entry in
-// range becomes the destination; its photo is the reveal after the arc, and
-// the rest of that trip's photos still surface as ordinary slides elsewhere.
-function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
-  if (!homePt) return null;
+// Every distinct trip in range gets its own highlight — entries far from
+// home are grouped by mutual proximity (two far-from-home entries within
+// TRIP_DISTANCE_MILES of each other are the same trip; further apart, they're
+// separate trips), so a month with both a beach week and a grandparent visit
+// surfaces two trip slides instead of just the single farthest one. Each
+// trip's farthest-from-home entry becomes its destination; the rest of that
+// trip's photos still surface as ordinary slides elsewhere.
+function findTripsThisMonth(monthEntries, homePt, kids, familyMembers) {
+  if (!homePt) return [];
   const tripEntries = monthEntries.filter(e =>
     e.locationLat != null && e.locationLng != null && e.media?.length > 0 &&
     haversine(homePt.lat, homePt.lng, e.locationLat, e.locationLng) > TRIP_DISTANCE_MILES
   );
-  if (tripEntries.length === 0) return null;
-  const farthest = tripEntries.reduce((a, b) =>
-    haversine(homePt.lat, homePt.lng, b.locationLat, b.locationLng) > haversine(homePt.lat, homePt.lng, a.locationLat, a.locationLng) ? b : a
-  );
-  const distanceMiles = Math.round(haversine(homePt.lat, homePt.lng, farthest.locationLat, farthest.locationLng));
-  const photo = farthest.media.find(m => m.type !== 'video') || farthest.media[0];
-  // The slide sorts by the trip's *earliest* day, not the farthest photo's
-  // day — so in chronological order the animation always leads into that
-  // trip's own photos rather than landing partway through them.
-  const earliestDate = tripEntries.reduce((min, e) => e.date < min ? e.date : min, tripEntries[0].date);
+  if (tripEntries.length === 0) return [];
 
-  // Whoever actually shows up in the trip — every kid tagged in any of its
-  // entries, and every family member who authored one — not just the one
-  // kid/photo picked to represent it, so the arc reads like "this was your
-  // trip" rather than spotlighting a single person. Normalized into one
-  // {name, avatar, accent} shape since TripSlide doesn't need to tell kids
-  // and family members apart.
-  const tripKidIds = new Set(tripEntries.flatMap(e => e.kids || []));
-  const tripAuthorIds = new Set(tripEntries.map(e => e.userId).filter(Boolean));
-  const tripKids = kids.filter(k => tripKidIds.has(k.id));
-  const tripFamilyMembers = familyMembers.filter(m => tripAuthorIds.has(m.user_id));
-  const tripPeople = [
-    ...tripKids.map(k => ({ name: k.name, avatar: k.avatar, accent: k.accent })),
-    ...tripFamilyMembers.map(m => ({ name: m.real_name || m.display_name || 'Family', avatar: m.avatar_url, accent: '#4A5E50' })),
-  ];
-  const photoKid = kids.find(k => farthest.kids.includes(k.id));
+  const clusters = [];
+  for (const e of tripEntries) {
+    const cluster = clusters.find(c => c.some(o => haversine(o.locationLat, o.locationLng, e.locationLat, e.locationLng) <= TRIP_DISTANCE_MILES));
+    if (cluster) cluster.push(e);
+    else clusters.push([e]);
+  }
 
-  return {
-    type: 'trip',
-    date: earliestDate,
-    earliestDate,
-    destLat: farthest.locationLat,
-    destLng: farthest.locationLng,
-    destinationLabel: farthest.location || 'somewhere new',
-    distanceMiles,
-    photo: { url: photo.url, mediaType: photo.type, cropY: farthest.cropY ?? 50 },
-    photoCaption: captionFor(photoKid, farthest.date),
-    tripPeople,
-    tripEntryIds: new Set(tripEntries.map(e => e.id)),
-    durationMs: TRIP_ARC_MS + PHOTO_SLIDE_MS,
-  };
+  return clusters.map(clusterEntries => {
+    const farthest = clusterEntries.reduce((a, b) =>
+      haversine(homePt.lat, homePt.lng, b.locationLat, b.locationLng) > haversine(homePt.lat, homePt.lng, a.locationLat, a.locationLng) ? b : a
+    );
+    const distanceMiles = Math.round(haversine(homePt.lat, homePt.lng, farthest.locationLat, farthest.locationLng));
+    const photo = farthest.media.find(m => m.type !== 'video') || farthest.media[0];
+    // The slide sorts by the trip's *earliest* day, not the farthest photo's
+    // day — so in chronological order the animation always leads into that
+    // trip's own photos rather than landing partway through them.
+    const earliestDate = clusterEntries.reduce((min, e) => e.date < min ? e.date : min, clusterEntries[0].date);
+
+    // Whoever actually shows up in the trip — every kid tagged in any of its
+    // entries, and every family member who authored one — not just the one
+    // kid/photo picked to represent it, so the arc reads like "this was your
+    // trip" rather than spotlighting a single person. Normalized into one
+    // {name, avatar, accent} shape since TripSlide doesn't need to tell kids
+    // and family members apart.
+    const tripKidIds = new Set(clusterEntries.flatMap(e => e.kids || []));
+    const tripAuthorIds = new Set(clusterEntries.map(e => e.userId).filter(Boolean));
+    const tripKids = kids.filter(k => tripKidIds.has(k.id));
+    const tripFamilyMembers = familyMembers.filter(m => tripAuthorIds.has(m.user_id));
+    const tripPeople = [
+      ...tripKids.map(k => ({ name: k.name, avatar: k.avatar, accent: k.accent })),
+      ...tripFamilyMembers.map(m => ({ name: m.real_name || m.display_name || 'Family', avatar: m.avatar_url, accent: '#4A5E50' })),
+    ];
+    const photoKid = kids.find(k => farthest.kids.includes(k.id));
+
+    // A stable id derived from the destination + when it happened, not array
+    // position — so a saved reel's { type: 'trip', id } ref still resolves to
+    // the same trip after new entries reshuffle cluster order on reopen.
+    const id = `${earliestDate}-${Math.round(farthest.locationLat * 100)}-${Math.round(farthest.locationLng * 100)}`;
+
+    return {
+      type: 'trip',
+      id,
+      date: earliestDate,
+      earliestDate,
+      destLat: farthest.locationLat,
+      destLng: farthest.locationLng,
+      destinationLabel: farthest.location || 'somewhere new',
+      distanceMiles,
+      photo: { url: photo.url, mediaType: photo.type, cropY: farthest.cropY ?? 50 },
+      photoCaption: captionFor(photoKid, farthest.date),
+      tripPeople,
+      tripEntryIds: new Set(clusterEntries.map(e => e.id)),
+      durationMs: TRIP_ARC_MS + PHOTO_SLIDE_MS,
+    };
+  }).sort((a, b) => a.earliestDate.localeCompare(b.earliestDate));
 }
 
 // The full, unbudgeted pool of everything a reel for this range could draw
@@ -166,10 +186,10 @@ export function buildReelCandidates(entries, kids, familyMembers, startDate, end
   const monthEntries = monthEntriesFor(entries, startDate, endDate);
   const monthTextEntries = monthTextEntriesFor(entries, startDate, endDate);
   const homePt = findHomePoint(entries);
-  const trip = findTripThisMonth(monthEntries, homePt, kids, familyMembers);
+  const trips = findTripsThisMonth(monthEntries, homePt, kids, familyMembers);
 
   const seen = new Set();
-  if (trip) seen.add(trip.photo.url);
+  trips.forEach(t => seen.add(t.photo.url));
   const photoCandidates = [];
   for (const e of monthEntries.slice().sort((a, b) => a.date.localeCompare(b.date))) {
     for (const m of e.media) {
@@ -199,7 +219,7 @@ export function buildReelCandidates(entries, kids, familyMembers, startDate, end
     };
   });
 
-  return { photoCandidates, textCandidates, trip };
+  return { photoCandidates, textCandidates, trips };
 }
 
 // Turns a saved, ordered list of lightweight refs back into real slide
@@ -207,12 +227,20 @@ export function buildReelCandidates(entries, kids, familyMembers, startDate, end
 // still updates live, only the set and order the user picked are pinned.
 // A ref whose source entry no longer exists (deleted since the reel was
 // last edited) is silently skipped rather than erroring.
-export function resolveSlideRefs(refs, candidates, trip) {
+export function resolveSlideRefs(refs, candidates) {
   const photoByUrl = new Map(candidates.photoCandidates.map(p => [p.url, p]));
   const textByEntryId = new Map(candidates.textCandidates.map(t => [t.entryId, t]));
+  const tripById = new Map(candidates.trips.map(t => [t.id, t]));
   const out = [];
   for (const ref of refs || []) {
-    if (ref.type === 'trip') { if (trip) out.push(trip); continue; }
+    if (ref.type === 'trip') {
+      // Refs saved before multi-trip support have no id — best-effort
+      // fall back to whichever trip is first, since only one could ever
+      // have existed when that ref was written.
+      const found = ref.id != null ? tripById.get(ref.id) : candidates.trips[0];
+      if (found) out.push(found);
+      continue;
+    }
     if (ref.type === 'letter') { const found = textByEntryId.get(ref.entryId); if (found) out.push(found); continue; }
     const found = photoByUrl.get(ref.url);
     if (found) out.push(found);
@@ -223,7 +251,7 @@ export function resolveSlideRefs(refs, candidates, trip) {
 // The inverse of resolveSlideRefs — what actually gets persisted to
 // saved_reels.slide_refs when the editor saves.
 export function slideToRef(slide) {
-  if (slide.type === 'trip') return { type: 'trip' };
+  if (slide.type === 'trip') return { type: 'trip', id: slide.id };
   if (slide.type === 'text') return { type: 'letter', entryId: slide.entryId };
   return { type: slide.mediaType === 'video' ? 'video' : 'photo', entryId: slide.entryId, url: slide.url };
 }
@@ -263,10 +291,13 @@ const LONG_REEL_MEDIA_THRESHOLD = 12;
 // starting point for a freshly-built reel that's never been through the
 // editor before).
 export function autoSampleSlides(candidates, { forceLongReel = null, reelId = null } = {}) {
-  const { photoCandidates, textCandidates: allTextCandidates, trip } = candidates;
+  const { photoCandidates, textCandidates: allTextCandidates, trips } = candidates;
   const isLongReel = forceLongReel != null ? forceLongReel : photoCandidates.length >= LONG_REEL_MEDIA_THRESHOLD;
   const MAX_PHOTO_SLIDES = isLongReel ? LONG_MAX_PHOTO_SLIDES : SHORT_MAX_PHOTO_SLIDES;
-  const tripCandidates = trip ? [trip] : [];
+  // Every detected trip makes it in automatically, same as videos — the
+  // user can always bench one later in the editor if a range happens to
+  // catch more than one.
+  const tripCandidates = trips;
 
   const MAX_TEXT_SLIDES = 2;
   const textCandidates = allTextCandidates.length <= MAX_TEXT_SLIDES ? allTextCandidates : (() => {
@@ -298,11 +329,13 @@ export function autoSampleSlides(candidates, { forceLongReel = null, reelId = nu
   // A trip is "a bigger deal" — its photos get first claim on roughly half
   // the image budget (or all of them, if there are fewer) instead of being
   // sampled alongside the rest on equal footing. The remaining budget is
-  // filled randomly from the rest.
+  // filled randomly from the rest. Multiple trips share that same half
+  // between them rather than each claiming their own half.
   let keptImages;
-  if (trip) {
-    const tripImages = imageSlides.filter(s => trip.tripEntryIds.has(s.entryId));
-    const otherImages = imageSlides.filter(s => !trip.tripEntryIds.has(s.entryId));
+  if (trips.length > 0) {
+    const tripEntryIds = new Set(trips.flatMap(t => [...t.tripEntryIds]));
+    const tripImages = imageSlides.filter(s => tripEntryIds.has(s.entryId));
+    const otherImages = imageSlides.filter(s => !tripEntryIds.has(s.entryId));
     const tripBudget = Math.min(tripImages.length, Math.ceil(imageBudget / 2));
     const otherBudget = Math.max(0, imageBudget - tripBudget);
     keptImages = [...sampleRandom(tripImages, tripBudget), ...sampleRandom(otherImages, otherBudget)];
@@ -317,8 +350,8 @@ export function autoSampleSlides(candidates, { forceLongReel = null, reelId = nu
   spine.sort((a, b) => {
     const byDate = a.date.localeCompare(b.date);
     if (byDate !== 0) return byDate;
-    if (a.type === 'trip') return -1;
-    if (b.type === 'trip') return 1;
+    if (a.type === 'trip' && b.type !== 'trip') return -1;
+    if (b.type === 'trip' && a.type !== 'trip') return 1;
     return 0;
   });
 

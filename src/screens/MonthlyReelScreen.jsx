@@ -81,30 +81,33 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   // reel (slideRefs below) resolves its exact saved picks against this; an
   // auto-built one (slideRefs null) samples/budgets from it exactly as before.
   const candidates = useMemo(() => buildReelCandidates(entries, kids, familyMembers, startDate, endDate), [entries, kids, familyMembers, startDate, endDate]);
-  const trip = candidates.trip;
+  const trips = candidates.trips;
 
   // The stored location is often a specific address/place name — reverse
   // geocode to "City, State" for the arc label instead. Routed through the
   // reverse-geocode edge function rather than calling Google directly: the
   // Geocoding API rejects referrer-restricted keys (the only kind safe to
   // ship in a client bundle), so this has to happen server-side. Resolves
-  // after `trip` is already built, so it's merged in at render/share time
-  // rather than baked into the trip object itself.
-  const [tripDestLabel, setTripDestLabel] = useState(null);
+  // after `trips` is already built, so it's merged in at render/share time
+  // rather than baked into the trip objects themselves. Keyed by trip id
+  // since a range can now surface more than one trip.
+  const [tripDestLabels, setTripDestLabels] = useState({});
   useEffect(() => {
-    if (!trip || !supabase) { setTripDestLabel(null); return; }
+    if (!trips.length || !supabase) { setTripDestLabels({}); return; }
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.functions.invoke('reverse-geocode', { body: { lat: trip.destLat, lng: trip.destLng } });
-      if (error || !data?.location) {
-        console.warn('[trip reel] reverse geocode failed — falling back to raw location', error || data);
-        if (!cancelled) setTripDestLabel(trip.destinationLabel);
-        return;
-      }
-      if (!cancelled) setTripDestLabel(data.location);
+      const entries = await Promise.all(trips.map(async t => {
+        const { data, error } = await supabase.functions.invoke('reverse-geocode', { body: { lat: t.destLat, lng: t.destLng } });
+        if (error || !data?.location) {
+          console.warn('[trip reel] reverse geocode failed — falling back to raw location', error || data);
+          return [t.id, t.destinationLabel];
+        }
+        return [t.id, data.location];
+      }));
+      if (!cancelled) setTripDestLabels(Object.fromEntries(entries));
     })();
     return () => { cancelled = true; };
-  }, [trip]);
+  }, [trips]);
 
   const { slides, isLongReel } = useMemo(() => {
     const auto = autoSampleSlides(candidates, { forceLongReel, reelId });
@@ -113,10 +116,10 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     // crop change or caption still updates), but the set and order are
     // exactly what was saved, not re-sampled.
     if (slideRefs != null) {
-      return { slides: resolveSlideRefs(slideRefs, candidates, trip), isLongReel: auto.isLongReel };
+      return { slides: resolveSlideRefs(slideRefs, candidates), isLongReel: auto.isLongReel };
     }
     return auto;
-  }, [candidates, trip, forceLongReel, reelId, slideRefs]);
+  }, [candidates, forceLongReel, reelId, slideRefs]);
 
   const [index, setIndex] = useState(0);
   const [showIntro, setShowIntro] = useState(true);
@@ -314,7 +317,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
             type: 'trip', durationMs: s.durationMs,
             earliestDate: s.earliestDate,
             distanceMiles: s.distanceMiles,
-            destinationLabel: tripDestLabel || s.destinationLabel,
+            destinationLabel: tripDestLabels[s.id] || s.destinationLabel,
             photo: s.photo,
             photoCaption: s.photoCaption,
             tripPeople: s.tripPeople,
@@ -399,7 +402,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
         if (s.type === 'trip') {
           return (
             <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 0.6s ease' }}>
-              {i === index && <TripSlide trip={{ ...s, destinationLabel: tripDestLabel || s.destinationLabel }} active={isActive && !slideshowPaused} arcMs={TRIP_ARC_MS * durationScale} />}
+              {i === index && <TripSlide trip={{ ...s, destinationLabel: tripDestLabels[s.id] || s.destinationLabel }} active={isActive && !slideshowPaused} arcMs={TRIP_ARC_MS * durationScale} />}
             </div>
           );
         }
