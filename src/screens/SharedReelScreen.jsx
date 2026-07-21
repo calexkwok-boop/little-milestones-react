@@ -180,9 +180,8 @@ function SharedReelScreen({ token, effectiveDark }) {
           <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 36, fontWeight: 700, margin: '0 0 28px', lineHeight: 1.15, color: '#fff' }}>
             {reel.title}
           </p>
-          <button onClick={handleStart} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: 999, padding: '14px 28px', cursor: 'pointer', color: '#fff' }}>
-            <i className="ti ti-player-play-filled" />
-            <span style={{ fontSize: 14, fontWeight: 600, fontFamily: "'Urbanist', sans-serif" }}>Play{song ? ' with sound' : ''}</span>
+          <button onClick={handleStart} style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.14)', border: '2px solid rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}>
+            <i className="ti ti-player-play-filled" style={{ fontSize: 26, marginLeft: 3 }} />
           </button>
         </div>
       )}

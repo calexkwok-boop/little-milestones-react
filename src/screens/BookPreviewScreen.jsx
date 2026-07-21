@@ -283,7 +283,7 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
               >
                 <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 10px 10px 0', borderColor: `transparent ${hexToRgba(accent, 0.5)} transparent transparent`, borderRadius: '0 8px 0 0' }} />
                 {photo && (
-                  <CroppedPhoto src={cloudinaryTransform(photo.url, 'w_140,q_auto,f_auto')} cropY={entry.cropY} height={66} width={66} style={{ borderRadius: 6 }} />
+                  <CroppedPhoto src={photoSrc} cropY={entry.cropY} height={66} width={66} style={{ borderRadius: 6 }} />
                 )}
                 <div style={{ flex: photo ? 1 : undefined, minWidth: 0 }}>
                 <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 8, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: hexToRgba(accent, 0.9) }}>{nameLabel}</span>
@@ -310,14 +310,44 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
   );
 }
 
+// Fixed chrome heights around a paired page's text — mirrors the LETTER_* consts
+// above, used by splitPairedToPages to budget how much text actually fits.
+const PAIRED_EYEBROW_H = 37, PAIRED_DATE_ROW_H = 46, PAIRED_HEADING_H = 24, PAIRED_TEXT_PAD = 22, PAIRED_FOOTER_H = 35;
+const PAIRED_TEXT_FONT_SIZE = 10.5;
+
 // A dedicated spread for a merged "same age" entry (entry.sameAgeDates set) — one
 // post addressed to every tagged kid, each with their own photo and age. Two kids
 // keeps the original fixed two-column layout; 3+ wraps into a grid since a book
 // page can't scroll the way the app's filmstrip variant does. Deliberately
 // independent of the chronological letter stream (the photos can be years apart
-// in real time), so it's excluded from the normal per-entry pagination and rendered
-// once as its own page.
-function PairedPage({ entry, kids }) {
+// in real time), so it's excluded from the normal per-entry pagination and instead
+// paginated on its own via splitPairedToPages — same measure-and-split approach as
+// a regular letter, so a long same-age note continues onto its own page(s) instead
+// of silently clipping.
+function splitPairedToPages(entry, kids, el, pageWidth) {
+  const text = entry.text || '';
+  const sides = sameAgeSides(entry, kids);
+  const twoUp = !sides || sides.length === 2;
+  const photoRowH = twoUp ? 150 : 110;
+  const textWidth = pageWidth - LETTER_SIDE_PAD;
+  const pageHeight = pageWidth * 4 / 3;
+  const chunks = [];
+  let rest = text;
+  let isFirst = true;
+  do {
+    const photoH = isFirst ? photoRowH : 0;
+    const dateH = isFirst ? PAIRED_DATE_ROW_H : 0;
+    const headingH = isFirst ? PAIRED_HEADING_H : 0;
+    const available = pageHeight - PAIRED_EYEBROW_H - photoH - dateH - headingH - PAIRED_TEXT_PAD - PAIRED_FOOTER_H;
+    const [chunk, remainder] = splitTextToFit(rest, el, PAIRED_TEXT_FONT_SIZE, textWidth, Math.max(available, 60));
+    chunks.push(chunk);
+    rest = remainder;
+    isFirst = false;
+  } while (rest.length > 0);
+  return chunks;
+}
+
+function PairedPage({ entry, kids, pageText, isContinued = false, hasMore = false }) {
   const sides = sameAgeSides(entry, kids);
   if (!sides) return null;
   const twoUp = sides.length === 2;
@@ -325,48 +355,58 @@ function PairedPage({ entry, kids }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
   const heading = m ? `${names}'s ${m.label.charAt(0).toLowerCase()}${m.label.slice(1)}` : names;
   const cardHeight = twoUp ? 150 : 110;
+  const text = pageText != null ? pageText : entry.text;
   return (
     <div style={{ background: '#FDFBF6', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '16px 24px 10px', textAlign: 'center' }}>
-        At the same age
+        At the same age{isContinued ? ' — cont\'d' : ''}
       </p>
-      <div style={{ display: 'flex', flexWrap: twoUp ? 'nowrap' : 'wrap', gap: 2 }}>
-        {sides.map((side, i) => {
-          const cardStyle = twoUp ? { flex: 1, position: 'relative' } : { flex: '1 1 30%', minWidth: '30%', position: 'relative' };
-          if (!side.photo) return <div key={i} style={{ ...cardStyle, height: cardHeight, background: '#EDE8DE' }} />;
-          const isVideo = side.photo.type === 'video';
-          const src = isVideo ? videoThumbUrl(side.photo.url, `so_0,w_${twoUp ? 400 : 300},q_auto,f_auto`) : cloudinaryTransform(side.photo.url, `w_${twoUp ? 400 : 300},q_auto,f_auto`);
-          return (
-            <div key={i} style={cardStyle}>
-              <CroppedPhoto src={src} cropY={entry.cropY} height={cardHeight} />
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ display: 'flex', flexWrap: twoUp ? 'nowrap' : 'wrap', background: 'rgba(200,153,62,0.1)' }}>
-        {sides.map((side, i) => {
-          const dateLabel = new Date(side.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-          return (
-            <div key={i} style={twoUp
-              ? { flex: 1, padding: '8px 14px', borderLeft: i > 0 ? '1px solid rgba(200,153,62,0.25)' : 'none' }
-              : { flex: '1 1 30%', minWidth: '30%', padding: '6px 10px' }}>
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12.5, color: '#9A7526', margin: '0 0 3px' }}>{side.kid.name.split(' ')[0]}</p>
-              <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#B8944A', margin: 0 }}>{exactAgeLabel(side.kid.birthdate, side.date)} old &middot; {dateLabel}</p>
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ flex: 1, padding: '10px 24px 12px', overflow: 'hidden' }}>
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: '#4A5E50', margin: '0 0 6px' }}>{heading}</p>
+      {!isContinued && (
+        <>
+          <div style={{ display: 'flex', flexWrap: twoUp ? 'nowrap' : 'wrap', gap: 2 }}>
+            {sides.map((side, i) => {
+              const cardStyle = twoUp ? { flex: 1, position: 'relative' } : { flex: '1 1 30%', minWidth: '30%', position: 'relative' };
+              if (!side.photo) return <div key={i} style={{ ...cardStyle, height: cardHeight, background: '#EDE8DE' }} />;
+              const isVideo = side.photo.type === 'video';
+              const src = isVideo ? videoThumbUrl(side.photo.url, `so_0,w_${twoUp ? 400 : 300},q_auto,f_auto`) : cloudinaryTransform(side.photo.url, `w_${twoUp ? 400 : 300},q_auto,f_auto`);
+              return (
+                <div key={i} style={cardStyle}>
+                  <CroppedPhoto src={src} cropY={entry.cropY} height={cardHeight} />
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', flexWrap: twoUp ? 'nowrap' : 'wrap', background: 'rgba(200,153,62,0.1)' }}>
+            {sides.map((side, i) => {
+              const dateLabel = new Date(side.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+              return (
+                <div key={i} style={twoUp
+                  ? { flex: 1, padding: '8px 14px', borderLeft: i > 0 ? '1px solid rgba(200,153,62,0.25)' : 'none' }
+                  : { flex: '1 1 30%', minWidth: '30%', padding: '6px 10px' }}>
+                  <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12.5, color: '#9A7526', margin: '0 0 3px' }}>{side.kid.name.split(' ')[0]}</p>
+                  <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#B8944A', margin: 0 }}>{exactAgeLabel(side.kid.birthdate, side.date)} old &middot; {dateLabel}</p>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+      <div style={{ flex: 1, padding: '10px 24px 12px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {!isContinued && (
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: '#4A5E50', margin: '0 0 6px' }}>{heading}</p>
+        )}
         <p style={{
-          fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10.5, lineHeight: 1.55, color: '#2C3828',
-          margin: 0, whiteSpace: 'pre-wrap', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 6, WebkitBoxOrient: 'vertical',
+          fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: PAIRED_TEXT_FONT_SIZE, lineHeight: 1.55, color: '#2C3828',
+          margin: 0, whiteSpace: 'pre-wrap', overflow: 'hidden',
         }}>
-          {entry.text}
+          {text}
         </p>
-      </div>
-      <div style={{ padding: '0 24px 12px' }}>
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#B8C8B4', margin: 0, textAlign: 'center' }}>Patina</p>
+        <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+          {hasMore && (
+            <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 9, color: '#B8C8B4', textAlign: 'right', margin: '0 0 4px', letterSpacing: 0.5 }}>continued &rarr;</p>
+          )}
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, color: '#B8C8B4', margin: 0, textAlign: 'center' }}>Patina</p>
+        </div>
       </div>
     </div>
   );
@@ -400,16 +440,20 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
 
       // A merged "same age" entry (entry.sameAgeDates set) is a single row already —
       // route it to the paired spread instead of the normal letter/note handling,
-      // regardless of whether it was written as a letter or a note.
+      // regardless of whether it was written as a letter or a note. Matches
+      // sameAgeSides' own definition of "actually a match" (a non-empty object) —
+      // a leftover empty {} (e.g. after removing every side of a match) falls back
+      // to the normal path instead of producing a page nothing can render.
+      const isPaired = e => e.sameAgeDates && Object.keys(e.sameAgeDates).length > 0;
       const notesByMonth = new Map();
-      sorted.filter(e => e.type === 'note' && !e.sameAgeDates).forEach(entry => {
+      sorted.filter(e => e.type === 'note' && !isPaired(e)).forEach(entry => {
         const key = entry.date.slice(0, 7);
         if (!notesByMonth.has(key)) notesByMonth.set(key, []);
         notesByMonth.get(key).push(entry);
       });
 
-      const items = letterEntries.filter(e => !e.sameAgeDates).map(entry => ({ sortDate: entry.date, kind: 'letter', entry }));
-      sorted.filter(e => e.sameAgeDates).forEach(entry => {
+      const items = letterEntries.filter(e => !isPaired(e)).map(entry => ({ sortDate: entry.date, kind: 'letter', entry }));
+      sorted.filter(isPaired).forEach(entry => {
         items.push({ sortDate: entry.date, kind: 'paired', entry });
       });
       notesByMonth.forEach((notes, monthKey) => {
@@ -440,7 +484,11 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
         } else if (item.kind === 'paired') {
           // Not folded into the numbered "x / N" letter sequence — like a chapter
           // divider, it's a standalone spread rather than one more counted letter.
-          pages.push({ type: 'paired', entry: item.entry });
+          const entry = item.entry;
+          const chunks = splitPairedToPages(entry, kids, el, pageWidth);
+          chunks.forEach((chunk, i) => {
+            pages.push({ type: 'paired', entry, pageText: chunk, isContinued: i > 0, hasMore: i < chunks.length - 1 });
+          });
         } else {
           // Notes render at their natural height (no text clamping), so pack a page by an
           // estimated content budget rather than a flat item count — entries that don't fit
@@ -619,7 +667,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
     if (!content) return null;
     if (content.type === 'chapter') return renderChapterPage(content.year);
     if (content.type === 'notes') return <NotesPage notes={content.notes} monthKey={content.monthKey} kids={kids} isContinued={content.isContinued} hasMore={content.hasMore} />;
-    if (content.type === 'paired') return <PairedPage entry={content.entry} kids={kids} />;
+    if (content.type === 'paired') return <PairedPage entry={content.entry} kids={kids} pageText={content.pageText} isContinued={content.isContinued} hasMore={content.hasMore} />;
     return <LetterPage entry={content.entry} pageText={content.pageText} index={content.letterNum} sortedLength={totalLetters} kids={kids} isContinued={content.isContinued} hasMore={content.hasMore} fontSize={content.fontSize} />;
   };
 
