@@ -134,6 +134,26 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
   const [deleteTarget, setDeleteTarget] = useState(null); // the reel pending delete confirmation, or null
   const [openSwipeId, setOpenSwipeId] = useState(null); // which reel row, if any, is currently swiped open
 
+  // Swipe-to-edit/delete has no other visual cue that it exists — the first
+  // time someone actually has a reel to show it on, briefly auto-open the
+  // top row to teach the gesture, then close it again. Never repeats once
+  // it's played, tracked outside React state so it survives reloads.
+  const hasReels = savedReels.length > 0;
+  useEffect(() => {
+    if (!hasReels) return;
+    let alreadyShown = true;
+    try {
+      alreadyShown = localStorage.getItem('patina-reel-swipe-hint-shown') === '1';
+      if (!alreadyShown) localStorage.setItem('patina-reel-swipe-hint-shown', '1');
+    } catch {}
+    if (alreadyShown) return;
+    const firstId = savedReels[0].id;
+    const openT = setTimeout(() => setOpenSwipeId(firstId), 600);
+    const closeT = setTimeout(() => setOpenSwipeId(id => (id === firstId ? null : id)), 1800);
+    return () => { clearTimeout(openT); clearTimeout(closeT); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasReels]);
+
   const canContinue = startDate && endDate && startDate <= endDate;
 
   function resetForm() {
