@@ -624,7 +624,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'rgba(200,153,62,0.75)', margin: '0 0 16px', letterSpacing: 0.5 }}>
             {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 56, fontWeight: 700, margin: 0, lineHeight: 1, textAlign: 'center', padding: '0 24px', background: 'linear-gradient(90deg, #fff 20%, rgba(200,153,62,0.95) 50%, #fff 80%)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'shimmer 2.8s linear infinite' }}>
+          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 56, fontWeight: 700, margin: 0, lineHeight: 1.25, textAlign: 'center', padding: '0 24px', background: 'linear-gradient(90deg, #fff 20%, rgba(200,153,62,0.95) 50%, #fff 80%)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'shimmer 2.8s linear infinite' }}>
             {kid.name}
           </p>
           <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 15, fontWeight: 500, color: 'rgba(255,255,255,0.45)', margin: '18px 0 0', letterSpacing: 2, textTransform: 'uppercase' }}>
