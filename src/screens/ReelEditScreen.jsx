@@ -34,20 +34,7 @@ function cardSize(item, large) {
 // The thumbnail portion of a card — shared between the real strip cards and
 // the floating ghost that follows the finger while dragging, so the two
 // never drift out of sync with each other.
-// A small always-visible cue (not tied to any gesture) that this letter/
-// photo has a same-entry counterpart somewhere — in the reel or still
-// available. A shared number rather than a generic icon, since a plain
-// "linked" badge on nearly every card gives no way to tell which photo
-// actually goes with which letter once there's more than one pair.
-function PairedBadge({ large, number }) {
-  return (
-    <div style={{ position: 'absolute', bottom: -4, left: -4, minWidth: large ? 18 : 14, height: large ? 18 : 14, padding: '0 3px', borderRadius: 999, background: 'var(--accent)', border: '2px solid var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, boxSizing: 'border-box' }}>
-      <span style={{ fontSize: large ? 10 : 8, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{number}</span>
-    </div>
-  );
-}
-
-function CardThumb({ item, large, pairNumber }) {
+function CardThumb({ item, large }) {
   const { w, h } = cardSize(item, large);
   if (item.type === 'trip') {
     return (
@@ -59,10 +46,9 @@ function CardThumb({ item, large, pairNumber }) {
   }
   if (item.type === 'text') {
     return (
-      <div style={{ width: w, height: h, borderRadius: 11, background: 'rgba(200,153,62,0.09)', border: '1px solid rgba(200,153,62,0.3)', padding: '6px 7px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box', position: 'relative' }}>
+      <div style={{ width: w, height: h, borderRadius: 11, background: 'rgba(200,153,62,0.09)', border: '1px solid rgba(200,153,62,0.3)', padding: '6px 7px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box' }}>
         <span style={{ fontSize: large ? 15 : 11, color: '#C8993E', marginBottom: 3 }}>✉</span>
         <span style={{ fontSize: large ? 11.5 : 9, fontStyle: 'italic', fontFamily: "'Source Serif 4', serif", color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: large ? 6 : 4, WebkitBoxOrient: 'vertical' }}>{item.text}</span>
-        {pairNumber != null && <PairedBadge large={large} number={pairNumber} />}
       </div>
     );
   }
@@ -74,7 +60,6 @@ function CardThumb({ item, large, pairNumber }) {
           <i className="ti ti-player-play-filled" style={{ fontSize: large ? 11 : 7, color: '#fff' }} />
         </div>
       )}
-      {pairNumber != null && <PairedBadge large={large} number={pairNumber} />}
     </div>
   );
 }
@@ -196,22 +181,6 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   const lettersInReel = useMemo(() => slideList.filter(s => s.type === 'text').length, [slideList]);
   const tripsInReel = useMemo(() => slideList.filter(s => s.type === 'trip').length, [slideList]);
 
-  // Journal entries whose letter/note AND photo/video both survived into
-  // the candidate pool — drives a small numbered badge on those cards, a
-  // persistent, always-visible cue rather than one that only appeared
-  // while dragging something. A shared number (not just a generic "linked"
-  // icon) is what actually lets you tell which photo goes with which
-  // letter once a range has more than one pair — assigned in date order
-  // so the same entry always gets the same number across renders.
-  const pairedEntryIds = useMemo(() => {
-    const mediaEntryIds = new Set(candidates.photoCandidates.map(p => p.entryId));
-    const paired = candidates.textCandidates
-      .filter(t => mediaEntryIds.has(t.entryId))
-      .sort((a, b) => a.date.localeCompare(b.date));
-    const map = new Map();
-    paired.forEach((t, i) => { if (!map.has(t.entryId)) map.set(t.entryId, i + 1); });
-    return map;
-  }, [candidates]);
 
   function removeFromSlides(key) {
     setSlideList(prev => prev.filter(s => keyForSlide(s) !== key));
@@ -461,7 +430,6 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   function renderSlideCard(item) {
     const key = keyForSlide(item);
     const isDragging = draggingKey === key;
-    const pairNumber = item.type !== 'trip' ? pairedEntryIds.get(item.entryId) : undefined;
     return (
       <div
         key={key}
@@ -490,35 +458,26 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
           onClick={e => { e.stopPropagation(); removeFromSlides(key); }}
           style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: '#D4856A', color: '#fff', border: '2px solid var(--bg)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
         >×</button>
-        <CardThumb item={item} large pairNumber={pairNumber} />
+        <CardThumb item={item} large />
         <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{cardLabel(item)}</span>
       </div>
     );
   }
 
-  // A card in the available pool. Photos/videos/trips: tap anywhere adds
-  // it straight into "In this reel" (auto-placed near its own entry's
-  // partner, or by date). Letters are the exception — their thumbnail is
-  // just a truncated excerpt, so tapping the card previews the full text
-  // instead (same sheet as an in-reel letter); the + button is what
-  // actually adds it, mirroring the × that removes an in-reel card.
+  // A card in the available pool — tap anywhere adds it straight into "In
+  // this reel" (auto-placed near its own entry's partner, or by date). No
+  // preview step here even for letters — the full-text sheet is reserved
+  // for a letter already in the reel, where "let me re-read this" actually
+  // applies; adding one from the pool is trivially reversible via the ×.
   function renderAvailCard(item) {
     const key = keyForSlide(item);
-    const isLetter = item.type === 'text';
-    const pairNumber = item.type !== 'trip' ? pairedEntryIds.get(item.entryId) : undefined;
     return (
       <div
         key={key}
-        onClick={() => { if (isLetter) setPreviewItem(item); else addToSlides(item); }}
-        style={{ width: cardSize(item, false).w, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', cursor: 'pointer' }}
+        onClick={() => addToSlides(item)}
+        style={{ width: cardSize(item, false).w, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}
       >
-        {isLetter && (
-          <button
-            onClick={e => { e.stopPropagation(); addToSlides(item); }}
-            style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: 'var(--accent)', color: '#fff', border: '2px solid var(--bg)', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
-          >+</button>
-        )}
-        <CardThumb item={item} pairNumber={pairNumber} />
+        <CardThumb item={item} />
         <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{cardLabel(item)}</span>
       </div>
     );
