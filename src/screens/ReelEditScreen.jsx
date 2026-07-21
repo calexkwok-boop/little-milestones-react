@@ -43,7 +43,7 @@ function CardThumb({ item, wide }) {
   }
   const src = item.mediaType === 'video' ? videoThumbUrl(item.url, 'so_0,w_200,q_auto,f_auto') : cloudinaryTransform(item.url, 'w_200,q_auto,f_auto');
   return (
-    <div style={{ width: 62, height: 62, borderRadius: 11, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--border)', position: 'relative', flexShrink: 0 }}>
+    <div style={{ width: 62, height: 62, borderRadius: 11, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--border)', position: 'relative', flexShrink: 0, WebkitTouchCallout: 'none', WebkitUserDrag: 'none' }}>
       {item.mediaType === 'video' && (
         <div style={{ position: 'absolute', bottom: 3, right: 3, width: 15, height: 15, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <i className="ti ti-player-play-filled" style={{ fontSize: 7, color: '#fff' }} />
@@ -384,7 +384,16 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         data-card-key={key}
         onPointerDown={e => onCardPointerDown(e, item, fromList)}
         onClick={() => { if (item.type === 'text') setPreviewItem(item); }}
-        style={{ width: item.type === 'text' ? 96 : item.type === 'trip' ? 78 : 62, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1, userSelect: 'none', WebkitUserSelect: 'none' }}
+        style={{
+          width: item.type === 'text' ? 96 : item.type === 'trip' ? 78 : 62, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1,
+          userSelect: 'none', WebkitUserSelect: 'none',
+          // Without these, a long press on a photo's background-image card is
+          // iOS Safari's own cue to show its native "peek and lift" preview —
+          // a dashed selection outline with its own drag/copy gesture that
+          // hijacks the touch sequence out from under our JS drag, and never
+          // resolves as a drop into anything of ours.
+          WebkitTouchCallout: 'none', WebkitUserDrag: 'none',
+        }}
       >
         {fromList === 'slide' && (
           <button
