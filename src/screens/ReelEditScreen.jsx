@@ -456,7 +456,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         {fromList === 'slide' && (
           <button
             onPointerDown={e => e.stopPropagation()}
-            onClick={() => removeFromSlides(key)}
+            onClick={e => { e.stopPropagation(); removeFromSlides(key); }}
             style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: '#D4856A', color: '#fff', border: '2px solid var(--bg)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
           >×</button>
         )}
