@@ -557,6 +557,13 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         </div>
       )}
 
+      {/* TEMPORARY debug readout — remove once drag cross-category bug is found */}
+      {draggingKey && (
+        <div style={{ position: 'fixed', top: 4, left: 4, right: 4, zIndex: 400, background: 'rgba(0,0,0,0.82)', color: '#0f0', fontFamily: 'monospace', fontSize: 11, padding: '6px 8px', borderRadius: 6, pointerEvents: 'none', whiteSpace: 'pre-wrap' }}>
+          {`from=${draggingKey}\ndropTarget=${dropTarget ? JSON.stringify(dropTarget) : 'null'}`}
+        </div>
+      )}
+
       {previewItem && (
         <div
           style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'flex-end', zIndex: 300 }}
