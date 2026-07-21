@@ -226,30 +226,19 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
 
   useEffect(() => {
     function computeDropTarget(clientX, clientY) {
-      // Each section has its own label and margin around the actual strip,
-      // so a fixed ±24px band around just the strip rect leaves real gaps
-      // between sections where a drop lands in nobody's zone and silently
-      // does nothing — which is exactly what made crossing from "In this
-      // reel" into any available strip (or back) feel broken. Picking
-      // whichever section is *closest* instead guarantees every release
-      // point resolves to some zone, with no dead space between them.
-      const zones = [
-        ['slide', slideStripRef],
-        ['photo', availPhotosStripRef],
-        ['video', availVideosStripRef],
-        ['letter', availLettersStripRef],
-        ['trip', availTripsStripRef],
-      ];
-      let best = null, bestDist = Infinity;
-      for (const [zone, ref] of zones) {
-        const rect = ref.current?.getBoundingClientRect();
-        if (!rect) continue;
-        const dist = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
-        if (dist < bestDist) { bestDist = dist; best = { zone, rect }; }
-      }
-      if (!best || bestDist > 140) return null; // released way off in unrelated UI — treat as a cancel
+      // Ask the browser directly what's actually under the finger right now,
+      // rather than manually comparing getBoundingClientRect distances —
+      // that manual math is exactly what kept failing to recognize a
+      // crossing from "In this reel" into any available strip (or back).
+      // elementFromPoint does real hit-testing against the live layout, and
+      // correctly ignores the floating ghost thumbnail since it's
+      // pointer-events:none, so it "sees through" to whatever's underneath.
+      const el = document.elementFromPoint(clientX, clientY);
+      const zoneEl = el?.closest?.('[data-strip-zone]');
+      const zone = zoneEl?.dataset.stripZone;
+      if (!zone) return null;
 
-      if (best.zone === 'slide') {
+      if (zone === 'slide') {
         const cardEls = [...slideStripRef.current.querySelectorAll('[data-card-key]')];
         let index = cardEls.length;
         for (let i = 0; i < cardEls.length; i++) {
@@ -258,7 +247,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         }
         return { list: 'slide', index };
       }
-      return { list: 'avail', zone: best.zone };
+      return { list: 'avail', zone };
     }
 
     function applyDropTarget(clientX, clientY) {
@@ -430,6 +419,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>{label}</p>
         <div
           ref={containerRef}
+          data-strip-zone={zone}
           style={{
             display: 'flex', gap: 9, overflowX: draggingKey ? 'hidden' : 'auto', padding: '10px 3px', margin: '-7px -3px 0',
             minHeight: items.length === 0 ? 40 : undefined, borderRadius: 14,
@@ -532,6 +522,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
             </div>
             <div
               ref={slideStripRef}
+              data-strip-zone="slide"
               style={{
                 display: 'flex', gap: 9, overflowX: draggingKey ? 'hidden' : 'auto', padding: '10px 3px', margin: '-7px -3px 0',
                 minHeight: 96, borderRadius: 14,
