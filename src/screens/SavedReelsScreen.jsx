@@ -27,6 +27,20 @@ function formatDateLong(iso) {
   return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
+// Desktop browsers only open a date input's calendar when you click its own
+// tiny built-in icon — not anywhere else in the field — so a custom "tap
+// this row to pick a date" control needs to open it explicitly instead of
+// relying on where the (invisible) native input happens to render that icon.
+function openDatePicker(ref) {
+  const el = ref.current;
+  if (!el) return;
+  if (typeof el.showPicker === 'function') {
+    try { el.showPicker(); return; } catch {}
+  }
+  el.focus();
+  el.click();
+}
+
 const SWIPE_REVEAL = 144; // px of edit+delete actions revealed once swiped open (two 72px buttons)
 const SWIPE_OPEN_THRESHOLD = 36; // drag past this far left and it snaps open instead of springing back
 
@@ -113,6 +127,8 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const startDateInputRef = useRef(null);
+  const endDateInputRef = useRef(null);
   const [deleteTarget, setDeleteTarget] = useState(null); // the reel pending delete confirmation, or null
   const [openSwipeId, setOpenSwipeId] = useState(null); // which reel row, if any, is currently swiped open
 
@@ -234,34 +250,42 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
                   <div style={{ position: 'relative', marginBottom: 14 }}>
                     <div style={{ position: 'absolute', left: -16, top: 5, width: 7, height: 7, borderRadius: '50%', background: '#C8993E', border: '2px solid var(--bg-elevated)' }} />
                     <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Start</p>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', background: 'var(--bg-input)' }}>
+                    <div
+                      onClick={() => openDatePicker(startDateInputRef)}
+                      style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', background: 'var(--bg-input)', cursor: 'pointer' }}
+                    >
                       <span style={{ fontSize: 16, flexShrink: 0 }}>📅</span>
                       <span style={{ flex: 1, fontSize: 14, color: startDate ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>
                         {startDate ? formatDateLong(startDate) : 'Choose a date'}
                       </span>
                       <input
+                        ref={startDateInputRef}
                         type="date"
                         value={startDate}
                         max={endDate || undefined}
                         onChange={e => setStartDate(e.target.value)}
-                        style={{ position: 'absolute', inset: 0, opacity: 0, border: 'none', margin: 0, padding: 0, cursor: 'pointer' }}
+                        style={{ position: 'absolute', inset: 0, opacity: 0, border: 'none', margin: 0, padding: 0, pointerEvents: 'none' }}
                       />
                     </div>
                   </div>
                   <div style={{ position: 'relative' }}>
                     <div style={{ position: 'absolute', left: -16, top: 5, width: 7, height: 7, borderRadius: '50%', background: '#C8993E', border: '2px solid var(--bg-elevated)' }} />
                     <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>End</p>
-                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', background: 'var(--bg-input)' }}>
+                    <div
+                      onClick={() => openDatePicker(endDateInputRef)}
+                      style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 10, border: '1px solid var(--border)', borderRadius: 10, padding: '12px 14px', background: 'var(--bg-input)', cursor: 'pointer' }}
+                    >
                       <span style={{ fontSize: 16, flexShrink: 0 }}>📅</span>
                       <span style={{ flex: 1, fontSize: 14, color: endDate ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>
                         {endDate ? formatDateLong(endDate) : 'Choose a date'}
                       </span>
                       <input
+                        ref={endDateInputRef}
                         type="date"
                         value={endDate}
                         min={startDate || undefined}
                         onChange={e => setEndDate(e.target.value)}
-                        style={{ position: 'absolute', inset: 0, opacity: 0, border: 'none', margin: 0, padding: 0, cursor: 'pointer' }}
+                        style={{ position: 'absolute', inset: 0, opacity: 0, border: 'none', margin: 0, padding: 0, pointerEvents: 'none' }}
                       />
                     </div>
                   </div>

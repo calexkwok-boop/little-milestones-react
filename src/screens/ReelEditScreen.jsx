@@ -165,11 +165,14 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   }
 
   // --- Touch drag-and-drop (hand-rolled — HTML5 drag/drop doesn't work on
-  // touchscreens). A long press (not an immediate touch) starts a drag, so a
-  // quick swipe still scrolls the strip normally instead of every touch
-  // fighting the browser's own horizontal scroll. Listens on `document`
-  // (not the card itself) only once a drag is actually confirmed, and only
-  // then calls preventDefault — so an ordinary scroll is never intercepted.
+  // touchscreens). Built on Pointer Events rather than Touch Events so the
+  // exact same code drives a mouse on desktop too — one code path instead of
+  // a separate mouse-drag implementation. A long press (not an immediate
+  // pointer-down) starts a drag, so a quick swipe still scrolls the strip
+  // normally instead of every touch fighting the browser's own horizontal
+  // scroll. Listens on `document` (not the card itself) only once a drag is
+  // actually confirmed, and only then calls preventDefault — so an ordinary
+  // scroll (or, on desktop, a text selection) is never intercepted.
   const slideStripRef = useRef(null);
   const availPhotosStripRef = useRef(null);
   const availVideosStripRef = useRef(null);
@@ -182,9 +185,24 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   const [ghostPos, setGhostPos] = useState(null);
   const [ghostItem, setGhostItem] = useState(null);
 
-  function onCardTouchStart(e, item, fromList) {
-    const t = e.touches[0];
-    const drag = { key: keyForSlide(item), item, fromList, startX: t.clientX, startY: t.clientY, active: false };
+  function onCardPointerDown(e, item, fromList) {
+    if (e.button != null && e.button !== 0) return; // ignore right/middle mouse
+    const drag = { key: keyForSlide(item), item, fromList, startX: e.clientX, startY: e.clientY, active: false };
+    if (e.pointerType === 'mouse') {
+      // The long-press-then-cancel-on-movement gate below exists only to let
+      // an ordinary touch swipe still scroll the strip instead of starting a
+      // drag — a mouse has no competing scroll gesture on this element, and
+      // a real mouse drag moves well past MOVE_CANCEL_PX within 300ms, so
+      // gating it the same way as touch would cancel every mouse drag before
+      // it ever activated. Activate immediately instead, matching ordinary
+      // desktop drag-and-drop feel.
+      drag.active = true;
+      setDraggingKey(drag.key);
+      setGhostItem(drag.item);
+      setGhostPos({ x: drag.startX, y: drag.startY });
+      dragRef.current = drag;
+      return;
+    }
     drag.timer = setTimeout(() => {
       if (dragRef.current !== drag) return;
       drag.active = true;
@@ -223,15 +241,14 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     function onMove(e) {
       const drag = dragRef.current;
       if (!drag) return;
-      const t = e.touches[0];
       if (!drag.active) {
-        const dx = Math.abs(t.clientX - drag.startX), dy = Math.abs(t.clientY - drag.startY);
+        const dx = Math.abs(e.clientX - drag.startX), dy = Math.abs(e.clientY - drag.startY);
         if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) { clearTimeout(drag.timer); dragRef.current = null; }
         return;
       }
       e.preventDefault();
-      setGhostPos({ x: t.clientX, y: t.clientY });
-      const target = computeDropTarget(t.clientX, t.clientY);
+      setGhostPos({ x: e.clientX, y: e.clientY });
+      const target = computeDropTarget(e.clientX, e.clientY);
       dropRef.current = target;
       setDropTarget(target);
     }
@@ -272,13 +289,13 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       // Dropped from available back into available: no-op, nothing to change.
     }
 
-    document.addEventListener('touchmove', onMove, { passive: false });
-    document.addEventListener('touchend', onEnd);
-    document.addEventListener('touchcancel', onEnd);
+    document.addEventListener('pointermove', onMove, { passive: false });
+    document.addEventListener('pointerup', onEnd);
+    document.addEventListener('pointercancel', onEnd);
     return () => {
-      document.removeEventListener('touchmove', onMove);
-      document.removeEventListener('touchend', onEnd);
-      document.removeEventListener('touchcancel', onEnd);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onEnd);
+      document.removeEventListener('pointercancel', onEnd);
     };
   }, []);
 
@@ -302,12 +319,12 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       <div
         key={key}
         data-card-key={key}
-        onTouchStart={e => onCardTouchStart(e, item, fromList)}
-        style={{ width: item.type === 'text' ? 96 : item.type === 'trip' ? 78 : 62, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1 }}
+        onPointerDown={e => onCardPointerDown(e, item, fromList)}
+        style={{ width: item.type === 'text' ? 96 : item.type === 'trip' ? 78 : 62, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1, userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'pan-x' }}
       >
         {fromList === 'slide' && (
           <button
-            onTouchStart={e => e.stopPropagation()}
+            onPointerDown={e => e.stopPropagation()}
             onClick={() => removeFromSlides(key)}
             style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: '#D4856A', color: '#fff', border: '2px solid var(--bg)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
           >×</button>
