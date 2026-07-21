@@ -157,7 +157,7 @@ function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
 
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
-function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, customSong2 = null, forceLongReel = null, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onUnsaveReel, onStatClick }) {
+function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, customSong2 = null, forceLongReel = null, reelId = null, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onUnsaveReel, onStatClick }) {
   const monthEntries = useMemo(() => monthEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
   const monthTextEntries = useMemo(() => monthTextEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
 
@@ -258,10 +258,12 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     // Videos and letters are the guaranteed content (all videos above; up to
     // MAX_TEXT_SLIDES letters below) — plain photos are the filler, so which
     // ones make the cut is randomized rather than picked by a fixed stride.
-    // Seeded by the date range (not Math.random()) so a saved reel shows the
-    // *same* photos every time it's reopened, instead of reshuffling on every
-    // view — it only changes if a new entry actually enters this range.
-    const rng = seededRandom(`${startDate}|${endDate}`);
+    // An unsaved reel (reelId == null) gets a fresh shuffle via Math.random()
+    // every time it's opened. Once it's actually saved into Keepsakes, reelId
+    // is that row's own stable id — seeding on it means the same saved reel
+    // always shows the same photos on reopen, instead of reshuffling, while an
+    // unsaved reel stays free to look different each time.
+    const rng = reelId != null ? seededRandom(String(reelId)) : Math.random;
     function sampleRandom(arr, n) {
       if (arr.length <= n) return arr;
       const shuffled = arr.slice().sort(() => rng() - 0.5);
@@ -309,7 +311,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     });
 
     return { slides: combined, isLongReel };
-  }, [monthEntries, monthTextEntries, kids, trip, forceLongReel]);
+  }, [monthEntries, monthTextEntries, kids, trip, forceLongReel, reelId]);
 
   const [index, setIndex] = useState(0);
   const [showIntro, setShowIntro] = useState(true);

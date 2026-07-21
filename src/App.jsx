@@ -10904,7 +10904,7 @@ export default function App() {
               onSwitchSection={switchSection}
               onCreateReel={handleCreateSavedReel}
               onDeleteReel={handleDeleteSavedReel}
-              onWatchReel={reel => setRangeReel({ startDate: reel.startDate, endDate: reel.endDate, title: reel.title, song: reel.song || null, song2: reel.song2 || null, durationSec: reel.durationSec || 30 })}
+              onWatchReel={reel => setRangeReel({ id: reel.id, startDate: reel.startDate, endDate: reel.endDate, title: reel.title, song: reel.song || null, song2: reel.song2 || null, durationSec: reel.durationSec || 30 })}
             />
           </ScreenErrorBoundary>
         </div>
@@ -11195,6 +11195,10 @@ export default function App() {
         const stats = { letters: recap.letters, milestones: recap.milestones, photos: recap.photos, favorites: recap.favorites };
         const startDate = `${reelMonth}-01`;
         const endDate = `${reelMonth}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+        // If this month already has a saved counterpart in Keepsakes, treat it as
+        // saved from the very first open too — not just after tapping the bookmark
+        // this session — so it's stable on every future reopen, however you get here.
+        const existingSaved = savedReels.find(r => r.startDate === startDate && r.endDate === endDate);
         return (
           <Suspense fallback={<div className="screen" />}>
             <LazyMonthlyReelScreen
@@ -11205,6 +11209,7 @@ export default function App() {
               endDate={endDate}
               monthLabel={recap.label}
               stats={stats}
+              reelId={existingSaved?.id ?? null}
               onClose={() => setReelMonth(null)}
               onGenerateReelShare={handleGenerateReelShare}
               onRevokeReelShare={handleRevokeReelShare}
@@ -11232,6 +11237,7 @@ export default function App() {
               customSong={rangeReel.song}
               customSong2={rangeReel.song2}
               forceLongReel={rangeReel.durationSec === 60}
+              reelId={rangeReel.id}
               onClose={() => setRangeReel(null)}
               onGenerateReelShare={handleGenerateReelShare}
               onRevokeReelShare={handleRevokeReelShare}
