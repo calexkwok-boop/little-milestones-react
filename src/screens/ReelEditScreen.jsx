@@ -182,6 +182,8 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   const dropRef = useRef(null); // { list, index } — read at drop time, kept in a ref to avoid stale closures
   const lastPointerRef = useRef({ x: 0, y: 0 });
   const autoScrollVelRef = useRef(0); // px/frame; negative = scrolling up, positive = down, 0 = none
+  const hAutoScrollVelRef = useRef(0); // px/frame for whichever strip the finger's currently hovering; negative = left, positive = right, 0 = none
+  const hScrollElRef = useRef(null); // the specific strip element hAutoScrollVelRef currently applies to
   const rafRef = useRef(null);
   const [draggingKey, setDraggingKey] = useState(null);
   const [dropTarget, setDropTarget] = useState(null); // mirror of dropRef, for rendering the insertion line
@@ -258,6 +260,35 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       const target = computeDropTarget(clientX, clientY);
       dropRef.current = target;
       setDropTarget(target);
+      return target;
+    }
+
+    function containerRefForTarget(target) {
+      if (!target) return null;
+      if (target.list === 'slide') return slideStripRef;
+      return { photo: availPhotosStripRef, video: availVideosStripRef, letter: availLettersStripRef, trip: availTripsStripRef }[target.zone] || null;
+    }
+
+    // Same idea as the vertical auto-scroll below, but for whichever strip
+    // the finger is currently hovering — so reordering into a spot further
+    // down a long "In this reel" strip (or an available one) than what's
+    // currently visible doesn't require a separate, physically impossible
+    // gesture to first bring it into view.
+    function updateHorizontalAutoScroll(clientX, target) {
+      const ref = containerRefForTarget(target);
+      const el = ref?.current;
+      if (!el) { hAutoScrollVelRef.current = 0; hScrollElRef.current = null; return; }
+      hScrollElRef.current = el;
+      const rect = el.getBoundingClientRect();
+      const EDGE = 40;
+      const MAX_SPEED = 12;
+      if (clientX < rect.left + EDGE) {
+        hAutoScrollVelRef.current = -Math.ceil(MAX_SPEED * Math.min(1, (rect.left + EDGE - clientX) / EDGE));
+      } else if (clientX > rect.right - EDGE) {
+        hAutoScrollVelRef.current = Math.ceil(MAX_SPEED * Math.min(1, (clientX - (rect.right - EDGE)) / EDGE));
+      } else {
+        hAutoScrollVelRef.current = 0;
+      }
     }
 
     // "In this reel" and the four available strips rarely all fit on screen
@@ -282,11 +313,22 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     }
 
     function tick() {
-      if (dragRef.current?.active && autoScrollVelRef.current !== 0 && scrollAreaRef.current) {
+      const active = dragRef.current?.active;
+      let scrolled = false;
+      if (active && autoScrollVelRef.current !== 0 && scrollAreaRef.current) {
         scrollAreaRef.current.scrollTop += autoScrollVelRef.current;
+        scrolled = true;
+      }
+      if (active && hAutoScrollVelRef.current !== 0 && hScrollElRef.current) {
+        hScrollElRef.current.scrollLeft += hAutoScrollVelRef.current;
+        scrolled = true;
+      }
+      if (scrolled) {
         // The strips just moved under the still-stationary finger — recompute
-        // where that finger now lands so the insertion line keeps up.
-        applyDropTarget(lastPointerRef.current.x, lastPointerRef.current.y);
+        // where that finger now lands so the insertion line (and whether the
+        // horizontal edge is still being held) keeps up.
+        const target = applyDropTarget(lastPointerRef.current.x, lastPointerRef.current.y);
+        updateHorizontalAutoScroll(lastPointerRef.current.x, target);
       }
       rafRef.current = requestAnimationFrame(tick);
     }
@@ -319,13 +361,16 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
       setGhostPos({ x: e.clientX, y: e.clientY });
       updateAutoScroll(e.clientY);
-      applyDropTarget(e.clientX, e.clientY);
+      const target = applyDropTarget(e.clientX, e.clientY);
+      updateHorizontalAutoScroll(e.clientX, target);
     }
 
     function onEnd(reason) {
       const drag = dragRef.current;
       dragRef.current = null;
       autoScrollVelRef.current = 0;
+      hAutoScrollVelRef.current = 0;
+      hScrollElRef.current = null;
       if (drag && !drag.active) clearTimeout(drag.timer);
       const target = dropRef.current;
       dropRef.current = null;
