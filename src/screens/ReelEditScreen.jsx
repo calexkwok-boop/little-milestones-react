@@ -560,7 +560,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       {/* TEMPORARY debug readout — remove once drag cross-category bug is found */}
       {draggingKey && (
         <div style={{ position: 'fixed', top: 4, left: 4, right: 4, zIndex: 400, background: 'rgba(0,0,0,0.82)', color: '#0f0', fontFamily: 'monospace', fontSize: 11, padding: '6px 8px', borderRadius: 6, pointerEvents: 'none', whiteSpace: 'pre-wrap' }}>
-          {`from=${draggingKey}\ndropTarget=${dropTarget ? JSON.stringify(dropTarget) : 'null'}`}
+          {`fromList=${dragRef.current?.fromList}\ndropTarget=${dropTarget ? JSON.stringify(dropTarget) : 'null'}`}
         </div>
       )}
 
