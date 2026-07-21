@@ -27,10 +27,12 @@ function formatDateLong(iso) {
   return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-// Desktop browsers only open a date input's calendar when you click its own
-// tiny built-in icon — not anywhere else in the field — so a custom "tap
-// this row to pick a date" control needs to open it explicitly instead of
-// relying on where the (invisible) native input happens to render that icon.
+// A real tap directly on the (invisible, but genuinely interactive) native
+// input already opens the OS date picker on mobile — no JS needed there.
+// Desktop is the exception: clicking a date input only opens its calendar
+// when you hit its own tiny built-in icon, not anywhere else in the field,
+// so this explicit showPicker() call is what makes clicking *this row's*
+// text/emoji (not that icon) work on desktop specifically.
 function openDatePicker(ref) {
   const el = ref.current;
   if (!el) return;
@@ -264,7 +266,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
                         value={startDate}
                         max={endDate || undefined}
                         onChange={e => setStartDate(e.target.value)}
-                        style={{ position: 'absolute', inset: 0, opacity: 0, border: 'none', margin: 0, padding: 0, pointerEvents: 'none' }}
+                        style={{ position: 'absolute', inset: 0, opacity: 0, border: 'none', margin: 0, padding: 0, cursor: 'pointer' }}
                       />
                     </div>
                   </div>
@@ -285,7 +287,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
                         value={endDate}
                         min={startDate || undefined}
                         onChange={e => setEndDate(e.target.value)}
-                        style={{ position: 'absolute', inset: 0, opacity: 0, border: 'none', margin: 0, padding: 0, pointerEvents: 'none' }}
+                        style={{ position: 'absolute', inset: 0, opacity: 0, border: 'none', margin: 0, padding: 0, cursor: 'pointer' }}
                       />
                     </div>
                   </div>
