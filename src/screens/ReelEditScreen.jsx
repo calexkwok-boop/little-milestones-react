@@ -226,8 +226,30 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
 
   useEffect(() => {
     function computeDropTarget(clientX, clientY) {
-      const slideRect = slideStripRef.current?.getBoundingClientRect();
-      if (slideRect && clientY >= slideRect.top - 24 && clientY <= slideRect.bottom + 24) {
+      // Each section has its own label and margin around the actual strip,
+      // so a fixed ±24px band around just the strip rect leaves real gaps
+      // between sections where a drop lands in nobody's zone and silently
+      // does nothing — which is exactly what made crossing from "In this
+      // reel" into any available strip (or back) feel broken. Picking
+      // whichever section is *closest* instead guarantees every release
+      // point resolves to some zone, with no dead space between them.
+      const zones = [
+        ['slide', slideStripRef],
+        ['photo', availPhotosStripRef],
+        ['video', availVideosStripRef],
+        ['letter', availLettersStripRef],
+        ['trip', availTripsStripRef],
+      ];
+      let best = null, bestDist = Infinity;
+      for (const [zone, ref] of zones) {
+        const rect = ref.current?.getBoundingClientRect();
+        if (!rect) continue;
+        const dist = clientY < rect.top ? rect.top - clientY : clientY > rect.bottom ? clientY - rect.bottom : 0;
+        if (dist < bestDist) { bestDist = dist; best = { zone, rect }; }
+      }
+      if (!best || bestDist > 140) return null; // released way off in unrelated UI — treat as a cancel
+
+      if (best.zone === 'slide') {
         const cardEls = [...slideStripRef.current.querySelectorAll('[data-card-key]')];
         let index = cardEls.length;
         for (let i = 0; i < cardEls.length; i++) {
@@ -236,16 +258,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         }
         return { list: 'slide', index };
       }
-      // Order within an available strip doesn't matter, so any of the three
-      // zones just needs to register as a generic "avail" drop — but keep
-      // track of which one, purely so its strip can highlight while hovered.
-      for (const [zone, ref] of [['photo', availPhotosStripRef], ['video', availVideosStripRef], ['letter', availLettersStripRef], ['trip', availTripsStripRef]]) {
-        const rect = ref.current?.getBoundingClientRect();
-        if (rect && clientY >= rect.top - 24 && clientY <= rect.bottom + 24) {
-          return { list: 'avail', zone };
-        }
-      }
-      return null;
+      return { list: 'avail', zone: best.zone };
     }
 
     function applyDropTarget(clientX, clientY) {
