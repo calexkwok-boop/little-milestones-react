@@ -761,7 +761,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
             {(availablePhotos.length > 0 || draggingKey) && availStrip('photo', 'Photos', availablePhotos, availPhotosStripRef)}
             {(availableVideos.length > 0 || draggingKey) && availStrip('video', 'Videos', availableVideos, availVideosStripRef)}
             {(availableLetters.length > 0 || draggingKey) && availStrip('letter', 'Letters', availableLetters, availLettersStripRef)}
-            {candidates.trips.length > 0 && availStrip('trip', 'Trips', availableTrips, availTripsStripRef)}
+            {(availableTrips.length > 0 || draggingKey) && availStrip('trip', 'Trips', availableTrips, availTripsStripRef)}
           </div>
         </div>
       </div>
