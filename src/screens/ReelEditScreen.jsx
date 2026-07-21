@@ -25,9 +25,9 @@ function cardLabel(item) {
 // they get a noticeably bigger thumbnail than the merely-available pool
 // below — a size difference reads as "active" without needing a label.
 function cardSize(item, large) {
-  const h = large ? 84 : 62;
-  if (item.type === 'trip') return { w: large ? 104 : 78, h };
-  if (item.type === 'text') return { w: large ? 128 : 96, h };
+  const h = large ? 102 : 62;
+  if (item.type === 'trip') return { w: large ? 126 : 78, h };
+  if (item.type === 'text') return { w: large ? 154 : 96, h };
   return { w: h, h };
 }
 
@@ -40,16 +40,16 @@ function CardThumb({ item, large, highlighted }) {
   if (item.type === 'trip') {
     return (
       <div style={{ width: w, height: h, borderRadius: 11, background: 'linear-gradient(135deg, rgba(200,153,62,0.35), rgba(74,94,80,0.5))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, flexShrink: 0, padding: '0 6px', boxSizing: 'border-box', boxShadow: ring }}>
-        <span style={{ fontSize: large ? 22 : 17 }}>✈️</span>
-        <span style={{ fontSize: large ? 10 : 8, fontWeight: 700, color: '#3a4a3f', textAlign: 'center', lineHeight: 1.15, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{item.destinationLabel}</span>
+        <span style={{ fontSize: large ? 27 : 17 }}>✈️</span>
+        <span style={{ fontSize: large ? 11.5 : 8, fontWeight: 700, color: '#3a4a3f', textAlign: 'center', lineHeight: 1.15, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{item.destinationLabel}</span>
       </div>
     );
   }
   if (item.type === 'text') {
     return (
       <div style={{ width: w, height: h, borderRadius: 11, background: 'rgba(200,153,62,0.09)', border: '1px solid rgba(200,153,62,0.3)', padding: '6px 7px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box', boxShadow: ring }}>
-        <span style={{ fontSize: large ? 13 : 11, color: '#C8993E', marginBottom: 3 }}>✉</span>
-        <span style={{ fontSize: large ? 10.5 : 9, fontStyle: 'italic', fontFamily: "'Source Serif 4', serif", color: 'var(--text)', lineHeight: 1.25, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: large ? 5 : 4, WebkitBoxOrient: 'vertical' }}>{item.text}</span>
+        <span style={{ fontSize: large ? 15 : 11, color: '#C8993E', marginBottom: 3 }}>✉</span>
+        <span style={{ fontSize: large ? 11.5 : 9, fontStyle: 'italic', fontFamily: "'Source Serif 4', serif", color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: large ? 6 : 4, WebkitBoxOrient: 'vertical' }}>{item.text}</span>
       </div>
     );
   }
@@ -57,8 +57,8 @@ function CardThumb({ item, large, highlighted }) {
   return (
     <div style={{ width: w, height: h, borderRadius: 11, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--border)', position: 'relative', flexShrink: 0, WebkitTouchCallout: 'none', WebkitUserDrag: 'none', boxShadow: ring }}>
       {item.mediaType === 'video' && (
-        <div style={{ position: 'absolute', bottom: 3, right: 3, width: large ? 19 : 15, height: large ? 19 : 15, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <i className="ti ti-player-play-filled" style={{ fontSize: large ? 9 : 7, color: '#fff' }} />
+        <div style={{ position: 'absolute', bottom: 3, right: 3, width: large ? 23 : 15, height: large ? 23 : 15, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <i className="ti ti-player-play-filled" style={{ fontSize: large ? 11 : 7, color: '#fff' }} />
         </div>
       )}
     </div>
@@ -740,7 +740,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
               data-strip-zone="slide"
               style={{
                 display: 'flex', gap: 9, overflowX: draggingKey ? 'hidden' : 'auto', padding: '10px 3px', margin: '-7px -3px 0',
-                minHeight: 118, borderRadius: 14,
+                minHeight: 136, borderRadius: 14,
                 border: slideList.length === 0 ? '1.5px dashed var(--border)' : 'none',
                 alignItems: slideList.length === 0 ? 'center' : undefined,
                 justifyContent: slideList.length === 0 ? 'center' : undefined,
