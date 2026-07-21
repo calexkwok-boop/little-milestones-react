@@ -188,6 +188,8 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   const [dropTarget, setDropTarget] = useState(null); // mirror of dropRef, for rendering the insertion line
   const [ghostPos, setGhostPos] = useState(null);
   const [ghostItem, setGhostItem] = useState(null);
+  const [lastDragLog, setLastDragLog] = useState(null); // TEMPORARY — snapshot of the last drag's end, survives after the overlay disappears
+  const moveCountRef = useRef(0);
 
   // A letter/note card is too small to read in place — its thumbnail is
   // just a truncated excerpt anyway (buildReelCandidates caps it at
@@ -297,19 +299,28 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         return;
       }
       e.preventDefault();
+      moveCountRef.current += 1;
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
       setGhostPos({ x: e.clientX, y: e.clientY });
       updateAutoScroll(e.clientY);
       applyDropTarget(e.clientX, e.clientY);
     }
 
-    function onEnd() {
+    function onEnd(reason) {
       const drag = dragRef.current;
       dragRef.current = null;
       autoScrollVelRef.current = 0;
       if (drag && !drag.active) clearTimeout(drag.timer);
       const target = dropRef.current;
       dropRef.current = null;
+      // TEMPORARY — capture what actually happened, since the live overlay
+      // disappears the instant this runs, right when it matters most.
+      setLastDragLog({
+        reason, wasActive: !!drag?.active, fromList: drag?.fromList,
+        movesWhileActive: moveCountRef.current, target: target ? JSON.stringify(target) : 'null',
+        lastPointer: `${lastPointerRef.current.x},${lastPointerRef.current.y}`,
+      });
+      moveCountRef.current = 0;
       setDraggingKey(null);
       setGhostItem(null);
       setGhostPos(null);
@@ -340,13 +351,15 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       // Dropped from available back into available: no-op, nothing to change.
     }
 
+    const onPointerUp = () => onEnd('pointerup');
+    const onPointerCancel = () => onEnd('pointercancel');
     document.addEventListener('pointermove', onMove, { passive: false });
-    document.addEventListener('pointerup', onEnd);
-    document.addEventListener('pointercancel', onEnd);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerCancel);
     return () => {
       document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onEnd);
-      document.removeEventListener('pointercancel', onEnd);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerCancel);
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
@@ -570,7 +583,15 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       {/* TEMPORARY debug readout — remove once drag cross-category bug is found */}
       {draggingKey && (
         <div style={{ position: 'fixed', top: 4, left: 4, right: 4, zIndex: 400, background: 'rgba(0,0,0,0.82)', color: '#0f0', fontFamily: 'monospace', fontSize: 11, padding: '6px 8px', borderRadius: 6, pointerEvents: 'none', whiteSpace: 'pre-wrap' }}>
-          {`fromList=${dragRef.current?.fromList}\ndropTarget=${dropTarget ? JSON.stringify(dropTarget) : 'null'}\nfingerY=${ghostPos?.y}\nscrollTop=${scrollAreaRef.current?.scrollTop}\nautoScrollVel=${autoScrollVelRef.current}`}
+          {`LIVE\nfromList=${dragRef.current?.fromList}\ndropTarget=${dropTarget ? JSON.stringify(dropTarget) : 'null'}\nfingerY=${ghostPos?.y}\nscrollTop=${scrollAreaRef.current?.scrollTop}\nautoScrollVel=${autoScrollVelRef.current}`}
+        </div>
+      )}
+      {!draggingKey && lastDragLog && (
+        <div
+          onClick={() => setLastDragLog(null)}
+          style={{ position: 'fixed', top: 4, left: 4, right: 4, zIndex: 400, background: 'rgba(120,0,0,0.85)', color: '#fff', fontFamily: 'monospace', fontSize: 11, padding: '6px 8px', borderRadius: 6, whiteSpace: 'pre-wrap', cursor: 'pointer' }}
+        >
+          {`LAST DRAG ENDED — tap to dismiss\nendedBy=${lastDragLog.reason}\nwasActive=${lastDragLog.wasActive}\nfromList=${lastDragLog.fromList}\nmovesWhileActive=${lastDragLog.movesWhileActive}\ntarget=${lastDragLog.target}\nlastPointer=${lastDragLog.lastPointer}`}
         </div>
       )}
 
