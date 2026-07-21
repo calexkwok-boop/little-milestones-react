@@ -178,8 +178,12 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   const availVideosStripRef = useRef(null);
   const availLettersStripRef = useRef(null);
   const availTripsStripRef = useRef(null);
+  const scrollAreaRef = useRef(null); // the whole screen's scroll container — dragging near its top/bottom edge auto-scrolls it
   const dragRef = useRef(null); // { key, item, fromList, startX, startY, active, timer }
   const dropRef = useRef(null); // { list, index } — read at drop time, kept in a ref to avoid stale closures
+  const lastPointerRef = useRef({ x: 0, y: 0 });
+  const autoScrollVelRef = useRef(0); // px/frame; negative = scrolling up, positive = down, 0 = none
+  const rafRef = useRef(null);
   const [draggingKey, setDraggingKey] = useState(null);
   const [dropTarget, setDropTarget] = useState(null); // mirror of dropRef, for rendering the insertion line
   const [ghostPos, setGhostPos] = useState(null);
@@ -244,6 +248,44 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       return null;
     }
 
+    function applyDropTarget(clientX, clientY) {
+      const target = computeDropTarget(clientX, clientY);
+      dropRef.current = target;
+      setDropTarget(target);
+    }
+
+    // "In this reel" and the four available strips rarely all fit on screen
+    // at once (title, length toggle, and up to two soundtrack pickers sit
+    // above them) — without this, dragging a card from one section to
+    // another whenever the target is off-screen would be physically
+    // impossible, not just fiddly. Scroll speed ramps up the closer the
+    // finger gets to the edge.
+    function updateAutoScroll(clientY) {
+      const el = scrollAreaRef.current;
+      if (!el) { autoScrollVelRef.current = 0; return; }
+      const rect = el.getBoundingClientRect();
+      const EDGE = 56;
+      const MAX_SPEED = 14;
+      if (clientY < rect.top + EDGE) {
+        autoScrollVelRef.current = -Math.ceil(MAX_SPEED * Math.min(1, (rect.top + EDGE - clientY) / EDGE));
+      } else if (clientY > rect.bottom - EDGE) {
+        autoScrollVelRef.current = Math.ceil(MAX_SPEED * Math.min(1, (clientY - (rect.bottom - EDGE)) / EDGE));
+      } else {
+        autoScrollVelRef.current = 0;
+      }
+    }
+
+    function tick() {
+      if (dragRef.current?.active && autoScrollVelRef.current !== 0 && scrollAreaRef.current) {
+        scrollAreaRef.current.scrollTop += autoScrollVelRef.current;
+        // The strips just moved under the still-stationary finger — recompute
+        // where that finger now lands so the insertion line keeps up.
+        applyDropTarget(lastPointerRef.current.x, lastPointerRef.current.y);
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+
     function onMove(e) {
       const drag = dragRef.current;
       if (!drag) return;
@@ -253,15 +295,16 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         return;
       }
       e.preventDefault();
+      lastPointerRef.current = { x: e.clientX, y: e.clientY };
       setGhostPos({ x: e.clientX, y: e.clientY });
-      const target = computeDropTarget(e.clientX, e.clientY);
-      dropRef.current = target;
-      setDropTarget(target);
+      updateAutoScroll(e.clientY);
+      applyDropTarget(e.clientX, e.clientY);
     }
 
     function onEnd() {
       const drag = dragRef.current;
       dragRef.current = null;
+      autoScrollVelRef.current = 0;
       if (drag && !drag.active) clearTimeout(drag.timer);
       const target = dropRef.current;
       dropRef.current = null;
@@ -302,6 +345,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       document.removeEventListener('pointermove', onMove);
       document.removeEventListener('pointerup', onEnd);
       document.removeEventListener('pointercancel', onEnd);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
@@ -395,7 +439,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         </button>
       </div>
 
-      <div className="scroll-area">
+      <div className="scroll-area" ref={scrollAreaRef}>
         <div style={{ padding: '4px 16px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 13, padding: '8px 10px', marginBottom: 10 }}>
             <input
