@@ -38,6 +38,24 @@ function entriesInRange(entries, startDate, endDate) {
   return entries.filter(e => e.date >= startDate && e.date <= endDate);
 }
 
+// A tiny seeded PRNG (mulberry32, seeded via a string hash) — the "random" photo
+// fill below needs to reshuffle only when the actual candidate pool changes
+// (new entries added to the range), not on every re-open of the same saved
+// reel, or a "saved" reel would show different photos each time you watched it.
+function seededRandom(seed) {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function () {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h = (h ^= h >>> 16) >>> 0;
+    return h / 4294967296;
+  };
+}
+
 function monthEntriesFor(entries, startDate, endDate) {
   return entriesInRange(entries, startDate, endDate).filter(e => e.media?.length);
 }
@@ -239,12 +257,14 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
 
     // Videos and letters are the guaranteed content (all videos above; up to
     // MAX_TEXT_SLIDES letters below) — plain photos are the filler, so which
-    // ones make the cut is randomized rather than picked by a fixed stride,
-    // instead of the same evenly-spaced photos showing up every time a reel
-    // for this range is regenerated.
+    // ones make the cut is randomized rather than picked by a fixed stride.
+    // Seeded by the date range (not Math.random()) so a saved reel shows the
+    // *same* photos every time it's reopened, instead of reshuffling on every
+    // view — it only changes if a new entry actually enters this range.
+    const rng = seededRandom(`${startDate}|${endDate}`);
     function sampleRandom(arr, n) {
       if (arr.length <= n) return arr;
-      const shuffled = arr.slice().sort(() => Math.random() - 0.5);
+      const shuffled = arr.slice().sort(() => rng() - 0.5);
       return shuffled.slice(0, n);
     }
 
