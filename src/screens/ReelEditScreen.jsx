@@ -36,17 +36,18 @@ function cardSize(item, large) {
 // never drift out of sync with each other.
 // A small always-visible cue (not tied to any gesture) that this letter/
 // photo has a same-entry counterpart somewhere — in the reel or still
-// available — so the relationship is visible just by looking, not only
-// while dragging something.
-function PairedBadge({ large }) {
+// available. A shared number rather than a generic icon, since a plain
+// "linked" badge on nearly every card gives no way to tell which photo
+// actually goes with which letter once there's more than one pair.
+function PairedBadge({ large, number }) {
   return (
-    <div style={{ position: 'absolute', bottom: -4, left: -4, width: large ? 18 : 14, height: large ? 18 : 14, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
-      <i className="ti ti-link" style={{ fontSize: large ? 9 : 7, color: '#fff' }} />
+    <div style={{ position: 'absolute', bottom: -4, left: -4, minWidth: large ? 18 : 14, height: large ? 18 : 14, padding: '0 3px', borderRadius: 999, background: 'var(--accent)', border: '2px solid var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2, boxSizing: 'border-box' }}>
+      <span style={{ fontSize: large ? 10 : 8, fontWeight: 700, color: '#fff', lineHeight: 1 }}>{number}</span>
     </div>
   );
 }
 
-function CardThumb({ item, large, paired }) {
+function CardThumb({ item, large, pairNumber }) {
   const { w, h } = cardSize(item, large);
   if (item.type === 'trip') {
     return (
@@ -61,7 +62,7 @@ function CardThumb({ item, large, paired }) {
       <div style={{ width: w, height: h, borderRadius: 11, background: 'rgba(200,153,62,0.09)', border: '1px solid rgba(200,153,62,0.3)', padding: '6px 7px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box', position: 'relative' }}>
         <span style={{ fontSize: large ? 15 : 11, color: '#C8993E', marginBottom: 3 }}>✉</span>
         <span style={{ fontSize: large ? 11.5 : 9, fontStyle: 'italic', fontFamily: "'Source Serif 4', serif", color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: large ? 6 : 4, WebkitBoxOrient: 'vertical' }}>{item.text}</span>
-        {paired && <PairedBadge large={large} />}
+        {pairNumber != null && <PairedBadge large={large} number={pairNumber} />}
       </div>
     );
   }
@@ -73,7 +74,7 @@ function CardThumb({ item, large, paired }) {
           <i className="ti ti-player-play-filled" style={{ fontSize: large ? 11 : 7, color: '#fff' }} />
         </div>
       )}
-      {paired && <PairedBadge large={large} />}
+      {pairNumber != null && <PairedBadge large={large} number={pairNumber} />}
     </div>
   );
 }
@@ -196,12 +197,20 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   const tripsInReel = useMemo(() => slideList.filter(s => s.type === 'trip').length, [slideList]);
 
   // Journal entries whose letter/note AND photo/video both survived into
-  // the candidate pool — drives the small link badge on those cards, a
+  // the candidate pool — drives a small numbered badge on those cards, a
   // persistent, always-visible cue rather than one that only appeared
-  // while dragging something.
+  // while dragging something. A shared number (not just a generic "linked"
+  // icon) is what actually lets you tell which photo goes with which
+  // letter once a range has more than one pair — assigned in date order
+  // so the same entry always gets the same number across renders.
   const pairedEntryIds = useMemo(() => {
     const mediaEntryIds = new Set(candidates.photoCandidates.map(p => p.entryId));
-    return new Set(candidates.textCandidates.map(t => t.entryId).filter(id => mediaEntryIds.has(id)));
+    const paired = candidates.textCandidates
+      .filter(t => mediaEntryIds.has(t.entryId))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const map = new Map();
+    paired.forEach((t, i) => { if (!map.has(t.entryId)) map.set(t.entryId, i + 1); });
+    return map;
   }, [candidates]);
 
   function removeFromSlides(key) {
@@ -452,7 +461,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   function renderSlideCard(item) {
     const key = keyForSlide(item);
     const isDragging = draggingKey === key;
-    const paired = item.type !== 'trip' && pairedEntryIds.has(item.entryId);
+    const pairNumber = item.type !== 'trip' ? pairedEntryIds.get(item.entryId) : undefined;
     return (
       <div
         key={key}
@@ -481,7 +490,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
           onClick={e => { e.stopPropagation(); removeFromSlides(key); }}
           style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: '#D4856A', color: '#fff', border: '2px solid var(--bg)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
         >×</button>
-        <CardThumb item={item} large paired={paired} />
+        <CardThumb item={item} large pairNumber={pairNumber} />
         <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{cardLabel(item)}</span>
       </div>
     );
@@ -496,7 +505,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   function renderAvailCard(item) {
     const key = keyForSlide(item);
     const isLetter = item.type === 'text';
-    const paired = item.type !== 'trip' && pairedEntryIds.has(item.entryId);
+    const pairNumber = item.type !== 'trip' ? pairedEntryIds.get(item.entryId) : undefined;
     return (
       <div
         key={key}
@@ -509,7 +518,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
             style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: 'var(--accent)', color: '#fff', border: '2px solid var(--bg)', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
           >+</button>
         )}
-        <CardThumb item={item} paired={paired} />
+        <CardThumb item={item} pairNumber={pairNumber} />
         <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{cardLabel(item)}</span>
       </div>
     );
