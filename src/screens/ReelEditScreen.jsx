@@ -474,18 +474,28 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     );
   }
 
-  // A card in the available pool — tap adds it straight into "In this
-  // reel" (auto-placed near its own entry's partner, or by date). No drag
-  // here at all, so these are plain, ordinary tap targets.
+  // A card in the available pool. Photos/videos/trips: tap anywhere adds
+  // it straight into "In this reel" (auto-placed near its own entry's
+  // partner, or by date). Letters are the exception — their thumbnail is
+  // just a truncated excerpt, so tapping the card previews the full text
+  // instead (same sheet as an in-reel letter); the + button is what
+  // actually adds it, mirroring the × that removes an in-reel card.
   function renderAvailCard(item) {
     const key = keyForSlide(item);
+    const isLetter = item.type === 'text';
     const isPartnerHighlighted = draggingKey && isPartnerOf(dragRef.current?.item, item);
     return (
       <div
         key={key}
-        onClick={() => addToSlides(item)}
-        style={{ width: cardSize(item, false).w, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+        onClick={() => { if (isLetter) setPreviewItem(item); else addToSlides(item); }}
+        style={{ width: cardSize(item, false).w, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', cursor: 'pointer' }}
       >
+        {isLetter && (
+          <button
+            onClick={e => { e.stopPropagation(); addToSlides(item); }}
+            style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: 'var(--accent)', color: '#fff', border: '2px solid var(--bg)', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
+          >+</button>
+        )}
         <CardThumb item={item} highlighted={isPartnerHighlighted} />
         <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: isPartnerHighlighted ? '#C8993E' : 'var(--text-muted)' }}>{cardLabel(item)}</span>
       </div>
