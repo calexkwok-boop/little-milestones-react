@@ -79,63 +79,15 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   const [song2Results, setSong2Results] = useState([]);
   const [song2Searching, setSong2Searching] = useState(false);
 
-  // --- Reordering the two soundtrack slots (which song plays first vs
-  // second) — a much smaller version of the same long-press-then-drag
-  // pattern the slides below use, scoped to just these two stacked rows.
-  const song1RowRef = useRef(null);
-  const song2RowRef = useRef(null);
-  const songDragRef = useRef(null); // { slot, startY, timer, active }
-  const [draggingSongSlot, setDraggingSongSlot] = useState(null); // 0, 1, or null
-  const [songDragOffsetY, setSongDragOffsetY] = useState(0);
-
-  function onSongGripPointerDown(e, slot) {
-    if (e.button != null && e.button !== 0) return;
-    const drag = { slot, startY: e.clientY, active: false };
-    const activate = () => {
-      drag.active = true;
-      setDraggingSongSlot(slot);
-      setSongDragOffsetY(0);
-      try { navigator.vibrate?.(10); } catch {}
-    };
-    if (e.pointerType === 'mouse') { activate(); songDragRef.current = drag; return; }
-    drag.timer = setTimeout(() => { if (songDragRef.current === drag) activate(); }, LONG_PRESS_MS);
-    songDragRef.current = drag;
+  // Swapping which song plays first vs second — only ever two possible
+  // states, so a single toggle button is simpler and just as capable as a
+  // drag gesture would be for something with exactly two positions.
+  function handleSwapSongs() {
+    setSong(song2); setSong2(song);
+    setSongQuery(song2Query); setSong2Query(songQuery);
+    setSongResults(song2Results); setSong2Results(songResults);
+    setSongSearching(song2Searching); setSong2Searching(songSearching);
   }
-
-  useEffect(() => {
-    function onMove(e) {
-      const drag = songDragRef.current;
-      if (!drag || !drag.active) return;
-      e.preventDefault();
-      setSongDragOffsetY(e.clientY - drag.startY);
-    }
-    function onEnd(e) {
-      const drag = songDragRef.current;
-      songDragRef.current = null;
-      if (drag && !drag.active) clearTimeout(drag.timer);
-      setDraggingSongSlot(null);
-      setSongDragOffsetY(0);
-      if (!drag?.active) return;
-      const clientY = e.clientY ?? e.changedTouches?.[0]?.clientY;
-      const r1 = song1RowRef.current?.getBoundingClientRect();
-      const r2 = song2RowRef.current?.getBoundingClientRect();
-      if (!r1 || !r2 || clientY == null) return;
-      const targetSlot = clientY < (r1.top + r2.bottom) / 2 ? 0 : 1;
-      if (targetSlot === drag.slot) return;
-      setSong(song2); setSong2(song);
-      setSongQuery(song2Query); setSong2Query(songQuery);
-      setSongResults(song2Results); setSong2Results(songResults);
-      setSongSearching(song2Searching); setSong2Searching(songSearching);
-    }
-    document.addEventListener('pointermove', onMove, { passive: false });
-    document.addEventListener('pointerup', onEnd);
-    document.addEventListener('pointercancel', onEnd);
-    return () => {
-      document.removeEventListener('pointermove', onMove);
-      document.removeEventListener('pointerup', onEnd);
-      document.removeEventListener('pointercancel', onEnd);
-    };
-  }, [song, song2, songQuery, song2Query, songResults, song2Results, songSearching, song2Searching]);
 
   // Once a reel's been through the editor, its format becomes an explicit
   // saved choice too (same as its content) rather than something re-derived
@@ -234,6 +186,28 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     setSlideList(prev => prev.filter(s => keyForSlide(s) !== key));
   }
 
+  // Tapping an available card adds it — placed automatically rather than
+  // always at the end, so a manual add lands in roughly the same spot the
+  // auto-builder would have put it: a letter pairs with its own entry's
+  // photo/video when that's already in the reel (same rule autoSampleSlides
+  // uses), and everything else slots in by date among the non-text slides.
+  function addToSlides(item) {
+    setSlideList(prev => {
+      const updated = prev.slice();
+      if (item.type === 'text') {
+        const pairIdx = updated.findIndex(s => s.type !== 'trip' && s.type !== 'text' && s.entryId === item.entryId);
+        if (pairIdx !== -1) { updated.splice(pairIdx, 0, item); return updated; }
+      }
+      let idx = updated.length;
+      for (let i = 0; i < updated.length; i++) {
+        const s = updated[i];
+        if (s.type !== 'text' && s.date && item.date && s.date > item.date) { idx = i; break; }
+      }
+      updated.splice(idx, 0, item);
+      return updated;
+    });
+  }
+
   // Switching to 1 minute doubles the photo budget (7 → 14) — without this,
   // the reel would still only have however many photos the 30s auto-build
   // happened to pick, leaving the user to manually drag in enough extras to
@@ -265,27 +239,24 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     });
   }
 
-  // --- Touch drag-and-drop (hand-rolled — HTML5 drag/drop doesn't work on
-  // touchscreens). Built on Pointer Events rather than Touch Events so the
-  // exact same code drives a mouse on desktop too — one code path instead of
-  // a separate mouse-drag implementation. A long press (not an immediate
-  // pointer-down) starts a drag, so a quick swipe still scrolls the strip
-  // normally instead of every touch fighting the browser's own horizontal
-  // scroll. Listens on `document` (not the card itself) only once a drag is
-  // actually confirmed, and only then calls preventDefault — so an ordinary
-  // scroll (or, on desktop, a text selection) is never intercepted.
+  // --- Touch drag-and-drop for reordering within "In this reel" (hand-
+  // rolled — HTML5 drag/drop doesn't work on touchscreens). Moving a card
+  // between "In this reel" and the available pool is a plain tap now
+  // (addToSlides / removeFromSlides above) — dragging is only for changing
+  // play order within the reel itself, so this only ever has one strip to
+  // worry about. Built on Pointer Events rather than Touch Events so the
+  // exact same code drives a mouse on desktop too. A long press (not an
+  // immediate pointer-down) starts a drag, so a quick swipe still scrolls
+  // the strip normally instead of every touch fighting the browser's own
+  // horizontal scroll. Listens on `document` (not the card itself) only
+  // once a drag is actually confirmed, and only then calls preventDefault —
+  // so an ordinary scroll (or, on desktop, a text selection) is never
+  // intercepted.
   const slideStripRef = useRef(null);
-  const availPhotosStripRef = useRef(null);
-  const availVideosStripRef = useRef(null);
-  const availLettersStripRef = useRef(null);
-  const availTripsStripRef = useRef(null);
-  const scrollAreaRef = useRef(null); // the whole screen's scroll container — dragging near its top/bottom edge auto-scrolls it
-  const dragRef = useRef(null); // { key, item, fromList, startX, startY, active, timer }
-  const dropRef = useRef(null); // { list, index } — read at drop time, kept in a ref to avoid stale closures
+  const dragRef = useRef(null); // { key, item, startX, startY, active, timer }
+  const dropRef = useRef(null); // { index } — read at drop time, kept in a ref to avoid stale closures
   const lastPointerRef = useRef({ x: 0, y: 0 });
-  const autoScrollVelRef = useRef(0); // px/frame; negative = scrolling up, positive = down, 0 = none
-  const hAutoScrollVelRef = useRef(0); // px/frame for whichever strip the finger's currently hovering; negative = left, positive = right, 0 = none
-  const hScrollElRef = useRef(null); // the specific strip element hAutoScrollVelRef currently applies to
+  const hAutoScrollVelRef = useRef(0); // px/frame; negative = scrolling left, positive = right, 0 = none
   const rafRef = useRef(null);
   const [draggingKey, setDraggingKey] = useState(null);
   const [dropTarget, setDropTarget] = useState(null); // mirror of dropRef, for rendering the insertion line
@@ -298,9 +269,9 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   // instead of trying to make a 96×62 card scrollable.
   const [previewItem, setPreviewItem] = useState(null);
 
-  function onCardPointerDown(e, item, fromList, containerRef) {
+  function onCardPointerDown(e, item) {
     if (e.button != null && e.button !== 0) return; // ignore right/middle mouse
-    const drag = { key: keyForSlide(item), item, fromList, containerRef, startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY, active: false };
+    const drag = { key: keyForSlide(item), item, startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY, active: false };
     if (e.pointerType === 'mouse') {
       // The long-press-then-cancel-on-movement gate below exists only to let
       // an ordinary touch swipe still scroll the strip instead of starting a
@@ -332,28 +303,15 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
 
   useEffect(() => {
     function computeDropTarget(clientX, clientY) {
-      // Ask the browser directly what's actually under the finger right now,
-      // rather than manually comparing getBoundingClientRect distances —
-      // that manual math is exactly what kept failing to recognize a
-      // crossing from "In this reel" into any available strip (or back).
-      // elementFromPoint does real hit-testing against the live layout, and
-      // correctly ignores the floating ghost thumbnail since it's
-      // pointer-events:none, so it "sees through" to whatever's underneath.
-      const el = document.elementFromPoint(clientX, clientY);
-      const zoneEl = el?.closest?.('[data-strip-zone]');
-      const zone = zoneEl?.dataset.stripZone;
-      if (!zone) return null;
-
-      if (zone === 'slide') {
-        const cardEls = [...slideStripRef.current.querySelectorAll('[data-card-key]')];
-        let index = cardEls.length;
-        for (let i = 0; i < cardEls.length; i++) {
-          const r = cardEls[i].getBoundingClientRect();
-          if (clientX < r.left + r.width / 2) { index = i; break; }
-        }
-        return { list: 'slide', index };
+      const rect = slideStripRef.current?.getBoundingClientRect();
+      if (!rect || clientY < rect.top - 40 || clientY > rect.bottom + 40) return null;
+      const cardEls = [...slideStripRef.current.querySelectorAll('[data-card-key]')];
+      let index = cardEls.length;
+      for (let i = 0; i < cardEls.length; i++) {
+        const r = cardEls[i].getBoundingClientRect();
+        if (clientX < r.left + r.width / 2) { index = i; break; }
       }
-      return { list: 'avail', zone };
+      return { index };
     }
 
     function applyDropTarget(clientX, clientY) {
@@ -363,22 +321,11 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       return target;
     }
 
-    function containerRefForTarget(target) {
-      if (!target) return null;
-      if (target.list === 'slide') return slideStripRef;
-      return { photo: availPhotosStripRef, video: availVideosStripRef, letter: availLettersStripRef, trip: availTripsStripRef }[target.zone] || null;
-    }
-
-    // Same idea as the vertical auto-scroll below, but for whichever strip
-    // the finger is currently hovering — so reordering into a spot further
-    // down a long "In this reel" strip (or an available one) than what's
-    // currently visible doesn't require a separate, physically impossible
-    // gesture to first bring it into view.
-    function updateHorizontalAutoScroll(clientX, target) {
-      const ref = containerRefForTarget(target);
-      const el = ref?.current;
-      if (!el) { hAutoScrollVelRef.current = 0; hScrollElRef.current = null; return; }
-      hScrollElRef.current = el;
+    // Reordering into a spot further along than what's currently visible
+    // shouldn't require a separate gesture just to scroll there first.
+    function updateHorizontalAutoScroll(clientX) {
+      const el = slideStripRef.current;
+      if (!el) { hAutoScrollVelRef.current = 0; return; }
       const rect = el.getBoundingClientRect();
       const EDGE = 40;
       const MAX_SPEED = 12;
@@ -391,44 +338,12 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       }
     }
 
-    // "In this reel" and the four available strips rarely all fit on screen
-    // at once (title, length toggle, and up to two soundtrack pickers sit
-    // above them) — without this, dragging a card from one section to
-    // another whenever the target is off-screen would be physically
-    // impossible, not just fiddly. Scroll speed ramps up the closer the
-    // finger gets to the edge.
-    function updateAutoScroll(clientY) {
-      const el = scrollAreaRef.current;
-      if (!el) { autoScrollVelRef.current = 0; return; }
-      const rect = el.getBoundingClientRect();
-      const EDGE = 56;
-      const MAX_SPEED = 14;
-      if (clientY < rect.top + EDGE) {
-        autoScrollVelRef.current = -Math.ceil(MAX_SPEED * Math.min(1, (rect.top + EDGE - clientY) / EDGE));
-      } else if (clientY > rect.bottom - EDGE) {
-        autoScrollVelRef.current = Math.ceil(MAX_SPEED * Math.min(1, (clientY - (rect.bottom - EDGE)) / EDGE));
-      } else {
-        autoScrollVelRef.current = 0;
-      }
-    }
-
     function tick() {
-      const active = dragRef.current?.active;
-      let scrolled = false;
-      if (active && autoScrollVelRef.current !== 0 && scrollAreaRef.current) {
-        scrollAreaRef.current.scrollTop += autoScrollVelRef.current;
-        scrolled = true;
-      }
-      if (active && hAutoScrollVelRef.current !== 0 && hScrollElRef.current) {
-        hScrollElRef.current.scrollLeft += hAutoScrollVelRef.current;
-        scrolled = true;
-      }
-      if (scrolled) {
-        // The strips just moved under the still-stationary finger — recompute
-        // where that finger now lands so the insertion line (and whether the
-        // horizontal edge is still being held) keeps up.
-        const target = applyDropTarget(lastPointerRef.current.x, lastPointerRef.current.y);
-        updateHorizontalAutoScroll(lastPointerRef.current.x, target);
+      if (dragRef.current?.active && hAutoScrollVelRef.current !== 0 && slideStripRef.current) {
+        slideStripRef.current.scrollLeft += hAutoScrollVelRef.current;
+        // The strip just moved under the still-stationary finger — recompute
+        // where it now lands so the insertion line keeps up.
+        applyDropTarget(lastPointerRef.current.x, lastPointerRef.current.y);
       }
       rafRef.current = requestAnimationFrame(tick);
     }
@@ -446,12 +361,11 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       // currently is. Cards have touch-action: none (native panning on
       // either axis is exactly what let Safari commit this touch to the
       // page's own vertical scroll before our timer got a chance to call
-      // preventDefault() — pan-x still let that happen whenever the early
-      // movement had any horizontal lean), so nothing scrolls the strip on
-      // its own anymore — this manually mirrors that horizontal scroll in
-      // JS instead, for as long as the press hasn't turned into a drag yet.
+      // preventDefault()), so nothing scrolls the strip on its own anymore —
+      // this manually mirrors that horizontal scroll in JS instead, for as
+      // long as the press hasn't turned into a drag yet.
       if (!drag.active) {
-        if (drag.containerRef?.current) drag.containerRef.current.scrollLeft -= (e.clientX - drag.lastX);
+        if (slideStripRef.current) slideStripRef.current.scrollLeft -= (e.clientX - drag.lastX);
         drag.lastX = e.clientX;
         drag.lastY = e.clientY;
         return;
@@ -459,17 +373,14 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       e.preventDefault();
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
       setGhostPos({ x: e.clientX, y: e.clientY });
-      updateAutoScroll(e.clientY);
-      const target = applyDropTarget(e.clientX, e.clientY);
-      updateHorizontalAutoScroll(e.clientX, target);
+      applyDropTarget(e.clientX, e.clientY);
+      updateHorizontalAutoScroll(e.clientX);
     }
 
     function onEnd() {
       const drag = dragRef.current;
       dragRef.current = null;
-      autoScrollVelRef.current = 0;
       hAutoScrollVelRef.current = 0;
-      hScrollElRef.current = null;
       if (drag && !drag.active) clearTimeout(drag.timer);
       const target = dropRef.current;
       dropRef.current = null;
@@ -479,28 +390,15 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       setDropTarget(null);
       if (!drag?.active || !target) return;
 
-      if (drag.fromList === 'slide' && target.list === 'slide') {
-        setSlideList(prev => {
-          const fromIdx = prev.findIndex(s => keyForSlide(s) === drag.key);
-          if (fromIdx === -1) return prev;
-          const copy = prev.slice();
-          const [moved] = copy.splice(fromIdx, 1);
-          const idx = fromIdx < target.index ? target.index - 1 : target.index;
-          copy.splice(idx, 0, moved);
-          return copy;
-        });
-      } else if (target.list === 'slide') {
-        // From the available pool into the reel, at the exact drop position.
-        setSlideList(prev => {
-          const copy = prev.slice();
-          copy.splice(target.index, 0, drag.item);
-          return copy;
-        });
-      } else if (drag.fromList === 'slide') {
-        // Dropped back into the available strip — benched, not deleted.
-        removeFromSlides(drag.key);
-      }
-      // Dropped from available back into available: no-op, nothing to change.
+      setSlideList(prev => {
+        const fromIdx = prev.findIndex(s => keyForSlide(s) === drag.key);
+        if (fromIdx === -1) return prev;
+        const copy = prev.slice();
+        const [moved] = copy.splice(fromIdx, 1);
+        const idx = fromIdx < target.index ? target.index - 1 : target.index;
+        copy.splice(idx, 0, moved);
+        return copy;
+      });
     }
 
     document.addEventListener('pointermove', onMove, { passive: false });
@@ -527,25 +425,29 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     setSaving(false);
   }
 
-  function renderCard(item, fromList, containerRef) {
+  // A letter and its own entry's photo/video are worth seeing as linked
+  // while arranging, even though they aren't forced to move together —
+  // highlight whichever one is the dragged card's opposite-type partner
+  // from the same journal entry, wherever it currently sits.
+  function isPartnerOf(draggedItem, item) {
+    return draggedItem?.entryId != null && draggedItem.entryId === item.entryId
+      && (draggedItem.type === 'text') !== (item.type === 'text');
+  }
+
+  // A card already in the reel — press and hold to reorder within this
+  // strip; the × removes it back to the available pool below.
+  function renderSlideCard(item) {
     const key = keyForSlide(item);
     const isDragging = draggingKey === key;
-    const large = fromList === 'slide'; // active (in the reel) cards read bigger than the merely-available pool
-    // A letter and its own entry's photo/video are worth seeing as linked
-    // while arranging, even though they aren't forced to move together —
-    // highlight whichever one is the dragged card's opposite-type partner
-    // from the same journal entry, wherever it currently sits.
-    const draggedItem = dragRef.current?.item;
-    const isPartnerHighlighted = !isDragging && draggingKey && draggedItem?.entryId != null
-      && draggedItem.entryId === item.entryId && (draggedItem.type === 'text') !== (item.type === 'text');
+    const isPartnerHighlighted = !isDragging && draggingKey && isPartnerOf(dragRef.current?.item, item);
     return (
       <div
         key={key}
         data-card-key={key}
-        onPointerDown={e => onCardPointerDown(e, item, fromList, containerRef)}
+        onPointerDown={e => onCardPointerDown(e, item)}
         onClick={() => { if (item.type === 'text') setPreviewItem(item); }}
         style={{
-          width: cardSize(item, large).w, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1,
+          width: cardSize(item, true).w, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1,
           userSelect: 'none', WebkitUserSelect: 'none',
           // Without these, a long press on a photo's background-image card is
           // iOS Safari's own cue to show its native "peek and lift" preview —
@@ -553,61 +455,59 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
           // hijacks the touch sequence out from under our JS drag, and never
           // resolves as a drop into anything of ours.
           WebkitTouchCallout: 'none', WebkitUserDrag: 'none',
-          // No native panning on either axis — pan-x (letting the browser
-          // handle horizontal swipes itself) still let Safari commit this
-          // touch to the page's own vertical scroll whenever early movement
-          // had any horizontal lean, killing drags before our long-press
-          // timer got a chance to call preventDefault(). With native
-          // panning off entirely, onMove now manually mirrors the strip's
-          // horizontal scroll in JS during the pre-activation window instead.
+          // No native panning on either axis — that's exactly what let
+          // Safari commit this touch to the page's own scroll before our
+          // long-press timer got a chance to call preventDefault(). onMove
+          // manually mirrors the strip's horizontal scroll in JS during the
+          // pre-activation window instead.
           touchAction: 'none',
         }}
       >
-        {fromList === 'slide' && (
-          <button
-            onPointerDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); removeFromSlides(key); }}
-            style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: '#D4856A', color: '#fff', border: '2px solid var(--bg)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
-          >×</button>
-        )}
-        <CardThumb item={item} large={large} highlighted={isPartnerHighlighted} />
+        <button
+          onPointerDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); removeFromSlides(key); }}
+          style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: '#D4856A', color: '#fff', border: '2px solid var(--bg)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
+        >×</button>
+        <CardThumb item={item} large highlighted={isPartnerHighlighted} />
         <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: isPartnerHighlighted ? '#C8993E' : 'var(--text-muted)' }}>{cardLabel(item)}</span>
       </div>
     );
   }
 
-  function renderDropIndicator(list) {
-    if (!dropTarget || dropTarget.list !== list) return null;
-    return <div style={{ width: 2, borderRadius: 1, background: '#C8993E', flexShrink: 0, alignSelf: 'stretch', margin: '3px -1px' }} />;
+  // A card in the available pool — tap adds it straight into "In this
+  // reel" (auto-placed near its own entry's partner, or by date). No drag
+  // here at all, so these are plain, ordinary tap targets.
+  function renderAvailCard(item) {
+    const key = keyForSlide(item);
+    const isPartnerHighlighted = draggingKey && isPartnerOf(dragRef.current?.item, item);
+    return (
+      <div
+        key={key}
+        onClick={() => addToSlides(item)}
+        style={{ width: cardSize(item, false).w, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+      >
+        <CardThumb item={item} highlighted={isPartnerHighlighted} />
+        <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: isPartnerHighlighted ? '#C8993E' : 'var(--text-muted)' }}>{cardLabel(item)}</span>
+      </div>
+    );
   }
 
-  function stripWithIndicator(list, items, containerRef) {
-    const cards = items.map(item => renderCard(item, list, containerRef));
-    if (!dropTarget || dropTarget.list !== list) return cards;
+  function slideStripWithIndicator(items) {
+    const cards = items.map(renderSlideCard);
+    if (!dropTarget) return cards;
     const idx = Math.max(0, Math.min(items.length, dropTarget.index));
     const out = cards.slice(0, idx);
-    out.push(<span key="__drop_indicator__">{renderDropIndicator(list)}</span>);
+    out.push(<div key="__drop_indicator__" style={{ width: 2, borderRadius: 1, background: '#C8993E', flexShrink: 0, alignSelf: 'stretch', margin: '3px -1px' }} />);
     out.push(...cards.slice(idx));
     return out;
   }
 
-  function availStrip(zone, label, items, containerRef) {
-    const hovered = draggingKey && dropTarget?.list === 'avail' && dropTarget.zone === zone;
+  function availStrip(label, items) {
     return (
       <div style={{ marginBottom: 12 }}>
         <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>{label}</p>
-        <div
-          ref={containerRef}
-          data-strip-zone={zone}
-          style={{
-            display: 'flex', gap: 9, overflowX: draggingKey ? 'hidden' : 'auto', padding: '10px 3px', margin: '-7px -3px 0',
-            minHeight: items.length === 0 ? 40 : undefined, borderRadius: 14,
-            outline: hovered ? '1.5px dashed #C8993E' : 'none', outlineOffset: -2,
-          }}
-        >
-          {items.length === 0
-            ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>None from this range</span>
-            : items.map(item => renderCard(item, 'avail', containerRef))}
+        <div style={{ display: 'flex', gap: 9, overflowX: 'auto', padding: '10px 3px', margin: '-7px -3px 0' }}>
+          {items.map(renderAvailCard)}
         </div>
       </div>
     );
@@ -630,7 +530,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         </button>
       </div>
 
-      <div className="scroll-area" ref={scrollAreaRef}>
+      <div className="scroll-area">
         <div style={{ padding: '4px 16px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 13, padding: '8px 10px', marginBottom: 10 }}>
             <input
@@ -660,57 +560,40 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
                 </button>
               ))}
             </div>
-            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Soundtrack (optional)</p>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 6 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: 0 }}>Soundtrack (optional)</p>
+              {durationSec === 60 && (
+                <button
+                  onClick={handleSwapSongs}
+                  style={{ display: 'flex', alignItems: 'center', gap: 4, border: 'none', background: 'none', color: 'var(--accent)', fontSize: 11, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", cursor: 'pointer', padding: 0 }}
+                >
+                  <i className="ti ti-arrows-up-down" style={{ fontSize: 13 }} />
+                  Swap order
+                </button>
+              )}
+            </div>
             {durationSec === 60 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[0, 1].map(slot => {
-                  const isDragging = draggingSongSlot === slot;
-                  const rowRef = slot === 0 ? song1RowRef : song2RowRef;
-                  return (
-                    <div
-                      key={slot}
-                      ref={rowRef}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        transform: isDragging ? `translateY(${songDragOffsetY}px)` : 'none',
-                        position: isDragging ? 'relative' : 'static', zIndex: isDragging ? 5 : 'auto',
-                        opacity: isDragging ? 0.9 : 1,
-                      }}
-                    >
-                      <div
-                        onPointerDown={e => onSongGripPointerDown(e, slot)}
-                        style={{ flexShrink: 0, width: 22, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', touchAction: 'none', color: 'var(--text-muted)' }}
-                      >
-                        <i className="ti ti-grip-vertical" style={{ fontSize: 16 }} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        {slot === 0 ? (
-                          <SongSearchField
-                            song={song}
-                            onPick={picked => { setSong(picked); setSongQuery(''); setSongResults([]); }}
-                            onClear={() => setSong(null)}
-                            query={songQuery}
-                            onQueryChange={setSongQuery}
-                            results={songResults}
-                            searching={songSearching}
-                            placeholder="Search for a song…"
-                          />
-                        ) : (
-                          <SongSearchField
-                            song={song2}
-                            onPick={picked => { setSong2(picked); setSong2Query(''); setSong2Results([]); }}
-                            onClear={() => setSong2(null)}
-                            query={song2Query}
-                            onQueryChange={setSong2Query}
-                            results={song2Results}
-                            searching={song2Searching}
-                            placeholder="Search for a second song…"
-                          />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+                <SongSearchField
+                  song={song}
+                  onPick={picked => { setSong(picked); setSongQuery(''); setSongResults([]); }}
+                  onClear={() => setSong(null)}
+                  query={songQuery}
+                  onQueryChange={setSongQuery}
+                  results={songResults}
+                  searching={songSearching}
+                  placeholder="Search for a song…"
+                />
+                <SongSearchField
+                  song={song2}
+                  onPick={picked => { setSong2(picked); setSong2Query(''); setSong2Results([]); }}
+                  onClear={() => setSong2(null)}
+                  query={song2Query}
+                  onQueryChange={setSong2Query}
+                  results={song2Results}
+                  searching={song2Searching}
+                  placeholder="Search for a second song…"
+                />
               </div>
             ) : (
               <SongSearchField
@@ -737,7 +620,6 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
             </div>
             <div
               ref={slideStripRef}
-              data-strip-zone="slide"
               style={{
                 display: 'flex', gap: 9, overflowX: draggingKey ? 'hidden' : 'auto', padding: '10px 3px', margin: '-7px -3px 0',
                 minHeight: 136, borderRadius: 14,
@@ -747,21 +629,18 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
               }}
             >
               {slideList.length === 0
-                ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Drag something up from below</span>
-                : stripWithIndicator('slide', slideList, slideStripRef)}
+                ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Tap something below to add it</span>
+                : slideStripWithIndicator(slideList)}
             </div>
           </div>
 
           <div>
             <p style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px' }}>Not in this reel yet</p>
-            {/* Hidden while empty for a cleaner page — but still rendered
-                during an active drag, so a category you're dragging into (or
-                emptying out of "In this reel") stays a valid drop target
-                instead of vanishing out from under the gesture. */}
-            {(availablePhotos.length > 0 || draggingKey) && availStrip('photo', 'Photos', availablePhotos, availPhotosStripRef)}
-            {(availableVideos.length > 0 || draggingKey) && availStrip('video', 'Videos', availableVideos, availVideosStripRef)}
-            {(availableLetters.length > 0 || draggingKey) && availStrip('letter', 'Letters', availableLetters, availLettersStripRef)}
-            {(availableTrips.length > 0 || draggingKey) && availStrip('trip', 'Trips', availableTrips, availTripsStripRef)}
+            {/* Hidden entirely while empty, for a cleaner page — tap a card to add it. */}
+            {availablePhotos.length > 0 && availStrip('Photos', availablePhotos)}
+            {availableVideos.length > 0 && availStrip('Videos', availableVideos)}
+            {availableLetters.length > 0 && availStrip('Letters', availableLetters)}
+            {availableTrips.length > 0 && availStrip('Trips', availableTrips)}
           </div>
         </div>
       </div>
