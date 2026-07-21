@@ -34,12 +34,23 @@ function cardSize(item, large) {
 // The thumbnail portion of a card — shared between the real strip cards and
 // the floating ghost that follows the finger while dragging, so the two
 // never drift out of sync with each other.
-function CardThumb({ item, large, highlighted }) {
-  const ring = highlighted ? '0 0 0 2px #C8993E' : 'none';
+// A small always-visible cue (not tied to any gesture) that this letter/
+// photo has a same-entry counterpart somewhere — in the reel or still
+// available — so the relationship is visible just by looking, not only
+// while dragging something.
+function PairedBadge({ large }) {
+  return (
+    <div style={{ position: 'absolute', bottom: -4, left: -4, width: large ? 18 : 14, height: large ? 18 : 14, borderRadius: '50%', background: 'var(--accent)', border: '2px solid var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+      <i className="ti ti-link" style={{ fontSize: large ? 9 : 7, color: '#fff' }} />
+    </div>
+  );
+}
+
+function CardThumb({ item, large, paired }) {
   const { w, h } = cardSize(item, large);
   if (item.type === 'trip') {
     return (
-      <div style={{ width: w, height: h, borderRadius: 11, background: 'linear-gradient(135deg, rgba(200,153,62,0.35), rgba(74,94,80,0.5))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, flexShrink: 0, padding: '0 6px', boxSizing: 'border-box', boxShadow: ring }}>
+      <div style={{ width: w, height: h, borderRadius: 11, background: 'linear-gradient(135deg, rgba(200,153,62,0.35), rgba(74,94,80,0.5))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, flexShrink: 0, padding: '0 6px', boxSizing: 'border-box' }}>
         <span style={{ fontSize: large ? 27 : 17 }}>✈️</span>
         <span style={{ fontSize: large ? 11.5 : 8, fontWeight: 700, color: '#3a4a3f', textAlign: 'center', lineHeight: 1.15, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{item.destinationLabel}</span>
       </div>
@@ -47,20 +58,22 @@ function CardThumb({ item, large, highlighted }) {
   }
   if (item.type === 'text') {
     return (
-      <div style={{ width: w, height: h, borderRadius: 11, background: 'rgba(200,153,62,0.09)', border: '1px solid rgba(200,153,62,0.3)', padding: '6px 7px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box', boxShadow: ring }}>
+      <div style={{ width: w, height: h, borderRadius: 11, background: 'rgba(200,153,62,0.09)', border: '1px solid rgba(200,153,62,0.3)', padding: '6px 7px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box', position: 'relative' }}>
         <span style={{ fontSize: large ? 15 : 11, color: '#C8993E', marginBottom: 3 }}>✉</span>
         <span style={{ fontSize: large ? 11.5 : 9, fontStyle: 'italic', fontFamily: "'Source Serif 4', serif", color: 'var(--text)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: large ? 6 : 4, WebkitBoxOrient: 'vertical' }}>{item.text}</span>
+        {paired && <PairedBadge large={large} />}
       </div>
     );
   }
   const src = item.mediaType === 'video' ? videoThumbUrl(item.url, 'so_0,w_200,q_auto,f_auto') : cloudinaryTransform(item.url, 'w_200,q_auto,f_auto');
   return (
-    <div style={{ width: w, height: h, borderRadius: 11, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--border)', position: 'relative', flexShrink: 0, WebkitTouchCallout: 'none', WebkitUserDrag: 'none', boxShadow: ring }}>
+    <div style={{ width: w, height: h, borderRadius: 11, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--border)', position: 'relative', flexShrink: 0, WebkitTouchCallout: 'none', WebkitUserDrag: 'none' }}>
       {item.mediaType === 'video' && (
         <div style={{ position: 'absolute', bottom: 3, right: 3, width: large ? 23 : 15, height: large ? 23 : 15, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <i className="ti ti-player-play-filled" style={{ fontSize: large ? 11 : 7, color: '#fff' }} />
         </div>
       )}
+      {paired && <PairedBadge large={large} />}
     </div>
   );
 }
@@ -181,6 +194,15 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   const mediaInReel = useMemo(() => slideList.filter(s => s.type === 'photo').length, [slideList]);
   const lettersInReel = useMemo(() => slideList.filter(s => s.type === 'text').length, [slideList]);
   const tripsInReel = useMemo(() => slideList.filter(s => s.type === 'trip').length, [slideList]);
+
+  // Journal entries whose letter/note AND photo/video both survived into
+  // the candidate pool — drives the small link badge on those cards, a
+  // persistent, always-visible cue rather than one that only appeared
+  // while dragging something.
+  const pairedEntryIds = useMemo(() => {
+    const mediaEntryIds = new Set(candidates.photoCandidates.map(p => p.entryId));
+    return new Set(candidates.textCandidates.map(t => t.entryId).filter(id => mediaEntryIds.has(id)));
+  }, [candidates]);
 
   function removeFromSlides(key) {
     setSlideList(prev => prev.filter(s => keyForSlide(s) !== key));
@@ -425,21 +447,12 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     setSaving(false);
   }
 
-  // A letter and its own entry's photo/video are worth seeing as linked
-  // while arranging, even though they aren't forced to move together —
-  // highlight whichever one is the dragged card's opposite-type partner
-  // from the same journal entry, wherever it currently sits.
-  function isPartnerOf(draggedItem, item) {
-    return draggedItem?.entryId != null && draggedItem.entryId === item.entryId
-      && (draggedItem.type === 'text') !== (item.type === 'text');
-  }
-
   // A card already in the reel — press and hold to reorder within this
   // strip; the × removes it back to the available pool below.
   function renderSlideCard(item) {
     const key = keyForSlide(item);
     const isDragging = draggingKey === key;
-    const isPartnerHighlighted = !isDragging && draggingKey && isPartnerOf(dragRef.current?.item, item);
+    const paired = item.type !== 'trip' && pairedEntryIds.has(item.entryId);
     return (
       <div
         key={key}
@@ -468,8 +481,8 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
           onClick={e => { e.stopPropagation(); removeFromSlides(key); }}
           style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: '#D4856A', color: '#fff', border: '2px solid var(--bg)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
         >×</button>
-        <CardThumb item={item} large highlighted={isPartnerHighlighted} />
-        <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: isPartnerHighlighted ? '#C8993E' : 'var(--text-muted)' }}>{cardLabel(item)}</span>
+        <CardThumb item={item} large paired={paired} />
+        <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{cardLabel(item)}</span>
       </div>
     );
   }
@@ -483,7 +496,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   function renderAvailCard(item) {
     const key = keyForSlide(item);
     const isLetter = item.type === 'text';
-    const isPartnerHighlighted = draggingKey && isPartnerOf(dragRef.current?.item, item);
+    const paired = item.type !== 'trip' && pairedEntryIds.has(item.entryId);
     return (
       <div
         key={key}
@@ -496,8 +509,8 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
             style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: 'var(--accent)', color: '#fff', border: '2px solid var(--bg)', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
           >+</button>
         )}
-        <CardThumb item={item} highlighted={isPartnerHighlighted} />
-        <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: isPartnerHighlighted ? '#C8993E' : 'var(--text-muted)' }}>{cardLabel(item)}</span>
+        <CardThumb item={item} paired={paired} />
+        <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{cardLabel(item)}</span>
       </div>
     );
   }
