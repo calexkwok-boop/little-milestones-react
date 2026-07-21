@@ -185,6 +185,12 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   const [ghostPos, setGhostPos] = useState(null);
   const [ghostItem, setGhostItem] = useState(null);
 
+  // A letter/note card is too small to read in place — its thumbnail is
+  // just a truncated excerpt anyway (buildReelCandidates caps it at
+  // 140-200 chars), so tapping one opens the full original entry text
+  // instead of trying to make a 96×62 card scrollable.
+  const [previewItem, setPreviewItem] = useState(null);
+
   function onCardPointerDown(e, item, fromList) {
     if (e.button != null && e.button !== 0) return; // ignore right/middle mouse
     const drag = { key: keyForSlide(item), item, fromList, startX: e.clientX, startY: e.clientY, active: false };
@@ -320,7 +326,8 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         key={key}
         data-card-key={key}
         onPointerDown={e => onCardPointerDown(e, item, fromList)}
-        style={{ width: item.type === 'text' ? 96 : item.type === 'trip' ? 78 : 62, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1, userSelect: 'none', WebkitUserSelect: 'none', touchAction: 'pan-x' }}
+        onClick={() => { if (item.type === 'text') setPreviewItem(item); }}
+        style={{ width: item.type === 'text' ? 96 : item.type === 'trip' ? 78 : 62, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1, userSelect: 'none', WebkitUserSelect: 'none' }}
       >
         {fromList === 'slide' && (
           <button
@@ -373,9 +380,9 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
 
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 100, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ flexShrink: 0, padding: '2px 16px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ flexShrink: 0, padding: '2px 16px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
         <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
           <div style={{ width: 24, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 4px' }} />
           <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>{isNew ? 'New reel' : 'Edit reel'}</p>
         </div>
@@ -384,18 +391,17 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
           disabled={saving}
           style={{ border: 'none', borderRadius: 999, padding: '8px 16px', fontSize: 12.5, fontWeight: 700, background: 'linear-gradient(180deg, #D4A84B 0%, #B8872E 100%)', color: '#fff', boxShadow: '0 2px 6px rgba(140,100,20,0.32), inset 0 1px 0 rgba(255,255,255,0.18)', flexShrink: 0, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}
         >
-          {saving ? (isNew ? 'Building…' : 'Saving…') : (isNew ? 'Build reel' : 'Save')}
+          {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
 
       <div className="scroll-area">
         <div style={{ padding: '4px 16px 24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 13, padding: '8px 10px', marginBottom: 10 }}>
-            <div style={{ width: 24, height: 24, borderRadius: 7, background: 'rgba(200,153,62,0.14)', color: '#C8993E', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, flexShrink: 0 }}>Aa</div>
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
-              style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', color: 'var(--text)', fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 15, padding: 2, outline: 'none' }}
+              style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', color: 'var(--text)', fontFamily: "'Cormorant Garamond', serif", fontWeight: 700, fontStyle: 'italic', fontSize: 17, padding: 2, outline: 'none' }}
             />
           </div>
 
@@ -491,6 +497,36 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       {ghostItem && ghostPos && (
         <div style={{ position: 'fixed', left: ghostPos.x, top: ghostPos.y, transform: 'translate(-50%, -50%) scale(1.08)', pointerEvents: 'none', zIndex: 200, filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.35))' }}>
           <CardThumb item={ghostItem} />
+        </div>
+      )}
+
+      {previewItem && (
+        <div
+          style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'flex-end', zIndex: 300 }}
+          onClick={() => setPreviewItem(null)}
+        >
+          <div
+            style={{ background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', width: '100%', maxHeight: '70vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ flexShrink: 0, padding: '14px 18px 12px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ width: 28 }} />
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: 0 }}>
+                {previewItem.subtype === 'letter' ? 'Letter' : 'Note'}{previewItem.kidName ? ` · ${previewItem.kidName}` : ''}
+              </p>
+              <button
+                onClick={() => setPreviewItem(null)}
+                style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--bg-elevated)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                <i className="ti ti-x" style={{ fontSize: 13 }} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px 28px' }}>
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15.5, lineHeight: 1.6, color: 'var(--text)', margin: 0, whiteSpace: 'pre-wrap' }}>
+                {entries.find(e => e.id === previewItem.entryId)?.text || previewItem.text}
+              </p>
+            </div>
+          </div>
         </div>
       )}
     </div>
