@@ -47,11 +47,6 @@ const SONG_POOL = [
       || rs.find(r => /alphaville/i.test(r.artistName) && /forever young/i.test(r.trackName)) || rs[0],
   },
   {
-    search: 'iris goo goo dolls',
-    pick: rs => rs.find(r => /goo goo dolls/i.test(r.artistName) && /^iris$/i.test(r.trackName))
-      || rs.find(r => /goo goo dolls/i.test(r.artistName) && /iris/i.test(r.trackName)) || rs[0],
-  },
-  {
     search: 'rhianne somewhere only we know',
     pick: rs => rs.find(r => /^rhianne$/i.test(r.artistName) && /somewhere only we know/i.test(r.trackName))
       || rs.find(r => /somewhere only we know/i.test(r.trackName)) || rs[0],
