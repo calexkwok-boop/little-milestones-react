@@ -11,12 +11,14 @@ export const AVATAR_TRANSFORM_SM = 'w_100,h_100,c_fill,q_auto,f_auto'; // up to 
 export const AVATAR_TRANSFORM_LG = 'w_200,h_200,c_fill,q_auto,f_auto'; // ~100-150px on screen
 
 // Applied to every <video> playback source app-wide — without it, every video
-// element streamed the raw uploaded file untouched (often 1080p/4K phone
-// footage at high bitrate), regardless of how small the player actually
-// renders. 1080p is already more resolution than any in-app video view
-// (feed cards, entry viewer, reels) ever needs; motion also masks a modest
-// quality/resolution trim far more than a static photo would.
-export const VIDEO_DELIVERY_TRANSFORM = 'w_1080,q_auto,f_auto';
+// element streamed the raw uploaded file untouched (often 4K phone footage
+// at high bitrate), regardless of how small the player actually renders.
+// It's a max, not a forced downscale — most phone video (especially
+// portrait clips) is already under this width and passes through
+// untouched. 1920 (true 1080p) is deliberately roomier than a phone-screen
+// player needs, so a video still looks sharp full-size on a tablet; only
+// genuinely 4K+ originals get scaled down at all.
+export const VIDEO_DELIVERY_TRANSFORM = 'w_1920,q_auto,f_auto';
 
 export const MOODS = ['Proud', 'Joyful', 'Surprised', 'Exhausted', 'Grateful', 'Nostalgic'];
 
