@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { cloudinaryTransform, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, exactAgeLabel } from '../constants.js';
+import { cloudinaryTransform, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, exactAgeLabel } from '../constants.js';
 
 // Everything in this file is used by BOTH the live in-app reel
 // (MonthlyReelScreen) and its public replay page (SharedReelScreen) — slide
@@ -443,7 +443,7 @@ export function ReelSlideVideo({ url, active, style }) {
     if (active) { el.currentTime = 0; el.play().catch(() => {}); }
     else el.pause();
   }, [active]);
-  return <video ref={videoRef} src={url} muted playsInline style={style} />;
+  return <video ref={videoRef} src={cloudinaryTransform(url, VIDEO_DELIVERY_TRANSFORM)} muted playsInline style={style} />;
 }
 
 // Abstract arc (not a real map — no map library/API key needed, and it fits

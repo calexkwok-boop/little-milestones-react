@@ -10,6 +10,14 @@ export const AMAZON_GIFT_FALLBACK_URL = 'https://www.amazon.com/s?k=gifts+for+ki
 export const AVATAR_TRANSFORM_SM = 'w_100,h_100,c_fill,q_auto,f_auto'; // up to ~90px on screen
 export const AVATAR_TRANSFORM_LG = 'w_200,h_200,c_fill,q_auto,f_auto'; // ~100-150px on screen
 
+// Applied to every <video> playback source app-wide — without it, every video
+// element streamed the raw uploaded file untouched (often 1080p/4K phone
+// footage at high bitrate), regardless of how small the player actually
+// renders. 1080p is already more resolution than any in-app video view
+// (feed cards, entry viewer, reels) ever needs; motion also masks a modest
+// quality/resolution trim far more than a static photo would.
+export const VIDEO_DELIVERY_TRANSFORM = 'w_1080,q_auto,f_auto';
+
 export const MOODS = ['Proud', 'Joyful', 'Surprised', 'Exhausted', 'Grateful', 'Nostalgic'];
 
 export const MILESTONE_TYPES = [

@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { TODAY, milestoneInfo } from '../constants.js';
+import { TODAY, milestoneInfo, cloudinaryTransform, videoThumbUrl } from '../constants.js';
 import KidThumb from '../KidThumb.jsx';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 
@@ -313,9 +313,18 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                         <div
                           key={i}
                           onClick={() => onOpenEntry(item.entry)}
-                          style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-card)' }}
+                          style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-card)', position: 'relative' }}
                         >
-                          <img src={item.url} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                          {item.type === 'video' ? (
+                            <>
+                              <img src={videoThumbUrl(item.url, 'so_0,w_240,q_auto,f_auto')} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                              <div style={{ position: 'absolute', bottom: 4, right: 4, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <i className="ti ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
+                              </div>
+                            </>
+                          ) : (
+                            <img src={cloudinaryTransform(item.url, 'w_240,q_auto,f_auto')} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+                          )}
                         </div>
                       ))}
                     </div>

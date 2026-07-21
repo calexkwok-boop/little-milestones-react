@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { cloudinaryTransform, AMAZON_GIFT_FALLBACK_URL } from '../constants.js';
+import { cloudinaryTransform, AMAZON_GIFT_FALLBACK_URL, VIDEO_DELIVERY_TRANSFORM } from '../constants.js';
 import { supabase } from '../supabase.js';
 
 const SLIDESHOW_DURATION = 50700;
@@ -473,7 +473,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
             {isVideo ? (
               <video
                 ref={el => { if (el) videoRefs.current[i] = el; else delete videoRefs.current[i]; }}
-                src={s.url}
+                src={cloudinaryTransform(s.url, VIDEO_DELIVERY_TRANSFORM)}
                 muted
                 playsInline
                 style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}

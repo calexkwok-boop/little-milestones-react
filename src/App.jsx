@@ -24,7 +24,7 @@ import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY, AMAZON_GIFT_FALLBACK_URL,
   ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl,
-  AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG,
+  AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM,
 } from './constants.js';
 
 const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
@@ -1032,7 +1032,7 @@ function CroppedVideo({ src, poster, cropY = 50, style, ...props }) {
   // Always mounted (native poster attribute, not a poster/video swap), so on
   // scrolling out of view just pause it directly rather than unmounting.
   useVideoAutoPause(videoRef, true, () => videoRef.current?.pause());
-  return <video ref={videoRef} src={src} poster={poster} style={{ ...style, objectPosition: `center ${objY}%` }} {...props} />;
+  return <video ref={videoRef} src={cloudinaryTransform(src, VIDEO_DELIVERY_TRANSFORM)} poster={poster} style={{ ...style, objectPosition: `center ${objY}%` }} {...props} />;
 }
 
 const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transform }) {
@@ -2275,7 +2275,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                       >
                         {photo && (isVid ? (
                           playing ? (
-                            <video src={photo.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                            <video src={cloudinaryTransform(photo.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                           ) : (
                             <>
                               <img src={videoThumbUrl(photo.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
@@ -2314,7 +2314,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 }}
               >
                 {isVideo && viewerPlaying && (
-                  <video src={heroMedia.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                  <video src={cloudinaryTransform(heroMedia.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                 )}
                 {isVideo && !viewerPlaying && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -2471,7 +2471,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
         <div style={{ margin: 0, borderRadius: '13px 13px 0 0', overflow: 'hidden', aspectRatio: '4/3', position: 'relative' }}>
           {heroMedia.type === 'video'
             ? playingHero
-              ? <video src={heroMedia.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              ? <video src={cloudinaryTransform(heroMedia.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               : <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
             : <CroppedImg src={cloudinaryTransform(heroMedia.url, 'w_1200,q_auto,f_auto')} cropY={entry.cropY ?? 50} fade />
           }
@@ -4146,7 +4146,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                 {item.type === 'video'
                   ? item.thumbnail
                     ? <img src={item.thumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
-                    : <video src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
+                    : <video src={cloudinaryTransform(item.url, VIDEO_DELIVERY_TRANSFORM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" muted playsInline />
                   : <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                 }
                 <button onClick={e => { e.stopPropagation(); const it = media[i]; if (it.url?.startsWith('blob:')) URL.revokeObjectURL(it.url); setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -4276,7 +4276,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         {previewMedia && (
           <div onClick={() => setPreviewMedia(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {previewMedia.type === 'video'
-              ? <video src={previewMedia.url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} controls autoPlay playsInline onClick={e => e.stopPropagation()} />
+              ? <video src={cloudinaryTransform(previewMedia.url, VIDEO_DELIVERY_TRANSFORM)} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} controls autoPlay playsInline onClick={e => e.stopPropagation()} />
               : <img src={previewMedia.url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="" loading="lazy" />
             }
             <button onClick={() => setPreviewMedia(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18 }}>
@@ -5026,7 +5026,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                   >
                     {photo && (isVideo ? (
                       isPlaying ? (
-                        <video src={photo.url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                        <video src={cloudinaryTransform(photo.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                       ) : (
                         <>
                           <img src={videoThumbUrl(photo.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
@@ -5076,7 +5076,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           >
             {entry.media[0].type === 'video' ? (
               playingVideoId === entry.id ? (
-                <video src={entry.media[0].url} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                <video src={cloudinaryTransform(entry.media[0].url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
               ) : (
                 <>
                   <img src={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
@@ -5746,7 +5746,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                               {playingVideoId === e.id ? (
                                 <div style={{ aspectRatio: '3/4', background: '#000', position: 'relative' }}>
                                   <video
-                                    src={e.media[0].url}
+                                    src={cloudinaryTransform(e.media[0].url, VIDEO_DELIVERY_TRANSFORM)}
                                     autoPlay playsInline controls
                                     style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
                                     onClick={ev => ev.stopPropagation()}
@@ -5911,7 +5911,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             )}
             <div onClick={e => e.stopPropagation()} style={{ width: '100%', borderRadius: 16, overflow: 'hidden' }}>
               {media?.type === 'video'
-                ? <video src={media.url} controls autoPlay playsInline style={{ width: '100%', display: 'block', maxHeight: '65vh', objectFit: 'contain', background: '#000' }} />
+                ? <video src={cloudinaryTransform(media.url, VIDEO_DELIVERY_TRANSFORM)} controls autoPlay playsInline style={{ width: '100%', display: 'block', maxHeight: '65vh', objectFit: 'contain', background: '#000' }} />
                 : <img src={media?.url || ''} alt="" style={{ width: '100%', display: 'block', maxHeight: '65vh', objectFit: 'contain', background: entry.palette?.bg || '#111' }} loading="lazy" />
               }
             </div>
@@ -7696,7 +7696,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
             </div>
             {/* Photo */}
             <div onClick={() => { const now = Date.now(); if (now - lastTapRef.current < 320) { handleViewerLike(); setShowLikeAnim(true); setTimeout(() => setShowLikeAnim(false), 800); } lastTapRef.current = now; }} style={{ width: '100%', aspectRatio: '4/3', flexShrink: 0, ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', cursor: 'pointer' }}>
-              {entry.media?.[0]?.type === 'video' && <video src={entry.media[0].url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} controls playsInline onClick={e => e.stopPropagation()} />}
+              {entry.media?.[0]?.type === 'video' && <video src={cloudinaryTransform(entry.media[0].url, VIDEO_DELIVERY_TRANSFORM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} controls playsInline onClick={e => e.stopPropagation()} />}
               {showLikeAnim && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}><i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} /></div>}
             </div>
             {/* Kid + like */}

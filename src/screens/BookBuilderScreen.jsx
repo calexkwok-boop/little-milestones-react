@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import KidThumb from '../KidThumb.jsx';
-import { TODAY } from '../constants.js';
+import { TODAY, cloudinaryTransform, AVATAR_TRANSFORM_SM } from '../constants.js';
 
 export default function BookBuilderScreen({ kids = [], entries = [], familyMembers = [], myDisplayName, darkMode, onBack, onPreview }) {
   const [selectedKids, setSelectedKids] = useState(() => kids.map(k => k.id));
@@ -140,7 +140,7 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
               <button key={m.id} onClick={() => setSelectedAuthors(prev => selected ? prev.filter(id => id !== m.id) : [...prev, m.id])} style={chipBtn(selected)}>
                 <div style={{ width: 30, height: 30, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}>
                   {m.avatar
-                    ? <img src={m.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} loading="lazy" />
+                    ? <img src={cloudinaryTransform(m.avatar, AVATAR_TRANSFORM_SM)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} loading="lazy" />
                     : m.name.charAt(0).toUpperCase()}
                 </div>
                 <span style={{ fontSize: 14, fontWeight: 600, color: selected ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>{m.name}</span>
