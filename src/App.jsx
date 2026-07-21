@@ -11226,89 +11226,95 @@ export default function App() {
         // this session — so it's stable on every future reopen, however you get here.
         const existingSaved = savedReels.find(r => r.startDate === startDate && r.endDate === endDate);
         return (
-          <Suspense fallback={<div className="screen" />}>
-            <LazyMonthlyReelScreen
-              entries={entries}
-              kids={kids}
-              familyMembers={familyMembers}
-              startDate={startDate}
-              endDate={endDate}
-              monthLabel={recap.label}
-              stats={stats}
-              reelId={existingSaved?.id ?? null}
-              customSong={existingSaved?.song ?? null}
-              customSong2={existingSaved?.song2 ?? null}
-              slideRefs={existingSaved?.slideRefs ?? null}
-              onAutoPickSong={existingSaved ? (field, song) => handleUpdateSavedReelSong(existingSaved.id, field, song) : undefined}
-              onClose={() => setReelMonth(null)}
-              onGenerateReelShare={handleGenerateReelShare}
-              onRevokeReelShare={handleRevokeReelShare}
-              onSaveReel={({ song, song2 } = {}) => handleCreateSavedReel({ title: recap.label, startDate, endDate, song: song || null, song2: song2 || null })}
-              onUnsaveReel={handleDeleteSavedReel}
-              onStatClick={filter => { const month = reelMonth; setReelMonth(null); openRecapFor({ viewMode: 'month', month, recapFilter: filter }); }}
-            />
-          </Suspense>
+          <ScreenErrorBoundary onBack={() => setReelMonth(null)}>
+            <Suspense fallback={<div className="screen" />}>
+              <LazyMonthlyReelScreen
+                entries={entries}
+                kids={kids}
+                familyMembers={familyMembers}
+                startDate={startDate}
+                endDate={endDate}
+                monthLabel={recap.label}
+                stats={stats}
+                reelId={existingSaved?.id ?? null}
+                customSong={existingSaved?.song ?? null}
+                customSong2={existingSaved?.song2 ?? null}
+                slideRefs={existingSaved?.slideRefs ?? null}
+                onAutoPickSong={existingSaved ? (field, song) => handleUpdateSavedReelSong(existingSaved.id, field, song) : undefined}
+                onClose={() => setReelMonth(null)}
+                onGenerateReelShare={handleGenerateReelShare}
+                onRevokeReelShare={handleRevokeReelShare}
+                onSaveReel={({ song, song2 } = {}) => handleCreateSavedReel({ title: recap.label, startDate, endDate, song: song || null, song2: song2 || null })}
+                onUnsaveReel={handleDeleteSavedReel}
+                onStatClick={filter => { const month = reelMonth; setReelMonth(null); openRecapFor({ viewMode: 'month', month, recapFilter: filter }); }}
+              />
+            </Suspense>
+          </ScreenErrorBoundary>
         );
       })()}
       {rangeReel && (() => {
         const recap = computeRangeRecap(entries, rangeReel.startDate, rangeReel.endDate, rangeReel.title);
         const stats = { letters: recap.letters, milestones: recap.milestones, photos: recap.photos, favorites: recap.favorites };
         return (
-          <Suspense fallback={<div className="screen" />}>
-            <LazyMonthlyReelScreen
-              entries={entries}
-              kids={kids}
-              familyMembers={familyMembers}
-              startDate={rangeReel.startDate}
-              endDate={rangeReel.endDate}
-              monthLabel={rangeReel.title}
-              stats={stats}
-              reelType="range"
-              customSong={rangeReel.song}
-              customSong2={rangeReel.song2}
-              forceLongReel={rangeReel.durationSec === 60}
-              reelId={rangeReel.id}
-              slideRefs={rangeReel.slideRefs}
-              onAutoPickSong={(field, song) => handleUpdateSavedReelSong(rangeReel.id, field, song)}
-              onClose={() => setRangeReel(null)}
-              onGenerateReelShare={handleGenerateReelShare}
-              onRevokeReelShare={handleRevokeReelShare}
-            />
-          </Suspense>
+          <ScreenErrorBoundary onBack={() => setRangeReel(null)}>
+            <Suspense fallback={<div className="screen" />}>
+              <LazyMonthlyReelScreen
+                entries={entries}
+                kids={kids}
+                familyMembers={familyMembers}
+                startDate={rangeReel.startDate}
+                endDate={rangeReel.endDate}
+                monthLabel={rangeReel.title}
+                stats={stats}
+                reelType="range"
+                customSong={rangeReel.song}
+                customSong2={rangeReel.song2}
+                forceLongReel={rangeReel.durationSec === 60}
+                reelId={rangeReel.id}
+                slideRefs={rangeReel.slideRefs}
+                onAutoPickSong={(field, song) => handleUpdateSavedReelSong(rangeReel.id, field, song)}
+                onClose={() => setRangeReel(null)}
+                onGenerateReelShare={handleGenerateReelShare}
+                onRevokeReelShare={handleRevokeReelShare}
+              />
+            </Suspense>
+          </ScreenErrorBoundary>
         );
       })()}
 
       {editingReel && (
-        <Suspense fallback={<div className="screen" />}>
-          <LazyReelEditScreen
-            entries={entries}
-            kids={kids}
-            familyMembers={familyMembers}
-            reel={editingReel}
-            onBack={() => setEditingReel(null)}
-            onSave={async updates => {
-              // A brand-new reel (opened straight from "+ New reel", never
-              // saved yet) creates its row here instead of updating one —
-              // the row doesn't exist until this exact moment, so nothing
-              // shows up in Keepsakes until the user has actually finished
-              // customizing it and tapped "Build reel".
-              const saved = editingReel.id == null
-                ? await handleCreateSavedReel({ title: updates.title, startDate: editingReel.startDate, endDate: editingReel.endDate, song: updates.song, song2: updates.song2, durationSec: updates.durationSec, slideRefs: updates.slideRefs })
-                : await handleUpdateSavedReel(editingReel.id, updates);
-              if (!saved) return; // creation/update failed — stay on the editor, error already shown
-              setEditingReel(null);
-              // Once a reel's been through the editor its content (slideRefs)
-              // and format (length/songs) are both explicit, saved choices —
-              // so playback always goes through the range-reel path from here
-              // on, regardless of whether this reel started as a monthly
-              // bookmark or a custom build, straight into watching the result.
-              setRangeReel({
-                id: saved.id, startDate: editingReel.startDate, endDate: editingReel.endDate,
-                title: saved.title, song: saved.song, song2: saved.song2, durationSec: saved.durationSec, slideRefs: saved.slideRefs,
-              });
-            }}
-          />
-        </Suspense>
+        <ScreenErrorBoundary onBack={() => setEditingReel(null)}>
+          <Suspense fallback={<div className="screen" />}>
+            <LazyReelEditScreen
+              entries={entries}
+              kids={kids}
+              familyMembers={familyMembers}
+              reel={editingReel}
+              onBack={() => setEditingReel(null)}
+              onSave={async updates => {
+                // A brand-new reel (opened straight from "+ New reel", never
+                // saved yet) creates its row here instead of updating one —
+                // the row doesn't exist until this exact moment, so nothing
+                // shows up in Keepsakes until the user has actually finished
+                // customizing it and tapped "Build reel".
+                const saved = editingReel.id == null
+                  ? await handleCreateSavedReel({ title: updates.title, startDate: editingReel.startDate, endDate: editingReel.endDate, song: updates.song, song2: updates.song2, durationSec: updates.durationSec, slideRefs: updates.slideRefs })
+                  : await handleUpdateSavedReel(editingReel.id, updates);
+                if (!saved) return; // creation/update failed — stay on the editor, error already shown
+                setEditingReel(null);
+                // Once a reel's been through the editor its content (slideRefs)
+                // and format (length/songs) are both explicit, saved choices —
+                // so playback always goes through the range-reel path from here
+                // on, regardless of whether this reel started as a monthly
+                // bookmark or a custom build, straight into watching the result.
+                setRangeReel({
+                  id: saved.id, startDate: editingReel.startDate, endDate: editingReel.endDate,
+                  title: saved.title, song: saved.song, song2: saved.song2, durationSec: saved.durationSec, slideRefs: saved.slideRefs,
+                });
+              }}
+            />
+          </Suspense>
+        </ScreenErrorBoundary>
       )}
 
       {showNotificationHistory && (
