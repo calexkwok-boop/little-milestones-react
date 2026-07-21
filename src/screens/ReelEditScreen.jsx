@@ -78,6 +78,65 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   const [song2Query, setSong2Query] = useState('');
   const [song2Results, setSong2Results] = useState([]);
   const [song2Searching, setSong2Searching] = useState(false);
+
+  // --- Reordering the two soundtrack slots (which song plays first vs
+  // second) — a much smaller version of the same long-press-then-drag
+  // pattern the slides below use, scoped to just these two stacked rows.
+  const song1RowRef = useRef(null);
+  const song2RowRef = useRef(null);
+  const songDragRef = useRef(null); // { slot, startY, timer, active }
+  const [draggingSongSlot, setDraggingSongSlot] = useState(null); // 0, 1, or null
+  const [songDragOffsetY, setSongDragOffsetY] = useState(0);
+
+  function onSongGripPointerDown(e, slot) {
+    if (e.button != null && e.button !== 0) return;
+    const drag = { slot, startY: e.clientY, active: false };
+    const activate = () => {
+      drag.active = true;
+      setDraggingSongSlot(slot);
+      setSongDragOffsetY(0);
+      try { navigator.vibrate?.(10); } catch {}
+    };
+    if (e.pointerType === 'mouse') { activate(); songDragRef.current = drag; return; }
+    drag.timer = setTimeout(() => { if (songDragRef.current === drag) activate(); }, LONG_PRESS_MS);
+    songDragRef.current = drag;
+  }
+
+  useEffect(() => {
+    function onMove(e) {
+      const drag = songDragRef.current;
+      if (!drag || !drag.active) return;
+      e.preventDefault();
+      setSongDragOffsetY(e.clientY - drag.startY);
+    }
+    function onEnd(e) {
+      const drag = songDragRef.current;
+      songDragRef.current = null;
+      if (drag && !drag.active) clearTimeout(drag.timer);
+      setDraggingSongSlot(null);
+      setSongDragOffsetY(0);
+      if (!drag?.active) return;
+      const clientY = e.clientY ?? e.changedTouches?.[0]?.clientY;
+      const r1 = song1RowRef.current?.getBoundingClientRect();
+      const r2 = song2RowRef.current?.getBoundingClientRect();
+      if (!r1 || !r2 || clientY == null) return;
+      const targetSlot = clientY < (r1.top + r2.bottom) / 2 ? 0 : 1;
+      if (targetSlot === drag.slot) return;
+      setSong(song2); setSong2(song);
+      setSongQuery(song2Query); setSong2Query(songQuery);
+      setSongResults(song2Results); setSong2Results(songResults);
+      setSongSearching(song2Searching); setSong2Searching(songSearching);
+    }
+    document.addEventListener('pointermove', onMove, { passive: false });
+    document.addEventListener('pointerup', onEnd);
+    document.addEventListener('pointercancel', onEnd);
+    return () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onEnd);
+      document.removeEventListener('pointercancel', onEnd);
+    };
+  }, [song, song2, songQuery, song2Query, songResults, song2Results, songSearching, song2Searching]);
+
   // Once a reel's been through the editor, its format becomes an explicit
   // saved choice too (same as its content) rather than something re-derived
   // live from how much media happened to be in range — so a monthly bookmark
@@ -570,33 +629,69 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
                 </button>
               ))}
             </div>
-            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
-              {durationSec === 60 ? 'First soundtrack' : 'Soundtrack'}
-            </p>
-            <SongSearchField
-              song={song}
-              onPick={picked => { setSong(picked); setSongQuery(''); setSongResults([]); }}
-              onClear={() => setSong(null)}
-              query={songQuery}
-              onQueryChange={setSongQuery}
-              results={songResults}
-              searching={songSearching}
-              placeholder="Search for a song…"
-            />
-            {durationSec === 60 && (
-              <>
-                <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '12px 0 6px' }}>Second soundtrack</p>
-                <SongSearchField
-                  song={song2}
-                  onPick={picked => { setSong2(picked); setSong2Query(''); setSong2Results([]); }}
-                  onClear={() => setSong2(null)}
-                  query={song2Query}
-                  onQueryChange={setSong2Query}
-                  results={song2Results}
-                  searching={song2Searching}
-                  placeholder="Search for a second song…"
-                />
-              </>
+            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Soundtrack</p>
+            {durationSec === 60 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {[0, 1].map(slot => {
+                  const isDragging = draggingSongSlot === slot;
+                  const rowRef = slot === 0 ? song1RowRef : song2RowRef;
+                  return (
+                    <div
+                      key={slot}
+                      ref={rowRef}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        transform: isDragging ? `translateY(${songDragOffsetY}px)` : 'none',
+                        position: isDragging ? 'relative' : 'static', zIndex: isDragging ? 5 : 'auto',
+                        opacity: isDragging ? 0.9 : 1,
+                      }}
+                    >
+                      <div
+                        onPointerDown={e => onSongGripPointerDown(e, slot)}
+                        style={{ flexShrink: 0, width: 22, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'grab', touchAction: 'none', color: 'var(--text-muted)' }}
+                      >
+                        <i className="ti ti-grip-vertical" style={{ fontSize: 16 }} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        {slot === 0 ? (
+                          <SongSearchField
+                            song={song}
+                            onPick={picked => { setSong(picked); setSongQuery(''); setSongResults([]); }}
+                            onClear={() => setSong(null)}
+                            query={songQuery}
+                            onQueryChange={setSongQuery}
+                            results={songResults}
+                            searching={songSearching}
+                            placeholder="Search for a song…"
+                          />
+                        ) : (
+                          <SongSearchField
+                            song={song2}
+                            onPick={picked => { setSong2(picked); setSong2Query(''); setSong2Results([]); }}
+                            onClear={() => setSong2(null)}
+                            query={song2Query}
+                            onQueryChange={setSong2Query}
+                            results={song2Results}
+                            searching={song2Searching}
+                            placeholder="Search for a second song…"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <SongSearchField
+                song={song}
+                onPick={picked => { setSong(picked); setSongQuery(''); setSongResults([]); }}
+                onClear={() => setSong(null)}
+                query={songQuery}
+                onQueryChange={setSongQuery}
+                results={songResults}
+                searching={songSearching}
+                placeholder="Search for a song…"
+              />
             )}
           </div>
 
