@@ -54,7 +54,7 @@ function CardThumb({ item, wide }) {
 }
 
 const LONG_PRESS_MS = 300;
-const MOVE_CANCEL_PX = 8;
+const MOVE_CANCEL_PX = 18; // a real hold-still-then-drag gesture isn't perfectly stationary — 8px was tight enough that natural finger movement during the press itself was cancelling the pending drag before the long-press timer ever fired
 
 export default function ReelEditScreen({ entries, kids, familyMembers = [], reel, onBack, onSave }) {
   const isNew = reel.id == null; // opened straight from "+ New reel" — nothing's been written to Keepsakes yet
