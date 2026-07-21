@@ -1,171 +1,87 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { cloudinaryTransform, exactAgeLabel } from '../constants.js';
+import { cloudinaryTransform } from '../constants.js';
 import { supabase } from '../supabase.js';
 import {
-  PHOTO_SLIDE_MS, TRIP_ARC_MS,
+  TRIP_ARC_MS, MIN_TEXT_READ_MS,
   videoThumbUrl, slideDurationMs, ReelSlideVideo, TripSlide, TextSlide,
   useReelImagePreload, useReelCountUpStats, useReelAudioEngine,
   ReelBottomBar, MonthlyClosingCard,
+  buildReelCandidates, resolveSlideRefs, autoSampleSlides, seededRandom,
 } from './reelShared.jsx';
 
-// "{kid} · {age} old · {date}" — used both for the live caption bar and
-// (precomputed into a plain string) for the shared payload, so both render
-// from the exact same field instead of the shared page recomputing it from
-// data it doesn't have.
-function captionFor(kid, date) {
-  if (!kid || !date) return null;
-  const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-  return `${kid.name?.split(' ')[0]} · ${exactAgeLabel(kid.birthdate, date)} old · ${dateLabel}`;
-}
+// Quiet, reflective, warm — the mood a family looks back through a month or a
+// trip with. Auto-picked (not user-chosen) songs are drawn from here instead
+// of two fixed tracks, so reels stop sounding identical to each other. Each
+// entry's `pick` mirrors the old inline fallback chain: prefer the specific
+// artist+track, then just the track name, then whatever iTunes returned.
+const SONG_POOL = [
+  {
+    search: 'landslide andie case',
+    pick: rs => rs.find(r => /andie case/i.test(r.artistName) && /landslide/i.test(r.trackName))
+      || rs.find(r => /landslide/i.test(r.trackName)) || rs[0],
+  },
+  {
+    search: 'hollow coves coastline',
+    pick: rs => rs.find(r => /hollow coves/i.test(r.artistName) && /^coastline$/i.test(r.trackName))
+      || rs.find(r => /hollow coves/i.test(r.artistName) && /coastline/i.test(r.trackName))
+      || rs.find(r => /coastline/i.test(r.trackName)) || rs[0],
+  },
+  {
+    search: 'such great heights iron and wine',
+    pick: rs => rs.find(r => /iron.*wine/i.test(r.artistName) && /such great heights/i.test(r.trackName))
+      || rs.find(r => /such great heights/i.test(r.trackName)) || rs[0],
+  },
+  {
+    search: 'happiest year jaymes young',
+    pick: rs => rs.find(r => /jaymes young/i.test(r.artistName) && /happiest year/i.test(r.trackName))
+      || rs.find(r => /happiest year/i.test(r.trackName)) || rs[0],
+  },
+  {
+    search: "i don't want to miss a thing mary bragg",
+    pick: rs => rs.find(r => /mary bragg/i.test(r.artistName) && /miss a thing/i.test(r.trackName))
+      || rs.find(r => /miss a thing/i.test(r.trackName)) || rs[0],
+  },
+  {
+    search: 'forever young alphaville',
+    pick: rs => rs.find(r => /^alphaville$/i.test(r.artistName) && /^forever young$/i.test(r.trackName))
+      || rs.find(r => /alphaville/i.test(r.artistName) && /forever young/i.test(r.trackName)) || rs[0],
+  },
+  {
+    search: 'iris goo goo dolls',
+    pick: rs => rs.find(r => /goo goo dolls/i.test(r.artistName) && /^iris$/i.test(r.trackName))
+      || rs.find(r => /goo goo dolls/i.test(r.artistName) && /iris/i.test(r.trackName)) || rs[0],
+  },
+  {
+    search: 'rhianne somewhere only we know',
+    pick: rs => rs.find(r => /^rhianne$/i.test(r.artistName) && /somewhere only we know/i.test(r.trackName))
+      || rs.find(r => /somewhere only we know/i.test(r.trackName)) || rs[0],
+  },
+  {
+    search: 'better together jack johnson',
+    pick: rs => rs.find(r => /^jack johnson$/i.test(r.artistName) && /^better together$/i.test(r.trackName))
+      || rs.find(r => /jack johnson/i.test(r.artistName) && /better together/i.test(r.trackName)) || rs[0],
+  },
+];
 
-// One fewer photo slide, traded for more time on the trip arc animation below.
-const SHORT_MAX_PHOTO_SLIDES = 7;
-// A month with enough content gets a second song and a bigger photo budget
-// instead of stretching a handful of photos to fill 60 seconds of music —
-// see isLongReel below for the threshold that decides which tier applies.
-const LONG_MAX_PHOTO_SLIDES = 14;
-// Below this many distinct photos/videos, there just isn't enough material to
-// justify a second song — a sparse month gets the original single-song,
-// ~30s reel instead of a two-song reel padded out with repeats or a wall of
-// near-static slides.
-const LONG_REEL_MEDIA_THRESHOLD = 12;
-
-// `startDate`/`endDate` are ISO 'YYYY-MM-DD' strings, inclusive on both ends —
-// these compare correctly as plain strings, so no Date parsing is needed. A
-// calendar-month reel is just the special case where the caller computed
-// startDate/endDate as that month's first/last day.
-function entriesInRange(entries, startDate, endDate) {
-  return entries.filter(e => e.date >= startDate && e.date <= endDate);
-}
-
-// A tiny seeded PRNG (mulberry32, seeded via a string hash) — the "random" photo
-// fill below needs to reshuffle only when the actual candidate pool changes
-// (new entries added to the range), not on every re-open of the same saved
-// reel, or a "saved" reel would show different photos each time you watched it.
-function seededRandom(seed) {
-  let h = 1779033703 ^ seed.length;
-  for (let i = 0; i < seed.length; i++) {
-    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
-    h = (h << 13) | (h >>> 19);
-  }
-  return function () {
-    h = Math.imul(h ^ (h >>> 16), 2246822507);
-    h = Math.imul(h ^ (h >>> 13), 3266489909);
-    h = (h ^= h >>> 16) >>> 0;
-    return h / 4294967296;
-  };
-}
-
-function monthEntriesFor(entries, startDate, endDate) {
-  return entriesInRange(entries, startDate, endDate).filter(e => e.media?.length);
-}
-
-// Every letter/note with written words is a candidate here, media or not —
-// this is what actually differentiates the reel from a generic auto-generated
-// photo montage: the family's own written words, not just their photos. A
-// letter with a photo attached still gets its photo in the photo pipeline
-// below; this is what earns its words their own separate beat in the reel.
-function monthTextEntriesFor(entries, startDate, endDate) {
-  return entriesInRange(entries, startDate, endDate).filter(e => e.text?.trim());
-}
-
-function textExcerpt(text, maxLen) {
-  const trimmed = text.trim().replace(/\s+/g, ' ');
-  if (trimmed.length <= maxLen) return trimmed;
-  const cut = trimmed.slice(0, maxLen);
-  const lastSpace = cut.lastIndexOf(' ');
-  return (lastSpace > maxLen * 0.6 ? cut.slice(0, lastSpace) : cut) + '…';
-}
-
-// Same "home is the coordinate cluster with the most neighbors within 25
-// miles" logic already used for the Journal search's "trips" filter — kept
-// as its own copy here since screens/ files are self-contained, same as
-// videoThumbUrl above.
-const TRIP_DISTANCE_MILES = 25;
-
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 3958.8;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function findHomePoint(entries) {
-  const pts = entries.filter(e => e.locationLat != null && e.locationLng != null);
-  if (pts.length < 2) return null;
-  let best = null, bestCount = 0;
-  pts.forEach(p => {
-    const count = pts.filter(q => haversine(p.locationLat, p.locationLng, q.locationLat, q.locationLng) <= TRIP_DISTANCE_MILES).length;
-    if (count > bestCount) { bestCount = count; best = p; }
-  });
-  if (!best || bestCount < 2) return null;
-  return { lat: best.locationLat, lng: best.locationLng };
-}
-
-// One trip highlight per reel, at most — the farthest-from-home entry this
-// month becomes the destination; its photo is the reveal after the arc, and
-// the rest of that trip's photos still surface as ordinary slides elsewhere.
-function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
-  if (!homePt) return null;
-  const tripEntries = monthEntries.filter(e =>
-    e.locationLat != null && e.locationLng != null && e.media?.length > 0 &&
-    haversine(homePt.lat, homePt.lng, e.locationLat, e.locationLng) > TRIP_DISTANCE_MILES
-  );
-  if (tripEntries.length === 0) return null;
-  const farthest = tripEntries.reduce((a, b) =>
-    haversine(homePt.lat, homePt.lng, b.locationLat, b.locationLng) > haversine(homePt.lat, homePt.lng, a.locationLat, a.locationLng) ? b : a
-  );
-  const distanceMiles = Math.round(haversine(homePt.lat, homePt.lng, farthest.locationLat, farthest.locationLng));
-  const photo = farthest.media.find(m => m.type !== 'video') || farthest.media[0];
-  // The slide sorts by the trip's *earliest* day, not the farthest photo's
-  // day — so in chronological order the animation always leads into that
-  // trip's own photos rather than landing partway through them.
-  const earliestDate = tripEntries.reduce((min, e) => e.date < min ? e.date : min, tripEntries[0].date);
-
-  // Whoever actually shows up in the trip — every kid tagged in any of its
-  // entries, and every family member who authored one — not just the one
-  // kid/photo picked to represent it, so the arc reads like "this was your
-  // trip" rather than spotlighting a single person. Normalized into one
-  // {name, avatar, accent} shape since TripSlide doesn't need to tell kids
-  // and family members apart.
-  const tripKidIds = new Set(tripEntries.flatMap(e => e.kids || []));
-  const tripAuthorIds = new Set(tripEntries.map(e => e.userId).filter(Boolean));
-  const tripKids = kids.filter(k => tripKidIds.has(k.id));
-  const tripFamilyMembers = familyMembers.filter(m => tripAuthorIds.has(m.user_id));
-  const tripPeople = [
-    ...tripKids.map(k => ({ name: k.name, avatar: k.avatar, accent: k.accent })),
-    ...tripFamilyMembers.map(m => ({ name: m.real_name || m.display_name || 'Family', avatar: m.avatar_url, accent: '#4A5E50' })),
-  ];
-  const photoKid = kids.find(k => farthest.kids.includes(k.id));
-
-  return {
-    type: 'trip',
-    date: earliestDate,
-    earliestDate,
-    destLat: farthest.locationLat,
-    destLng: farthest.locationLng,
-    destinationLabel: farthest.location || 'somewhere new',
-    distanceMiles,
-    photo: { url: photo.url, mediaType: photo.type, cropY: farthest.cropY ?? 50 },
-    photoCaption: captionFor(photoKid, farthest.date),
-    tripPeople,
-    tripEntryIds: new Set(tripEntries.map(e => e.id)),
-    durationMs: TRIP_ARC_MS + PHOTO_SLIDE_MS,
-  };
+async function fetchPoolSong(spec) {
+  try {
+    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(spec.search)}&entity=song&limit=15`);
+    const data = await res.json();
+    const results = (data.results || []).filter(r => r.previewUrl);
+    const pick = spec.pick(results);
+    if (pick) return { name: pick.trackName, artist: pick.artistName, artworkUrl: pick.artworkUrl100, previewUrl: pick.previewUrl };
+  } catch {}
+  return null;
 }
 
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
-function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, customSong2 = null, forceLongReel = null, reelId = null, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onUnsaveReel, onStatClick }) {
-  const monthEntries = useMemo(() => monthEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
-  const monthTextEntries = useMemo(() => monthTextEntriesFor(entries, startDate, endDate), [entries, startDate, endDate]);
-
-  // Home is computed from ALL entries (a stable, long-term thing), not just
-  // this month's — otherwise a month with only trip photos would have
-  // nothing to compare distance against.
-  const homePt = useMemo(() => findHomePoint(entries), [entries]);
-  const trip = useMemo(() => findTripThisMonth(monthEntries, homePt, kids, familyMembers), [monthEntries, homePt, kids, familyMembers]);
+function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, customSong2 = null, forceLongReel = null, reelId = null, slideRefs = null, onAutoPickSong, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onUnsaveReel, onStatClick }) {
+  // The same full, unbudgeted candidate pool the reel editor uses — a frozen
+  // reel (slideRefs below) resolves its exact saved picks against this; an
+  // auto-built one (slideRefs null) samples/budgets from it exactly as before.
+  const candidates = useMemo(() => buildReelCandidates(entries, kids, familyMembers, startDate, endDate), [entries, kids, familyMembers, startDate, endDate]);
+  const trip = candidates.trip;
 
   // The stored location is often a specific address/place name — reverse
   // geocode to "City, State" for the arc label instead. Routed through the
@@ -191,127 +107,16 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   }, [trip]);
 
   const { slides, isLongReel } = useMemo(() => {
-    // Pre-seed with whatever the trip slide already claimed, so its photo
-    // doesn't also show up again as a plain photo slide.
-    const seen = new Set();
-    if (trip) seen.add(trip.photo.url);
-    const photoCandidates = [];
-    for (const e of monthEntries.slice().sort((a, b) => a.date.localeCompare(b.date))) {
-      for (const m of e.media) {
-        if (seen.has(m.url)) continue;
-        seen.add(m.url);
-        const kid = kids.find(k => e.kids.includes(k.id));
-        photoCandidates.push({ type: 'photo', url: m.url, mediaType: m.type, date: e.date, cropY: e.cropY ?? 50, kid, caption: captionFor(kid, e.date), entryId: e.id, durationMs: PHOTO_SLIDE_MS });
-      }
+    const auto = autoSampleSlides(candidates, { forceLongReel, reelId });
+    // Once a reel has been through the editor, slideRefs is the definitive,
+    // user-arranged list — resolved against the live candidates above (so a
+    // crop change or caption still updates), but the set and order are
+    // exactly what was saved, not re-sampled.
+    if (slideRefs != null) {
+      return { slides: resolveSlideRefs(slideRefs, candidates, trip), isLongReel: auto.isLongReel };
     }
-    // A rich month earns a second song and a bigger photo budget instead of
-    // stretching a handful of photos to fill 60 seconds, or repeating itself.
-    // A custom-range reel skips this guess entirely — the user picked "30
-    // seconds" or "1 minute" explicitly, via forceLongReel.
-    const isLongReel = forceLongReel != null ? forceLongReel : photoCandidates.length >= LONG_REEL_MEDIA_THRESHOLD;
-    const MAX_PHOTO_SLIDES = isLongReel ? LONG_MAX_PHOTO_SLIDES : SHORT_MAX_PHOTO_SLIDES;
-    const tripCandidates = trip ? [trip] : [];
-
-    // Letters and notes/prompts, photo attached or not — capped low (unlike
-    // photos/videos) since reading text takes real time and this is meant as
-    // a moment, not the reel's main content.
-    const textAll = monthTextEntries.slice().sort((a, b) => a.date.localeCompare(b.date)).map(e => {
-      const kid = kids.find(k => e.kids.includes(k.id));
-      const isLetter = e.type === 'letter';
-      const excerpt = textExcerpt(e.text, isLetter ? 200 : 140);
-      const wordCount = excerpt.split(/\s+/).length;
-      return {
-        type: 'text',
-        subtype: isLetter ? 'letter' : 'note',
-        text: excerpt,
-        date: e.date,
-        kid,
-        kidName: kid?.name?.split(' ')[0] || null,
-        kidAvatar: kid?.avatar || null,
-        kidAccent: kid?.accent || null,
-        durationMs: Math.min(7500, Math.max(4200, 1400 + wordCount * 220)),
-      };
-    });
-    const MAX_TEXT_SLIDES = 2;
-    const textCandidates = textAll.length <= MAX_TEXT_SLIDES ? textAll : (() => {
-      const step = textAll.length / MAX_TEXT_SLIDES;
-      const out = [];
-      for (let i = 0; i < MAX_TEXT_SLIDES; i++) out.push(textAll[Math.floor(i * step)]);
-      return out;
-    })();
-
-    // Videos get priority — every video this month makes it into the reel,
-    // no matter how many there are. Only the remaining slide budget (if any)
-    // gets filled with photos.
-    const videoSlides = photoCandidates.filter(s => s.mediaType === 'video');
-    const imageSlides = photoCandidates.filter(s => s.mediaType !== 'video');
-    const imageBudget = Math.max(0, MAX_PHOTO_SLIDES - videoSlides.length);
-
-    function sampleEvenly(arr, n) {
-      if (arr.length <= n) return arr;
-      const step = arr.length / n;
-      const out = [];
-      for (let i = 0; i < n; i++) out.push(arr[Math.floor(i * step)]);
-      return out;
-    }
-
-    // Videos and letters are the guaranteed content (all videos above; up to
-    // MAX_TEXT_SLIDES letters below) — plain photos are the filler, so which
-    // ones make the cut is randomized rather than picked by a fixed stride.
-    // An unsaved reel (reelId == null) gets a fresh shuffle via Math.random()
-    // every time it's opened. Once it's actually saved into Keepsakes, reelId
-    // is that row's own stable id — seeding on it means the same saved reel
-    // always shows the same photos on reopen, instead of reshuffling, while an
-    // unsaved reel stays free to look different each time.
-    const rng = reelId != null ? seededRandom(String(reelId)) : Math.random;
-    function sampleRandom(arr, n) {
-      if (arr.length <= n) return arr;
-      const shuffled = arr.slice().sort(() => rng() - 0.5);
-      return shuffled.slice(0, n);
-    }
-
-    // A trip is "a bigger deal" — its photos get first claim on roughly half
-    // the image budget (or all of them, if there are fewer) instead of being
-    // sampled alongside the rest of the range on equal footing. The remaining
-    // budget is filled randomly from the rest.
-    let keptImages;
-    if (trip) {
-      const tripImages = imageSlides.filter(s => trip.tripEntryIds.has(s.entryId));
-      const otherImages = imageSlides.filter(s => !trip.tripEntryIds.has(s.entryId));
-      const tripBudget = Math.min(tripImages.length, Math.ceil(imageBudget / 2));
-      const otherBudget = Math.max(0, imageBudget - tripBudget);
-      keptImages = [...sampleRandom(tripImages, tripBudget), ...sampleRandom(otherImages, otherBudget)];
-    } else {
-      keptImages = sampleRandom(imageSlides, imageBudget);
-    }
-
-    // Chronological order for the photo/video/trip spine — a trip slide
-    // needs to lead into its own trip photos (picture, picture, trip
-    // animation, trip pic, trip pic, picture…), so on a tied date the trip
-    // slide always sorts first.
-    const spine = [...videoSlides, ...keptImages, ...tripCandidates];
-    spine.sort((a, b) => {
-      const byDate = a.date.localeCompare(b.date);
-      if (byDate !== 0) return byDate;
-      if (a.type === 'trip') return -1;
-      if (b.type === 'trip') return 1;
-      return 0;
-    });
-
-    // Text slides are placed by even spacing across the spine, not by their
-    // real date — two letters written a day apart would otherwise land right
-    // next to each other instead of reading as separate beats scattered
-    // through the reel. Skips the very first/last slot so a quote doesn't
-    // open or close the reel outright.
-    const combined = spine.slice();
-    textCandidates.forEach((textSlide, i) => {
-      const fraction = (i + 1) / (textCandidates.length + 1);
-      const insertAt = Math.min(spine.length, Math.max(1, Math.round(fraction * spine.length)));
-      combined.splice(insertAt + i, 0, textSlide);
-    });
-
-    return { slides: combined, isLongReel };
-  }, [monthEntries, monthTextEntries, kids, trip, forceLongReel, reelId]);
+    return auto;
+  }, [candidates, trip, forceLongReel, reelId, slideRefs]);
 
   const [index, setIndex] = useState(0);
   const [showIntro, setShowIntro] = useState(true);
@@ -340,7 +145,12 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
 
   const [countedStats, setCountedStats] = useReelCountUpStats(showStats, stats);
 
-  const totalBaseMs = useMemo(() => slides.reduce((sum, s) => sum + s.durationMs, 0), [slides]);
+  // A text slide's real floor (MIN_TEXT_READ_MS, applied post-scale in
+  // slideDurationMs below) has to be reserved here too, or the audio-matching
+  // scale gets computed against a total that undercounts how long text slides
+  // actually end up on screen — reels with letters would then run visibly
+  // longer than the music that was sized to cover them.
+  const totalBaseMs = useMemo(() => slides.reduce((sum, s) => sum + (s.type === 'text' ? Math.max(s.durationMs, MIN_TEXT_READ_MS) : s.durationMs), 0), [slides]);
   // Music intentionally does NOT start during the intro card — holding it
   // back gives the cover card room to breathe instead of feeling rushed by a
   // countdown that's already ticking; playSong1() is called once the card
@@ -364,49 +174,57 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Which pool entries this reel draws for song 1 / song 2 — same
+  // saved-vs-unsaved rule as the photo shuffle above: an unsaved reel gets a
+  // fresh random pick every time it's opened, while a saved reel (reelId
+  // known) seeds off its own row id so it always lands on the same two songs
+  // on reopen. Song 2's draw excludes whatever song 1 picked so a long reel
+  // never doubles up on the same track.
+  const song1Index = useMemo(() => {
+    const rng = reelId != null ? seededRandom(`song1-${reelId}`) : Math.random;
+    return Math.floor(rng() * SONG_POOL.length);
+  }, [reelId]);
+  const song2Index = useMemo(() => {
+    const rng = reelId != null ? seededRandom(`song2-${reelId}`) : Math.random;
+    const idx = Math.floor(rng() * SONG_POOL.length);
+    return (idx === song1Index && SONG_POOL.length > 1) ? (idx + 1) % SONG_POOL.length : idx;
+  }, [reelId, song1Index]);
+
   // Background music — same iTunes preview-clip approach as the birthday
-  // reel (a real, legally-served preview, not a hosted copy of the track):
-  // Landslide, Andie Case's cover specifically. Skipped entirely when the
-  // caller already supplied a customSong (a custom-range reel the user
-  // picked their own soundtrack for) — that's used as-is instead.
+  // reel (a real, legally-served preview, not a hosted copy of the track).
+  // Skipped entirely when the caller already supplied a customSong (a
+  // custom-range reel the user picked their own soundtrack for, or a saved
+  // reel reopening with whatever it already froze) — that's used as-is
+  // instead. A saved reel (reelId known) that auto-picks here reports the
+  // result back via onAutoPickSong so it's written into the saved row and
+  // never has to be re-derived from the pool again — same permanence as the
+  // slides themselves, not just a reproducible-for-now seeded guess.
   useEffect(() => {
     if (customSong) return;
-    async function loadSong() {
-      try {
-        const res = await fetch('https://itunes.apple.com/search?term=landslide+andie+case&entity=song&limit=15');
-        const data = await res.json();
-        const results = (data.results || []).filter(r => r.previewUrl);
-        const pick = results.find(r => /andie case/i.test(r.artistName) && /landslide/i.test(r.trackName))
-          || results.find(r => /landslide/i.test(r.trackName))
-          || results[0];
-        if (pick) setSong({ name: pick.trackName, artist: pick.artistName, artworkUrl: pick.artworkUrl100, previewUrl: pick.previewUrl });
-      } catch {}
-    }
-    loadSong();
-  }, [customSong]);
+    let cancelled = false;
+    fetchPoolSong(SONG_POOL[song1Index]).then(result => {
+      if (!result || cancelled) return;
+      setSong(result);
+      if (reelId != null) onAutoPickSong?.('song', result);
+    });
+    return () => { cancelled = true; };
+  }, [customSong, song1Index]);
 
   // Second song — only fetched for a long reel (rich month, or a custom range
   // reel the user explicitly built at 1 minute), so a short reel never pays
-  // for an API call it won't use. Coastline, Hollow Coves — pairs with
-  // Landslide's tone (both quiet and reflective). The track itself is titled
-  // "Coastline" (singular), not "Coastlines". Skipped when the caller already
-  // supplied a customSong2 — the user picked their own second soundtrack.
+  // for an API call it won't use. Skipped when the caller already supplied a
+  // customSong2 — the user picked their own second soundtrack, or a saved
+  // reel reopening with what it already froze. Same write-back as song 1.
   useEffect(() => {
     if (!isLongReel || customSong2) return;
-    async function loadSong2() {
-      try {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent('hollow coves coastline')}&entity=song&limit=15`);
-        const data = await res.json();
-        const results = (data.results || []).filter(r => r.previewUrl);
-        const pick = results.find(r => /hollow coves/i.test(r.artistName) && /^coastline$/i.test(r.trackName))
-          || results.find(r => /hollow coves/i.test(r.artistName) && /coastline/i.test(r.trackName))
-          || results.find(r => /coastline/i.test(r.trackName))
-          || results[0];
-        if (pick) setSong2({ name: pick.trackName, artist: pick.artistName, artworkUrl: pick.artworkUrl100, previewUrl: pick.previewUrl });
-      } catch {}
-    }
-    loadSong2();
-  }, [isLongReel, customSong2]);
+    let cancelled = false;
+    fetchPoolSong(SONG_POOL[song2Index]).then(result => {
+      if (!result || cancelled) return;
+      setSong2(result);
+      if (reelId != null) onAutoPickSong?.('song2', result);
+    });
+    return () => { cancelled = true; };
+  }, [isLongReel, customSong2, song2Index]);
 
   // Auto-advance
   useEffect(() => {
@@ -537,7 +355,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       return;
     }
     setSavingReel(true);
-    const result = await onSaveReel();
+    const result = await onSaveReel({ song, song2: isLongReel ? song2 : null });
     setSavingReel(false);
     if (result) {
       setSavedReel(true);

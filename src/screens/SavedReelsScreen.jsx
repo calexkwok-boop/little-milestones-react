@@ -33,65 +33,15 @@ function composeDate(month, day, year) {
   return `${year}-${month}-${String(day).padStart(2, '0')}`;
 }
 
-// Shared by both soundtrack slots — a picked-song card, or a debounced
-// search field with results, depending on whether `song` is already set.
-function SongSearchField({ song, onPick, onClear, query, onQueryChange, results, searching, placeholder }) {
-  if (song) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-elevated)', borderRadius: 14, padding: '12px 14px' }}>
-        <img src={song.artworkUrl} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
-          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{song.artist}</p>
-        </div>
-        <button onClick={onClear} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--accent)', fontFamily: "'Urbanist', sans-serif", padding: 0, fontWeight: 600, flexShrink: 0 }}>Change</button>
-      </div>
-    );
-  }
-  return (
-    <div>
-      <div style={{ position: 'relative', marginBottom: results.length > 0 ? 8 : 0 }}>
-        <input
-          className="input-field"
-          value={query}
-          onChange={e => onQueryChange(e.target.value)}
-          placeholder={placeholder}
-          style={{ paddingRight: 40 }}
-        />
-        {searching && (
-          <i className="ti ti-loader-2" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite', color: 'var(--text-muted)', fontSize: 16 }} />
-        )}
-      </div>
-      {results.length > 0 && (
-        <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          {results.map((r, i) => (
-            <button
-              key={r.trackId}
-              onClick={() => onPick({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100.replace('100x100bb', '300x300bb'), previewUrl: r.previewUrl })}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', border: 'none', borderBottom: i < results.length - 1 ? '1px solid var(--border)' : 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: "'Urbanist', sans-serif" }}
-            >
-              <img src={r.artworkUrl100} style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.trackName}</p>
-                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.artistName}</p>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-const SWIPE_REVEAL = 72; // px of delete-action revealed once swiped open
+const SWIPE_REVEAL = 144; // px of edit+delete actions revealed once swiped open (two 72px buttons)
 const SWIPE_OPEN_THRESHOLD = 36; // drag past this far left and it snaps open instead of springing back
 
-// A swipeable row — dragging left reveals a delete action underneath,
-// matching the standard iOS/Android "swipe to delete" list pattern instead of
-// a permanently-visible trash icon cluttering every row. `open` (whether
-// this row is currently revealed) is owned by the parent so opening one row
-// can close any other that was already open.
-function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onDelete }) {
+// A swipeable row — dragging left reveals edit + delete actions underneath,
+// matching the standard iOS/Android "swipe for actions" list pattern instead
+// of permanently-visible icons cluttering every row. `open` (whether this
+// row is currently revealed) is owned by the parent so opening one row can
+// close any other that was already open.
+function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onEdit, onDelete }) {
   const [dragX, setDragX] = useState(open ? -SWIPE_REVEAL : 0);
   const dragState = useRef(null); // { startX, startOffset, moved }
 
@@ -122,8 +72,14 @@ function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onDelete })
   return (
     <div style={{ position: 'relative', borderRadius: 14, overflow: 'hidden' }}>
       <button
+        onClick={() => { onEdit(reel); onClose(); }}
+        style={{ position: 'absolute', top: 0, right: 72, bottom: 0, width: 72, background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+      >
+        <i className="ti ti-pencil" style={{ fontSize: 18, color: '#fff' }} />
+      </button>
+      <button
         onClick={() => onDelete(reel)}
-        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: SWIPE_REVEAL, background: '#D4856A', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 72, background: '#D4856A', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
         <i className="ti ti-trash" style={{ fontSize: 18, color: '#fff' }} />
       </button>
@@ -158,7 +114,7 @@ function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onDelete })
   );
 }
 
-function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSection, onCreateReel, onDeleteReel, onWatchReel }) {
+function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSection, onStartBuilding, onDeleteReel, onWatchReel, onEditReel }) {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState('');
   const [startMonth, setStartMonth] = useState('');
@@ -167,78 +123,29 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
   const [endMonth, setEndMonth] = useState('');
   const [endDay, setEndDay] = useState('');
   const [endYear, setEndYear] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [duration, setDuration] = useState(30); // seconds — 30 or 60; 60 unlocks a second soundtrack slot
-  const [song, setSong] = useState(null);
-  const [songQuery, setSongQuery] = useState('');
-  const [songResults, setSongResults] = useState([]);
-  const [songSearching, setSongSearching] = useState(false);
-  const [song2, setSong2] = useState(null);
-  const [song2Query, setSong2Query] = useState('');
-  const [song2Results, setSong2Results] = useState([]);
-  const [song2Searching, setSong2Searching] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null); // the reel pending delete confirmation, or null
   const [openSwipeId, setOpenSwipeId] = useState(null); // which reel row, if any, is currently swiped open
 
   const startDate = composeDate(startMonth, startDay, startYear);
   const endDate = composeDate(endMonth, endDay, endYear);
-  const canSave = startDate && endDate && startDate <= endDate;
-
-  // Same debounced iTunes search NewEntryScreen's song picker uses — a custom
-  // reel gets exactly the song(s) the user picked, instead of the fixed
-  // Landslide/Coastline tracks a monthly reel auto-selects for its mood.
-  useEffect(() => {
-    const q = songQuery.trim();
-    if (q.length < 2) { setSongResults([]); return; }
-    const t = setTimeout(async () => {
-      setSongSearching(true);
-      try {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=8`);
-        const data = await res.json();
-        setSongResults((data.results || []).filter(r => r.previewUrl));
-      } catch {}
-      setSongSearching(false);
-    }, 500);
-    return () => clearTimeout(t);
-  }, [songQuery]);
-
-  useEffect(() => {
-    const q = song2Query.trim();
-    if (q.length < 2) { setSong2Results([]); return; }
-    const t = setTimeout(async () => {
-      setSong2Searching(true);
-      try {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=8`);
-        const data = await res.json();
-        setSong2Results((data.results || []).filter(r => r.previewUrl));
-      } catch {}
-      setSong2Searching(false);
-    }, 500);
-    return () => clearTimeout(t);
-  }, [song2Query]);
+  const canContinue = startDate && endDate && startDate <= endDate;
 
   function resetForm() {
     setTitle('');
     setStartMonth(''); setStartDay(''); setStartYear('');
     setEndMonth(''); setEndDay(''); setEndYear('');
-    setDuration(30);
-    setSong(null);
-    setSongQuery('');
-    setSongResults([]);
-    setSong2(null);
-    setSong2Query('');
-    setSong2Results([]);
   }
 
-  async function handleSave() {
-    if (!canSave || saving) return;
-    setSaving(true);
+  // Just enough to know what the reel covers — title, length, soundtrack,
+  // and exactly which slides make the cut are all decided next, in the same
+  // editor a saved reel is later reopened through. Nothing is written to
+  // Keepsakes until that editor's own "Build reel" is tapped.
+  function handleContinue() {
+    if (!canContinue) return;
     const label = title.trim() || formatRangeLabel(startDate, endDate);
-    const reel = await onCreateReel({ title: label, startDate, endDate, song, song2: duration === 60 ? song2 : null, durationSec: duration });
-    setSaving(false);
     setShowCreate(false);
+    onStartBuilding({ title: label, startDate, endDate });
     resetForm();
-    if (reel) onWatchReel(reel);
   }
 
   return (
@@ -289,6 +196,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
                   onOpen={() => setOpenSwipeId(reel.id)}
                   onClose={() => setOpenSwipeId(id => id === reel.id ? null : id)}
                   onWatch={() => onWatchReel(reel)}
+                  onEdit={onEditReel}
                   onDelete={r => { setDeleteTarget(r); setOpenSwipeId(null); }}
                 />
               ))}
@@ -327,7 +235,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
                 style={{ marginBottom: 20 }}
               />
 
-              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 16px 18px', marginBottom: 16 }}>
+              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 16px 18px', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                   <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(127,176,127,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <i className="ti ti-calendar-event" style={{ fontSize: 13, color: 'var(--accent)' }} />
@@ -368,78 +276,16 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
                   </div>
                 </div>
               </div>
-
-              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 16px 18px', marginBottom: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                  <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(200,153,62,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <i className="ti ti-music" style={{ fontSize: 13, color: '#C8993E' }} />
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Length &amp; soundtrack</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '1px 0 0' }}>{duration === 60 ? '1 minute, two songs' : '30 seconds, one song'}</p>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                  {[{ value: 30, label: '30 seconds' }, { value: 60, label: '1 minute' }].map(opt => (
-                    <button
-                      key={opt.value}
-                      onClick={() => setDuration(opt.value)}
-                      style={{
-                        flex: 1, padding: '10px 12px', borderRadius: 10,
-                        border: duration === opt.value ? 'none' : '1px solid var(--border)',
-                        background: duration === opt.value ? 'linear-gradient(180deg, #D4A84B 0%, #B8872E 100%)' : 'var(--bg-input)',
-                        boxShadow: duration === opt.value ? '0 2px 6px rgba(140,100,20,0.32), inset 0 1px 0 rgba(255,255,255,0.18)' : 'none',
-                        color: duration === opt.value ? '#fff' : 'var(--text)',
-                        fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", cursor: 'pointer',
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-
-                <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>
-                  {duration === 60 ? 'First soundtrack (optional)' : 'Soundtrack (optional)'}
-                </p>
-                <SongSearchField
-                  song={song}
-                  onPick={picked => { setSong(picked); setSongQuery(''); setSongResults([]); }}
-                  onClear={() => setSong(null)}
-                  query={songQuery}
-                  onQueryChange={setSongQuery}
-                  results={songResults}
-                  searching={songSearching}
-                  placeholder="Search for a song… (defaults to a mood track if left blank)"
-                />
-
-                {duration === 60 && (
-                  <>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '16px 0 6px' }}>Second soundtrack (optional)</p>
-                    <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '0 0 8px' }}>Plays for the back half of the reel.</p>
-                    <SongSearchField
-                      song={song2}
-                      onPick={picked => { setSong2(picked); setSong2Query(''); setSong2Results([]); }}
-                      onClear={() => setSong2(null)}
-                      query={song2Query}
-                      onQueryChange={setSong2Query}
-                      results={song2Results}
-                      searching={song2Searching}
-                      placeholder="Search for a second song… (defaults to a mood track if left blank)"
-                    />
-                  </>
-                )}
-              </div>
             </div>
 
             <div style={{ flexShrink: 0, padding: '14px 24px 28px', borderTop: '1px solid var(--border)' }}>
               <button
                 className="btn btn-gold"
-                style={{ width: '100%', opacity: canSave && !saving ? 1 : 0.5 }}
-                disabled={!canSave || saving}
-                onClick={handleSave}
+                style={{ width: '100%', opacity: canContinue ? 1 : 0.5 }}
+                disabled={!canContinue}
+                onClick={handleContinue}
               >
-                {saving ? 'Building…' : 'Build reel'}
+                Continue
               </button>
             </div>
           </div>

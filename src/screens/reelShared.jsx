@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { cloudinaryTransform, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG } from '../constants.js';
+import { cloudinaryTransform, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, exactAgeLabel } from '../constants.js';
 
 // Everything in this file is used by BOTH the live in-app reel
 // (MonthlyReelScreen) and its public replay page (SharedReelScreen) — slide
@@ -38,6 +38,353 @@ export function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
 export function slideDurationMs(s, scale) {
   const base = (s?.durationMs ?? PHOTO_SLIDE_MS) * scale;
   return s?.type === 'text' ? Math.max(base, MIN_TEXT_READ_MS) : base;
+}
+
+// "{kid} · {age} old · {date}" — used both for the live caption bar and
+// (precomputed into a plain string) for the shared payload, so both render
+// from the exact same field instead of the shared page recomputing it from
+// data it doesn't have.
+export function captionFor(kid, date) {
+  if (!kid || !date) return null;
+  const dateLabel = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  return `${kid.name?.split(' ')[0]} · ${exactAgeLabel(kid.birthdate, date)} old · ${dateLabel}`;
+}
+
+function textExcerpt(text, maxLen) {
+  const trimmed = text.trim().replace(/\s+/g, ' ');
+  if (trimmed.length <= maxLen) return trimmed;
+  const cut = trimmed.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > maxLen * 0.6 ? cut.slice(0, lastSpace) : cut) + '…';
+}
+
+// `startDate`/`endDate` are ISO 'YYYY-MM-DD' strings, inclusive on both ends —
+// these compare correctly as plain strings, so no Date parsing is needed. A
+// calendar-month reel is just the special case where the caller computed
+// startDate/endDate as that month's first/last day.
+function entriesInRange(entries, startDate, endDate) {
+  return entries.filter(e => e.date >= startDate && e.date <= endDate);
+}
+
+function monthEntriesFor(entries, startDate, endDate) {
+  return entriesInRange(entries, startDate, endDate).filter(e => e.media?.length);
+}
+
+// Every letter/note with written words is a candidate here, media or not —
+// this is what actually differentiates the reel from a generic auto-generated
+// photo montage: the family's own written words, not just their photos. A
+// letter with a photo attached still gets its photo in the photo pipeline
+// below; this is what earns its words their own separate beat in the reel.
+function monthTextEntriesFor(entries, startDate, endDate) {
+  return entriesInRange(entries, startDate, endDate).filter(e => e.text?.trim());
+}
+
+// Same "home is the coordinate cluster with the most neighbors within 25
+// miles" logic already used for the Journal search's "trips" filter — kept
+// as its own copy here since screens/ files are self-contained.
+const TRIP_DISTANCE_MILES = 25;
+
+function haversine(lat1, lng1, lat2, lng2) {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+export function findHomePoint(entries) {
+  const pts = entries.filter(e => e.locationLat != null && e.locationLng != null);
+  if (pts.length < 2) return null;
+  let best = null, bestCount = 0;
+  pts.forEach(p => {
+    const count = pts.filter(q => haversine(p.locationLat, p.locationLng, q.locationLat, q.locationLng) <= TRIP_DISTANCE_MILES).length;
+    if (count > bestCount) { bestCount = count; best = p; }
+  });
+  if (!best || bestCount < 2) return null;
+  return { lat: best.locationLat, lng: best.locationLng };
+}
+
+// One trip highlight per reel, at most — the farthest-from-home entry in
+// range becomes the destination; its photo is the reveal after the arc, and
+// the rest of that trip's photos still surface as ordinary slides elsewhere.
+function findTripThisMonth(monthEntries, homePt, kids, familyMembers) {
+  if (!homePt) return null;
+  const tripEntries = monthEntries.filter(e =>
+    e.locationLat != null && e.locationLng != null && e.media?.length > 0 &&
+    haversine(homePt.lat, homePt.lng, e.locationLat, e.locationLng) > TRIP_DISTANCE_MILES
+  );
+  if (tripEntries.length === 0) return null;
+  const farthest = tripEntries.reduce((a, b) =>
+    haversine(homePt.lat, homePt.lng, b.locationLat, b.locationLng) > haversine(homePt.lat, homePt.lng, a.locationLat, a.locationLng) ? b : a
+  );
+  const distanceMiles = Math.round(haversine(homePt.lat, homePt.lng, farthest.locationLat, farthest.locationLng));
+  const photo = farthest.media.find(m => m.type !== 'video') || farthest.media[0];
+  // The slide sorts by the trip's *earliest* day, not the farthest photo's
+  // day — so in chronological order the animation always leads into that
+  // trip's own photos rather than landing partway through them.
+  const earliestDate = tripEntries.reduce((min, e) => e.date < min ? e.date : min, tripEntries[0].date);
+
+  // Whoever actually shows up in the trip — every kid tagged in any of its
+  // entries, and every family member who authored one — not just the one
+  // kid/photo picked to represent it, so the arc reads like "this was your
+  // trip" rather than spotlighting a single person. Normalized into one
+  // {name, avatar, accent} shape since TripSlide doesn't need to tell kids
+  // and family members apart.
+  const tripKidIds = new Set(tripEntries.flatMap(e => e.kids || []));
+  const tripAuthorIds = new Set(tripEntries.map(e => e.userId).filter(Boolean));
+  const tripKids = kids.filter(k => tripKidIds.has(k.id));
+  const tripFamilyMembers = familyMembers.filter(m => tripAuthorIds.has(m.user_id));
+  const tripPeople = [
+    ...tripKids.map(k => ({ name: k.name, avatar: k.avatar, accent: k.accent })),
+    ...tripFamilyMembers.map(m => ({ name: m.real_name || m.display_name || 'Family', avatar: m.avatar_url, accent: '#4A5E50' })),
+  ];
+  const photoKid = kids.find(k => farthest.kids.includes(k.id));
+
+  return {
+    type: 'trip',
+    date: earliestDate,
+    earliestDate,
+    destLat: farthest.locationLat,
+    destLng: farthest.locationLng,
+    destinationLabel: farthest.location || 'somewhere new',
+    distanceMiles,
+    photo: { url: photo.url, mediaType: photo.type, cropY: farthest.cropY ?? 50 },
+    photoCaption: captionFor(photoKid, farthest.date),
+    tripPeople,
+    tripEntryIds: new Set(tripEntries.map(e => e.id)),
+    durationMs: TRIP_ARC_MS + PHOTO_SLIDE_MS,
+  };
+}
+
+// The full, unbudgeted pool of everything a reel for this range could draw
+// from — both the live playback algorithm (which applies its own
+// budget/sampling on top of this) and the reel editor (which needs to know
+// everything available to offer, not just what got auto-picked) build off
+// this exact same set, so "what's in the reel" and "what's available to add"
+// never drift out of sync with each other.
+export function buildReelCandidates(entries, kids, familyMembers, startDate, endDate) {
+  const monthEntries = monthEntriesFor(entries, startDate, endDate);
+  const monthTextEntries = monthTextEntriesFor(entries, startDate, endDate);
+  const homePt = findHomePoint(entries);
+  const trip = findTripThisMonth(monthEntries, homePt, kids, familyMembers);
+
+  const seen = new Set();
+  if (trip) seen.add(trip.photo.url);
+  const photoCandidates = [];
+  for (const e of monthEntries.slice().sort((a, b) => a.date.localeCompare(b.date))) {
+    for (const m of e.media) {
+      if (seen.has(m.url)) continue;
+      seen.add(m.url);
+      const kid = kids.find(k => e.kids.includes(k.id));
+      photoCandidates.push({ type: 'photo', url: m.url, mediaType: m.type, date: e.date, cropY: e.cropY ?? 50, kid, caption: captionFor(kid, e.date), entryId: e.id, durationMs: PHOTO_SLIDE_MS });
+    }
+  }
+
+  const textCandidates = monthTextEntries.slice().sort((a, b) => a.date.localeCompare(b.date)).map(e => {
+    const kid = kids.find(k => e.kids.includes(k.id));
+    const isLetter = e.type === 'letter';
+    const excerpt = textExcerpt(e.text, isLetter ? 200 : 140);
+    const wordCount = excerpt.split(/\s+/).length;
+    return {
+      type: 'text',
+      subtype: isLetter ? 'letter' : 'note',
+      text: excerpt,
+      date: e.date,
+      kid,
+      kidName: kid?.name?.split(' ')[0] || null,
+      kidAvatar: kid?.avatar || null,
+      kidAccent: kid?.accent || null,
+      entryId: e.id,
+      durationMs: Math.min(7500, Math.max(4200, 1400 + wordCount * 220)),
+    };
+  });
+
+  return { photoCandidates, textCandidates, trip };
+}
+
+// Turns a saved, ordered list of lightweight refs back into real slide
+// objects against *current* entries/kids data — a crop change or caption
+// still updates live, only the set and order the user picked are pinned.
+// A ref whose source entry no longer exists (deleted since the reel was
+// last edited) is silently skipped rather than erroring.
+export function resolveSlideRefs(refs, candidates, trip) {
+  const photoByUrl = new Map(candidates.photoCandidates.map(p => [p.url, p]));
+  const textByEntryId = new Map(candidates.textCandidates.map(t => [t.entryId, t]));
+  const out = [];
+  for (const ref of refs || []) {
+    if (ref.type === 'trip') { if (trip) out.push(trip); continue; }
+    if (ref.type === 'letter') { const found = textByEntryId.get(ref.entryId); if (found) out.push(found); continue; }
+    const found = photoByUrl.get(ref.url);
+    if (found) out.push(found);
+  }
+  return out;
+}
+
+// The inverse of resolveSlideRefs — what actually gets persisted to
+// saved_reels.slide_refs when the editor saves.
+export function slideToRef(slide) {
+  if (slide.type === 'trip') return { type: 'trip' };
+  if (slide.type === 'text') return { type: 'letter', entryId: slide.entryId };
+  return { type: slide.mediaType === 'video' ? 'video' : 'photo', entryId: slide.entryId, url: slide.url };
+}
+
+// A tiny seeded PRNG (mulberry32, seeded via a string hash) — the "random"
+// photo fill below needs to reshuffle only when the actual candidate pool
+// changes (new entries added to the range), not on every re-open of the same
+// saved reel, or a "saved" reel would show different photos each time.
+export function seededRandom(seed) {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) {
+    h = Math.imul(h ^ seed.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return function () {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h = (h ^= h >>> 16) >>> 0;
+    return h / 4294967296;
+  };
+}
+
+// One fewer photo slide, traded for more time on the trip arc animation.
+const SHORT_MAX_PHOTO_SLIDES = 7;
+// A rich range earns a second song and a bigger photo budget instead of
+// stretching a handful of photos to fill 60 seconds, or repeating itself.
+const LONG_MAX_PHOTO_SLIDES = 14;
+// Below this many distinct photos/videos, there just isn't enough material to
+// justify a second song — a sparse range gets the original single-song,
+// ~30s reel instead of a two-song reel padded out with repeats.
+const LONG_REEL_MEDIA_THRESHOLD = 12;
+
+// The algorithmic "pick and arrange" step — everything buildReelCandidates
+// found, budgeted/sampled/interleaved into an actual playable order. Shared
+// by the live reel (auto mode, before anything's been saved to freeze it)
+// and the reel editor (to show what the algorithm would have picked, as the
+// starting point for a freshly-built reel that's never been through the
+// editor before).
+export function autoSampleSlides(candidates, { forceLongReel = null, reelId = null } = {}) {
+  const { photoCandidates, textCandidates: allTextCandidates, trip } = candidates;
+  const isLongReel = forceLongReel != null ? forceLongReel : photoCandidates.length >= LONG_REEL_MEDIA_THRESHOLD;
+  const MAX_PHOTO_SLIDES = isLongReel ? LONG_MAX_PHOTO_SLIDES : SHORT_MAX_PHOTO_SLIDES;
+  const tripCandidates = trip ? [trip] : [];
+
+  const MAX_TEXT_SLIDES = 2;
+  const textCandidates = allTextCandidates.length <= MAX_TEXT_SLIDES ? allTextCandidates : (() => {
+    const step = allTextCandidates.length / MAX_TEXT_SLIDES;
+    const out = [];
+    for (let i = 0; i < MAX_TEXT_SLIDES; i++) out.push(allTextCandidates[Math.floor(i * step)]);
+    return out;
+  })();
+
+  // Videos get priority — every video makes it into the reel, no matter how
+  // many there are. Only the remaining slide budget (if any) gets photos.
+  const videoSlides = photoCandidates.filter(s => s.mediaType === 'video');
+  const imageSlides = photoCandidates.filter(s => s.mediaType !== 'video');
+  const imageBudget = Math.max(0, MAX_PHOTO_SLIDES - videoSlides.length);
+
+  // Videos and letters are the guaranteed content — plain photos are the
+  // filler, so which ones make the cut is randomized rather than picked by a
+  // fixed stride. An unsaved reel (reelId == null) gets a fresh shuffle via
+  // Math.random() every time it's opened. Once it's actually saved, reelId is
+  // that row's own stable id — seeding on it means the same saved reel always
+  // samples the same photos, instead of reshuffling on reopen.
+  const rng = reelId != null ? seededRandom(String(reelId)) : Math.random;
+  function sampleRandom(arr, n) {
+    if (arr.length <= n) return arr;
+    const shuffled = arr.slice().sort(() => rng() - 0.5);
+    return shuffled.slice(0, n);
+  }
+
+  // A trip is "a bigger deal" — its photos get first claim on roughly half
+  // the image budget (or all of them, if there are fewer) instead of being
+  // sampled alongside the rest on equal footing. The remaining budget is
+  // filled randomly from the rest.
+  let keptImages;
+  if (trip) {
+    const tripImages = imageSlides.filter(s => trip.tripEntryIds.has(s.entryId));
+    const otherImages = imageSlides.filter(s => !trip.tripEntryIds.has(s.entryId));
+    const tripBudget = Math.min(tripImages.length, Math.ceil(imageBudget / 2));
+    const otherBudget = Math.max(0, imageBudget - tripBudget);
+    keptImages = [...sampleRandom(tripImages, tripBudget), ...sampleRandom(otherImages, otherBudget)];
+  } else {
+    keptImages = sampleRandom(imageSlides, imageBudget);
+  }
+
+  // Chronological order for the photo/video/trip spine — a trip slide needs
+  // to lead into its own trip photos, so on a tied date the trip slide
+  // always sorts first.
+  const spine = [...videoSlides, ...keptImages, ...tripCandidates];
+  spine.sort((a, b) => {
+    const byDate = a.date.localeCompare(b.date);
+    if (byDate !== 0) return byDate;
+    if (a.type === 'trip') return -1;
+    if (b.type === 'trip') return 1;
+    return 0;
+  });
+
+  // Text slides are placed by even spacing across the spine, not by their
+  // real date — two letters written a day apart would otherwise land right
+  // next to each other instead of reading as separate beats. Skips the very
+  // first/last slot so a quote doesn't open or close the reel outright.
+  const combined = spine.slice();
+  textCandidates.forEach((textSlide, i) => {
+    const fraction = (i + 1) / (textCandidates.length + 1);
+    const insertAt = Math.min(spine.length, Math.max(1, Math.round(fraction * spine.length)));
+    combined.splice(insertAt + i, 0, textSlide);
+  });
+
+  return { slides: combined, isLongReel };
+}
+
+// Shared by both soundtrack slots (the "New reel" builder and the reel
+// editor) — a picked-song card, or a debounced search field with results,
+// depending on whether `song` is already set.
+export function SongSearchField({ song, onPick, onClear, query, onQueryChange, results, searching, placeholder }) {
+  if (song) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-elevated)', borderRadius: 14, padding: '12px 14px' }}>
+        <img src={song.artworkUrl} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
+          <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{song.artist}</p>
+        </div>
+        <button onClick={onClear} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--accent)', fontFamily: "'Urbanist', sans-serif", padding: 0, fontWeight: 600, flexShrink: 0 }}>Change</button>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div style={{ position: 'relative', marginBottom: results.length > 0 ? 8 : 0 }}>
+        <input
+          className="input-field"
+          value={query}
+          onChange={e => onQueryChange(e.target.value)}
+          placeholder={placeholder}
+          style={{ paddingRight: 40 }}
+        />
+        {searching && (
+          <i className="ti ti-loader-2" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite', color: 'var(--text-muted)', fontSize: 16 }} />
+        )}
+      </div>
+      {results.length > 0 && (
+        <div style={{ background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          {results.map((r, i) => (
+            <button
+              key={r.trackId}
+              onClick={() => onPick({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100.replace('100x100bb', '300x300bb'), previewUrl: r.previewUrl })}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '10px 12px', border: 'none', borderBottom: i < results.length - 1 ? '1px solid var(--border)' : 'none', background: 'none', cursor: 'pointer', textAlign: 'left', fontFamily: "'Urbanist', sans-serif" }}
+            >
+              <img src={r.artworkUrl100} style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.trackName}</p>
+                <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '3px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.artistName}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Toggling the `autoPlay` attribute on a <video> that's already mounted
@@ -540,16 +887,26 @@ export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onS
           {saveToast}
         </div>
       )}
-      {onSave && (
-        <button onClick={onSave} disabled={savingSave} aria-label={saved ? 'Remove from Keepsakes' : 'Save to Keepsakes'} style={{ position: 'absolute', top: 16, right: onShare ? 60 : 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: savingSave ? 'default' : 'pointer', opacity: savingSave ? 0.6 : 1, color: saved ? '#C8993E' : '#fff', fontSize: 16 }}>
-          <i className={`ti ${saved ? 'ti-bookmark-filled' : 'ti-bookmark'}`} />
+      {/* Right-to-left so close sits outermost, then share, then save — each
+          slot 44px apart (36px button + 8px gap). Close only appears for the
+          live in-app reel (primaryAction.onClick) — the shared public page
+          has no "close" to go to, it keeps its own full-width CTA below
+          instead. */}
+      {[
+        primaryAction?.onClick && { key: 'close', onClick: primaryAction.onClick, icon: 'ti-x', label: 'Close' },
+        onShare && { key: 'share', onClick: onShare, icon: 'ti-share-2', label: 'Share' },
+        onSave && { key: 'save', onClick: onSave, disabled: savingSave, icon: saved ? 'ti-bookmark-filled' : 'ti-bookmark', label: saved ? 'Remove from Keepsakes' : 'Save to Keepsakes', color: saved ? '#C8993E' : '#fff' },
+      ].filter(Boolean).map((btn, i) => (
+        <button
+          key={btn.key}
+          onClick={btn.onClick}
+          disabled={btn.disabled}
+          aria-label={btn.label}
+          style={{ position: 'absolute', top: 16, right: 16 + i * 44, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: btn.disabled ? 'default' : 'pointer', opacity: btn.disabled ? 0.6 : 1, color: btn.color || '#fff', fontSize: 16 }}
+        >
+          <i className={`ti ${btn.icon}`} />
         </button>
-      )}
-      {onShare && (
-        <button onClick={onShare} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 16 }}>
-          <i className="ti ti-share-2" />
-        </button>
-      )}
+      ))}
       <p className="fade-up" style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px', animationDelay: '0ms' }}>{monthLabel}</p>
       <h1 className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: '#fff', textAlign: 'center', margin: '0 0 6px', lineHeight: 1.35, animationDelay: '120ms' }}>
         "{quote}"
@@ -590,14 +947,13 @@ export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onS
         <i className="ti ti-player-play-filled" style={{ marginLeft: 2 }} />
       </button>
 
-      {primaryAction.href ? (
+      {/* Live in-app reel closes via the X at top right instead of a bottom
+          button now — this link-only CTA is left for the shared public page,
+          which has no app to close back into. */}
+      {primaryAction.href && (
         <a href={primaryAction.href} className="btn btn-gold fade-up" style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", animationDelay: '560ms', textDecoration: 'none', display: 'inline-block', textAlign: 'center' }}>
           {primaryAction.label}
         </a>
-      ) : (
-        <button onClick={primaryAction.onClick} className="btn btn-gold fade-up" style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", animationDelay: '560ms' }}>
-          {primaryAction.label}
-        </button>
       )}
     </div>
   );

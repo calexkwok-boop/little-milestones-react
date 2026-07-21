@@ -10,6 +10,7 @@ import KidThumb from './KidThumb.jsx';
 import SectionSwitcher from './SectionSwitcher.jsx';
 const LazyBirthdaySlideshowScreen = lazy(() => import('./screens/BirthdaySlideshowScreen'));
 const LazyMonthlyReelScreen = lazy(() => import('./screens/MonthlyReelScreen'));
+const LazyReelEditScreen = lazy(() => import('./screens/ReelEditScreen'));
 import RecapScreen from './screens/RecapScreen';
 import SavedReelsScreen from './screens/SavedReelsScreen';
 const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
@@ -8827,7 +8828,8 @@ export default function App() {
   const [birthdaySlideshowFriend, setBirthdaySlideshowFriend] = useState(null); // { kid, entries }
   const [reelMonth, setReelMonth] = useState(null); // 'YYYY-MM' string — which month's reel to watch, or null when closed
   const [rangeReel, setRangeReel] = useState(null); // { startDate, endDate, title } — the currently-open custom-range reel, or null when closed
-  const [savedReels, setSavedReels] = useState([]); // saved_reels rows: { id, title, startDate, endDate, song, song2, durationSec }
+  const [savedReels, setSavedReels] = useState([]); // saved_reels rows: { id, title, startDate, endDate, song, song2, durationSec, slideRefs }
+  const [editingReel, setEditingReel] = useState(null); // the saved_reels row currently open in the reel editor, or null when closed
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showFriendsPrivacyExplainer, setShowFriendsPrivacyExplainer] = useState(false);
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
@@ -9092,8 +9094,8 @@ export default function App() {
       if (!localStorage.getItem(lsKey)) localStorage.setItem(lsKey, new Date().toISOString());
 
       if (currentFamilyId) {
-        const { data: savedReelsData } = await supabase.from('saved_reels').select('id, title, start_date, end_date, song, song2, duration_sec, created_at').eq('family_id', currentFamilyId).order('created_at', { ascending: false });
-        if (savedReelsData) setSavedReels(savedReelsData.map(r => ({ id: r.id, title: r.title, startDate: r.start_date, endDate: r.end_date, song: r.song || null, song2: r.song2 || null, durationSec: r.duration_sec || 30 })));
+        const { data: savedReelsData } = await supabase.from('saved_reels').select('id, title, start_date, end_date, song, song2, duration_sec, slide_refs, created_at').eq('family_id', currentFamilyId).order('created_at', { ascending: false });
+        if (savedReelsData) setSavedReels(savedReelsData.map(r => ({ id: r.id, title: r.title, startDate: r.start_date, endDate: r.end_date, song: r.song || null, song2: r.song2 || null, durationSec: r.duration_sec || 30, slideRefs: r.slide_refs || null })));
       }
 
       // Load friend data (gracefully skipped if tables don't exist yet)
@@ -9613,9 +9615,9 @@ export default function App() {
   // a frozen snapshot like reel_shares. It's regenerated live from current
   // entries every time it's opened (see the rangeReel render block), so
   // entries added later within that range enrich it automatically.
-  async function handleCreateSavedReel({ title, startDate, endDate, song = null, song2 = null, durationSec = 30 }) {
+  async function handleCreateSavedReel({ title, startDate, endDate, song = null, song2 = null, durationSec = 30, slideRefs = null }) {
     if (localMode || !supabase || !session || !familyId) {
-      const reel = { id: Date.now(), title, startDate, endDate, song, song2, durationSec };
+      const reel = { id: Date.now(), title, startDate, endDate, song, song2, durationSec, slideRefs };
       setSavedReels(prev => [reel, ...prev]);
       return reel;
     }
@@ -9628,19 +9630,42 @@ export default function App() {
       song,
       song2,
       duration_sec: durationSec,
-    }).select('id, title, start_date, end_date, song, song2, duration_sec').single();
+      slide_refs: slideRefs,
+    }).select('id, title, start_date, end_date, song, song2, duration_sec, slide_refs').single();
     if (error || !data) {
       alert('Could not save this reel. Please try again.\n' + (error?.message || ''));
       return null;
     }
-    const reel = { id: data.id, title: data.title, startDate: data.start_date, endDate: data.end_date, song: data.song || null, song2: data.song2 || null, durationSec: data.duration_sec || 30 };
+    const reel = { id: data.id, title: data.title, startDate: data.start_date, endDate: data.end_date, song: data.song || null, song2: data.song2 || null, durationSec: data.duration_sec || 30, slideRefs: data.slide_refs || null };
     setSavedReels(prev => [reel, ...prev]);
     return reel;
+  }
+
+  // Persists title/length/song(s)/slide arrangement from the reel editor in
+  // one shot — the editor always sends all five, whether or not each one
+  // actually changed, so this stays a plain overwrite rather than a partial
+  // patch (simpler, and safe since the editor always initializes from the
+  // reel's current values anyway).
+  async function handleUpdateSavedReel(id, { title, song, song2, durationSec, slideRefs }) {
+    setSavedReels(prev => prev.map(r => r.id === id ? { ...r, title, song, song2, durationSec, slideRefs } : r));
+    if (!localMode && supabase) {
+      await supabase.from('saved_reels').update({ title, song, song2, duration_sec: durationSec, slide_refs: slideRefs }).eq('id', id);
+    }
+    return { id, title, song, song2, durationSec, slideRefs };
   }
 
   async function handleDeleteSavedReel(id) {
     setSavedReels(prev => prev.filter(r => r.id !== id));
     if (!localMode && supabase) await supabase.from('saved_reels').delete().eq('id', id);
+  }
+
+  // Freezes an auto-picked song into an already-saved reel's row the first
+  // time it resolves — same permanence the slides already have. Without this,
+  // a saved reel with no user-chosen soundtrack would re-derive its song from
+  // the pool on every open, which drifts the moment the pool itself changes.
+  async function handleUpdateSavedReelSong(id, field, song) {
+    setSavedReels(prev => prev.map(r => r.id === id ? { ...r, [field]: song } : r));
+    if (!localMode && supabase) await supabase.from('saved_reels').update({ [field]: song }).eq('id', id);
   }
 
   async function handleToggleFavorite(entryId) {
@@ -10902,9 +10927,10 @@ export default function App() {
               savedReels={savedReels}
               onBack={() => setScreen('home')}
               onSwitchSection={switchSection}
-              onCreateReel={handleCreateSavedReel}
               onDeleteReel={handleDeleteSavedReel}
-              onWatchReel={reel => setRangeReel({ id: reel.id, startDate: reel.startDate, endDate: reel.endDate, title: reel.title, song: reel.song || null, song2: reel.song2 || null, durationSec: reel.durationSec || 30 })}
+              onWatchReel={reel => setRangeReel({ id: reel.id, startDate: reel.startDate, endDate: reel.endDate, title: reel.title, song: reel.song || null, song2: reel.song2 || null, durationSec: reel.durationSec || 30, slideRefs: reel.slideRefs || null })}
+              onEditReel={reel => setEditingReel(reel)}
+              onStartBuilding={({ title, startDate, endDate }) => setEditingReel({ id: null, title, startDate, endDate, song: null, song2: null, durationSec: 30, slideRefs: null })}
             />
           </ScreenErrorBoundary>
         </div>
@@ -11210,10 +11236,14 @@ export default function App() {
               monthLabel={recap.label}
               stats={stats}
               reelId={existingSaved?.id ?? null}
+              customSong={existingSaved?.song ?? null}
+              customSong2={existingSaved?.song2 ?? null}
+              slideRefs={existingSaved?.slideRefs ?? null}
+              onAutoPickSong={existingSaved ? (field, song) => handleUpdateSavedReelSong(existingSaved.id, field, song) : undefined}
               onClose={() => setReelMonth(null)}
               onGenerateReelShare={handleGenerateReelShare}
               onRevokeReelShare={handleRevokeReelShare}
-              onSaveReel={() => handleCreateSavedReel({ title: recap.label, startDate, endDate, song: null })}
+              onSaveReel={({ song, song2 } = {}) => handleCreateSavedReel({ title: recap.label, startDate, endDate, song: song || null, song2: song2 || null })}
               onUnsaveReel={handleDeleteSavedReel}
               onStatClick={filter => { const month = reelMonth; setReelMonth(null); openRecapFor({ viewMode: 'month', month, recapFilter: filter }); }}
             />
@@ -11238,6 +11268,8 @@ export default function App() {
               customSong2={rangeReel.song2}
               forceLongReel={rangeReel.durationSec === 60}
               reelId={rangeReel.id}
+              slideRefs={rangeReel.slideRefs}
+              onAutoPickSong={(field, song) => handleUpdateSavedReelSong(rangeReel.id, field, song)}
               onClose={() => setRangeReel(null)}
               onGenerateReelShare={handleGenerateReelShare}
               onRevokeReelShare={handleRevokeReelShare}
@@ -11245,6 +11277,39 @@ export default function App() {
           </Suspense>
         );
       })()}
+
+      {editingReel && (
+        <Suspense fallback={<div className="screen" />}>
+          <LazyReelEditScreen
+            entries={entries}
+            kids={kids}
+            familyMembers={familyMembers}
+            reel={editingReel}
+            onBack={() => setEditingReel(null)}
+            onSave={async updates => {
+              // A brand-new reel (opened straight from "+ New reel", never
+              // saved yet) creates its row here instead of updating one —
+              // the row doesn't exist until this exact moment, so nothing
+              // shows up in Keepsakes until the user has actually finished
+              // customizing it and tapped "Build reel".
+              const saved = editingReel.id == null
+                ? await handleCreateSavedReel({ title: updates.title, startDate: editingReel.startDate, endDate: editingReel.endDate, song: updates.song, song2: updates.song2, durationSec: updates.durationSec, slideRefs: updates.slideRefs })
+                : await handleUpdateSavedReel(editingReel.id, updates);
+              if (!saved) return; // creation/update failed — stay on the editor, error already shown
+              setEditingReel(null);
+              // Once a reel's been through the editor its content (slideRefs)
+              // and format (length/songs) are both explicit, saved choices —
+              // so playback always goes through the range-reel path from here
+              // on, regardless of whether this reel started as a monthly
+              // bookmark or a custom build, straight into watching the result.
+              setRangeReel({
+                id: saved.id, startDate: editingReel.startDate, endDate: editingReel.endDate,
+                title: saved.title, song: saved.song, song2: saved.song2, durationSec: saved.durationSec, slideRefs: saved.slideRefs,
+              });
+            }}
+          />
+        </Suspense>
+      )}
 
       {showNotificationHistory && (
         <Suspense fallback={<div className="screen" />}>
