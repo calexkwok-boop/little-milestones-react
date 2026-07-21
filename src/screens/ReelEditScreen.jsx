@@ -234,6 +234,37 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     setSlideList(prev => prev.filter(s => keyForSlide(s) !== key));
   }
 
+  // Switching to 1 minute doubles the photo budget (7 → 14) — without this,
+  // the reel would still only have however many photos the 30s auto-build
+  // happened to pick, leaving the user to manually drag in enough extras to
+  // actually fill the longer length. Only tops up on the way to 60s; going
+  // back to 30s never removes anything already added.
+  function handleSetDurationSec(newDurationSec) {
+    setDurationSec(newDurationSec);
+    if (newDurationSec !== 60) return;
+    setSlideList(prev => {
+      const videoCount = candidates.photoCandidates.filter(c => c.mediaType === 'video').length;
+      const imageCandidates = candidates.photoCandidates.filter(c => c.mediaType !== 'video');
+      const imageBudget = Math.max(0, 14 - videoCount);
+      const currentImageCount = prev.filter(s => s.type === 'photo' && s.mediaType !== 'video').length;
+      const need = Math.min(imageBudget, imageCandidates.length) - currentImageCount;
+      if (need <= 0) return prev;
+      const usedKeys = new Set(prev.map(keyForSlide));
+      const pool = imageCandidates.filter(c => !usedKeys.has(keyForSlide(c)));
+      const additions = pool.slice().sort(() => Math.random() - 0.5).slice(0, need);
+      const updated = prev.slice();
+      additions.forEach(photo => {
+        let idx = updated.length;
+        for (let i = 0; i < updated.length; i++) {
+          const s = updated[i];
+          if (s.type !== 'text' && s.date && s.date > photo.date) { idx = i; break; }
+        }
+        updated.splice(idx, 0, photo);
+      });
+      return updated;
+    });
+  }
+
   // --- Touch drag-and-drop (hand-rolled — HTML5 drag/drop doesn't work on
   // touchscreens). Built on Pointer Events rather than Touch Events so the
   // exact same code drives a mouse on desktop too — one code path instead of
@@ -615,7 +646,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
               {[{ value: 30, label: '30 seconds' }, { value: 60, label: '1 minute' }].map(opt => (
                 <button
                   key={opt.value}
-                  onClick={() => setDurationSec(opt.value)}
+                  onClick={() => handleSetDurationSec(opt.value)}
                   style={{
                     flex: 1, padding: '9px 8px', borderRadius: 9,
                     border: durationSec === opt.value ? 'none' : '1px solid var(--border)',
