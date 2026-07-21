@@ -196,9 +196,9 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   // instead of trying to make a 96×62 card scrollable.
   const [previewItem, setPreviewItem] = useState(null);
 
-  function onCardPointerDown(e, item, fromList) {
+  function onCardPointerDown(e, item, fromList, containerRef) {
     if (e.button != null && e.button !== 0) return; // ignore right/middle mouse
-    const drag = { key: keyForSlide(item), item, fromList, startX: e.clientX, startY: e.clientY, active: false };
+    const drag = { key: keyForSlide(item), item, fromList, containerRef, startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY, active: false };
     if (e.pointerType === 'mouse') {
       // The long-press-then-cancel-on-movement gate below exists only to let
       // an ordinary touch swipe still scroll the strip instead of starting a
@@ -299,11 +299,21 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       // gesture isn't perfectly stationary, and any fixed pixel tolerance
       // (8px, then 18px) kept getting exceeded by ordinary finger movement
       // before the long-press timer had a chance to fire, killing the drag
-      // before it ever started. Time alone gates activation: release before
-      // LONG_PRESS_MS and nothing happens (a quick swipe scrolls normally,
-      // since preventDefault was never called); hold past it and the drag
-      // activates from wherever the finger currently is.
-      if (!drag.active) { drag.lastX = e.clientX; drag.lastY = e.clientY; return; }
+      // before it ever started. Time alone gates activation: hold past
+      // LONG_PRESS_MS and the drag activates from wherever the finger
+      // currently is. Cards have touch-action: none (native panning on
+      // either axis is exactly what let Safari commit this touch to the
+      // page's own vertical scroll before our timer got a chance to call
+      // preventDefault() — pan-x still let that happen whenever the early
+      // movement had any horizontal lean), so nothing scrolls the strip on
+      // its own anymore — this manually mirrors that horizontal scroll in
+      // JS instead, for as long as the press hasn't turned into a drag yet.
+      if (!drag.active) {
+        if (drag.containerRef?.current) drag.containerRef.current.scrollLeft -= (e.clientX - drag.lastX);
+        drag.lastX = e.clientX;
+        drag.lastY = e.clientY;
+        return;
+      }
       e.preventDefault();
       moveCountRef.current += 1;
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
@@ -383,14 +393,14 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     setSaving(false);
   }
 
-  function renderCard(item, fromList) {
+  function renderCard(item, fromList, containerRef) {
     const key = keyForSlide(item);
     const isDragging = draggingKey === key;
     return (
       <div
         key={key}
         data-card-key={key}
-        onPointerDown={e => onCardPointerDown(e, item, fromList)}
+        onPointerDown={e => onCardPointerDown(e, item, fromList, containerRef)}
         onClick={() => { if (item.type === 'text') setPreviewItem(item); }}
         style={{
           width: item.type === 'text' ? 96 : item.type === 'trip' ? 78 : 62, flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative', opacity: isDragging ? 0.35 : 1,
@@ -401,15 +411,14 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
           // hijacks the touch sequence out from under our JS drag, and never
           // resolves as a drop into anything of ours.
           WebkitTouchCallout: 'none', WebkitUserDrag: 'none',
-          // pan-x keeps native horizontal panning available (so a quick
-          // swipe over a card still scrolls the strip without ever touching
-          // our JS), while denying the vertical axis any native meaning here
-          // — that's what stops Safari from ever committing this touch to
-          // the page's own vertical scroll before our long-press timer gets
-          // a chance to call preventDefault(). `touch-action: none` (tried
-          // first) also fixed the vertical case but broke horizontal
-          // scrolling entirely, since it blocks native panning on both axes.
-          touchAction: 'pan-x',
+          // No native panning on either axis — pan-x (letting the browser
+          // handle horizontal swipes itself) still let Safari commit this
+          // touch to the page's own vertical scroll whenever early movement
+          // had any horizontal lean, killing drags before our long-press
+          // timer got a chance to call preventDefault(). With native
+          // panning off entirely, onMove now manually mirrors the strip's
+          // horizontal scroll in JS during the pre-activation window instead.
+          touchAction: 'none',
         }}
       >
         {fromList === 'slide' && (
@@ -431,7 +440,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   }
 
   function stripWithIndicator(list, items, containerRef) {
-    const cards = items.map(item => renderCard(item, list));
+    const cards = items.map(item => renderCard(item, list, containerRef));
     if (!dropTarget || dropTarget.list !== list) return cards;
     const idx = Math.max(0, Math.min(items.length, dropTarget.index));
     const out = cards.slice(0, idx);
@@ -456,7 +465,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         >
           {items.length === 0
             ? <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>None from this range</span>
-            : items.map(item => renderCard(item, 'avail'))}
+            : items.map(item => renderCard(item, 'avail', containerRef))}
         </div>
       </div>
     );
