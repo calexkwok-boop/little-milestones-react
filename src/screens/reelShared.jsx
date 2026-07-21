@@ -355,15 +355,25 @@ export function autoSampleSlides(candidates, { forceLongReel = null, reelId = nu
     return 0;
   });
 
-  // Text slides are placed by even spacing across the spine, not by their
-  // real date — two letters written a day apart would otherwise land right
-  // next to each other instead of reading as separate beats. Skips the very
-  // first/last slot so a quote doesn't open or close the reel outright.
-  const combined = spine.slice();
-  textCandidates.forEach((textSlide, i) => {
-    const fraction = (i + 1) / (textCandidates.length + 1);
-    const insertAt = Math.min(spine.length, Math.max(1, Math.round(fraction * spine.length)));
-    combined.splice(insertAt + i, 0, textSlide);
+  // A letter/note pairs with its own entry's photo or video when that media
+  // survived the budget — read the words, then see the moment right after,
+  // rather than the two landing in unrelated parts of the reel. Only falls
+  // back to even spacing (not by real date — two letters a day apart would
+  // otherwise land right next to each other instead of reading as separate
+  // beats) when that entry's media didn't make the cut. Skips the very
+  // first/last slot in that fallback so a quote doesn't open or close the
+  // reel outright.
+  let combined = spine.slice();
+  const unpaired = [];
+  textCandidates.forEach(textSlide => {
+    const pairIdx = combined.findIndex(s => s.type !== 'trip' && s.entryId === textSlide.entryId);
+    if (pairIdx !== -1) combined.splice(pairIdx, 0, textSlide);
+    else unpaired.push(textSlide);
+  });
+  unpaired.forEach((textSlide, i) => {
+    const fraction = (i + 1) / (unpaired.length + 1);
+    const insertAt = Math.min(combined.length, Math.max(1, Math.round(fraction * combined.length)));
+    combined.splice(insertAt, 0, textSlide);
   });
 
   return { slides: combined, isLongReel };

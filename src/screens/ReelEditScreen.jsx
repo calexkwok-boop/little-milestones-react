@@ -24,10 +24,11 @@ function cardLabel(item) {
 // The thumbnail portion of a card — shared between the real strip cards and
 // the floating ghost that follows the finger while dragging, so the two
 // never drift out of sync with each other.
-function CardThumb({ item, wide }) {
+function CardThumb({ item, wide, highlighted }) {
+  const ring = highlighted ? '0 0 0 2px #C8993E' : 'none';
   if (item.type === 'trip') {
     return (
-      <div style={{ width: 78, height: 62, borderRadius: 11, background: 'linear-gradient(135deg, rgba(200,153,62,0.35), rgba(74,94,80,0.5))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, flexShrink: 0, padding: '0 6px', boxSizing: 'border-box' }}>
+      <div style={{ width: 78, height: 62, borderRadius: 11, background: 'linear-gradient(135deg, rgba(200,153,62,0.35), rgba(74,94,80,0.5))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, flexShrink: 0, padding: '0 6px', boxSizing: 'border-box', boxShadow: ring }}>
         <span style={{ fontSize: 17 }}>✈️</span>
         <span style={{ fontSize: 8, fontWeight: 700, color: '#3a4a3f', textAlign: 'center', lineHeight: 1.15, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{item.destinationLabel}</span>
       </div>
@@ -35,7 +36,7 @@ function CardThumb({ item, wide }) {
   }
   if (item.type === 'text') {
     return (
-      <div style={{ width: 96, height: 62, borderRadius: 11, background: 'rgba(200,153,62,0.09)', border: '1px solid rgba(200,153,62,0.3)', padding: '6px 7px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box' }}>
+      <div style={{ width: 96, height: 62, borderRadius: 11, background: 'rgba(200,153,62,0.09)', border: '1px solid rgba(200,153,62,0.3)', padding: '6px 7px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', overflow: 'hidden', flexShrink: 0, boxSizing: 'border-box', boxShadow: ring }}>
         <span style={{ fontSize: 11, color: '#C8993E', marginBottom: 3 }}>✉</span>
         <span style={{ fontSize: 9, fontStyle: 'italic', fontFamily: "'Source Serif 4', serif", color: 'var(--text)', lineHeight: 1.25, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>{item.text}</span>
       </div>
@@ -43,7 +44,7 @@ function CardThumb({ item, wide }) {
   }
   const src = item.mediaType === 'video' ? videoThumbUrl(item.url, 'so_0,w_200,q_auto,f_auto') : cloudinaryTransform(item.url, 'w_200,q_auto,f_auto');
   return (
-    <div style={{ width: 62, height: 62, borderRadius: 11, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--border)', position: 'relative', flexShrink: 0, WebkitTouchCallout: 'none', WebkitUserDrag: 'none' }}>
+    <div style={{ width: 62, height: 62, borderRadius: 11, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--border)', position: 'relative', flexShrink: 0, WebkitTouchCallout: 'none', WebkitUserDrag: 'none', boxShadow: ring }}>
       {item.mediaType === 'video' && (
         <div style={{ position: 'absolute', bottom: 3, right: 3, width: 15, height: 15, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <i className="ti ti-player-play-filled" style={{ fontSize: 7, color: '#fff' }} />
@@ -428,6 +429,13 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   function renderCard(item, fromList, containerRef) {
     const key = keyForSlide(item);
     const isDragging = draggingKey === key;
+    // A letter and its own entry's photo/video are worth seeing as linked
+    // while arranging, even though they aren't forced to move together —
+    // highlight whichever one is the dragged card's opposite-type partner
+    // from the same journal entry, wherever it currently sits.
+    const draggedItem = dragRef.current?.item;
+    const isPartnerHighlighted = !isDragging && draggingKey && draggedItem?.entryId != null
+      && draggedItem.entryId === item.entryId && (draggedItem.type === 'text') !== (item.type === 'text');
     return (
       <div
         key={key}
@@ -460,8 +468,8 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
             style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: '#D4856A', color: '#fff', border: '2px solid var(--bg)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
           >×</button>
         )}
-        <CardThumb item={item} />
-        <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{cardLabel(item)}</span>
+        <CardThumb item={item} highlighted={isPartnerHighlighted} />
+        <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: isPartnerHighlighted ? '#C8993E' : 'var(--text-muted)' }}>{cardLabel(item)}</span>
       </div>
     );
   }
