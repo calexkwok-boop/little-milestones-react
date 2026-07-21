@@ -636,7 +636,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
             <input
               value={title}
               onChange={e => setTitle(e.target.value)}
-              style={{ flex: 1, minWidth: 0, border: 'none', background: 'transparent', color: 'var(--text)', fontFamily: "'Cormorant Garamond', serif", fontWeight: 700, fontStyle: 'italic', fontSize: 17, padding: 2, outline: 'none' }}
+              style={{ flex: 1, minWidth: 0, textAlign: 'center', border: 'none', background: 'transparent', color: 'var(--text)', fontFamily: "'Cormorant Garamond', serif", fontWeight: 700, fontStyle: 'italic', fontSize: 17, padding: 2, outline: 'none' }}
             />
           </div>
 
