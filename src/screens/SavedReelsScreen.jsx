@@ -178,10 +178,6 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
             </div>
           </div>
 
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-            Build a reel for any stretch of time — a trip, a season, anything that doesn't fit neatly into one calendar month.
-          </p>
-
           {savedReels.length === 0 ? (
             <div className="empty-state">
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
