@@ -382,6 +382,16 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
           // hijacks the touch sequence out from under our JS drag, and never
           // resolves as a drop into anything of ours.
           WebkitTouchCallout: 'none', WebkitUserDrag: 'none',
+          // Safari commits a touch sequence to native scrolling based on
+          // whichever early movement it sees BEFORE our long-press timer
+          // ever calls preventDefault() — and once committed, no later
+          // preventDefault() call can undo it for the rest of that touch.
+          // That's exactly why vertical drags (competing with the page's
+          // own vertical scroll) died instantly while horizontal ones (no
+          // competing native scroll) worked fine. touch-action: none stops
+          // the browser from ever claiming this element's gestures at all,
+          // so our JS has full, uncontested control from the first move.
+          touchAction: 'none',
         }}
       >
         {fromList === 'slide' && (
