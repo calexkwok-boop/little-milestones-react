@@ -660,7 +660,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
                 </button>
               ))}
             </div>
-            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Soundtrack</p>
+            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, margin: '0 0 6px' }}>Soundtrack (optional)</p>
             {durationSec === 60 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {[0, 1].map(slot => {
