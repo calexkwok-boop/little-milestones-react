@@ -177,7 +177,7 @@ function SharedReelScreen({ token, effectiveDark }) {
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'rgba(200,153,62,0.75)', margin: '0 0 16px', letterSpacing: 0.5 }}>
             {isBirthday ? 'A Patina birthday reel' : 'A Patina monthly recap'}
           </p>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 36, fontWeight: 700, margin: '0 0 28px', lineHeight: 1.15, color: '#fff' }}>
+          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 36, fontWeight: 700, margin: '0 0 28px', lineHeight: 1.25, color: '#fff' }}>
             {reel.title}
           </p>
           <button onClick={handleStart} style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.14)', border: '2px solid rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}>
@@ -191,7 +191,7 @@ function SharedReelScreen({ token, effectiveDark }) {
           {confettiParticles.map((p, i) => (
             <div key={i} style={{ position: 'absolute', left: p.left, bottom: p.bottom, width: p.size, height: p.size, borderRadius: '50%', background: p.color, animation: `confettiFloat ${p.dur} ease-out ${p.delay} both`, pointerEvents: 'none' }} />
           ))}
-          <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 28px' }}>{reel.title}</p>
+          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 26, fontWeight: 700, color: '#fff', margin: '0 0 28px', lineHeight: 1.25 }}>{reel.title}</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 32 }}>
             {[
               { n: payload.stats?.photos, displayN: countedStats.photos, singular: 'moment captured', plural: 'moments captured', icon: 'ti-camera' },
