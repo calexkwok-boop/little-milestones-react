@@ -54,7 +54,6 @@ function CardThumb({ item, wide }) {
 }
 
 const LONG_PRESS_MS = 300;
-const MOVE_CANCEL_PX = 18; // a real hold-still-then-drag gesture isn't perfectly stationary — 8px was tight enough that natural finger movement during the press itself was cancelling the pending drag before the long-press timer ever fired
 
 export default function ReelEditScreen({ entries, kids, familyMembers = [], reel, onBack, onSave }) {
   const isNew = reel.id == null; // opened straight from "+ New reel" — nothing's been written to Keepsakes yet
@@ -220,7 +219,10 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
       drag.active = true;
       setDraggingKey(drag.key);
       setGhostItem(drag.item);
-      setGhostPos({ x: drag.startX, y: drag.startY });
+      // The finger's likely moved some since touch-down (no longer cancelled
+      // on movement) — start the ghost from wherever it actually is now, not
+      // the original touch point, so it doesn't visibly jump on activation.
+      setGhostPos({ x: drag.lastX ?? drag.startX, y: drag.lastY ?? drag.startY });
       try { navigator.vibrate?.(10); } catch {}
     }, LONG_PRESS_MS);
     dragRef.current = drag;
@@ -293,11 +295,15 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     function onMove(e) {
       const drag = dragRef.current;
       if (!drag) return;
-      if (!drag.active) {
-        const dx = Math.abs(e.clientX - drag.startX), dy = Math.abs(e.clientY - drag.startY);
-        if (dx > MOVE_CANCEL_PX || dy > MOVE_CANCEL_PX) { clearTimeout(drag.timer); dragRef.current = null; }
-        return;
-      }
+      // Deliberately no distance-based cancel here — a real hold-then-drag
+      // gesture isn't perfectly stationary, and any fixed pixel tolerance
+      // (8px, then 18px) kept getting exceeded by ordinary finger movement
+      // before the long-press timer had a chance to fire, killing the drag
+      // before it ever started. Time alone gates activation: release before
+      // LONG_PRESS_MS and nothing happens (a quick swipe scrolls normally,
+      // since preventDefault was never called); hold past it and the drag
+      // activates from wherever the finger currently is.
+      if (!drag.active) { drag.lastX = e.clientX; drag.lastY = e.clientY; return; }
       e.preventDefault();
       moveCountRef.current += 1;
       lastPointerRef.current = { x: e.clientX, y: e.clientY };
