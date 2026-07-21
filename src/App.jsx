@@ -3708,9 +3708,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     const t = setTimeout(async () => {
       setSongSearching(true);
       try {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=8`);
-        const data = await res.json();
-        setSongResults((data.results || []).filter(r => r.previewUrl));
+        const { data, error } = await supabase.functions.invoke('itunes-search', { body: { term: q, limit: 8 } });
+        if (error) throw error;
+        setSongResults((data?.results || []).filter(r => r.previewUrl));
       } catch {}
       setSongSearching(false);
     }, 500);

@@ -60,9 +60,14 @@ const SONG_POOL = [
 
 async function fetchPoolSong(spec) {
   try {
-    const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(spec.search)}&entity=song&limit=15`);
-    const data = await res.json();
-    const results = (data.results || []).filter(r => r.previewUrl);
+    // Routed through an edge function rather than fetching iTunes directly —
+    // its search endpoint only sends CORS headers on success, so a rate
+    // limit or transient failure shows up client-side as a misleading CORS
+    // error instead of a real one, and every caller's own IP counts toward
+    // Apple's rate limit independently.
+    const { data, error } = await supabase.functions.invoke('itunes-search', { body: { term: spec.search, limit: 15 } });
+    if (error) throw error;
+    const results = (data?.results || []).filter(r => r.previewUrl);
     const pick = spec.pick(results);
     if (pick) return { name: pick.trackName, artist: pick.artistName, artworkUrl: pick.artworkUrl100, previewUrl: pick.previewUrl };
   } catch {}

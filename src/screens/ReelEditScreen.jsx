@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { cloudinaryTransform } from '../constants.js';
+import { supabase } from '../supabase.js';
 import {
   buildReelCandidates, autoSampleSlides, resolveSlideRefs, slideToRef,
   videoThumbUrl, SongSearchField,
@@ -101,9 +102,9 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     const t = setTimeout(async () => {
       setSongSearching(true);
       try {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=8`);
-        const data = await res.json();
-        setSongResults((data.results || []).filter(r => r.previewUrl));
+        const { data, error } = await supabase.functions.invoke('itunes-search', { body: { term: q, limit: 8 } });
+        if (error) throw error;
+        setSongResults((data?.results || []).filter(r => r.previewUrl));
       } catch {}
       setSongSearching(false);
     }, 500);
@@ -116,9 +117,9 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
     const t = setTimeout(async () => {
       setSong2Searching(true);
       try {
-        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&entity=song&limit=8`);
-        const data = await res.json();
-        setSong2Results((data.results || []).filter(r => r.previewUrl));
+        const { data, error } = await supabase.functions.invoke('itunes-search', { body: { term: q, limit: 8 } });
+        if (error) throw error;
+        setSong2Results((data?.results || []).filter(r => r.previewUrl));
       } catch {}
       setSong2Searching(false);
     }, 500);

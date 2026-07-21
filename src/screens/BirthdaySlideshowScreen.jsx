@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { cloudinaryTransform, AMAZON_GIFT_FALLBACK_URL } from '../constants.js';
+import { supabase } from '../supabase.js';
 
 const SLIDESHOW_DURATION = 50700;
 
@@ -170,9 +171,9 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
 
     async function loadDefault() {
       try {
-        const res = await fetch('https://itunes.apple.com/search?term=photograph+ed+sheeran&entity=song&limit=10');
-        const data = await res.json();
-        const results = (data.results || []).filter(r => r.previewUrl);
+        const { data, error } = await supabase.functions.invoke('itunes-search', { body: { term: 'photograph ed sheeran', limit: 10 } });
+        if (error) throw error;
+        const results = (data?.results || []).filter(r => r.previewUrl);
         if (results.length > 0) {
           const r = results[0];
           setSong({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100, previewUrl: r.previewUrl });
@@ -181,9 +182,9 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
     }
     async function loadSong2() {
       try {
-        const res = await fetch('https://itunes.apple.com/search?term=what+a+wonderful+world&entity=song&limit=10');
-        const data = await res.json();
-        const results = (data.results || []).filter(r => r.previewUrl);
+        const { data, error } = await supabase.functions.invoke('itunes-search', { body: { term: 'what a wonderful world', limit: 10 } });
+        if (error) throw error;
+        const results = (data?.results || []).filter(r => r.previewUrl);
         if (results.length > 0) {
           const r = results[0];
           setSong2({ name: r.trackName, artist: r.artistName, artworkUrl: r.artworkUrl100, previewUrl: r.previewUrl });
