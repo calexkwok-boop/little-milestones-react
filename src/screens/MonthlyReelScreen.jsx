@@ -56,6 +56,17 @@ const SONG_POOL = [
     pick: rs => rs.find(r => /^jack johnson$/i.test(r.artistName) && /^better together$/i.test(r.trackName))
       || rs.find(r => /jack johnson/i.test(r.artistName) && /better together/i.test(r.trackName)) || rs[0],
   },
+  {
+    search: 'unforgettable natalie cole',
+    pick: rs => rs.find(r => /natalie cole/i.test(r.artistName) && /^unforgettable$/i.test(r.trackName))
+      || rs.find(r => /natalie cole/i.test(r.artistName) && /unforgettable/i.test(r.trackName))
+      || rs.find(r => /unforgettable/i.test(r.trackName)) || rs[0],
+  },
+  {
+    search: 'afterglow ed sheeran',
+    pick: rs => rs.find(r => /^ed sheeran$/i.test(r.artistName) && /^afterglow$/i.test(r.trackName))
+      || rs.find(r => /ed sheeran/i.test(r.artistName) && /afterglow/i.test(r.trackName)) || rs[0],
+  },
 ];
 
 async function fetchPoolSong(spec) {
