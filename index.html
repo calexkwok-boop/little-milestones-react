@@ -57,5 +57,27 @@
         });
       }
     </script>
+    <script>
+      // iOS Safari still auto-zooms on input focus even with maximum-scale=1
+      // in the static tag above, once the app is running installed as a
+      // home-screen PWA (apple-mobile-web-app-capable) — that meta value is
+      // only honored at page load in that mode, not re-checked on focus.
+      // Re-asserting user-scalable=no at the moment of focus forces WebKit to
+      // re-read it, which is the only combination that actually blocks the
+      // zoom in standalone mode; reverting on blur restores normal pinch-zoom
+      // for the rest of the app.
+      (function () {
+        var viewport = document.querySelector('meta[name="viewport"]');
+        if (!viewport) return;
+        var normal = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';
+        var noZoom = normal + ', user-scalable=no';
+        document.addEventListener('focusin', function (e) {
+          if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) viewport.setAttribute('content', noZoom);
+        });
+        document.addEventListener('focusout', function (e) {
+          if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) viewport.setAttribute('content', normal);
+        });
+      })();
+    </script>
   </body>
 </html>
