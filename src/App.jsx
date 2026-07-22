@@ -4218,6 +4218,17 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
           </div>
         )}
 
+        {isNote && song && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 14px', marginBottom: 14 }}>
+            <i className="ti ti-music" style={{ fontSize: 15, color: '#F45B54', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
+              <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{song.artist}</p>
+            </div>
+            <button onClick={() => setSong(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><i className="ti ti-x" /></button>
+          </div>
+        )}
+
         {/* Prompt banner */}
         {isNote && promptText && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 12, padding: '11px 12px', marginBottom: 14 }}>
@@ -4486,6 +4497,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         </div>
         {isNote && (
           <>
+            <button onClick={() => setShowSongPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: song ? '#F45B54' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
+              <i className="ti ti-music" />
+            </button>
             <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>Add a photo &mdash; optional</span>
             <button onClick={() => setShowSharePicker(true)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px', borderRadius: 10, color: Object.values(sharedWith).some(Boolean) ? 'var(--accent)' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, fontFamily: "'Urbanist', sans-serif" }}>
               <i className={`ti ${Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'}`} style={{ fontSize: 15 }} />
