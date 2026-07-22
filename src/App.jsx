@@ -8450,7 +8450,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                 placeholder="Name"
                 value={name}
                 onChange={e => setName(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && name.trim() && setStep('birthdate')}
+                onKeyDown={e => { if (e.key === 'Enter' && name.trim()) { e.target.blur(); setStep('birthdate'); } }}
                 autoFocus
                 style={{ fontSize: 20, padding: '16px 18px', marginBottom: 24 }}
               />
@@ -8458,7 +8458,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                 className="btn btn-primary"
                 style={{ width: '100%', opacity: name.trim() ? 1 : 0.4 }}
                 disabled={!name.trim()}
-                onClick={() => setStep('birthdate')}
+                onClick={() => { document.activeElement?.blur?.(); setStep('birthdate'); }}
               >
                 Continue
               </button>
