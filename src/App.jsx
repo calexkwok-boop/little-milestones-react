@@ -4497,7 +4497,6 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         </div>
         {isNote && (
           <>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>Add a photo &mdash; optional</span>
             <button onClick={() => setShowSongPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: song ? '#F45B54' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
               <i className="ti ti-music" />
             </button>
