@@ -4497,10 +4497,10 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         </div>
         {isNote && (
           <>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>Add a photo &mdash; optional</span>
             <button onClick={() => setShowSongPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: song ? '#F45B54' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
               <i className="ti ti-music" />
             </button>
-            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>Add a photo &mdash; optional</span>
             <button onClick={() => setShowSharePicker(true)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px', borderRadius: 10, color: Object.values(sharedWith).some(Boolean) ? 'var(--accent)' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, fontFamily: "'Urbanist', sans-serif" }}>
               <i className={`ti ${Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'}`} style={{ fontSize: 15 }} />
               {Object.values(sharedWith).some(Boolean) ? 'Share' : 'Private'}
