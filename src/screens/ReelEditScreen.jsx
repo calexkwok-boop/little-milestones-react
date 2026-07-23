@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { Icon } from '../icons';
 import { cloudinaryTransform } from '../constants.js';
 import { supabase } from '../supabase.js';
 import {
@@ -58,7 +59,7 @@ function CardThumb({ item, large }) {
     <div style={{ width: w, height: h, borderRadius: 11, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--border)', position: 'relative', flexShrink: 0, WebkitTouchCallout: 'none', WebkitUserDrag: 'none' }}>
       {item.mediaType === 'video' && (
         <div style={{ position: 'absolute', bottom: 3, right: 3, width: large ? 23 : 15, height: large ? 23 : 15, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <i className="ti ti-player-play-filled" style={{ fontSize: large ? 11 : 7, color: '#fff' }} />
+          <Icon name="ti-player-play-filled" style={{ fontSize: large ? 11 : 7, color: '#fff' }} />
         </div>
       )}
     </div>
@@ -508,7 +509,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 100, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ flexShrink: 0, padding: '2px 16px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
-        <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+        <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
         <div style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
           <div style={{ width: 24, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 4px' }} />
           <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>{isNew ? 'New reel' : 'Edit reel'}</p>
@@ -559,7 +560,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
                   onClick={handleSwapSongs}
                   style={{ display: 'flex', alignItems: 'center', gap: 4, border: 'none', background: 'none', color: 'var(--accent)', fontSize: 11, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", cursor: 'pointer', padding: 0 }}
                 >
-                  <i className="ti ti-arrows-up-down" style={{ fontSize: 13 }} />
+                  <Icon name="ti-arrows-up-down" style={{ fontSize: 13 }} />
                   Swap order
                 </button>
               )}
@@ -661,7 +662,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
                 onClick={() => setPreviewItem(null)}
                 style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--bg-elevated)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
-                <i className="ti ti-x" style={{ fontSize: 13 }} />
+                <Icon name="ti-x" style={{ fontSize: 13 }} />
               </button>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px 28px' }}>

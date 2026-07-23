@@ -1,7 +1,30 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run dev)"
+      "Bash(npm run dev)",
+      "Bash(curl -s \"http://127.0.0.1:9333/html?sel=div:last-child\")",
+      "Bash(node -e \"let d='';process.stdin.on\\('data',c=>d+=c\\);process.stdin.on\\('end',\\(\\)=>console.log\\(d.slice\\(0,4000\\)\\)\\)\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/click-text?text=Save\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=19-feed-with-entry\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/click?sel=.nv-add\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=20-quick-add\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/quit\")",
+      "Bash(pkill -f \"node server.mjs\")",
+      "Bash(lsof -ti:9333 -sTCP:LISTEN)",
+      "Bash(C:/Users/a_kwo/AppData/Local/ms-playwright/ffmpeg-1011/ffmpeg-win64.exe -version)",
+      "Bash(C:/Users/a_kwo/AppData/Local/ms-playwright/ffmpeg-1011/ffmpeg-win64.exe -y -i C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/shots/15-journal-final.png -vf crop=390:155:0:689 C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/shots/crop-navbar.png)",
+      "Bash(node -e ' *)",
+      "Bash(npx --no-install playwright screenshot -b chromium --viewport-size 260,220 file:///C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/icontest/test.html C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/icontest/v1.png)",
+      "Bash(node -e 'console.log\\(require\\('\\\\''fs'\\\\''\\).readFileSync\\('\\\\''C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/icontest/icon192.b64'\\\\'','\\\\''utf8'\\\\''\\).length\\)')",
+      "Bash(where magick *)",
+      "Bash(where convert *)",
+      "Bash(magick -version)",
+      "Bash(python3 -c \"import PIL; print\\(PIL.__version__\\)\")",
+      "Bash(python -c \"import PIL; print\\(PIL.__version__\\)\")",
+      "Bash(node -e *)",
+      "Bash(npx --no-install playwright screenshot -b chromium --viewport-size 620,240 file:///C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/icontest/masktest2.html C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/icontest/masktest.png)",
+      "Bash(grep -vE '<i className=\"ti [a-z0-9-]+\"$|<i className=\\\\{`ti \\\\$\\\\{[^}]+\\\\}`\\\\}' /tmp/all_i_tags.txt)",
+      "Bash(grep -vE '<i className=\"ti ti-[a-z0-9-]+\"|<i className=\\\\{`ti \\\\$\\\\{[^}]+\\\\}`\\\\}')"
     ]
   }
 }

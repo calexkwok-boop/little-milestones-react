@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Icon } from '../icons';
 import { cloudinaryTransform } from '../constants.js';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 
@@ -85,13 +86,13 @@ function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onEdit, onD
         onClick={() => { onEdit(reel); onClose(); }}
         style={{ position: 'absolute', top: 0, right: 72, bottom: 0, width: 72, background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
-        <i className="ti ti-pencil" style={{ fontSize: 18, color: '#fff' }} />
+        <Icon name="ti-pencil" style={{ fontSize: 18, color: '#fff' }} />
       </button>
       <button
         onClick={() => onDelete(reel)}
         style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 72, background: '#D4856A', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
-        <i className="ti ti-trash" style={{ fontSize: 18, color: '#fff' }} />
+        <Icon name="ti-trash" style={{ fontSize: 18, color: '#fff' }} />
       </button>
       <div
         onTouchStart={handleTouchStart}
@@ -108,11 +109,11 @@ function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onEdit, onD
             <>
               <img src={cloudinaryTransform(thumbPhoto.url, 'w_100,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
               <div style={{ position: 'absolute', bottom: 3, right: 3, width: 15, height: 15, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <i className="ti ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
+                <Icon name="ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
               </div>
             </>
           ) : (
-            <i className="ti ti-player-play-filled" style={{ fontSize: 16, color: '#C8993E' }} />
+            <Icon name="ti-player-play-filled" style={{ fontSize: 16, color: '#C8993E' }} />
           )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -179,13 +180,13 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
         <div className="scrollpad">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
                 <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
               </div>
               <button className="icon-btn" onClick={() => setShowCreate(true)}>
-                <i className="ti ti-plus" />
+                <Icon name="ti-plus" />
               </button>
             </div>
 
@@ -201,7 +202,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
           {savedReels.length === 0 ? (
             <div className="empty-state">
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <i className="ti ti-movie" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                <Icon name="ti-movie" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No reels saved yet</p>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Tap + above to build one for any date range.</p>
@@ -241,7 +242,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
                   onClick={() => { setShowCreate(false); resetForm(); }}
                   style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--bg-elevated)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
                 >
-                  <i className="ti ti-x" style={{ fontSize: 13 }} />
+                  <Icon name="ti-x" style={{ fontSize: 13 }} />
                 </button>
               </div>
             </div>
@@ -259,7 +260,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
               <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 16px 18px', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                   <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(127,176,127,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <i className="ti ti-calendar-event" style={{ fontSize: 13, color: 'var(--accent)' }} />
+                    <Icon name="ti-calendar-event" style={{ fontSize: 13, color: 'var(--accent)' }} />
                   </div>
                   <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', margin: 0 }}>When</p>
                 </div>
@@ -329,7 +330,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setDeleteTarget(null)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
+              <Icon name="ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
             </div>
             <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px', textAlign: 'center' }}>Delete "{deleteTarget.title}"?</p>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center' }}>This can't be undone.</p>

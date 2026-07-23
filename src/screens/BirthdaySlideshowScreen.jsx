@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { Icon } from '../icons';
 import { cloudinaryTransform, AMAZON_GIFT_FALLBACK_URL, VIDEO_DELIVERY_TRANSFORM } from '../constants.js';
 import { supabase } from '../supabase.js';
 
@@ -450,7 +451,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
   if (slides.length === 0) {
     return (
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.94)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-        <i className="ti ti-camera-off" style={{ fontSize: 48, color: 'rgba(255,255,255,0.3)' }} />
+        <Icon name="ti-camera-off" style={{ fontSize: 48, color: 'rgba(255,255,255,0.3)' }} />
         <p style={{ color: '#fff', fontSize: 18, fontFamily: "'Playfair Display', serif", textAlign: 'center', padding: '0 32px' }}>No photos yet for {kid.name}</p>
         <button onClick={onClose} className="btn btn-outline" style={{ color: '#fff', borderColor: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)' }}>Close</button>
       </div>
@@ -493,7 +494,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
       {showPauseHint && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8, pointerEvents: 'none' }}>
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'introOut 0.9s ease forwards' }}>
-            <i className={`ti ${slideshowPaused ? 'ti-player-pause' : 'ti-player-play'}`} style={{ fontSize: 26, color: '#fff' }} />
+            <Icon name={slideshowPaused ? 'ti-player-pause' : 'ti-player-play'} style={{ fontSize: 26, color: '#fff' }} />
           </div>
         </div>
       )}
@@ -504,7 +505,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
         {/* Patina branding */}
         <div />
         <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
-          <i className="ti ti-x" />
+          <Icon name="ti-x" />
         </button>
       </div>
 
@@ -513,7 +514,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(38,58,44,0.97)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 36px' }}>
           {onGenerateReelShare && (
             <button onClick={() => setShowShareSheet(true)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 16, zIndex: 3 }}>
-              <i className="ti ti-share-2" />
+              <Icon name="ti-share-2" />
             </button>
           )}
           {/* Confetti particles */}
@@ -548,7 +549,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
                   onClick={onStatClick ? () => onStatClick(filter) : undefined}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, animationDelay: `${400 + idx * 100}ms`, cursor: onStatClick ? 'pointer' : undefined }}
                 >
-                  <i className={`ti ${icon}`} style={{ fontSize: 18, color: '#C8993E', flexShrink: 0, width: 22, textAlign: 'center' }} />
+                  <Icon name={icon} style={{ fontSize: 18, color: '#C8993E', flexShrink: 0, width: 22, textAlign: 'center' }} />
                   <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, color: 'rgba(255,255,255,0.75)', margin: 0 }}>
                     {n} {n === 1 ? singular : plural}.
                   </p>
@@ -581,7 +582,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
             </a>
           )}
           <button className="fade-up" onClick={replay} style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 26, animationDelay: sharedPhotos.length > 0 ? '900ms' : '700ms', marginBottom: 48 }}>
-            <i className="ti ti-player-play-filled" style={{ marginLeft: 3 }} />
+            <Icon name="ti-player-play-filled" style={{ marginLeft: 3 }} />
           </button>
           <div style={{ position: 'absolute', bottom: 28, display: 'flex', alignItems: 'center', gap: 6 }}>
             <img src="/quill-no-background.png" style={{ width: 15, height: 15, objectFit: 'contain', opacity: 0.25 }} alt="" loading="lazy" />
@@ -665,7 +666,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-share-2" style={{ fontSize: 19, color: 'var(--accent)' }} />
+              <Icon name="ti-share-2" style={{ fontSize: 19, color: 'var(--accent)' }} />
             </div>
             <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Share this reel</p>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.6, textAlign: 'center' }}>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Icon } from '../icons';
 import { supabase } from '../supabase.js';
 import { cloudinaryTransform, exactAgeLabel, AVATAR_TRANSFORM_SM, VIDEO_DELIVERY_TRANSFORM } from '../constants.js';
 
@@ -23,7 +24,7 @@ function SharedEntryScreen({ token, effectiveDark }) {
   if (status === 'loading') {
     return (
       <div className="app-root" data-theme={theme} style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <i className="ti ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+        <Icon name="ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
@@ -31,7 +32,7 @@ function SharedEntryScreen({ token, effectiveDark }) {
   if (status === 'not-found') {
     return (
       <div className="app-root" data-theme={theme} style={{ alignItems: 'center', justifyContent: 'center', padding: '0 32px', textAlign: 'center' }}>
-        <i className="ti ti-link-off" style={{ fontSize: 32, color: 'var(--text-muted)', marginBottom: 14 }} />
+        <Icon name="ti-link-off" style={{ fontSize: 32, color: 'var(--text-muted)', marginBottom: 14 }} />
         <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', margin: '0 0 6px' }}>This link isn't available anymore</p>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>It may have been revoked by the person who shared it.</p>
       </div>

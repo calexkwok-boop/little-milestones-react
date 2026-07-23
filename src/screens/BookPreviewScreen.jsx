@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
+import { Icon } from '../icons';
 import { QRCodeSVG } from 'qrcode.react';
 import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl } from '../constants.js';
 
@@ -137,7 +138,7 @@ function AudioQRCard({ title, subtitle, art, qrValue }) {
         <img src={art} style={{ width: 36, height: 36, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} alt="" loading="lazy" />
       ) : (
         <div style={{ width: 36, height: 36, borderRadius: 6, background: '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <i className="ti ti-microphone" style={{ fontSize: 15, color: '#fff' }} />
+          <Icon name="ti-microphone" style={{ fontSize: 15, color: '#fff' }} />
         </div>
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -231,7 +232,7 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
                 <div key={entry.id} style={{ width: photo ? '100%' : 'calc(50% - 6px)', borderRadius: 8, overflow: 'hidden', boxShadow: '0 3px 8px rgba(0,0,0,0.1)', border: '1px solid rgba(200,153,62,0.4)' }}>
                   <div style={{ background: PROMPT_ACCENT, padding: '6px 9px 5px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 2 }}>
-                      <i className="ti ti-bulb" style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.9)' }} />
+                      <Icon name="ti-bulb" style={{ fontSize: 7.5, color: 'rgba(255,255,255,0.9)' }} />
                       <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 7, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>Prompt</span>
                     </div>
                     <p style={{
@@ -686,7 +687,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
   return (
     <div className="screen" style={{ background: '#1E2820' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', flexShrink: 0 }}>
-        <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-x" /></button>
+        <button className="icon-btn-ghost" onClick={onBack}><Icon name="ti-x" /></button>
         <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, fontWeight: 600 }}>{pageLabel}</p>
         <div style={{ width: 36 }} />
       </div>
@@ -712,14 +713,14 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       <div style={{ padding: '16px 20px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={goPrev}
           style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
-          <i className="ti ti-chevron-left" />
+          <Icon name="ti-chevron-left" />
         </button>
         <div style={{ flex: 1, height: 3, background: 'rgba(255,255,255,0.08)', borderRadius: 99, overflow: 'hidden' }}>
           <div style={{ height: '100%', background: 'rgba(255,255,255,0.4)', borderRadius: 99, width: `${((page + 1) / totalPages) * 100}%`, transition: 'width 0.2s' }} />
         </div>
         <button onClick={goNext}
           style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.14)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 18 }}>
-          <i className="ti ti-chevron-right" />
+          <Icon name="ti-chevron-right" />
         </button>
       </div>
 
@@ -746,7 +747,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       <div style={{ padding: '8px 20px 28px', flexShrink: 0 }}>
         <button className="btn btn-gold" style={{ width: '100%', borderRadius: 14 }}
           onClick={() => setShowWaitlist(true)}>
-          <i className="ti ti-bell" style={{ fontSize: 16 }} />
+          <Icon name="ti-bell" style={{ fontSize: 16 }} />
           Join the book waitlist
         </button>
       </div>
@@ -790,7 +791,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
               </>
             ) : (
               <div style={{ textAlign: 'center', padding: '12px 0' }}>
-                <i className="ti ti-circle-check" style={{ fontSize: 40, color: '#C8993E', display: 'block', marginBottom: 14 }} />
+                <Icon name="ti-circle-check" style={{ fontSize: 40, color: '#C8993E', display: 'block', marginBottom: 14 }} />
                 <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: 'var(--text)', margin: '0 0 8px' }}>You're on the list</h3>
                 <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 28px', lineHeight: 1.6 }}>We'll email you at <strong>{waitlistEmail}</strong> when print ordering is available.</p>
                 <button className="btn btn-outline" style={{ width: '100%' }} onClick={() => setShowWaitlist(false)}>Done</button>

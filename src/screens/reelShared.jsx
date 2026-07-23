@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { Icon } from '../icons';
 import { cloudinaryTransform, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, exactAgeLabel } from '../constants.js';
 
 // Everything in this file is used by BOTH the live in-app reel
@@ -406,7 +407,7 @@ export function SongSearchField({ song, onPick, onClear, query, onQueryChange, r
           style={{ paddingRight: 40 }}
         />
         {searching && (
-          <i className="ti ti-loader-2" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite', color: 'var(--text-muted)', fontSize: 16 }} />
+          <Icon name="ti-loader-2" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite', color: 'var(--text-muted)', fontSize: 16 }} />
         )}
       </div>
       {results.length > 0 && (
@@ -947,7 +948,7 @@ export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onS
           aria-label={btn.label}
           style={{ position: 'absolute', top: 16, right: 16 + i * 44, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: btn.disabled ? 'default' : 'pointer', opacity: btn.disabled ? 0.6 : 1, color: btn.color || '#fff', fontSize: 16 }}
         >
-          <i className={`ti ${btn.icon}`} />
+          <Icon name={btn.icon} />
         </button>
       ))}
       <p className="fade-up" style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px', animationDelay: '0ms' }}>{monthLabel}</p>
@@ -987,7 +988,7 @@ export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onS
       </div>
 
       <button onClick={onReplay} className="fade-up" style={{ background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 52, height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 22, marginBottom: 20, animationDelay: '480ms' }}>
-        <i className="ti ti-player-play-filled" style={{ marginLeft: 2 }} />
+        <Icon name="ti-player-play-filled" style={{ marginLeft: 2 }} />
       </button>
 
       {/* Live in-app reel closes via the X at top right instead of a bottom

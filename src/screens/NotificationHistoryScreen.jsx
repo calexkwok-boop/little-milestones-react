@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Icon } from '../icons';
 import { supabase } from '../supabase.js';
 
 function timeAgo(ts) {
@@ -67,7 +68,7 @@ function NotificationHistoryScreen({ currentUserId, onBack, onOpenEntry, onOpenB
       <div className="scroll-area">
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+            <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
             <div style={{ textAlign: 'center' }}>
               <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>Notifications</h2>
@@ -81,7 +82,7 @@ function NotificationHistoryScreen({ currentUserId, onBack, onOpenEntry, onOpenB
             <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', marginTop: 40 }}>Loading…</p>
           ) : items.length === 0 ? (
             <div style={{ textAlign: 'center', marginTop: 60 }}>
-              <i className="ti ti-bell-off" style={{ fontSize: 28, color: 'var(--text-muted)' }} />
+              <Icon name="ti-bell-off" style={{ fontSize: 28, color: 'var(--text-muted)' }} />
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '10px 0 0' }}>Nothing here yet.</p>
             </div>
           ) : (
@@ -98,7 +99,7 @@ function NotificationHistoryScreen({ currentUserId, onBack, onOpenEntry, onOpenB
                   }}
                 >
                   <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                    <i className={`ti ti-${KIND_ICON[n.kind] || 'bell'}`} style={{ fontSize: 15, color: 'var(--accent)' }} />
+                    <Icon name={`ti-${KIND_ICON[n.kind] || 'bell'}`} style={{ fontSize: 15, color: 'var(--accent)' }} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: n.read_at ? 500 : 700, color: 'var(--text)', margin: 0 }}>{n.title}</p>

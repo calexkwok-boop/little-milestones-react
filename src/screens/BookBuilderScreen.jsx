@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
 import { TODAY, cloudinaryTransform, AVATAR_TRANSFORM_SM } from '../constants.js';
 
@@ -73,7 +74,7 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
     <div className="scrollpad">
 
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
-        <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+        <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
         <div style={{ margin: '0 auto', textAlign: 'center' }}>
           <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
           <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Create a book</h2>
@@ -122,7 +123,7 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
       {/* Favorites only */}
       <button onClick={() => setFavoritesOnly(f => !f)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'var(--bg-card)', border: 'none', borderRadius: 14, padding: '14px 16px', cursor: 'pointer' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <i className="ti ti-star-filled" style={{ fontSize: 17, color: favoritesOnly ? '#C8993E' : 'var(--text-muted)' }} />
+          <Icon name="ti-star-filled" style={{ fontSize: 17, color: favoritesOnly ? '#C8993E' : 'var(--text-muted)' }} />
           <span style={{ fontSize: 14, fontWeight: 600, color: favoritesOnly ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>Favorites only</span>
         </div>
         <div style={{ width: 46, height: 27, borderRadius: 14, background: favoritesOnly ? 'var(--accent)' : darkMode ? 'rgba(255,255,255,0.15)' : 'var(--border)', position: 'relative', transition: 'background 0.22s', flexShrink: 0 }}>
@@ -154,7 +155,7 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
       {selectedKids.length > 0 && (
         <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
           <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <i className="ti ti-book-2" style={{ fontSize: 18, color: 'var(--accent)' }} />
+            <Icon name="ti-book-2" style={{ fontSize: 18, color: 'var(--accent)' }} />
           </div>
           {textEntries.length > 0 ? (
             <div>
@@ -190,11 +191,11 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <i className="ti ti-book" style={{ fontSize: 18, color: canPreview ? '#C8993E' : 'var(--text-muted)' }} />
+            <Icon name="ti-book" style={{ fontSize: 18, color: canPreview ? '#C8993E' : 'var(--text-muted)' }} />
           </div>
           <p style={{ fontSize: 14, fontWeight: 700, color: canPreview ? '#fff' : 'var(--text-muted)', margin: 0, textAlign: 'left' }}>Preview book</p>
         </div>
-        <i className="ti ti-arrow-right" style={{ fontSize: 16, color: canPreview ? 'rgba(255,255,255,0.3)' : 'var(--text-muted)', flexShrink: 0 }} />
+        <Icon name="ti-arrow-right" style={{ fontSize: 16, color: canPreview ? 'rgba(255,255,255,0.3)' : 'var(--text-muted)', flexShrink: 0 }} />
       </button>
 
     </div>

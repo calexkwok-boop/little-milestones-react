@@ -1,3 +1,4 @@
+import { Icon } from './icons';
 function SectionSwitcher({ tabs, active, onChange }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -17,7 +18,7 @@ function SectionSwitcher({ tabs, active, onChange }) {
                 boxShadow: isActive ? 'inset 0 0 0 1px rgba(200,153,62,0.3)' : 'none',
               }}
             >
-              {t.icon && <i className={`ti ${t.icon}`} style={{ fontSize: 12 }} />}
+              {t.icon && <Icon name={t.icon} style={{ fontSize: 12 }} />}
               {t.label}
               {t.badge > 0 && (
                 <span style={{ position: 'absolute', top: 3, right: 4, width: 7, height: 7, borderRadius: '50%', background: '#E05C6A' }} />

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { Icon } from '../icons';
 import { supabase } from '../supabase.js';
 import { cloudinaryTransform, AVATAR_TRANSFORM_SM } from '../constants.js';
 import {
@@ -91,7 +92,7 @@ function SharedReelScreen({ token, effectiveDark }) {
   if (status === 'loading') {
     return (
       <div className="app-root" data-theme={theme} style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <i className="ti ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+        <Icon name="ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
@@ -99,7 +100,7 @@ function SharedReelScreen({ token, effectiveDark }) {
   if (status === 'not-found') {
     return (
       <div className="app-root" data-theme={theme} style={{ alignItems: 'center', justifyContent: 'center', padding: '0 32px', textAlign: 'center' }}>
-        <i className="ti ti-link-off" style={{ fontSize: 32, color: 'var(--text-muted)', marginBottom: 14 }} />
+        <Icon name="ti-link-off" style={{ fontSize: 32, color: 'var(--text-muted)', marginBottom: 14 }} />
         <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', margin: '0 0 6px' }}>This link isn't available anymore</p>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>It may have been revoked by the person who shared it.</p>
       </div>
@@ -181,7 +182,7 @@ function SharedReelScreen({ token, effectiveDark }) {
             {reel.title}
           </p>
           <button onClick={handleStart} style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,255,255,0.14)', border: '2px solid rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}>
-            <i className="ti ti-player-play-filled" style={{ fontSize: 26, marginLeft: 3 }} />
+            <Icon name="ti-player-play-filled" style={{ fontSize: 26, marginLeft: 3 }} />
           </button>
         </div>
       )}
@@ -199,7 +200,7 @@ function SharedReelScreen({ token, effectiveDark }) {
               { n: payload.stats?.milestones, displayN: countedStats.milestones, singular: 'milestone celebrated', plural: 'milestones celebrated', icon: 'ti-star' },
             ].filter(s => s.n > 0).map(({ n, displayN, singular, plural, icon }) => (
               <div key={icon} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <i className={`ti ${icon}`} style={{ fontSize: 18, color: '#C8993E', flexShrink: 0, width: 22, textAlign: 'center' }} />
+                <Icon name={icon} style={{ fontSize: 18, color: '#C8993E', flexShrink: 0, width: 22, textAlign: 'center' }} />
                 <p style={{ fontFamily: "'Source Serif 4', serif", fontSize: 17, color: 'rgba(255,255,255,0.75)', margin: 0 }}>{displayN} {n === 1 ? singular : plural}.</p>
               </div>
             ))}

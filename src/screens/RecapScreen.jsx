@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { Icon } from '../icons';
 import { TODAY, milestoneInfo, cloudinaryTransform, videoThumbUrl } from '../constants.js';
 import KidThumb from '../KidThumb.jsx';
 import SectionSwitcher from '../SectionSwitcher.jsx';
@@ -29,7 +30,7 @@ function RecapEntryRow({ entry, kids, onOpenEntry, nextIsMilestone }) {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: snippet ? 3 : 0 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>{nameLabel}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, marginLeft: 8 }}>
-            {entry.favorited && <i className="ti ti-star-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
+            {entry.favorited && <Icon name="ti-star-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
             <span style={{ fontSize: 11, color: 'var(--border-light)' }}>{dayLabel}</span>
           </div>
         </div>
@@ -157,13 +158,13 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
                 <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
               </div>
               <button className="icon-btn" onClick={() => { if (showSearch) setSearchQuery(''); setShowSearch(s => !s); }}>
-                <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+                <Icon name={showSearch ? 'ti-x' : 'ti-search'} />
               </button>
             </div>
 
@@ -178,7 +179,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
 
           {showSearch && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
-              <i className="ti ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
+              <Icon name="ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -189,7 +190,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}>
-                  <i className="ti ti-x" style={{ fontSize: 14 }} />
+                  <Icon name="ti-x" style={{ fontSize: 14 }} />
                 </button>
               )}
             </div>
@@ -199,7 +200,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
             searchResults.length === 0 ? (
               <div className="empty-state">
                 <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                  <i className="ti ti-search" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                  <Icon name="ti-search" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
                 </div>
                 <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No matches</p>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Nothing matches "{searchQuery}".</p>
@@ -226,7 +227,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                 onClick={viewMode === 'month' ? prevMonth : () => setSelectedYear(y => String(Number(y) - 1))}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}
               >
-                <i className="ti ti-chevron-left" />
+                <Icon name="ti-chevron-left" />
               </button>
               <h2 style={{ fontSize: 17, color: 'var(--accent)', margin: 0, fontWeight: 700, minWidth: 150, textAlign: 'center' }}>
                 {viewMode === 'month' ? monthLabel : selectedYear}
@@ -235,7 +236,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                 onClick={viewMode === 'month' ? nextMonth : () => { if (canGoNextYear) setSelectedYear(y => String(Number(y) + 1)); }}
                 style={{ background: 'none', border: 'none', cursor: (viewMode === 'month' ? canGoNextMonth : canGoNextYear) ? 'pointer' : 'default', color: (viewMode === 'month' ? canGoNextMonth : canGoNextYear) ? 'var(--text-muted)' : 'transparent', fontSize: 16, padding: 4, display: 'flex' }}
               >
-                <i className="ti ti-chevron-right" />
+                <Icon name="ti-chevron-right" />
               </button>
               {viewMode === 'month' && onWatchMonthReel && (
                 <button
@@ -243,7 +244,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                   title="Watch this month's reel"
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C8993E', fontSize: 16, padding: 4, marginLeft: 2, display: 'flex' }}
                 >
-                  <i className="ti ti-player-play" />
+                  <Icon name="ti-player-play" />
                 </button>
               )}
             </div>
@@ -270,7 +271,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
           {momentCount === 0 ? (
             <div className="empty-state">
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <i className="ti ti-calendar" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                <Icon name="ti-calendar" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: 0 }}>{periodEmpty}</p>
             </div>
@@ -319,7 +320,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                             <>
                               <img src={videoThumbUrl(item.url, 'so_0,w_240,q_auto,f_auto')} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
                               <div style={{ position: 'absolute', bottom: 4, right: 4, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <i className="ti ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
+                                <Icon name="ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
                               </div>
                             </>
                           ) : (

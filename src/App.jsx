@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react';
+import { Icon } from './icons';
 import { createPortal } from 'react-dom';
 import './App.css';
 // exifr is only needed when reading photo metadata — lazy-load so it's excluded from the initial bundle
@@ -372,7 +373,7 @@ function KidChip({ kid, active, onClick, icon, label }) {
       style={active ? { background: kid ? kid.accent : 'var(--accent)' } : {}}
       onClick={onClick}
     >
-      {kid ? <KidThumb kid={kid} /> : <span className="thumb"><i className={`ti ${icon}`} style={{ fontSize: 11 }} /></span>}
+      {kid ? <KidThumb kid={kid} /> : <span className="thumb"><Icon name={icon} style={{ fontSize: 11 }} /></span>}
       {label ?? kid?.name}
     </div>
   );
@@ -485,7 +486,7 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
     return (
       <div style={{ position: 'relative', display: 'inline-block' }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--bg-card)', borderRadius: hasSuggestions ? '8px 8px 0 0' : 8, padding: '5px 10px' }}>
-          <i className="ti ti-map-pin" style={{ fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }} />
+          <Icon name="ti-map-pin" style={{ fontSize: 12, color: 'var(--text-2)', flexShrink: 0 }} />
           <input
             autoFocus={autoFocus}
             value={value}
@@ -496,13 +497,13 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
             onBlur={() => { blurRef.current = setTimeout(() => setSuggestions([]), 150); }}
             onFocus={() => clearTimeout(blurRef.current)}
           />
-          {value && <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); onChangeCoords?.(null, null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}><i className="ti ti-x" style={{ fontSize: 11 }} /></button>}
+          {value && <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); onChangeCoords?.(null, null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, display: 'flex' }}><Icon name="ti-x" style={{ fontSize: 11 }} /></button>}
         </div>
         {hasSuggestions && (
           <div style={{ position: 'absolute', top: '100%', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: '0 8px 8px 8px', overflow: 'hidden', zIndex: 50, boxShadow: '0 4px 16px rgba(44,56,40,0.12)', minWidth: 220 }}>
             {suggestions.map((s, i) => (
               <div key={i} onMouseDown={e => { e.preventDefault(); pick(s); }} style={{ padding: '10px 12px', fontSize: 13, color: 'var(--text)', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #F0F4EE' : 'none', display: 'flex', alignItems: 'center', gap: 7 }}>
-                <i className="ti ti-map-pin" style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }} />
+                <Icon name="ti-map-pin" style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }} />
                 {s.label}
               </div>
             ))}
@@ -515,7 +516,7 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
   return (
     <div style={{ position: inline ? undefined : 'relative' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: hasSuggestions && inline ? '10px 10px 0 0' : 10, padding: '11px 14px' }}>
-        <i className="ti ti-map-pin" style={{ color: 'var(--text-muted)', fontSize: 15, flexShrink: 0 }} />
+        <Icon name="ti-map-pin" style={{ color: 'var(--text-muted)', fontSize: 15, flexShrink: 0 }} />
         <input
           autoFocus={autoFocus}
           value={value}
@@ -526,7 +527,7 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
           onBlur={() => { blurRef.current = setTimeout(() => setSuggestions([]), 150); }}
           onFocus={() => clearTimeout(blurRef.current)}
         />
-        {value ? <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); onChangeCoords?.(null, null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}><i className="ti ti-x" style={{ fontSize: 14 }} /></button> : null}
+        {value ? <button onMouseDown={e => e.preventDefault()} onClick={() => { onChange(''); setSuggestions([]); onChangeCoords?.(null, null); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}><Icon name="ti-x" style={{ fontSize: 14 }} /></button> : null}
       </div>
       {hasSuggestions && (
         <div style={inline ? {
@@ -536,7 +537,7 @@ function LocationInput({ value, onChange, onChangeCoords, placeholder = 'e.g. Di
         }}>
           {suggestions.map((s, i) => (
             <div key={i} onMouseDown={e => { e.preventDefault(); pick(s); }} style={{ padding: '12px 14px', fontSize: 14, color: 'var(--text)', cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid #F0F4EE' : 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <i className="ti ti-map-pin" style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }} />
+              <Icon name="ti-map-pin" style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }} />
               {s.label}
             </div>
           ))}
@@ -795,7 +796,7 @@ function usePullToRefresh(scrollRef, onRefresh) {
 
   const indicator = (pullY > 0 || refreshing) ? (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: refreshing ? 52 : pullY, flexShrink: 0, overflow: 'hidden', transition: pullY > 0 ? 'none' : 'height 0.25s ease' }}>
-      <i className={`ti ${refreshing ? 'ti-loader-2' : 'ti-refresh'}`} style={{ fontSize: 20, color: 'var(--accent)', animation: refreshing ? 'spin 1s linear infinite' : 'none', transform: !refreshing ? `rotate(${(pullY / 64) * 360}deg)` : 'none', opacity: refreshing ? 1 : Math.min(pullY / 30, 1) }} />
+      <Icon name={refreshing ? 'ti-loader-2' : 'ti-refresh'} style={{ fontSize: 20, color: 'var(--accent)', animation: refreshing ? 'spin 1s linear infinite' : 'none', transform: !refreshing ? `rotate(${(pullY / 64) * 360}deg)` : 'none', opacity: refreshing ? 1 : Math.min(pullY / 30, 1) }} />
     </div>
   ) : null;
 
@@ -835,7 +836,7 @@ function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDele
           <div style={{ padding: '4px 12px 8px' }}>
             {actions.map(({ icon, label, color, fn }) => (
               <button key={label} onClick={fn} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 10px', borderRadius: 12, fontFamily: 'Inter, sans-serif' }}>
-                <i className={`ti ${icon}`} style={{ fontSize: 20, color, width: 24, textAlign: 'center' }} />
+                <Icon name={icon} style={{ fontSize: 20, color, width: 24, textAlign: 'center' }} />
                 <span style={{ fontSize: 15, fontWeight: 500, color }}>{label}</span>
               </button>
             ))}
@@ -863,7 +864,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
     <div onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd} style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
       {entry.shared === false && (
         <div style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }} title="Private">
-          <i className="ti ti-lock" style={{ color: '#fff', fontSize: 12 }} />
+          <Icon name="ti-lock" style={{ color: '#fff', fontSize: 12 }} />
         </div>
       )}
       {entry.media && entry.media.length === 1 && (
@@ -881,7 +882,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
                   <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
+                      <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
                     </div>
                   </div>
                 </>
@@ -1054,7 +1055,7 @@ const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transfor
       <CroppedImg src={videoThumbUrl(item.url, `so_0,${transform}`)} cropY={cropY} />
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 15 }} />
+          <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 15 }} />
         </div>
       </div>
     </div>
@@ -1085,10 +1086,10 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
       <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 15px 15px 0', borderColor: `transparent ${tintFold} transparent transparent`, borderRadius: '0 13px 0 0' }} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: featured ? 8 : 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <i className={`ti ${sides ? 'ti-arrows-diff' : 'ti-notebook'}`} style={{ fontSize: featured ? 12 : 10, color: accent }} />
+          <Icon name={sides ? 'ti-arrows-diff' : 'ti-notebook'} style={{ fontSize: featured ? 12 : 10, color: accent }} />
           <span style={{ fontSize: featured ? 10 : 9, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: accent }}>{sides ? 'Same age note' : 'Note'}</span>
         </div>
-        {entry.shared === false && <i className="ti ti-lock" style={{ fontSize: featured ? 12 : 10, color: accent }} title="Private" />}
+        {entry.shared === false && <Icon name="ti-lock" style={{ fontSize: featured ? 12 : 10, color: accent }} title="Private" />}
       </div>
       <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 15 : 12.5, lineHeight: 1.5, color: 'var(--text)', margin: featured ? '0 0 12px' : '0 0 8px', whiteSpace: 'pre-wrap' }}>
         {preview}
@@ -1151,10 +1152,10 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
       <div style={{ background: PROMPT_ACCENT, padding: featured ? '13px 17px' : '10px 13px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: featured ? 6 : 4 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <i className={`ti ${sides ? 'ti-arrows-diff' : 'ti-bulb'}`} style={{ fontSize: featured ? 13 : 11, color: 'rgba(255,255,255,0.9)' }} />
+            <Icon name={sides ? 'ti-arrows-diff' : 'ti-bulb'} style={{ fontSize: featured ? 13 : 11, color: 'rgba(255,255,255,0.9)' }} />
             <span style={{ fontSize: featured ? 10 : 9, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>{sides ? 'Same age prompt' : 'Prompt'}</span>
           </div>
-          {entry.shared === false && <i className="ti ti-lock" style={{ fontSize: featured ? 12 : 10, color: 'rgba(255,255,255,0.9)' }} title="Private" />}
+          {entry.shared === false && <Icon name="ti-lock" style={{ fontSize: featured ? 12 : 10, color: 'rgba(255,255,255,0.9)' }} title="Private" />}
         </div>
         <p style={{
           fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 15 : 12, lineHeight: 1.4, color: '#fff', margin: 0,
@@ -1225,7 +1226,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
       <div onClick={onClick} style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
         {entry.shared === false && (
           <div style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }} title="Private">
-            <i className="ti ti-lock" style={{ color: '#fff', fontSize: 12 }} />
+            <Icon name="ti-lock" style={{ color: '#fff', fontSize: 12 }} />
           </div>
         )}
         {entry.media && entry.media.length > 0 && (
@@ -1243,7 +1244,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
                     <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={cropY} onError={e => { e.target.style.display = 'none'; }} />
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                       <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
+                        <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
                       </div>
                     </div>
                   </>
@@ -1780,7 +1781,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                       { label: 'Choose File', icon: 'ti-folder', action: () => { setShowAvatarSheet(false); avatarFileInputRef.current?.click(); } },
                     ].map(opt => (
                       <button key={opt.label} onClick={opt.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '14px 4px', fontFamily: "'Urbanist', sans-serif", fontSize: 16, color: 'var(--text)', borderBottom: '1px solid var(--border)' }}>
-                        <i className={`ti ${opt.icon}`} style={{ fontSize: 20, color: 'var(--accent)', width: 24 }} />
+                        <Icon name={opt.icon} style={{ fontSize: 20, color: 'var(--accent)', width: 24 }} />
                         {opt.label}
                       </button>
                     ))}
@@ -1791,7 +1792,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, color: 'var(--text-3)', lineHeight: 1.7, textAlign: 'center', margin: 0 }}>{prompt}</p>
 
               <button onClick={onAddMoment} className="btn btn-primary" style={{ width: '100%' }}>
-                <i className="ti ti-pencil" style={{ fontSize: 17 }} />
+                <Icon name="ti-pencil" style={{ fontSize: 17 }} />
                 {kids.length === 1 ? `Write ${kids[0].name.split(' ')[0]}'s first letter` : 'Write their first letter'}
               </button>
             </div>
@@ -1818,7 +1819,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
             const count = unseenPartnerIds.length;
             return (
               <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <i className="ti ti-sparkles" style={{ color: '#C8993E', fontSize: 17, flexShrink: 0 }} />
+                <Icon name="ti-sparkles" style={{ color: '#C8993E', fontSize: 17, flexShrink: 0 }} />
                 <span style={{ flex: 1, fontSize: 13, color: 'var(--accent)', fontWeight: 500 }}>
                   {name} added {count === 1 ? 'a new letter' : `${count} new letters`}
                 </span>
@@ -1859,7 +1860,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 "The days are long, but the years are short."
               </p>
               <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(200,153,62,0.15)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: '50%', width: 32, height: 32 }}>
-                <i className="ti ti-player-play-filled" style={{ fontSize: 13, color: '#C8993E' }} />
+                <Icon name="ti-player-play-filled" style={{ fontSize: 13, color: '#C8993E' }} />
               </div>
             </div>
           ))}
@@ -1867,7 +1868,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           {birthdayNextWeek.filter(k => !dismissedBdays[`${k.id}-${turningAge(k.birthdate)}`]).map(k => (
             <div key={k.id} onClick={() => onBirthdayNextWeekClick?.(k, turningAge(k.birthdate))} style={{ background: 'var(--bg-nav)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', position: 'relative' }}>
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(200,153,62,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <i className="ti ti-cake" style={{ fontSize: 20, color: '#C8993E' }} />
+                <Icon name="ti-cake" style={{ fontSize: 20, color: '#C8993E' }} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', margin: '0 0 2px' }}>
@@ -1887,7 +1888,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 </button>
               )}
               <button onClick={e => { e.stopPropagation(); dismissBirthday(k.id, turningAge(k.birthdate)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, flexShrink: 0, lineHeight: 1 }}>
-                <i className="ti ti-x" />
+                <Icon name="ti-x" />
               </button>
             </div>
           ))}
@@ -1933,7 +1934,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               style={{ background: 'var(--bg-nav)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer', position: 'relative' }}
             >
               <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(200,153,62,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <i className="ti ti-cake" style={{ fontSize: 20, color: '#C8993E' }} />
+                <Icon name="ti-cake" style={{ fontSize: 20, color: '#C8993E' }} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', margin: '0 0 2px' }}>
@@ -1952,7 +1953,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 )}
               </div>
               <button onClick={e => { e.stopPropagation(); dismissBirthday(k.id, turningAge(k.birthdate)); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, flexShrink: 0, lineHeight: 1 }}>
-                <i className="ti ti-x" />
+                <Icon name="ti-x" />
               </button>
             </div>
           ))}
@@ -1985,7 +1986,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 onClick={() => onStartPrompt?.(displayedPrompt, promptOfDay.kid.id)}
                 style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 7, cursor: 'pointer' }}
               >
-                <i className="ti ti-bulb" style={{ fontSize: 14, color: '#C8993E', flexShrink: 0 }} />
+                <Icon name="ti-bulb" style={{ fontSize: 14, color: '#C8993E', flexShrink: 0 }} />
                 <p style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--text-2)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
                   {displayedPrompt}
                 </p>
@@ -1999,13 +2000,13 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', flexShrink: 0 }}
               >
-                <i className="ti ti-refresh" style={{ fontSize: 13 }} />
+                <Icon name="ti-refresh" style={{ fontSize: 13 }} />
               </button>
               <button
                 onClick={() => { setPromptDismissed(true); try { localStorage.setItem('patina-prompt-of-day-dismissed', todayString()); } catch {} }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 4, display: 'flex', flexShrink: 0 }}
               >
-                <i className="ti ti-x" style={{ fontSize: 13 }} />
+                <Icon name="ti-x" style={{ fontSize: 13 }} />
               </button>
             </div>
           )}
@@ -2057,7 +2058,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               {kids.length > 1 && onCompare && (
                 <button onClick={onCompare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 12, padding: '12px 16px', background: 'var(--bg-elevated)', border: 'none', borderRadius: 12, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>See all side-by-side</span>
-                  <i className="ti ti-arrow-right" style={{ fontSize: 14, color: 'var(--accent)' }} />
+                  <Icon name="ti-arrow-right" style={{ fontSize: 14, color: 'var(--accent)' }} />
                 </button>
               )}
             </div>
@@ -2072,7 +2073,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               })}
               {entries.length > 3 && (
                 <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-3)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
-                  See all letters <i className="ti ti-arrow-right" style={{ fontSize: 13 }} />
+                  See all letters <Icon name="ti-arrow-right" style={{ fontSize: 13 }} />
                 </button>
               )}
             </div>
@@ -2121,7 +2122,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                   <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Just a glimpse</span>
                   {friendBirthdaysToday.length > 0 && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 999, padding: '2px 7px' }}>
-                      <i className="ti ti-cake" style={{ fontSize: 10, color: '#C8993E' }} />
+                      <Icon name="ti-cake" style={{ fontSize: 10, color: '#C8993E' }} />
                       <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.3 }}>{friendBirthdaysToday.length}</span>
                     </div>
                   )}
@@ -2148,7 +2149,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                             }
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(200,153,62,0.15)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: '50%', width: 28, height: 28 }}>
-                            <i className="ti ti-player-play-filled" style={{ fontSize: 11, color: '#C8993E' }} />
+                            <Icon name="ti-player-play-filled" style={{ fontSize: 11, color: '#C8993E' }} />
                           </div>
                         </div>
                         <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(200,153,62,0.15)' }}>
@@ -2239,11 +2240,11 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               )}
               {isOwn && (
                 <button onClick={e => { e.stopPropagation(); setCircleViewer(null); onOpenEntry(entry); }} title="Edit" style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--accent)', fontSize: 16, flexShrink: 0 }}>
-                  <i className="ti ti-pencil" />
+                  <Icon name="ti-pencil" />
                 </button>
               )}
               <button onClick={() => setCircleViewer(null)} style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', fontSize: 16, flexShrink: 0 }}>
-                <i className="ti ti-x" />
+                <Icon name="ti-x" />
               </button>
             </div>
 
@@ -2280,7 +2281,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                             <>
                               <img src={videoThumbUrl(photo.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+                                <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 20 }} /></div>
                               </div>
                             </>
                           )
@@ -2293,7 +2294,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 </div>
                 {showLikeAnim && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                    <i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+                    <Icon name="ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
                   </div>
                 )}
               </div>
@@ -2318,12 +2319,12 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 )}
                 {isVideo && !viewerPlaying && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+                    <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 20 }} /></div>
                   </div>
                 )}
                 {showLikeAnim && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                    <i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+                    <Icon name="ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
                   </div>
                 )}
               </div>
@@ -2354,7 +2355,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, color: viewerLikes.length > 0 ? '#E05C6A' : 'var(--text-3)' }}>
-                        <i className={`ti ${viewerLikes.length > 0 ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
+                        <Icon name={viewerLikes.length > 0 ? 'ti-heart-filled' : 'ti-heart'} style={{ fontSize: 22 }} />
                         {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{viewerLikes.length}</span>}
                       </div>
                       {viewerLikes.length > 0 && <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'Inter, sans-serif' }}>{likeNames}</span>}
@@ -2364,7 +2365,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
                     <button onClick={handleToggleLike} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: userHasLiked ? '#E05C6A' : 'var(--text-3)', fontFamily: 'Inter, sans-serif' }}>
-                      <i className={`ti ${userHasLiked ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
+                      <Icon name={userHasLiked ? 'ti-heart-filled' : 'ti-heart'} style={{ fontSize: 22 }} />
                       {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600 }}>{viewerLikes.length}</span>}
                     </button>
                     {viewerLikes.length > 0 && <span style={{ fontSize: 11, color: 'var(--text-3)', fontFamily: 'Inter, sans-serif' }}>{likeNames}</span>}
@@ -2391,7 +2392,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                       </div>
                       {c.user_id === session?.user?.id && (
                         <button onClick={async () => { setViewerComments(prev => prev.filter(x => x.id !== c.id && x.parent_id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id).eq('user_id', session.user.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
-                          <i className="ti ti-trash" style={{ fontSize: 13 }} />
+                          <Icon name="ti-trash" style={{ fontSize: 13 }} />
                         </button>
                       )}
                     </div>
@@ -2405,7 +2406,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                           </div>
                           {r.user_id === session?.user?.id && (
                             <button onClick={async () => { setViewerComments(prev => prev.filter(x => x.id !== r.id)); await supabase.from('entry_comments').delete().eq('id', r.id).eq('user_id', session.user.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
-                              <i className="ti ti-trash" style={{ fontSize: 12 }} />
+                              <Icon name="ti-trash" style={{ fontSize: 12 }} />
                             </button>
                           )}
                         </div>
@@ -2421,7 +2422,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               {replyTarget && (
                 <div style={{ padding: '6px 16px 0', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif' }}>Replying to <strong style={{ color: 'var(--text-2)' }}>{replyTarget.display_name}</strong></span>
-                  <button onClick={() => setReplyTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', marginLeft: 'auto' }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>
+                  <button onClick={() => setReplyTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', marginLeft: 'auto' }}><Icon name="ti-x" style={{ fontSize: 13 }} /></button>
                 </div>
               )}
               <div style={{ padding: '10px 16px 24px', display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -2437,7 +2438,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                   disabled={!viewerCommentText.trim()}
                   style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', opacity: viewerCommentText.trim() ? 1 : 0.35, flexShrink: 0 }}
                 >
-                  <i className="ti ti-send" style={{ fontSize: 15, color: '#fff' }} />
+                  <Icon name="ti-send" style={{ fontSize: 15, color: '#fff' }} />
                 </button>
               </div>
             </div>
@@ -2477,12 +2478,12 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
           }
           {heroMedia.type === 'video' && !playingHero && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setPlayingHero(true); }}>
-              <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+              <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 20 }} /></div>
             </div>
           )}
           {entry.media.length > 1 && (
             <div style={{ position: 'absolute', bottom: 8, right: 8, background: 'rgba(0,0,0,0.45)', borderRadius: 6, padding: '2px 7px', display: 'flex', alignItems: 'center', gap: 3 }}>
-              <i className="ti ti-photos" style={{ fontSize: 11, color: '#fff' }} />
+              <Icon name="ti-photos" style={{ fontSize: 11, color: '#fff' }} />
               <span style={{ fontSize: 11, color: '#fff', fontWeight: 700, fontFamily: 'Inter, sans-serif' }}>{entry.media.length}</span>
             </div>
           )}
@@ -2507,20 +2508,20 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{nameLabel}</span>
               {entryKids.length === 1 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {exactAgeLabel(entryKids[0].birthdate, entry.date)}</span>}
               <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                {entry.type === 'note' && <i className={`ti ${entry.prompt ? 'ti-bulb' : 'ti-notebook'}`} style={{ fontSize: 11, color: entry.prompt ? PROMPT_ACCENT : 'var(--text-muted)' }} />}
+                {entry.type === 'note' && <Icon name={entry.prompt ? 'ti-bulb' : 'ti-notebook'} style={{ fontSize: 11, color: entry.prompt ? PROMPT_ACCENT : 'var(--text-muted)' }} />}
                 {reactionCount?.likes > 0 && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: '#E05C6A', fontWeight: 600 }}>
-                    <i className="ti ti-heart-filled" style={{ fontSize: 11 }} />
+                    <Icon name="ti-heart-filled" style={{ fontSize: 11 }} />
                     {reactionCount.likes}
                   </span>
                 )}
                 {reactionCount?.comments > 0 && (
                   <span style={{ display: 'flex', alignItems: 'center', gap: 2, fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
-                    <i className="ti ti-message-circle" style={{ fontSize: 11 }} />
+                    <Icon name="ti-message-circle" style={{ fontSize: 11 }} />
                     {reactionCount.comments}
                   </span>
                 )}
-                {entry.favorited && <i className="ti ti-star-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
+                {entry.favorited && <Icon name="ti-star-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
                 {m && <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E' }}>{m.label}</span>}
               </div>
             </div>
@@ -2533,7 +2534,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
                       ? <img src={videoThumbUrl(mm.url, 'so_0,w_200,h_200,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} alt="" loading="lazy" />
                       : <FadeImg src={cloudinaryTransform(mm.url, 'w_200,h_200,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
                     }
-                    {mm.type === 'video' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-player-play" style={{ fontSize: 12, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} /></div>}
+                    {mm.type === 'video' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="ti-player-play" style={{ fontSize: 12, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} /></div>}
                   </div>
                 ))}
               </div>
@@ -2607,7 +2608,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         currentMonth = monthLabel;
         result.push(
           <div className="month-divider" key={'divider-' + monthLabel}>
-            <i className="ti ti-leaf" style={{ fontSize: 13, color: 'var(--text-3)', flexShrink: 0 }} />
+            <Icon name="ti-leaf" style={{ fontSize: 13, color: 'var(--text-3)', flexShrink: 0 }} />
             <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.3 }}>{monthLabel.toUpperCase()}</span>
             <div className="month-divider-line" />
           </div>
@@ -2625,19 +2626,19 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         {ptr.indicator}
         <div className="scrollpad" style={{ paddingBottom: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            {onBack && <button className="icon-btn" onClick={onBack} style={{ flexShrink: 0 }}><i className="ti ti-arrow-left" /></button>}
+            {onBack && <button className="icon-btn" onClick={onBack} style={{ flexShrink: 0 }}><Icon name="ti-arrow-left" /></button>}
             <div style={{ flex: 1, textAlign: 'center' }}>
               <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{milestonesOnly ? 'Milestones' : memberCount > 1 ? 'Our letters' : 'My letters'}</h2>
             </div>
             <button className="icon-btn" onClick={() => { setShowSearch(s => !s); setSearchQuery(''); setTimeout(() => searchInputRef.current?.focus(), 50); }} style={{ flexShrink: 0 }}>
-              <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+              <Icon name={showSearch ? 'ti-x' : 'ti-search'} />
             </button>
           </div>
           <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth />
           {showSearch && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
-              <i className="ti ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
+              <Icon name="ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -2648,7 +2649,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', alignItems: 'center' }}>
-                  <i className="ti ti-x" style={{ fontSize: 14 }} />
+                  <Icon name="ti-x" style={{ fontSize: 14 }} />
                 </button>
               )}
             </div>
@@ -2658,7 +2659,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
           {rows.length === 0 ? (
             <div className="empty-state">
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                <i className="ti ti-notebook" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                <Icon name="ti-notebook" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>Nothing written yet</p>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', maxWidth: 240, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.5 }}>
@@ -2722,7 +2723,7 @@ const SongPlayer = memo(function SongPlayer({ song }) {
         </div>
       </div>
       <button onClick={toggle} style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 15 }}>
-        <i className={`ti ti-player-${playing ? 'pause' : 'play'}-filled`} />
+        <Icon name={`ti-player-${playing ? 'pause' : 'play'}-filled`} />
       </button>
     </div>
   );
@@ -2744,7 +2745,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-elevated)', borderRadius: 14, padding: '10px 14px' }}>
       <audio ref={audioRef} src={url} onEnded={() => { setPlaying(false); setProgress(0); }} onTimeUpdate={() => { const a = audioRef.current; if (a && a.duration) setProgress(a.currentTime / a.duration); }} />
       <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <i className="ti ti-microphone" style={{ fontSize: 16, color: '#fff' }} />
+        <Icon name="ti-microphone" style={{ fontSize: 16, color: '#fff' }} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0 }}>Voice memo</p>
@@ -2753,7 +2754,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
         </div>
       </div>
       <button onClick={toggle} style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--accent)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0, fontSize: 15 }}>
-        <i className={`ti ti-player-${playing ? 'pause' : 'play'}-filled`} />
+        <Icon name={`ti-player-${playing ? 'pause' : 'play'}-filled`} />
       </button>
     </div>
   );
@@ -3006,7 +3007,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           {media.length > 0 ? (
             <>
               <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 10, opacity: videoPlaying ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: videoPlaying ? 'none' : 'auto' }}>
-                <button className="icon-btn-ghost" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+                <button className="icon-btn-ghost" onClick={onBack}><Icon name="ti-arrow-left" /></button>
               </div>
               <div
                 className="gallery-stage"
@@ -3052,7 +3053,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                     onClick={e => { e.stopPropagation(); setShowCrop(true); }}
                     style={{ position: 'absolute', bottom: 12, right: 12, width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
                   >
-                    <i className="ti ti-crop" style={{ fontSize: 16 }} />
+                    <Icon name="ti-crop" style={{ fontSize: 16 }} />
                   </button>
                 )}
                 {media[activeSlide]?.type !== 'video' && (
@@ -3060,7 +3061,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                     onClick={e => { e.stopPropagation(); if (isOwn) setShowPeopleTagger(true); }}
                     style={{ position: 'absolute', bottom: 12, left: 12, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.38)', borderRadius: 999, padding: '5px 10px 5px 7px', border: 'none', cursor: isOwn ? 'pointer' : 'default' }}
                   >
-                    <i className="ti ti-user-plus" style={{ fontSize: 12, color: '#fff' }} />
+                    <Icon name="ti-user-plus" style={{ fontSize: 12, color: '#fff' }} />
                     <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>
                       {(() => {
                         const taggedFriendNames = friendKids.filter(k => entry.kids.includes(k.id)).map(k => k.name.split(' ')[0]);
@@ -3072,14 +3073,14 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 )}
                 {showDetailLikeAnim && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                    <i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+                    <Icon name="ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
                   </div>
                 )}
               </div>
             </>
           ) : (
             <div style={{ padding: '14px 14px 0' }}>
-              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
             </div>
           )}
         </div>
@@ -3087,7 +3088,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           {m && (
             <div className="milestone-entry" style={{ borderRadius: 16, padding: '18px 20px', textAlign: 'center' }}>
               <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 8px' }}>Milestone</p>
-              <i className={`ti ${m.icon}`} style={{ fontSize: 28, color: '#C8993E', display: 'block', marginBottom: 8 }} />
+              <Icon name={m.icon} style={{ fontSize: 28, color: '#C8993E', display: 'block', marginBottom: 8 }} />
               <p style={{ fontSize: 15, fontWeight: 700, color: '#7A6030', margin: 0 }}>{m.label}</p>
             </div>
           )}
@@ -3123,7 +3124,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                             title={`Remove ${side.kid.name.split(' ')[0]} from this match`}
                             style={{ position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 2 }}
                           >
-                            <i className="ti ti-x" style={{ fontSize: 11, color: '#fff' }} />
+                            <Icon name="ti-x" style={{ fontSize: 11, color: '#fff' }} />
                           </button>
                         )}
                       </div>
@@ -3153,18 +3154,18 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   </p>
                   {location && (
                     <span onClick={() => { if (isOwn) { setLocationDraft(location); setLocationDraftCoords(null); setEditingLocation(true); } }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginTop: 3, cursor: isOwn ? 'pointer' : 'default' }}>
-                      <i className="ti ti-map-pin" style={{ fontSize: 11, color: 'var(--text-muted)' }} />
+                      <Icon name="ti-map-pin" style={{ fontSize: 11, color: 'var(--text-muted)' }} />
                       <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{location}</span>
                     </span>
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                   <button onClick={() => { onToggleFavorite(entry.id); showToast(entry.favorited ? 'Removed from favorites' : 'Saved to favorites'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: entry.favorited ? '#C8993E' : 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
-                    <i className={`ti ti-star${entry.favorited ? '-filled' : ''}`} />
+                    <Icon name={`ti-star${entry.favorited ? '-filled' : ''}`} />
                   </button>
                   {isOwn && (
                     <button onClick={() => setShowActionSheet(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
-                      <i className="ti ti-dots" />
+                      <Icon name="ti-dots" />
                     </button>
                   )}
                 </div>
@@ -3181,7 +3182,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               <div style={{ borderRadius: 13, overflow: 'hidden', border: '1px solid var(--border)' }}>
                 <div style={{ background: PROMPT_ACCENT, padding: '13px 17px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                    <i className="ti ti-bulb" style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }} />
+                    <Icon name="ti-bulb" style={{ fontSize: 13, color: 'rgba(255,255,255,0.9)' }} />
                     <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: 'rgba(255,255,255,0.85)' }}>Prompt</span>
                   </div>
                   <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 16, lineHeight: 1.5, color: '#fff', margin: 0 }}>{entry.prompt}</p>
@@ -3196,7 +3197,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <div style={{ position: 'relative', background: hexToRgba(noteAccent, 0.13), border: `1px solid ${hexToRgba(noteAccent, 0.3)}`, borderRadius: 13, padding: '15px 17px 13px' }}>
               <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 15px 15px 0', borderColor: `transparent ${hexToRgba(noteAccent, 0.48)} transparent transparent`, borderRadius: '0 13px 0 0' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <i className="ti ti-notebook" style={{ fontSize: 12, color: noteAccent }} />
+                <Icon name="ti-notebook" style={{ fontSize: 12, color: noteAccent }} />
                 <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: noteAccent }}>Note</span>
               </div>
               <p style={{ fontSize: 16, color: 'var(--text)', lineHeight: 1.7, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{entry.text}</p>
@@ -3238,7 +3239,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>
                   {others.length === 1 ? `Compare with ${other.name.split(' ')[0]} at the same age` : 'Compare at the same age'}
                 </span>
-                <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
+                <Icon name="ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
               </button>
             );
           })()}
@@ -3251,7 +3252,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 return (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <button onClick={handleDetailToggleLike} style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: iLiked ? '#E05C6A' : 'var(--text-muted)' }}>
-                      <i className={`ti ti-heart${iLiked ? '-filled' : ''}`} style={{ fontSize: 18 }} />
+                      <Icon name={`ti-heart${iLiked ? '-filled' : ''}`} style={{ fontSize: 18 }} />
                     </button>
                     {detailLikes.length > 0 && (
                       <span style={{ fontSize: 13, color: 'var(--text-2)' }}>
@@ -3279,7 +3280,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                       </div>
                       {c.user_id === session?.user?.id && (
                         <button onClick={async () => { setDetailComments(prev => prev.filter(x => x.id !== c.id && x.parent_id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id).eq('user_id', session.user.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
-                          <i className="ti ti-trash" style={{ fontSize: 13 }} />
+                          <Icon name="ti-trash" style={{ fontSize: 13 }} />
                         </button>
                       )}
                     </div>
@@ -3293,7 +3294,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                           </div>
                           {r.user_id === session?.user?.id && (
                             <button onClick={async () => { setDetailComments(prev => prev.filter(x => x.id !== r.id)); await supabase.from('entry_comments').delete().eq('id', r.id).eq('user_id', session.user.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
-                              <i className="ti ti-trash" style={{ fontSize: 12 }} />
+                              <Icon name="ti-trash" style={{ fontSize: 12 }} />
                             </button>
                           )}
                         </div>
@@ -3306,7 +3307,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               {detailReplyTarget && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-elevated)', borderRadius: 8, padding: '6px 10px' }}>
                   <span style={{ fontSize: 12, color: 'var(--text-muted)', flex: 1 }}>Replying to <strong style={{ color: 'var(--text-2)' }}>{detailReplyTarget.display_name}</strong></span>
-                  <button onClick={() => setDetailReplyTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>
+                  <button onClick={() => setDetailReplyTarget(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}><Icon name="ti-x" style={{ fontSize: 13 }} /></button>
                 </div>
               )}
               {/* Comment input */}
@@ -3319,7 +3320,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 20, padding: '8px 14px', fontSize: 13, background: 'var(--bg-input)', color: 'var(--text)', fontFamily: 'Inter, sans-serif', outline: 'none' }}
                 />
                 <button onClick={handleDetailSubmitComment} disabled={!detailCommentText.trim()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: detailCommentText.trim() ? 'var(--accent)' : 'var(--border)', padding: 0, fontSize: 20, display: 'flex', alignItems: 'center' }}>
-                  <i className="ti ti-send" />
+                  <Icon name="ti-send" />
                 </button>
               </div>
             </>
@@ -3343,7 +3344,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   >
                     <KidThumb kid={other} size={28} />
                     <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{other.name.split(' ')[0]}</span>
-                    {selected && <i className="ti ti-check" style={{ fontSize: 14, color: 'var(--accent)' }} />}
+                    {selected && <Icon name="ti-check" style={{ fontSize: 14, color: 'var(--accent)' }} />}
                   </button>
                 );
               })}
@@ -3394,7 +3395,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               { icon: 'ti-trash', label: 'Delete entry', action: () => { setShowActionSheet(false); setShowDeleteConfirm(true); }, danger: true },
             ].filter(Boolean).map(item => (
               <button key={item.label} onClick={item.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', color: item.danger ? '#D4856A' : 'var(--text)', fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 500 }}>
-                <i className={`ti ${item.icon}`} style={{ fontSize: 20, width: 24, flexShrink: 0 }} />
+                <Icon name={item.icon} style={{ fontSize: 20, width: 24, flexShrink: 0 }} />
                 {item.label}
               </button>
             ))}
@@ -3406,7 +3407,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-link" style={{ fontSize: 19, color: 'var(--accent)' }} />
+              <Icon name="ti-link" style={{ fontSize: 19, color: 'var(--accent)' }} />
             </div>
             <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Share this moment</p>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.6, textAlign: 'center' }}>
@@ -3438,7 +3439,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
+              <Icon name="ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
             </div>
             <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px', textAlign: 'center' }}>Delete this entry?</p>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center' }}>This can't be undone.</p>
@@ -3469,7 +3470,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             onClick={e => { e.stopPropagation(); setShowLightbox(false); }}
             style={{ position: 'absolute', top: 16, right: 16, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 1 }}
           >
-            <i className="ti ti-x" />
+            <Icon name="ti-x" />
           </button>
           <img
             src={cloudinaryTransform(media[activeSlide].url, 'w_1200,q_auto,f_auto')}
@@ -3505,14 +3506,14 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '24px 20px 40px', width: '100%' }} onClick={e => e.stopPropagation()}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Who else was there?</p>
-                <button onClick={closeTagger} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}><i className="ti ti-x" style={{ fontSize: 18 }} /></button>
+                <button onClick={closeTagger} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}><Icon name="ti-x" style={{ fontSize: 18 }} /></button>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '10px 14px' }}>
                 {people.map(p => (
                   <div key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 6px 3px 10px', fontSize: 13, color: 'var(--text-2)' }}>
                     {p}
                     <button onMouseDown={e => { e.preventDefault(); removePerson(p); }} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', borderRadius: '50%' }}>
-                      <i className="ti ti-x" style={{ fontSize: 10 }} />
+                      <Icon name="ti-x" style={{ fontSize: 10 }} />
                     </button>
                   </div>
                 ))}
@@ -3548,7 +3549,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                         ))}
                         {peopleSuggestions.map(p => (
                           <button key={p} onMouseDown={e => { e.preventDefault(); addPerson(p); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                            <i className="ti ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
+                            <Icon name="ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
                             {p}
                           </button>
                         ))}
@@ -3566,7 +3567,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '24px 20px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Location</p>
-              <button onClick={() => setEditingLocation(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}><i className="ti ti-x" style={{ fontSize: 18 }} /></button>
+              <button onClick={() => setEditingLocation(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 4 }}><Icon name="ti-x" style={{ fontSize: 18 }} /></button>
             </div>
             <LocationInput value={locationDraft} onChange={setLocationDraft} onChangeCoords={(lat, lng) => setLocationDraftCoords(lat != null ? { lat, lng } : null)} autoFocus inline />
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
@@ -4016,7 +4017,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
 
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px', flexShrink: 0, position: 'relative' }}>
-        <button className="icon-btn" onClick={onCancel}><i className="ti ti-x" /></button>
+        <button className="icon-btn" onClick={onCancel}><Icon name="ti-x" /></button>
         {isNote && (
           <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', fontSize: 14, fontWeight: 700, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif" }}>
             {existingEntry ? 'Edit note' : 'New note'}
@@ -4025,7 +4026,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {existingEntry && onDelete && (
             <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)} style={{ color: '#D4856A', borderColor: 'rgba(212,133,106,0.35)' }}>
-              <i className="ti ti-trash" />
+              <Icon name="ti-trash" />
             </button>
           )}
           <button
@@ -4046,7 +4047,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
 
         {draftRestored && (
           <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <i className="ti ti-pencil" style={{ color: 'var(--accent)', fontSize: 14, flexShrink: 0 }} />
+            <Icon name="ti-pencil" style={{ color: 'var(--accent)', fontSize: 14, flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 13, color: 'var(--accent)', fontWeight: 500 }}>Draft restored</span>
             <button
               onClick={() => {
@@ -4100,7 +4101,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                   Dear {salutationName},
                 </p>
                 <button onClick={openDateEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", padding: 0, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <i className="ti ti-calendar" style={{ fontSize: 12 }} />
+                  <Icon name="ti-calendar" style={{ fontSize: 12 }} />
                   {dateDisplay}
                   {dateFromPhoto && <span style={{ fontSize: 10 }}>· photo</span>}
                 </button>
@@ -4110,10 +4111,10 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
               <button onClick={() => { setShowKidPicker(true);}} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: 'var(--border)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                 Who is this for?
-                <i className="ti ti-chevron-down" style={{ fontSize: 13 }} />
+                <Icon name="ti-chevron-down" style={{ fontSize: 13 }} />
               </button>
               <button onClick={openDateEdit} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-2)', fontFamily: "'Urbanist', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
-                <i className="ti ti-calendar" style={{ fontSize: 13 }} />
+                <Icon name="ti-calendar" style={{ fontSize: 13 }} />
                 {dateDisplay}
                 {dateFromPhoto && <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>· photo</span>}
               </button>
@@ -4124,18 +4125,18 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
 
         {showNoExifHint && (
           <div style={{ background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 10, padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <i className="ti ti-calendar-exclamation" style={{ color: '#C8993E', fontSize: 15, flexShrink: 0 }} />
+            <Icon name="ti-calendar-exclamation" style={{ color: '#C8993E', fontSize: 15, flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 12.5, color: 'var(--text-2)' }}>Couldn't read a date from that photo — tap the date above to set it.</span>
-            <button onClick={() => setShowNoExifHint(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, fontSize: 14 }}><i className="ti ti-x" /></button>
+            <button onClick={() => setShowNoExifHint(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0, fontSize: 14 }}><Icon name="ti-x" /></button>
           </div>
         )}
 
         {/* Photo preview */}
         {mediaError && (
           <div style={{ background: 'rgba(196,160,156,0.15)', border: '1px solid rgba(196,160,156,0.4)', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-            <i className="ti ti-alert-circle" style={{ color: '#C4A09C', fontSize: 15, flexShrink: 0 }} />
+            <Icon name="ti-alert-circle" style={{ color: '#C4A09C', fontSize: 15, flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 13, color: '#C4A09C' }}>{mediaError}</span>
-            <button onClick={() => setMediaError('')} style={{ background: 'none', border: 'none', color: '#C4A09C', cursor: 'pointer', padding: 0, fontSize: 14 }}><i className="ti ti-x" /></button>
+            <button onClick={() => setMediaError('')} style={{ background: 'none', border: 'none', color: '#C4A09C', cursor: 'pointer', padding: 0, fontSize: 14 }}><Icon name="ti-x" /></button>
           </div>
         )}
 
@@ -4150,7 +4151,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                   : <img src={item.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
                 }
                 <button onClick={e => { e.stopPropagation(); const it = media[i]; if (it.url?.startsWith('blob:')) URL.revokeObjectURL(it.url); setMedia(prev => prev.filter((_, idx) => idx !== i)); setFileObjects(prev => prev.filter((_, idx) => idx !== i)); }} style={{ position: 'absolute', top: 4, right: 4, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <i className="ti ti-x" />
+                  <Icon name="ti-x" />
                 </button>
                 {i === 0 && canSameAgeFromDraft && (
                   <>
@@ -4164,7 +4165,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                         setShowDraftSameAgePicker(true);
                       }
                     }} title="Same age" style={{ position: 'absolute', bottom: 6, right: 6, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <i className="ti ti-arrows-diff" />
+                      <Icon name="ti-arrows-diff" />
                     </button>
                     <Coachmark
                       id="draft-same-age-badge"
@@ -4179,7 +4180,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                 {item.type === 'video' && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 12 }} />
+                      <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 12 }} />
                     </div>
                   </div>
                 )}
@@ -4203,7 +4204,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
               transition: 'background 0.2s, color 0.2s',
             }}
           >
-            <i className="ti ti-microphone" style={{ fontSize: 20 }} />
+            <Icon name="ti-microphone" style={{ fontSize: 20 }} />
             <span style={{ fontSize: 14, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.2 }}>
               {listening ? 'Listening…' : 'Tap to speak'}
             </span>
@@ -4212,33 +4213,33 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
 
         {isNote && (voiceMemoBlob || voiceMemoUrl) && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 14px', marginBottom: 14 }}>
-            <i className="ti ti-microphone" style={{ fontSize: 15, color: 'var(--accent)', flexShrink: 0 }} />
+            <Icon name="ti-microphone" style={{ fontSize: 15, color: 'var(--accent)', flexShrink: 0 }} />
             <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-2)' }}>Voice captured</span>
-            <button onClick={() => { setVoiceMemoBlob(null); setVoiceMemoUrl(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><i className="ti ti-x" /></button>
+            <button onClick={() => { setVoiceMemoBlob(null); setVoiceMemoUrl(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><Icon name="ti-x" /></button>
           </div>
         )}
 
         {isNote && song && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 14px', marginBottom: 14 }}>
-            <i className="ti ti-music" style={{ fontSize: 15, color: '#F45B54', flexShrink: 0 }} />
+            <Icon name="ti-music" style={{ fontSize: 15, color: '#F45B54', flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
               <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{song.artist}</p>
             </div>
-            <button onClick={() => setSong(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><i className="ti ti-x" /></button>
+            <button onClick={() => setSong(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><Icon name="ti-x" /></button>
           </div>
         )}
 
         {/* Prompt banner */}
         {isNote && promptText && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 12, padding: '11px 12px', marginBottom: 14 }}>
-            <i className="ti ti-bulb" style={{ fontSize: 16, color: '#C8993E', flexShrink: 0 }} />
+            <Icon name="ti-bulb" style={{ fontSize: 16, color: '#C8993E', flexShrink: 0 }} />
             <p style={{ flex: 1, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.4 }}>{promptText}</p>
             <button
               onClick={() => setPromptText(NOTE_PROMPTS[Math.floor(Math.random() * NOTE_PROMPTS.length)])}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C8993E', padding: 4, display: 'flex', flexShrink: 0 }}
             >
-              <i className="ti ti-refresh" style={{ fontSize: 15 }} />
+              <Icon name="ti-refresh" style={{ fontSize: 15 }} />
             </button>
           </div>
         )}
@@ -4291,7 +4292,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
               : <img src={previewMedia.url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="" loading="lazy" />
             }
             <button onClick={() => setPreviewMedia(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18 }}>
-              <i className="ti ti-x" />
+              <Icon name="ti-x" />
             </button>
           </div>
         )}
@@ -4304,16 +4305,16 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
               <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 }}>Soundtrack</p>
               {song ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 14px' }}>
-                  <i className="ti ti-music" style={{ fontSize: 15, color: '#F45B54', flexShrink: 0 }} />
+                  <Icon name="ti-music" style={{ fontSize: 15, color: '#F45B54', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.name}</p>
                     <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{song.artist}</p>
                   </div>
-                  <button onClick={() => setSong(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><i className="ti ti-x" /></button>
+                  <button onClick={() => setSong(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><Icon name="ti-x" /></button>
                 </div>
               ) : (
                 <button onClick={() => setShowSongPicker(true)} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px dashed var(--border)', borderRadius: 13, padding: '12px 14px', width: '100%', cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
-                  <i className="ti ti-music" style={{ fontSize: 15, color: '#F45B54' }} />
+                  <Icon name="ti-music" style={{ fontSize: 15, color: '#F45B54' }} />
                   <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 500 }}>Add a soundtrack</span>
                 </button>
               )}
@@ -4323,9 +4324,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
               <div>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 }}>Voice Memo</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, padding: '12px 14px' }}>
-                  <i className="ti ti-microphone" style={{ fontSize: 15, color: 'var(--accent)', flexShrink: 0 }} />
+                  <Icon name="ti-microphone" style={{ fontSize: 15, color: 'var(--accent)', flexShrink: 0 }} />
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: 'var(--text-2)' }}>Voice captured</span>
-                  <button onClick={() => { setVoiceMemoBlob(null); setVoiceMemoUrl(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><i className="ti ti-x" /></button>
+                  <button onClick={() => { setVoiceMemoBlob(null); setVoiceMemoUrl(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}><Icon name="ti-x" /></button>
                 </div>
               </div>
             )}
@@ -4378,9 +4379,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                         borderRadius: 13, padding: '13px 16px', cursor: 'pointer',
                       }}
                     >
-                      <i className={`ti ${mt.icon}`} style={{ fontSize: 19, color: active ? '#C8993E' : 'var(--text-muted)', flexShrink: 0 }} />
+                      <Icon name={mt.icon} style={{ fontSize: 19, color: active ? '#C8993E' : 'var(--text-muted)', flexShrink: 0 }} />
                       <span style={{ fontSize: 14, fontWeight: 600, color: active ? '#fff' : 'var(--text)', flex: 1 }}>{mt.label}</span>
-                      {active && <i className="ti ti-check" style={{ color: '#C8993E', fontSize: 16 }} />}
+                      {active && <Icon name="ti-check" style={{ color: '#C8993E', fontSize: 16 }} />}
                     </div>
                   );
                 })}
@@ -4393,7 +4394,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                   }}
                   onClick={() => setMilestoneType(milestoneType === 'custom' ? null : 'custom')}
                 >
-                  <i className="ti ti-star" style={{ fontSize: 19, color: milestoneType === 'custom' ? '#C8993E' : 'var(--text-muted)', flexShrink: 0 }} />
+                  <Icon name="ti-star" style={{ fontSize: 19, color: milestoneType === 'custom' ? '#C8993E' : 'var(--text-muted)', flexShrink: 0 }} />
                   {milestoneType === 'custom' ? (
                     <input
                       autoFocus
@@ -4417,7 +4418,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                   <div key={p} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'var(--bg-elevated)', borderRadius: 999, padding: '3px 6px 3px 10px', fontSize: 13, color: 'var(--text-2)' }}>
                     {p}
                     <button onClick={() => setPeople(prev => prev.filter(n => n !== p))} style={{ background: 'none', border: 'none', padding: 2, cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', borderRadius: '50%' }}>
-                      <i className="ti ti-x" style={{ fontSize: 10 }} />
+                      <Icon name="ti-x" style={{ fontSize: 10 }} />
                     </button>
                   </div>
                 ))}
@@ -4458,7 +4459,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                         ))}
                         {peopleSuggestions.map(p => (
                           <button key={p} onMouseDown={e => { e.preventDefault(); setPeople(prev => [...prev, p]); setPeopleInput(''); }} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 14px', border: 'none', background: 'none', textAlign: 'left', fontSize: 13, color: 'var(--text)', cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
-                            <i className="ti ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
+                            <Icon name="ti-user" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
                             {p}
                           </button>
                         ))}
@@ -4482,26 +4483,26 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
               <div style={{ position: 'fixed', inset: 0, zIndex: 9 }} onClick={() => setShowMediaMenu(false)} />
               <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', boxShadow: '0 -4px 20px rgba(0,0,0,0.1)', minWidth: 210, zIndex: 10 }}>
                 <button onClick={() => { cameraInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500 }}>
-                  <i className="ti ti-camera" style={{ fontSize: 17, color: 'var(--accent)' }} /> Take a photo
+                  <Icon name="ti-camera" style={{ fontSize: 17, color: 'var(--accent)' }} /> Take a photo
                 </button>
                 <div style={{ height: 1, background: 'var(--border)' }} />
                 <button onClick={() => { uploadInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500 }}>
-                  <i className="ti ti-photo" style={{ fontSize: 17, color: 'var(--accent)' }} /> Upload from library
+                  <Icon name="ti-photo" style={{ fontSize: 17, color: 'var(--accent)' }} /> Upload from library
                 </button>
               </div>
             </>
           )}
           <button onClick={() => setShowMediaMenu(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showMediaMenu ? 'var(--accent)' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
-            <i className="ti ti-camera" />
+            <Icon name="ti-camera" />
           </button>
         </div>
         {isNote && (
           <>
             <button onClick={() => setShowSongPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: song ? '#F45B54' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
-              <i className="ti ti-music" />
+              <Icon name="ti-music" />
             </button>
             <button onClick={() => setShowSharePicker(true)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, padding: '7px 10px', borderRadius: 10, color: Object.values(sharedWith).some(Boolean) ? 'var(--accent)' : 'var(--text-muted)', fontSize: 12, fontWeight: 600, fontFamily: "'Urbanist', sans-serif" }}>
-              <i className={`ti ${Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'}`} style={{ fontSize: 15 }} />
+              <Icon name={Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'} style={{ fontSize: 15 }} />
               {Object.values(sharedWith).some(Boolean) ? 'Share' : 'Private'}
             </button>
           </>
@@ -4510,31 +4511,31 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         <>
         {/* Mic */}
         <button onClick={toggleListening} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: listening ? '#F0897A' : 'var(--text-muted)', fontSize: 22, borderRadius: 10, animation: listening ? 'mic-pulse 1.5s ease-in-out infinite' : 'none' }}>
-          <i className="ti ti-microphone" />
+          <Icon name="ti-microphone" />
         </button>
         {/* Write for me */}
         {selectedKids.length > 0 && (
           <button onClick={handleGenerate} disabled={generating || polishing} style={{ background: 'none', border: 'none', cursor: generating ? 'default' : 'pointer', height: 44, display: 'flex', alignItems: 'center', gap: 5, padding: '0 10px', color: generating ? 'var(--border)' : 'var(--accent)', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", borderRadius: 10 }}>
-            <i className="ti ti-sparkles" style={{ fontSize: 15, animation: generating ? 'spin 1s linear infinite' : 'none' }} />
+            <Icon name="ti-sparkles" style={{ fontSize: 15, animation: generating ? 'spin 1s linear infinite' : 'none' }} />
             {generating ? 'Writing…' : 'Write for me'}
           </button>
         )}
         {/* Fix grammar */}
         {text.trim().length > 0 && !generating && (
           <button onClick={handlePolish} disabled={polishing} style={{ background: 'none', border: 'none', cursor: polishing ? 'default' : 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: polishing ? 'var(--border)' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
-            <i className="ti ti-writing" style={{ animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
+            <Icon name="ti-writing" style={{ animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
           </button>
         )}
         {/* Sharing */}
         <button onClick={() => setShowSharePicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, color: Object.values(sharedWith).some(Boolean) ? 'var(--accent)' : 'var(--text-muted)', borderRadius: 10 }}>
-          <i className={`ti ${Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'}`} style={{ fontSize: 18 }} />
+          <Icon name={Object.values(sharedWith).some(Boolean) ? 'ti-users' : 'ti-lock'} style={{ fontSize: 18 }} />
           <span style={{ fontSize: 9, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.2, lineHeight: 1 }}>
             {Object.values(sharedWith).some(Boolean) ? 'All' : 'Private'}
           </span>
         </button>
         {/* More */}
         <button onClick={() => setShowExtras(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showExtras ? 'var(--accent)' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
-          <i className="ti ti-dots" />
+          <Icon name="ti-dots" />
         </button>
         </>
         )}
@@ -4545,7 +4546,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => { setShowSongPicker(false); setSongQuery(''); setSongResults([]); }}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '24px 20px 40px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
-              <i className="ti ti-music" style={{ fontSize: 20, color: '#F45B54' }} />
+              <Icon name="ti-music" style={{ fontSize: 20, color: '#F45B54' }} />
               <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0, flex: 1 }}>Soundtrack</p>
               {song && (
                 <button onClick={() => { setSong(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", padding: 0 }}>Remove</button>
@@ -4572,7 +4573,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                     style={{ paddingRight: 40 }}
                   />
                   {songSearching && (
-                    <i className="ti ti-loader-2" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite', color: 'var(--text-muted)', fontSize: 16 }} />
+                    <Icon name="ti-loader-2" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', animation: 'spin 1s linear infinite', color: 'var(--text-muted)', fontSize: 16 }} />
                   )}
                 </div>
                 {songResults.length > 0 && (
@@ -4611,7 +4612,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                     <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
                   ))}
                 </select>
-                <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13, pointerEvents: 'none' }} />
+                <Icon name="ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13, pointerEvents: 'none' }} />
               </div>
               <input type="number" placeholder="Day" value={editDay} min={1} max={31} onChange={e => setEditDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
               <input type="number" placeholder="Year" value={editYear} min={1900} max={2030} onChange={e => setEditYear(e.target.value)} style={{ flex: 1.5, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
@@ -4626,7 +4627,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
+              <Icon name="ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
             </div>
             <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px', textAlign: 'center' }}>Delete this entry?</p>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center' }}>This can't be undone.</p>
@@ -4656,7 +4657,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                   >
                     <KidThumb kid={other} size={28} />
                     <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{other.name.split(' ')[0]}</span>
-                    {selected && <i className="ti ti-check" style={{ fontSize: 14, color: 'var(--accent)' }} />}
+                    {selected && <Icon name="ti-check" style={{ fontSize: 14, color: 'var(--accent)' }} />}
                   </button>
                 );
               })}
@@ -4707,13 +4708,13 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
               return (
                 <div key={opt.label} onClick={() => { setSharedWith(opt.value); setShowSharePicker(false); }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
                   <div style={{ width: 40, height: 40, borderRadius: '50%', background: active ? 'var(--accent)' : 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.15s' }}>
-                    <i className={`ti ${opt.icon}`} style={{ fontSize: 18, color: active ? '#fff' : 'var(--accent)' }} />
+                    <Icon name={opt.icon} style={{ fontSize: 18, color: active ? '#fff' : 'var(--accent)' }} />
                   </div>
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{opt.label}</p>
                     <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{opt.sub}</p>
                   </div>
-                  {active && <i className="ti ti-check" style={{ fontSize: 16, color: 'var(--accent)' }} />}
+                  {active && <Icon name="ti-check" style={{ fontSize: 16, color: 'var(--accent)' }} />}
                 </div>
               );
             })}
@@ -4736,7 +4737,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                     <KidThumb kid={k} size={36} />
                     <span style={{ fontSize: 16, color: 'var(--text)', fontWeight: 600 }}>{k.name}</span>
                     <div style={{ marginLeft: 'auto', width: 22, height: 22, borderRadius: '50%', border: `2px solid ${selected ? 'var(--accent)' : 'var(--border)'}`, background: selected ? 'var(--accent)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {selected && <i className="ti ti-check" style={{ color: '#fff', fontSize: 12 }} />}
+                      {selected && <Icon name="ti-check" style={{ color: '#fff', fontSize: 12 }} />}
                     </div>
                   </div>
                 );
@@ -5000,7 +5001,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
               onClick={() => onCompareAtAge(entryKids[0]?.id ?? null, entry.ageMonths, entry.id)}
               style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 999, padding: '5px 12px 5px 5px', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", flexShrink: 0 }}
             >
-              {entryKids[0] ? <KidThumb kid={entryKids[0]} size={22} /> : <i className="ti ti-arrows-diff" style={{ fontSize: 14 }} />} Same age
+              {entryKids[0] ? <KidThumb kid={entryKids[0]} size={22} /> : <Icon name="ti-arrows-diff" style={{ fontSize: 14 }} />} Same age
             </button>
           )}
         </div>
@@ -5044,7 +5045,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                         <>
                           <img src={videoThumbUrl(photo.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+                            <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 20 }} /></div>
                           </div>
                         </>
                       )
@@ -5061,7 +5062,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             </div>
             {likeAnimId === entry.id && (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                <i className="ti ti-heart-filled" style={{ fontSize: 90, color: '#fff', filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+                <Icon name="ti-heart-filled" style={{ fontSize: 90, color: '#fff', filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
               </div>
             )}
           </div>
@@ -5094,7 +5095,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 <>
                   <img src={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="video-play-overlay"><i className="ti ti-player-play" style={{ fontSize: 20 }} /></div>
+                    <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 20 }} /></div>
                   </div>
                 </>
               )
@@ -5103,7 +5104,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             )}
             {likeAnimId === entry.id && (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                <i className="ti ti-heart-filled" style={{ fontSize: 90, color: '#fff', filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
+                <Icon name="ti-heart-filled" style={{ fontSize: 90, color: '#fff', filter: 'drop-shadow(0 2px 10px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
               </div>
             )}
           </div>
@@ -5114,7 +5115,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             just adds the "same age" framing + how far apart they were. */}
         {sides ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '12px 16px 0' }}>
-            <i className="ti ti-arrows-diff" style={{ fontSize: 13, color: PROMPT_ACCENT }} />
+            <Icon name="ti-arrows-diff" style={{ fontSize: 13, color: PROMPT_ACCENT }} />
             <p style={{ margin: 0, fontSize: 12, fontWeight: 700, letterSpacing: 0.3, color: PROMPT_ACCENT }}>
               At the same age · {(() => { const d = sameAgeDaysApart(sides); return d === 0 ? 'exact match' : `${d} day${d !== 1 ? 's' : ''} apart`; })()}
             </p>
@@ -5148,7 +5149,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             onClick={() => handleToggleLike(entry.id)}
             style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: iLiked ? '#D4856A' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}
           >
-            <i className={`ti ti-heart${iLiked ? '-filled' : ''}`} style={{ fontSize: 18 }} />
+            <Icon name={`ti-heart${iLiked ? '-filled' : ''}`} style={{ fontSize: 18 }} />
             {likeLabel && <span style={{ fontSize: 13, fontWeight: 600 }}>{likeLabel}</span>}
           </button>
         </div>
@@ -5179,7 +5180,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             disabled={!(commentDrafts[entry.id] || '').trim()}
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: (commentDrafts[entry.id] || '').trim() ? 'var(--accent)' : 'var(--border)', fontSize: 18, display: 'flex', alignItems: 'center', padding: 0, flexShrink: 0 }}
           >
-            <i className="ti ti-send" />
+            <Icon name="ti-send" />
           </button>
         </div>
       </div>
@@ -5195,7 +5196,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           <div>
             <div style={{ padding: '16px 16px 0', marginBottom: 16 }}>
               <button className="icon-btn" onClick={() => { setProfileFamilyId(null); setSelectedEntry(null); }}>
-                <i className="ti ti-arrow-left" />
+                <Icon name="ti-arrow-left" />
               </button>
             </div>
 
@@ -5216,7 +5217,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             {/* Photo grid */}
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
-                <i className="ti ti-loader-2" style={{ fontSize: 28, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+                <Icon name="ti-loader-2" style={{ fontSize: 28, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
               </div>
             ) : displayedEntries.length === 0 ? (
               <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 14, paddingTop: 40 }}>Nothing shared yet.</p>
@@ -5232,11 +5233,11 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                           : <img src={cloudinaryTransform(thumb.url, 'w_400,h_400,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                       ) : (
                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <i className="ti ti-letter" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                          <Icon name="ti-letter" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
                         </div>
                       )}
                       {entry.media.length > 1 && (
-                        <i className="ti ti-copy" style={{ position: 'absolute', top: 6, right: 6, fontSize: 13, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+                        <Icon name="ti-copy" style={{ position: 'absolute', top: 6, right: 6, fontSize: 13, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
                       )}
                     </div>
                   );
@@ -5248,13 +5249,13 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           /* ── Feed view ── */
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 0' }}>
-              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
                 <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Friends</h2>
               </div>
               <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setUserSearchResults([]); } setShowSearch(s => !s); }}>
-                <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+                <Icon name={showSearch ? 'ti-x' : 'ti-search'} />
               </button>
             </div>
             <div style={{ padding: '10px 20px 18px' }}>
@@ -5267,7 +5268,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
 
             {showSearch && (
               <div style={{ position: 'relative', margin: '0 16px 16px' }}>
-                <i className="ti ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 14, pointerEvents: 'none' }} />
+                <Icon name="ti-search" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 14, pointerEvents: 'none' }} />
                 <input
                   ref={searchInputRef}
                   value={searchQuery}
@@ -5286,7 +5287,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '0 0 8px' }}>People</p>
                 {userSearching ? (
                   <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>
-                    <i className="ti ti-loader-2" style={{ fontSize: 16, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+                    <Icon name="ti-loader-2" style={{ fontSize: 16, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
                   </div>
                 ) : userSearchResults.length === 0 ? (
                   <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0 }}>No users found</p>
@@ -5332,12 +5333,12 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             )}
             {loading ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
-                <i className="ti ti-loader-2" style={{ fontSize: 28, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+                <Icon name="ti-loader-2" style={{ fontSize: 28, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
               </div>
             ) : displayedEntries.length === 0 ? (
               <div className="empty-state">
                 <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                  <i className="ti ti-users" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                  <Icon name="ti-users" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
                 </div>
                 <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: searchQuery && familyIds.length > 0 ? 0 : '0 0 6px' }}>
                   {familyIds.length === 0 ? 'No friends yet' : searchQuery ? `No posts match "${searchQuery}"` : 'Nothing shared yet'}
@@ -5375,7 +5376,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
       {zoomedPhoto && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setZoomedPhoto(null)}>
           <button onClick={() => setZoomedPhoto(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
-            <i className="ti ti-x" />
+            <Icon name="ti-x" />
           </button>
           <img
             src={cloudinaryTransform(zoomedPhoto.url, 'w_1600,q_auto,f_auto')}
@@ -5582,7 +5583,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center' }}>
               <div style={{ flex: 1 }}>
-                <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+                <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
               </div>
               <div style={{ textAlign: 'center', flexShrink: 0 }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
@@ -5590,10 +5591,10 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
               </div>
               <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                 <button className="icon-btn" onClick={() => filterTab === 'milestone' ? switchTab('age') : switchTab('milestone')}>
-                  <i className={`ti ${filterTab === 'milestone' ? 'ti-x' : 'ti-star'}`} />
+                  <Icon name={filterTab === 'milestone' ? 'ti-x' : 'ti-star'} />
                 </button>
                 <button className="icon-btn" onClick={() => filterTab === 'search' ? switchTab('age') : switchTab('search')}>
-                  <i className={`ti ${filterTab === 'search' ? 'ti-x' : 'ti-search'}`} />
+                  <Icon name={filterTab === 'search' ? 'ti-x' : 'ti-search'} />
                 </button>
               </div>
             </div>
@@ -5609,7 +5610,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
 
           {filterTab === 'search' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
-              <i className="ti ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
+              <Icon name="ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
               <input
                 autoFocus
                 type="text"
@@ -5620,7 +5621,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', alignItems: 'center' }}>
-                  <i className="ti ti-x" style={{ fontSize: 14 }} />
+                  <Icon name="ti-x" style={{ fontSize: 14 }} />
                 </button>
               )}
             </div>
@@ -5652,7 +5653,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                     style={{ padding: '7px 14px', ...(active ? { background: '#C8993E', borderColor: '#C8993E', color: '#fff' } : {}) }}
                     onClick={() => setMilestoneFilter(active ? null : ms.id)}
                   >
-                    <i className={`ti ${ms.icon}`} style={{ fontSize: 13 }} />
+                    <Icon name={ms.icon} style={{ fontSize: 13 }} />
                     {ms.label}
                   </div>
                 );
@@ -5666,7 +5667,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                     style={{ padding: '7px 14px', ...(active ? { background: '#C8993E', borderColor: '#C8993E', color: '#fff' } : {}) }}
                     onClick={() => setMilestoneFilter(active ? null : m)}
                   >
-                    <i className="ti ti-star" style={{ fontSize: 13 }} />
+                    <Icon name="ti-star" style={{ fontSize: 13 }} />
                     {m.slice(7)}
                   </div>
                 );
@@ -5677,7 +5678,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
           {filterTab === 'milestone' && !milestoneFilter ? (
             <div className="empty-state">
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <i className="ti ti-star" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                <Icon name="ti-star" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>Pick a milestone</p>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Choose one above to compare it across ages.</p>
@@ -5706,7 +5707,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                           onClick={() => setSelectedFriendKidIds(prev => prev.filter(id => id !== kid.id))}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex', marginLeft: 2 }}
                         >
-                          <i className="ti ti-x" style={{ fontSize: 11 }} />
+                          <Icon name="ti-x" style={{ fontSize: 11 }} />
                         </button>
                       )}
                     </div>
@@ -5714,7 +5715,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                 })}
                 {friendKids.length > 0 && selectedFriendKidIds.length < 10 && (
                   <button onClick={() => setShowFriendPicker(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: '1.5px dashed var(--border)', borderRadius: 99, padding: '4px 10px', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, fontFamily: 'Inter, sans-serif', fontWeight: 600 }}>
-                    <i className="ti ti-plus" style={{ fontSize: 12 }} /> Add
+                    <Icon name="ti-plus" style={{ fontSize: 12 }} /> Add
                   </button>
                 )}
               </div>
@@ -5729,7 +5730,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                     >
                       <KidThumb kid={missingKid} size={30} />
                       <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--accent)' }}>Add {missingKid.name.split(' ')[0]}'s photo from around this age</span>
-                      <i className="ti ti-arrows-diff" style={{ fontSize: 16, color: 'var(--accent)' }} />
+                      <Icon name="ti-arrows-diff" style={{ fontSize: 16, color: 'var(--accent)' }} />
                     </button>
                   ))}
                 </div>
@@ -5737,7 +5738,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
 
               {ageGridItems.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '32px 24px' }}>
-                  <i className="ti ti-camera" style={{ fontSize: 22, color: 'var(--border-light)', display: 'block', marginBottom: 8 }} />
+                  <Icon name="ti-camera" style={{ fontSize: 22, color: 'var(--border-light)', display: 'block', marginBottom: 8 }} />
                   <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Nothing captured at this age yet</p>
                 </div>
               ) : (
@@ -5768,7 +5769,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                                   <button
                                     onClick={ev => { ev.stopPropagation(); setPlayingVideoId(null); }}
                                     style={{ position: 'absolute', top: 6, left: 6, background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', zIndex: 4 }}>
-                                    <i className="ti ti-x" style={{ fontSize: 12 }} />
+                                    <Icon name="ti-x" style={{ fontSize: 12 }} />
                                   </button>
                                 </div>
                               ) : (
@@ -5778,7 +5779,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                                     <button
                                       onClick={ev => { ev.stopPropagation(); setPlayingVideoId(e.id); }}
                                       style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', zIndex: 2 }}>
-                                      <i className="ti ti-player-play-filled" style={{ fontSize: 15, color: '#fff', marginLeft: 2 }} />
+                                      <Icon name="ti-player-play-filled" style={{ fontSize: 15, color: '#fff', marginLeft: 2 }} />
                                     </button>
                                   )}
                                   <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
@@ -5849,13 +5850,13 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                           onClick={e => { e.stopPropagation(); setSelectedFriendKidIds(prev => prev.filter(id => id !== kid.id)); }}
                           style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 2, display: 'flex', flexShrink: 0 }}
                         >
-                          <i className="ti ti-x" style={{ fontSize: 13 }} />
+                          <Icon name="ti-x" style={{ fontSize: 13 }} />
                         </button>
                       )}
                     </div>
                     {matches.length === 0 ? (
                       <div style={{ background: 'var(--bg-input)', border: '1px dashed #D8CFBC', borderRadius: 12, padding: '28px 12px', textAlign: 'center' }}>
-                        <i className={isFriendKid ? 'ti ti-lock' : 'ti ti-camera'} style={{ fontSize: 22, color: 'var(--border-light)', display: 'block', marginBottom: 8 }} />
+                        <Icon name={isFriendKid ? 'ti-lock' : 'ti-camera'} style={{ fontSize: 22, color: 'var(--border-light)', display: 'block', marginBottom: 8 }} />
                         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
                           {isFriendKid ? 'Nothing shared\nat this age yet' : isSearching ? 'No matches' : isMilestoneFiltering ? 'None logged yet' : 'Nothing captured\nat this age yet'}
                         </p>
@@ -5896,7 +5897,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                     onClick={() => setShowFriendPicker(true)}
                     style={{ width: 44, height: 44, borderRadius: '50%', background: 'none', border: '1.5px dashed var(--border)', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <i className="ti ti-plus" style={{ fontSize: 18 }} />
+                    <Icon name="ti-plus" style={{ fontSize: 18 }} />
                   </button>
                 </div>
               )}
@@ -5913,7 +5914,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
           <div onClick={() => setPhotoViewer(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div style={{ position: 'absolute', top: 16, left: 16 }}>
               <button onClick={() => setPhotoViewer(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
-                <i className="ti ti-arrow-left" />
+                <Icon name="ti-arrow-left" />
               </button>
             </div>
             {isFriend && (
@@ -5941,7 +5942,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '24px 20px 40px', width: '100%', maxHeight: '70%', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 12px' }}>At the same age</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', marginBottom: 16 }}>
-              <i className="ti ti-search" style={{ color: 'var(--text-muted)', fontSize: 15 }} />
+              <Icon name="ti-search" style={{ color: 'var(--text-muted)', fontSize: 15 }} />
               <input
                 autoFocus
                 type="text"
@@ -5950,7 +5951,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                 onChange={e => setPickerQuery(e.target.value)}
                 style={{ border: 'none', outline: 'none', flex: 1, fontSize: 15, background: 'transparent', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}
               />
-              {pickerQuery && <button onClick={() => setPickerQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}><i className="ti ti-x" style={{ fontSize: 13 }} /></button>}
+              {pickerQuery && <button onClick={() => setPickerQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}><Icon name="ti-x" style={{ fontSize: 13 }} /></button>}
             </div>
             {friends.map(fr => {
               const uid = fr.requester_id === currentUserId ? fr.addressee_id : fr.requester_id;
@@ -6006,7 +6007,7 @@ function PartnerToast({ toast, onView, onDismiss }) {
       boxShadow: '0 4px 20px rgba(0,0,0,0.22)',
       animation: 'screenIn 0.2s ease-out',
     }}>
-      <i className="ti ti-sparkles" style={{ color: '#C8993E', fontSize: 18, flexShrink: 0 }} />
+      <Icon name="ti-sparkles" style={{ color: '#C8993E', fontSize: 18, flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: 13, color: '#fff', fontWeight: 500 }}>
         {toast.authorName} added a new letter
       </span>
@@ -6014,7 +6015,7 @@ function PartnerToast({ toast, onView, onDismiss }) {
         View
       </button>
       <button onClick={onDismiss} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 16, padding: 2, display: 'flex', flexShrink: 0 }}>
-        <i className="ti ti-x" />
+        <Icon name="ti-x" />
       </button>
     </div>
   );
@@ -6034,10 +6035,10 @@ function ReactionToast({ message, onDismiss }) {
       boxShadow: '0 4px 20px rgba(0,0,0,0.22)',
       animation: 'screenIn 0.2s ease-out',
     }}>
-      <i className="ti ti-heart-filled" style={{ color: '#E05C6A', fontSize: 18, flexShrink: 0 }} />
+      <Icon name="ti-heart-filled" style={{ color: '#E05C6A', fontSize: 18, flexShrink: 0 }} />
       <span style={{ flex: 1, fontSize: 13, color: '#fff', fontWeight: 500 }}>{message}</span>
       <button onClick={onDismiss} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', fontSize: 16, padding: 2, display: 'flex', flexShrink: 0 }}>
-        <i className="ti ti-x" />
+        <Icon name="ti-x" />
       </button>
     </div>
   );
@@ -6103,14 +6104,14 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
         <div className="scrollpad">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
               <div onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} style={{ textAlign: 'center', cursor: 'pointer' }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
                 <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
               </div>
               {hasAny ? (
                 <button className="icon-btn" onClick={() => { if (showSearch) setQuery(''); setShowSearch(s => !s); }}>
-                  <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+                  <Icon name={showSearch ? 'ti-x' : 'ti-search'} />
                 </button>
               ) : <div style={{ width: 36 }} />}
             </div>
@@ -6135,7 +6136,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
           {!hasAny && (
             <div className="empty-state">
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <i className="ti ti-mail" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                <Icon name="ti-mail" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No letters yet</p>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Letters you and your partner write will show up here.</p>
@@ -6144,7 +6145,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
 
           {hasAny && showSearch && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 14px' }}>
-              <i className="ti ti-search" style={{ color: 'var(--text-muted)' }} />
+              <Icon name="ti-search" style={{ color: 'var(--text-muted)' }} />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -6155,7 +6156,7 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
               />
               {query && (
                 <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}>
-                  <i className="ti ti-x" style={{ fontSize: 14 }} />
+                  <Icon name="ti-x" style={{ fontSize: 14 }} />
                 </button>
               )}
             </div>
@@ -6237,7 +6238,7 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
       <div className="scroll-area">
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+            <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
             <div style={{ textAlign: 'center' }}>
               <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>Search</h2>
@@ -6245,7 +6246,7 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
             <div style={{ width: 36 }} />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 14px' }}>
-            <i className="ti ti-search" style={{ color: 'var(--text-muted)' }} />
+            <Icon name="ti-search" style={{ color: 'var(--text-muted)' }} />
             <input
               type="text"
               placeholder="Search moments, people, places..."
@@ -6263,7 +6264,7 @@ function SearchScreen({ entries, kids, onBack, onOpenEntry }) {
                 { label: 'favorites', icon: 'ti-heart' },
               ].map(({ label, icon }) => (
                 <button key={label} onClick={() => setQuery(label)} className="chip" style={{ flex: 1, justifyContent: 'center', padding: '7px 6px', fontSize: 12 }}>
-                  <i className={`ti ${icon}`} style={{ fontSize: 12 }} />
+                  <Icon name={icon} style={{ fontSize: 12 }} />
                   {label}
                 </button>
               ))}
@@ -6393,7 +6394,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
         <div className="scrollpad">
           {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+            <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
             <div style={{ textAlign: 'center' }}>
               <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
               <h2
@@ -6401,7 +6402,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, color: 'var(--accent)', margin: 0, fontWeight: 700, cursor: onUpdateFamilyName ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: 5 }}
               >
                 {familyName || 'Your Family'}
-                {onUpdateFamilyName && <i className="ti ti-pencil" style={{ fontSize: 12, color: 'var(--text-muted)' }} />}
+                {onUpdateFamilyName && <Icon name="ti-pencil" style={{ fontSize: 12, color: 'var(--text-muted)' }} />}
               </h2>
             </div>
             <div style={{ width: 36 }} />
@@ -6423,10 +6424,10 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   onClick={() => { setUploadKidId(k.id); fileInputRef.current?.click(); }}
                   title="Tap to change photo"
                 >
-                  <AvatarImg src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_LG)} alt={k.name} fallback={<i className="ti ti-camera" />} />
+                  <AvatarImg src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_LG)} alt={k.name} fallback={<Icon name="ti-camera" />} />
                   {avatarUploading && uploadKidId === k.id && (
                     <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <i className="ti ti-loader-2" style={{ fontSize: 22, color: '#fff', animation: 'spin 1s linear infinite' }} />
+                      <Icon name="ti-loader-2" style={{ fontSize: 22, color: '#fff', animation: 'spin 1s linear infinite' }} />
                     </div>
                   )}
                 </div>
@@ -6434,7 +6435,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)', margin: '0 0 2px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
                   onClick={() => { setEditingKid(k); setKidNameInput(k.name); setKidSexInput(k.sex ?? null); setKidWishlistInput(k.wishlistUrl || ''); }}
                 >
-                  {k.name} <i className="ti ti-pencil" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
+                  {k.name} <Icon name="ti-pencil" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
                 </p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>Born {bornLabel}</p>
                 <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
@@ -6460,7 +6461,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   style={{ width: '100%', fontSize: 13, padding: '10px 16px' }}
                   onClick={() => onOpenGrowth?.(k.id)}
                 >
-                  <i className="ti ti-ruler" style={{ fontSize: 15 }} />Growth chart
+                  <Icon name="ti-ruler" style={{ fontSize: 15 }} />Growth chart
                 </button>
               </div>
             );
@@ -6494,8 +6495,8 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                     onClick={() => { if (!isSelf) return; setActiveFamilyAvatarId(m.id || m.user_id); familyAvatarInputRef.current?.click(); }}
                     style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: isSelf ? 'pointer' : 'default', flexShrink: 0, position: 'relative' }}
                   >
-                    <AvatarImg src={cloudinaryTransform(m.avatar_url, AVATAR_TRANSFORM_LG)} alt={m.display_name} fallback={<i className="ti ti-user" style={{ fontSize: 16, color: 'var(--accent)' }} />} />
-                    {avatarUploading && isSelf && <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><i className="ti ti-loader-2" style={{ fontSize: 14, color: '#fff', animation: 'spin 1s linear infinite' }} /></div>}
+                    <AvatarImg src={cloudinaryTransform(m.avatar_url, AVATAR_TRANSFORM_LG)} alt={m.display_name} fallback={<Icon name="ti-user" style={{ fontSize: 16, color: 'var(--accent)' }} />} />
+                    {avatarUploading && isSelf && <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="ti-loader-2" style={{ fontSize: 14, color: '#fff', animation: 'spin 1s linear infinite' }} /></div>}
                   </div>
                   <div
                     style={{ flex: 1, cursor: isSelf ? 'pointer' : 'default' }}
@@ -6503,7 +6504,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   >
                     <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                       {m.real_name || m.display_name}
-                      {isSelf && <i className="ti ti-pencil" style={{ fontSize: 11, color: 'var(--text-muted)' }} />}
+                      {isSelf && <Icon name="ti-pencil" style={{ fontSize: 11, color: 'var(--text-muted)' }} />}
                     </p>
                     {m.real_name && <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '1px 0 0' }}>{m.display_name}</p>}
                   </div>
@@ -6513,7 +6514,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           </div>
 
           <button className="btn btn-primary" style={{ background: '#7A9E8C' }} onClick={() => { setMemberPickerOpen(true); setPickerStep('type'); setPickerRole(null); setInviteCode(null); }}>
-            <i className="ti ti-plus" />Add a family member
+            <Icon name="ti-plus" />Add a family member
           </button>
 
           {/* ── Discoverable ── */}
@@ -6543,7 +6544,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
               <div style={{ display: 'flex', background: 'var(--bg-elevated)', borderRadius: 10, padding: 3 }}>
                 {[['light', 'sun', 'Light'], ['auto', 'clock', 'Auto'], ['dark', 'moon', 'Dark']].map(([mode, icon, label]) => (
                   <button key={mode} onClick={() => onSetDarkMode(mode)} style={{ flex: 1, padding: '8px 4px', border: 'none', borderRadius: 8, background: darkMode === mode ? 'var(--bg-input)' : 'transparent', color: darkMode === mode ? 'var(--accent)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", transition: 'background 0.15s' }}>
-                    <i className={`ti ti-${icon}`} style={{ fontSize: 17 }} />
+                    <Icon name={`ti-${icon}`} style={{ fontSize: 17 }} />
                     {label}
                   </button>
                 ))}
@@ -6631,14 +6632,14 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
             <button onClick={onCreateBook} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '14px 18px', background: darkMode ? 'linear-gradient(180deg, #2E4A34 0%, #1E3425 100%)' : 'linear-gradient(180deg, #3A4D40 0%, #1E2E24 100%)', border: darkMode ? '1px solid rgba(107,158,109,0.18)' : 'none', borderRadius: 14, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", boxShadow: darkMode ? '0 2px 12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.06)' : '0 3px 10px rgba(20,35,25,0.38), inset 0 1px 0 rgba(255,255,255,0.08)' }} onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.opacity = '0.88'; }} onMouseUp={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }} onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }} onTouchStart={e => { e.currentTarget.style.transform = 'scale(0.97)'; e.currentTarget.style.opacity = '0.88'; }} onTouchEnd={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.opacity = ''; }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 9, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <i className="ti ti-book" style={{ fontSize: 18, color: '#C8993E' }} />
+                  <Icon name="ti-book" style={{ fontSize: 18, color: '#C8993E' }} />
                 </div>
                 <div style={{ textAlign: 'left' }}>
                   <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>Create a book</p>
                   <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>The entries were for you. The book is for them.</p>
                 </div>
               </div>
-              <i className="ti ti-arrow-right" style={{ fontSize: 16, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
+              <Icon name="ti-arrow-right" style={{ fontSize: 16, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }} />
             </button>
           )}
 
@@ -6673,13 +6674,13 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                       ].map(opt => (
                         <button key={opt.label} onClick={opt.action} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 13, cursor: 'pointer', textAlign: 'left', width: '100%', fontFamily: "'Urbanist', sans-serif" }}>
                           <div style={{ width: 42, height: 42, borderRadius: 11, background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            <i className={`ti ${opt.icon}`} style={{ fontSize: 20, color: 'var(--accent)' }} />
+                            <Icon name={opt.icon} style={{ fontSize: 20, color: 'var(--accent)' }} />
                           </div>
                           <div>
                             <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{opt.label}</p>
                             <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{opt.sub}</p>
                           </div>
-                          <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--border)', marginLeft: 'auto' }} />
+                          <Icon name="ti-chevron-right" style={{ fontSize: 14, color: 'var(--border)', marginLeft: 'auto' }} />
                         </button>
                       ))}
                     </div>
@@ -6687,7 +6688,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 ) : (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                      <button onClick={() => setPickerStep('type')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, padding: 0, display: 'flex' }}><i className="ti ti-arrow-left" /></button>
+                      <button onClick={() => setPickerStep('type')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 18, padding: 0, display: 'flex' }}><Icon name="ti-arrow-left" /></button>
                       <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Invite your partner</p>
                     </div>
                     {inviteLoading ? (
@@ -6698,7 +6699,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                         <p style={{ fontSize: 30, fontWeight: 700, color: 'var(--accent)', letterSpacing: 5, margin: '0 0 14px', fontFamily: "'Urbanist', sans-serif" }}>{inviteCode}</p>
                         <p style={{ fontSize: 11, color: 'var(--border-light)', margin: '0 0 14px', lineHeight: 1.5 }}>They'll enter this code during sign-up to join your family journal.</p>
                         <button onClick={() => { navigator.clipboard?.writeText(inviteCode); }} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontFamily: "'Urbanist', sans-serif", padding: '10px 20px', borderRadius: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <i className="ti ti-copy" style={{ fontSize: 14 }} />Copy code
+                          <Icon name="ti-copy" style={{ fontSize: 14 }} />Copy code
                         </button>
                       </div>
                     ) : null}
@@ -6729,7 +6730,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                         <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
                       ))}
                     </select>
-                    <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 12, pointerEvents: 'none' }} />
+                    <Icon name="ti-chevron-down" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 12, pointerEvents: 'none' }} />
                   </div>
                   <input type="number" placeholder="Day" value={newBdDay} min={1} max={31} onChange={e => setNewBdDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '13px 8px', fontSize: 15, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
                   <input type="number" placeholder="Year" value={newBdYear} min={1900} max={2030} onChange={e => setNewBdYear(e.target.value)} style={{ flex: 1.5, border: '1px solid var(--border)', borderRadius: 10, padding: '13px 8px', fontSize: 15, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
@@ -6959,7 +6960,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !deleting && setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-trash" style={{ fontSize: 20, color: '#D4856A' }} />
+              <Icon name="ti-trash" style={{ fontSize: 20, color: '#D4856A' }} />
             </div>
             <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Delete your account?</p>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center', lineHeight: 1.55 }}>
@@ -6980,7 +6981,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   setShowDeleteConfirm(false);
                 }}
               >
-                {deleting ? <><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Deleting…</> : 'Delete everything'}
+                {deleting ? <><Icon name="ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Deleting…</> : 'Delete everything'}
               </button>
             </div>
           </div>
@@ -6991,7 +6992,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !hidingPosts && setShowHidePostsPrompt(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-eye-off" style={{ fontSize: 20, color: 'var(--accent)' }} />
+              <Icon name="ti-eye-off" style={{ fontSize: 20, color: 'var(--accent)' }} />
             </div>
             <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Hide your previous posts from friends?</p>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center', lineHeight: 1.55 }}>
@@ -7010,7 +7011,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   setShowHidePostsPrompt(false);
                 }}
               >
-                {hidingPosts ? <><i className="ti ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Hiding…</> : 'Hide from friends'}
+                {hidingPosts ? <><Icon name="ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Hiding…</> : 'Hide from friends'}
               </button>
             </div>
           </div>
@@ -7028,7 +7029,7 @@ function PrivacyPolicyScreen({ onBack }) {
       <div className="scroll-area">
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+            <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Privacy Policy</h2>
           </div>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 20px' }}>Effective July 4, 2026</p>
@@ -7064,7 +7065,7 @@ function TermsScreen({ onBack }) {
       <div className="scroll-area">
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+            <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Terms of Service</h2>
           </div>
           <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '0 0 20px' }}>Effective July 4, 2026</p>
@@ -7119,7 +7120,7 @@ function JoinFamilyScreen({ onJoin, onBack }) {
       <div className="scroll-area">
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560, justifyContent: 'center' }}>
           <button onClick={backFn} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 36px', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", alignSelf: 'flex-start' }}>
-            <i className="ti ti-arrow-left" style={{ fontSize: 16 }} /> Back
+            <Icon name="ti-arrow-left" style={{ fontSize: 16 }} /> Back
           </button>
 
           {step === 'code' && (
@@ -7345,13 +7346,13 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
         <div className="scrollpad">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+              <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
                 <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Friends</h2>
               </div>
               <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setSearchResults([]); } setShowSearch(s => !s); }}>
-                <i className={`ti ${showSearch ? 'ti-x' : 'ti-search'}`} />
+                <Icon name={showSearch ? 'ti-x' : 'ti-search'} />
               </button>
             </div>
 
@@ -7382,19 +7383,19 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
           <button onClick={handleInvite} disabled={inviting} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, cursor: inviting ? 'default' : 'pointer', fontFamily: "'Urbanist', sans-serif", opacity: inviting ? 0.75 : 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(74,94,80,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <i className="ti ti-user-plus" style={{ fontSize: 16, color: 'var(--accent)' }} />
+                <Icon name="ti-user-plus" style={{ fontSize: 16, color: 'var(--accent)' }} />
               </div>
               <div style={{ textAlign: 'left' }}>
                 <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{inviting ? 'Generating invite…' : inviteLinkCopied ? 'Link copied!' : 'Invite a friend'}</p>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>Growing alone, but walking together</p>
               </div>
             </div>
-            <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
+            <Icon name="ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
           </button>
 
           {showSearch && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
-              <i className="ti ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
+              <Icon name="ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -7403,10 +7404,10 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                 onChange={e => handleQueryChange(e.target.value)}
                 style={{ border: 'none', outline: 'none', flex: 1, fontSize: 16, background: 'transparent', color: 'var(--text)', fontFamily: 'Inter, sans-serif' }}
               />
-              {searching && <i className="ti ti-loader-2" style={{ fontSize: 14, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />}
+              {searching && <Icon name="ti-loader-2" style={{ fontSize: 14, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />}
               {searchQuery && !searching && (
                 <button onClick={() => { setSearchQuery(''); setSearchResults([]); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}>
-                  <i className="ti ti-x" style={{ fontSize: 14 }} />
+                  <Icon name="ti-x" style={{ fontSize: 14 }} />
                 </button>
               )}
             </div>
@@ -7476,7 +7477,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                   return (
                     <div key={n.id} onClick={() => { n.ids.forEach(id => onDismissBirthday?.(id)); onFriendBirthdayClick?.(kid); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: (idx < groupedBirthdayNotifs.length - 1 || reactionNotifications.length > 0) ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: 'rgba(74,94,80,0.08)' }}>
                       <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(74,94,80,0.15)', border: '1px solid rgba(74,94,80,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <i className="ti ti-cake" style={{ fontSize: 16, color: 'var(--accent)' }} />
+                        <Icon name="ti-cake" style={{ fontSize: 16, color: 'var(--accent)' }} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.4 }}>
@@ -7487,7 +7488,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                         </p>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: '50%', width: 28, height: 28, flexShrink: 0 }}>
-                        <i className="ti ti-player-play-filled" style={{ fontSize: 11, color: '#C8993E' }} />
+                        <Icon name="ti-player-play-filled" style={{ fontSize: 11, color: '#C8993E' }} />
                       </div>
                     </div>
                   );
@@ -7500,7 +7501,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                     <div style={{ position: 'relative', flexShrink: 0 }}>
                       <FriendAvatar name={n.fromName} avatarUrl={friendAvatarMap[n.fromUserId]} size={36} />
                       <span style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: n.type === 'like' ? '#E05C6A' : n.type === 'reply' ? '#7A6A8A' : 'var(--accent)', border: '1.5px solid var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <i className={n.type === 'like' ? 'ti ti-heart-filled' : n.type === 'reply' ? 'ti ti-arrow-back-up' : 'ti ti-message-circle'} style={{ fontSize: 8, color: '#fff' }} />
+                        <Icon name={n.type === 'like' ? 'ti-heart-filled' : n.type === 'reply' ? 'ti-arrow-back-up' : 'ti-message-circle'} style={{ fontSize: 8, color: '#fff' }} />
                       </span>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -7522,7 +7523,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                       )}
                       {n.ts && <p style={{ margin: '2px 0 0', fontSize: 11, color: 'var(--text-muted)' }}>{timeAgo(n.ts)}</p>}
                     </div>
-                    <i className="ti ti-chevron-right" style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }} />
+                    <Icon name="ti-chevron-right" style={{ fontSize: 13, color: 'var(--text-muted)', flexShrink: 0 }} />
                   </div>
                 ))}
               </div>
@@ -7573,7 +7574,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: theirKids.length > 0 ? 10 : 0 }}>
                       <FriendAvatar name={name} avatarUrl={avatar} />
                       <p style={{ flex: 1, fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{name || 'Friend'}</p>
-                      <i className="ti ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)' }} />
+                      <Icon name="ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)' }} />
                     </div>
                     {theirKids.length > 0 && (
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -7587,7 +7588,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                                   : <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{k.name?.[0]?.toUpperCase()}</span>}
                               </span>
                               {k.name}
-                              {isBirthday && <i className="ti ti-cake" style={{ fontSize: 11 }} />}
+                              {isBirthday && <Icon name="ti-cake" style={{ fontSize: 11 }} />}
                             </span>
                           );
                         })}
@@ -7602,7 +7603,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
           {friends.length === 0 && pendingIncoming.length === 0 && reactionNotifications.length === 0 && birthdayNotifications.length === 0 && !searchQuery && (
             <div className="empty-state">
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <i className="ti ti-users" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                <Icon name="ti-users" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No friends yet</p>
               <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.6 }}>We believe that your personal letters should stay between you and your family. Friends will only see your photos and a little context, nothing more.</p>
@@ -7652,7 +7653,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
               <div style={{ flex: 1, overflowY: 'auto' }}>
                 {theirEntries.length === 0 ? (
                   <div style={{ padding: '48px 24px', textAlign: 'center' }}>
-                    <i className="ti ti-camera-off" style={{ fontSize: 28, color: 'var(--border)', display: 'block', marginBottom: 10 }} />
+                    <Icon name="ti-camera-off" style={{ fontSize: 28, color: 'var(--border)', display: 'block', marginBottom: 10 }} />
                     <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>No shared photos yet</p>
                   </div>
                 ) : (
@@ -7670,7 +7671,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                           {isVideo && (
                             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
                               <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <i className="ti ti-player-play-filled" style={{ color: '#fff', fontSize: 12 }} />
+                                <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 12 }} />
                               </div>
                             </div>
                           )}
@@ -7704,13 +7705,13 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                 <p style={{ margin: 0, fontSize: 12, color: 'var(--text-3)' }}>{entryDate}</p>
               </div>
               <button onClick={() => { setFriendViewer(null); setViewerLikes([]); setViewerComments([]); }} style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', fontSize: 16, flexShrink: 0 }}>
-                <i className="ti ti-x" />
+                <Icon name="ti-x" />
               </button>
             </div>
             {/* Photo */}
             <div onClick={() => { const now = Date.now(); if (now - lastTapRef.current < 320) { handleViewerLike(); setShowLikeAnim(true); setTimeout(() => setShowLikeAnim(false), 800); } lastTapRef.current = now; }} style={{ width: '100%', aspectRatio: '4/3', flexShrink: 0, ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', cursor: 'pointer' }}>
               {entry.media?.[0]?.type === 'video' && <video src={cloudinaryTransform(entry.media[0].url, VIDEO_DELIVERY_TRANSFORM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} controls playsInline onClick={e => e.stopPropagation()} />}
-              {showLikeAnim && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}><i className="ti ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} /></div>}
+              {showLikeAnim && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}><Icon name="ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} /></div>}
             </div>
             {/* Kid + like */}
             <div style={{ padding: '12px 16px 8px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10, borderBottom: viewerComments.length > 0 ? '1px solid var(--border)' : 'none' }}>
@@ -7720,7 +7721,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2, flexShrink: 0 }}>
                 <button onClick={handleViewerLike} style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: userHasLiked ? '#E05C6A' : 'var(--text-3)', padding: 0 }}>
-                  <i className={`ti ${userHasLiked ? 'ti-heart-filled' : 'ti-heart'}`} style={{ fontSize: 22 }} />
+                  <Icon name={userHasLiked ? 'ti-heart-filled' : 'ti-heart'} style={{ fontSize: 22 }} />
                   {viewerLikes.length > 0 && <span style={{ fontSize: 13, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>{viewerLikes.length}</span>}
                 </button>
                 {viewerLikes.length > 0 && (
@@ -7744,7 +7745,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                   </div>
                   {c.user_id === session?.user?.id && (
                     <button onClick={async () => { setViewerComments(p => p.filter(x => x.id !== c.id)); await supabase.from('entry_comments').delete().eq('id', c.id).eq('user_id', session.user.id); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '1px 0', flexShrink: 0 }}>
-                      <i className="ti ti-trash" style={{ fontSize: 13 }} />
+                      <Icon name="ti-trash" style={{ fontSize: 13 }} />
                     </button>
                   )}
                 </div>
@@ -7769,8 +7770,8 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) 
     { id: 'circle-feed', icon: 'ti-users', label: 'Friends', group: ['circle-feed', 'friends'], badge: pendingRequestCount + circleBadge },
   ];
   const tabsRight = [
-    { id: 'recap', icon: 'ti-calendar', label: 'Keepsakes', group: ['recap', 'partner-letters', 'compare'] },
-    { id: 'profile', icon: 'ti-user', label: 'Profile', group: ['profile'] },
+    { id: 'recap', icon: 'ti-keepsakes', label: 'Keepsakes', group: ['recap', 'partner-letters', 'compare'] },
+    { id: 'profile', icon: 'ti-profile-quill', label: 'Profile', group: ['profile'] },
   ];
 
   function tabStyle(tab) {
@@ -7787,7 +7788,7 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) 
         <div className="nav-bar">
           {tabs.map(tab => (
             <button key={tab.id} className="nv-tab" style={{ ...tabStyle(tab), position: 'relative' }} onClick={() => onNavigate(tab.id)}>
-              <i className={`ti ${tab.icon}`} />
+              <Icon name={tab.icon} />
               <span>{tab.label}</span>
               {tab.badge > 0 && (
                 <span style={{ position: 'absolute', top: 2, right: '50%', transform: 'translateX(14px)', minWidth: 16, height: 16, borderRadius: 999, background: '#E05C6A', border: '1.5px solid var(--bg-nav)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
@@ -7799,21 +7800,26 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) 
             </button>
           ))}
           <div className="nv-add-wrap">
-            <button className="nv-add" onClick={onAdd ?? (() => onNavigate('new-entry'))}><i className="ti ti-plus" /></button>
+            <button className="nv-add" onClick={onAdd ?? (() => onNavigate('new-entry'))}><Icon name="ti-plus" /></button>
           </div>
           {tabsRight.map(tab => (
             <button key={tab.id} className="nv-tab" style={tabStyle(tab)} onClick={() => onNavigate(tab.id)}>
               {tab.id === 'profile' ? (
-                myAvatarUrl ? (
-                  <span style={{ width: 48, height: 48, borderRadius: '50%', overflow: 'hidden', display: 'block', border: `2px solid ${tab.group.includes(active) ? 'var(--accent)' : 'transparent'}` }}>
-                    <img src={cloudinaryTransform(myAvatarUrl, AVATAR_TRANSFORM_LG)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
-                  </span>
-                ) : (
-                  <i className={`ti ${tab.icon}`} style={{ fontSize: 38 }} />
-                )
+                <>
+                  {myAvatarUrl ? (
+                    <span style={{ width: 48, height: 48, borderRadius: '50%', overflow: 'hidden', display: 'block', border: `2px solid ${tab.group.includes(active) ? 'var(--accent)' : 'transparent'}` }}>
+                      <img src={cloudinaryTransform(myAvatarUrl, AVATAR_TRANSFORM_LG)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                    </span>
+                  ) : (
+                    <>
+                      <Icon name={tab.icon} style={{ fontSize: 19 }} />
+                      <span>{tab.label}</span>
+                    </>
+                  )}
+                </>
               ) : (
                 <>
-                  <i className={`ti ${tab.icon}`} />
+                  <Icon name={tab.icon} />
                   <span>{tab.label}</span>
                 </>
               )}
@@ -7875,7 +7881,7 @@ function AuthScreen() {
         <div className="scroll-area">
           <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 560, textAlign: 'center', gap: 16 }}>
             <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-              <i className="ti ti-mail-check" style={{ fontSize: 32, color: 'var(--accent)' }} />
+              <Icon name="ti-mail-check" style={{ fontSize: 32, color: 'var(--accent)' }} />
             </div>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--text)', margin: 0 }}>Check your inbox</h2>
             <p style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.7, margin: 0 }}>
@@ -7897,7 +7903,7 @@ function AuthScreen() {
         <div className="scroll-area">
           <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 560, textAlign: 'center', gap: 16 }}>
             <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-              <i className="ti ti-mail-check" style={{ fontSize: 32, color: 'var(--accent)' }} />
+              <Icon name="ti-mail-check" style={{ fontSize: 32, color: 'var(--accent)' }} />
             </div>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--text)', margin: 0 }}>Check your inbox</h2>
             <p style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.7, margin: 0 }}>
@@ -8011,7 +8017,7 @@ function UpdatePasswordScreen({ onDone }) {
         <div className="scroll-area">
           <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 560, textAlign: 'center', gap: 16 }}>
             <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
-              <i className="ti ti-circle-check" style={{ fontSize: 32, color: 'var(--accent)' }} />
+              <Icon name="ti-circle-check" style={{ fontSize: 32, color: 'var(--accent)' }} />
             </div>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--text)', margin: 0 }}>Password updated</h2>
             <p style={{ fontSize: 14, color: 'var(--text-3)', lineHeight: 1.7, margin: 0 }}>
@@ -8352,7 +8358,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
 
           {step !== 'welcome' && step !== 'invite-partner' && step !== 'notifications' && (
             <button onClick={goBack} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 24px', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", alignSelf: 'flex-start' }}>
-              <i className="ti ti-arrow-left" style={{ fontSize: 16 }} /> Back
+              <Icon name="ti-arrow-left" style={{ fontSize: 16 }} /> Back
             </button>
           )}
 
@@ -8489,7 +8495,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                       <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
                     ))}
                   </select>
-                  <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13, pointerEvents: 'none' }} />
+                  <Icon name="ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13, pointerEvents: 'none' }} />
                 </div>
                 <input
                   type="number"
@@ -8549,7 +8555,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                   ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                   : initial
                     ? <span style={{ fontSize: 48, fontWeight: 700, color: '#fff', fontFamily: "'Urbanist', sans-serif" }}>{initial}</span>
-                    : <i className="ti ti-camera" style={{ fontSize: 32, color: 'rgba(255,255,255,0.7)' }} />
+                    : <Icon name="ti-camera" style={{ fontSize: 32, color: 'rgba(255,255,255,0.7)' }} />
                 }
               </div>
               <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFile} />
@@ -8592,7 +8598,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
           {step === 'invite-partner' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
               <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-                <i className="ti ti-users" style={{ fontSize: 28, color: 'var(--accent)' }} />
+                <Icon name="ti-users" style={{ fontSize: 28, color: 'var(--accent)' }} />
               </div>
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, color: 'var(--text)', lineHeight: 1.25, margin: '0 0 10px' }}>
                 Invite your<br />partner?
@@ -8610,7 +8616,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                     onClick={() => { navigator.clipboard?.writeText(inviteCode); setInviteCopied(true); setTimeout(() => setInviteCopied(false), 2000); }}
                     style={{ background: 'var(--bg-elevated)', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--accent)', fontFamily: "'Urbanist', sans-serif", padding: '10px 20px', borderRadius: 10, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
                   >
-                    <i className={`ti ${inviteCopied ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 14 }} />
+                    <Icon name={inviteCopied ? 'ti-check' : 'ti-copy'} style={{ fontSize: 14 }} />
                     {inviteCopied ? 'Copied!' : 'Copy code'}
                   </button>
                 </div>
@@ -8638,7 +8644,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
           {step === 'notifications' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
               <div style={{ width: 60, height: 60, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18 }}>
-                <i className="ti ti-bell" style={{ fontSize: 26, color: 'var(--accent)' }} />
+                <Icon name="ti-bell" style={{ fontSize: 26, color: 'var(--accent)' }} />
               </div>
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 27, color: 'var(--text)', lineHeight: 1.22, margin: '0 0 9px' }}>
                 Don't miss<br />a moment
@@ -8684,7 +8690,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                 >
                   {profilePhoto
                     ? <img src={profilePhoto} alt="You" style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-                    : <i className="ti ti-camera" style={{ fontSize: 24 }} />
+                    : <Icon name="ti-camera" style={{ fontSize: 24 }} />
                   }
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
@@ -10690,7 +10696,7 @@ export default function App() {
   if (authLoading || dataLoading) {
     return (
       <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <i className="ti ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+        <Icon name="ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
       </div>
     );
   }
@@ -11142,7 +11148,7 @@ export default function App() {
       {showInstallBanner && (
         <div style={{ padding: '0 12px 8px', flexShrink: 0 }}>
           <div style={{ background: 'var(--bg-elevated)', borderRadius: 12, padding: '10px 12px 10px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <i className="ti ti-leaf" style={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
+            <Icon name="ti-leaf" style={{ fontSize: 18, color: 'var(--accent)', flexShrink: 0 }} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
                 {installBannerType === 'ios-other' ? 'Open in Safari to install' : 'Add Patina to your home screen'}
@@ -11159,7 +11165,7 @@ export default function App() {
               </button>
             )}
             <button onClick={() => { localStorage.setItem('pwa-install-dismissed', '1'); setShowInstallBanner(false); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-              <i className="ti ti-x" style={{ fontSize: 14 }} />
+              <Icon name="ti-x" style={{ fontSize: 14 }} />
             </button>
           </div>
         </div>
@@ -11187,7 +11193,7 @@ export default function App() {
                 setScreen('new-entry');
               }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: i < 2 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
                 <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(74,94,80,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <i className={`ti ${opt.icon}`} style={{ fontSize: 18, color: 'var(--accent)' }} />
+                  <Icon name={opt.icon} style={{ fontSize: 18, color: 'var(--accent)' }} />
                 </div>
                 <div style={{ flex: 1 }}>
                   <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>{opt.label}</p>
@@ -11346,7 +11352,7 @@ export default function App() {
           <div className="quick-sheet" style={{ background: 'var(--bg-card)', borderRadius: '20px 20px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <i className="ti ti-shield-lock" style={{ fontSize: 20, color: 'var(--accent)' }} />
+              <Icon name="ti-shield-lock" style={{ fontSize: 20, color: 'var(--accent)' }} />
             </div>
             <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Your words stay private</p>
             <p style={{ fontSize: 13.5, color: 'var(--text-muted)', margin: '0 0 22px', lineHeight: 1.65, textAlign: 'center' }}>

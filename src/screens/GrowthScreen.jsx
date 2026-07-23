@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Icon } from '../icons';
 import { TODAY, ageLabel } from '../constants.js';
 import KidThumb from '../KidThumb.jsx';
 
@@ -236,12 +237,12 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
       <div className="scroll-area">
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <button className="icon-btn" onClick={onBack}><i className="ti ti-arrow-left" /></button>
+            <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <KidThumb kid={kid} size={22} />
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{kid.name}'s growth</h2>
             </div>
-            <button className="icon-btn" onClick={() => setAddingEntry(true)}><i className="ti ti-plus" /></button>
+            <button className="icon-btn" onClick={() => setAddingEntry(true)}><Icon name="ti-plus" /></button>
           </div>
 
           {latest && (
@@ -279,7 +280,7 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
           {growthLog.length === 0 ? (
             <div className="empty-state">
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <i className="ti ti-ruler" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                <Icon name="ti-ruler" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No measurements yet</p>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.5 }}>Tap + to log {kid.name}'s first height and weight.</p>
@@ -302,7 +303,7 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
                         <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '2px 0 0' }}>{ageLabel(Math.round(ageMo))} old</p>
                       </div>
                       <button onClick={() => openEdit(entry)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 15, padding: 4, display: 'flex' }}>
-                        <i className="ti ti-pencil" />
+                        <Icon name="ti-pencil" />
                       </button>
                     </div>
                     <div style={{ display: 'flex', gap: 10 }}>
@@ -335,11 +336,11 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
               <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{editingEntry ? 'Edit measurement' : 'Add measurement'}</p>
               {editingEntry ? (
                 <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <i className="ti ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
+                  <Icon name="ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
                 </span>
               ) : (
                 <button onClick={openDateEdit} style={{ background: 'var(--bg-card)', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-2)', fontFamily: "'Urbanist', sans-serif", padding: '6px 10px', borderRadius: 8, display: 'flex', alignItems: 'center', gap: 5, fontWeight: 500 }}>
-                  <i className="ti ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
+                  <Icon name="ti-calendar" style={{ fontSize: 13 }} />{dateDisplay}
                 </button>
               )}
             </div>
@@ -386,7 +387,7 @@ function GrowthScreen({ kid, onBack, onSave, onDelete }) {
                   <option value="" disabled>Month</option>
                   {['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, i) => <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>)}
                 </select>
-                <i className="ti ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13, pointerEvents: 'none' }} />
+                <Icon name="ti-chevron-down" style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 13, pointerEvents: 'none' }} />
               </div>
               <input type="number" placeholder="Day" value={editDay} min={1} max={31} onChange={e => setEditDay(e.target.value)} style={{ flex: 1, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />
               <input type="number" placeholder="Year" value={editYear} min={2000} max={2030} onChange={e => setEditYear(e.target.value)} style={{ flex: 1.5, border: '1px solid var(--border)', borderRadius: 10, padding: '14px 10px', fontSize: 16, outline: 'none', background: 'var(--bg-input)', color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", textAlign: 'center' }} />

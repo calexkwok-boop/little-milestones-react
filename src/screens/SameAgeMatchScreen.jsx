@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
 import { exactAge, dateForAge } from '../constants.js';
 
@@ -57,7 +58,7 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
       <div className="scroll-area">
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center' }}>
-            <button className="icon-btn" onClick={onCancel}><i className="ti ti-arrow-left" /></button>
+            <button className="icon-btn" onClick={onCancel}><Icon name="ti-arrow-left" /></button>
             <div style={{ margin: '0 auto', textAlign: 'center' }}>
               <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
               <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>Same age as {sourceKid.name.split(' ')[0]}</h2>
@@ -69,7 +70,7 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px 8px 4px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
               <KidThumb kid={sourceKid} size={48} />
-              <i className="ti ti-arrow-right" style={{ fontSize: 20, color: '#C8993E' }} />
+              <Icon name="ti-arrow-right" style={{ fontSize: 20, color: '#C8993E' }} />
               <KidThumb kid={targetKid} size={48} />
             </div>
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>
@@ -86,7 +87,7 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
                 📍 Look for photos around {monthYearLabel}
               </span>
               <button onClick={handleCopyMonthYear} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', color: copied ? 'var(--accent)' : 'var(--text-2)', fontSize: 11.5, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", flexShrink: 0 }}>
-                <i className={`ti ${copied ? 'ti-check' : 'ti-copy'}`} style={{ fontSize: 13 }} />
+                <Icon name={copied ? 'ti-check' : 'ti-copy'} style={{ fontSize: 13 }} />
                 {copied ? 'Copied' : 'Copy'}
               </button>
             </div>
@@ -96,7 +97,7 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
 
             <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
             <button className="btn btn-gold" style={{ width: '100%', maxWidth: 320, marginTop: 18, opacity: picking ? 0.7 : 1 }} disabled={picking} onClick={() => fileInputRef.current?.click()}>
-              <i className="ti ti-photo" style={{ fontSize: 17 }} />
+              <Icon name="ti-photo" style={{ fontSize: 17 }} />
               {picking ? 'One moment…' : 'Find a photo from then'}
             </button>
             <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, marginTop: 10, padding: 8, fontFamily: "'Urbanist', sans-serif" }}>
