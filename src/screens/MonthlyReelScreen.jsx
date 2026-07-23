@@ -9,6 +9,7 @@ import {
   ReelBottomBar, MonthlyClosingCard,
   buildReelCandidates, resolveSlideRefs, autoSampleSlides, seededRandom,
 } from './reelShared.jsx';
+import { isReelExportSupported, exportReelToVideo, blobToShareableFile, canShareVideoFile } from '../reelExport.js';
 
 // Quiet, reflective, warm — the mood a family looks back through a month or a
 // trip with. Auto-picked (not user-chosen) songs are drawn from here instead
@@ -157,6 +158,17 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   const [saveToast, setSaveToast] = useState(null);
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
+
+  // Video export — a distinct flow from the link-share above, gated on
+  // browser capability (canvas.captureStream + MediaRecorder + Web Share).
+  // Where unsupported, exportSupported is false and the button simply never
+  // renders — the sheet behaves exactly as it does today.
+  const exportSupported = useMemo(() => isReelExportSupported(), []);
+  const [exportPhase, setExportPhase] = useState('idle'); // idle | rendering | error
+  const [exportProgress, setExportProgress] = useState(0);
+  const [exportBackgrounded, setExportBackgrounded] = useState(false);
+  const [exportDownloadUrl, setExportDownloadUrl] = useState(null);
+  const exportAbortRef = useRef(null);
 
   const [countedStats, setCountedStats] = useReelCountUpStats(showStats, stats);
 
@@ -397,6 +409,59 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
     }).catch(() => {});
   }
 
+  async function handleExportShare() {
+    if (exportPhase === 'rendering') return;
+    setExportPhase('rendering');
+    setExportProgress(0);
+    setExportBackgrounded(false);
+    setExportDownloadUrl(null);
+    const controller = new AbortController();
+    exportAbortRef.current = controller;
+
+    const onVisibilityChange = () => { if (document.hidden) setExportBackgrounded(true); };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    // Same trip-destination merge buildSharePayload already does inline —
+    // the reverse-geocoded label if it's resolved by now, the raw stored
+    // location otherwise.
+    const exportSlides = slides.map(s => (
+      s.type === 'trip' ? { ...s, destinationLabel: tripDestLabels[s.id] || s.destinationLabel } : s
+    ));
+
+    try {
+      const { blob, mimeType } = await exportReelToVideo({
+        slides: exportSlides,
+        monthLabel,
+        quote: RECAP_QUOTE,
+        stats,
+        onProgress: setExportProgress,
+        signal: controller.signal,
+      });
+      const file = blobToShareableFile(blob, mimeType);
+      const shareData = canShareVideoFile(file, { title: monthLabel });
+      if (shareData) {
+        await navigator.share(shareData).catch(() => {});
+        setExportPhase('idle');
+      } else {
+        // Render succeeded but this browser/device can't hand a file to
+        // Web Share (desktop, or over Web Share's OS-level size limit) —
+        // don't throw away a finished export, offer it as a download instead.
+        setExportDownloadUrl(URL.createObjectURL(blob));
+        setExportPhase('idle');
+      }
+    } catch (e) {
+      if (e?.name !== 'AbortError') setExportPhase('error');
+      else setExportPhase('idle');
+    } finally {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      exportAbortRef.current = null;
+    }
+  }
+
+  function handleCancelExport() {
+    exportAbortRef.current?.abort();
+  }
+
   if (slides.length === 0) {
     return (
       <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.94)', zIndex: 100, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
@@ -514,6 +579,48 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', lineHeight: 1.6, textAlign: 'center' }}>
               Anyone with this link can watch this month's reel — no Patina account needed.
             </p>
+
+            {exportSupported && (
+              <div style={{ marginBottom: 20 }}>
+                {exportPhase === 'rendering' ? (
+                  <div>
+                    <div style={{ background: 'var(--bg-elevated)', borderRadius: 999, height: 8, overflow: 'hidden', marginBottom: 10 }}>
+                      <div style={{ width: `${Math.round(exportProgress * 100)}%`, height: '100%', background: 'var(--accent)', borderRadius: 999, transition: 'width 0.2s ease' }} />
+                    </div>
+                    <p style={{ fontSize: 13, color: 'var(--text-2)', textAlign: 'center', margin: '0 0 4px', fontWeight: 600 }}>
+                      Rendering your reel… {Math.round(exportProgress * 100)}%
+                    </p>
+                    <p style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center', margin: '0 0 12px' }}>
+                      {exportBackgrounded ? 'Rendering pauses while this tab is in the background — come back to it to finish.' : 'Keep this open while it renders.'}
+                    </p>
+                    <button onClick={handleCancelExport} style={{ width: '100%', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: '4px' }}>
+                      Cancel
+                    </button>
+                  </div>
+                ) : exportDownloadUrl ? (
+                  <>
+                    <a href={exportDownloadUrl} download="patina-reel.mp4" className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", textAlign: 'center', textDecoration: 'none', display: 'block', marginBottom: 8 }}>
+                      Download video
+                    </a>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
+                      This browser can't hand the video straight to Instagram — save it, then share it from your files.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <button onClick={handleExportShare} className="btn btn-gold" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
+                      Export &amp; share to Instagram
+                    </button>
+                    {exportPhase === 'error' && (
+                      <p style={{ fontSize: 12, color: '#D4856A', margin: '10px 0 0', textAlign: 'center' }}>
+                        Something went wrong rendering the video. Please try again.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             {shareToken ? (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 12px', marginBottom: 12 }}>

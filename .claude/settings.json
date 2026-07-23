@@ -24,7 +24,42 @@
       "Bash(node -e *)",
       "Bash(npx --no-install playwright screenshot -b chromium --viewport-size 620,240 file:///C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/icontest/masktest2.html C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/icontest/masktest.png)",
       "Bash(grep -vE '<i className=\"ti [a-z0-9-]+\"$|<i className=\\\\{`ti \\\\$\\\\{[^}]+\\\\}`\\\\}' /tmp/all_i_tags.txt)",
-      "Bash(grep -vE '<i className=\"ti ti-[a-z0-9-]+\"|<i className=\\\\{`ti \\\\$\\\\{[^}]+\\\\}`\\\\}')"
+      "Bash(grep -vE '<i className=\"ti ti-[a-z0-9-]+\"|<i className=\\\\{`ti \\\\$\\\\{[^}]+\\\\}`\\\\}')",
+      "Bash(curl -s \"http://127.0.0.1:9333/click?sel=div:has-text\\('moments logged'\\)\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=keepsakes2\")",
+      "Bash(curl -s --get \"http://127.0.0.1:9333/eval\" --data-urlencode 'expr=[...document.querySelectorAll\\(\"button\"\\)].map\\(b=>b.textContent\\).filter\\(Boolean\\).slice\\(0,30\\)')",
+      "Bash(curl -s --get \"http://127.0.0.1:9333/click\" --data-urlencode 'sel=button[title=\"Watch this month'\"'\"'s reel\"]')",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=reel1\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/sleep?ms=6000\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=reel2\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/sleep?ms=8000\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=reel3\")",
+      "Bash(curl -s --get \"http://127.0.0.1:9333/click\" --data-urlencode 'sel=button[aria-label=\"Share\"]')",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=sheet1\")",
+      "Bash(curl -s --get \"http://127.0.0.1:9333/eval\" --data-urlencode 'expr=\\({hasCaptureStream: typeof HTMLCanvasElement.prototype.captureStream === \"function\", hasShare: typeof navigator.share === \"function\", hasMediaRecorder: typeof MediaRecorder !== \"undefined\", supportedTypes: typeof MediaRecorder !== \"undefined\" ? [\"video/mp4;codecs=avc1.42E01E\",\"video/mp4\",\"video/webm;codecs=vp9\",\"video/webm;codecs=vp8\",\"video/webm\"].filter\\(t=>MediaRecorder.isTypeSupported\\(t\\)\\) : []}\\)')",
+      "Bash(curl -s \"http://127.0.0.1:9333/click?sel=body\")",
+      "Bash(curl -s --get \"http://127.0.0.1:9333/click\" --data-urlencode 'sel=button[aria-label=\"Close\"]')",
+      "Bash(curl -s --get \"http://127.0.0.1:9333/eval\" --data-urlencode 'expr=\\(\\(\\) => { navigator.share = async \\(data\\) => { window.__lastShareData = { title: data.title, text: data.text, filesInfo: \\(data.files||[]\\).map\\(f=>\\({name:f.name,type:f.type,size:f.size}\\)\\) }; return true; }; navigator.canShare = \\(data\\) => true; return \"patched\"; }\\)\\(\\)')",
+      "Bash(curl -s \"http://127.0.0.1:9333/sleep?ms=15000\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=sheet2\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=sheet3\")",
+      "Bash(curl -s --get \"http://127.0.0.1:9333/click\" --data-urlencode 'sel=text=Export & share to Instagram')",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=exporting1\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/sleep?ms=5000\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=exporting2\")",
+      "Bash(curl -s --get \"http://127.0.0.1:9333/eval\" --data-urlencode 'expr=window.__lastShareData || \"not yet\"')",
+      "Bash(curl -s --get \"http://127.0.0.1:9333/eval\" --data-urlencode 'expr=\\(\\(\\) => { navigator.share = async \\(data\\) => { window.__lastFile = data.files[0]; return true; }; navigator.canShare = \\(data\\) => true; return \"repatched\"; }\\)\\(\\)')",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=exporting3\")",
+      "Bash(curl -s --get http://127.0.0.1:9333/eval --data-urlencode 'expr=\\(async \\(\\) => { *)",
+      "Bash(EXPR='\\(async \\(\\) => { *)",
+      "Bash(cygpath -w /tmp/frame_dataurl.json)",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=fresh1\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/sleep?ms=10000\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=fresh2\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=fresh-exporting\")"
+    ],
+    "additionalDirectories": [
+      "\\tmp"
     ]
   }
 }
