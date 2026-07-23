@@ -168,6 +168,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   const [exportProgress, setExportProgress] = useState(0);
   const [exportBackgrounded, setExportBackgrounded] = useState(false);
   const [exportDownloadUrl, setExportDownloadUrl] = useState(null);
+  const [exportShared, setExportShared] = useState(false);
   const exportAbortRef = useRef(null);
 
   const [countedStats, setCountedStats] = useReelCountUpStats(showStats, stats);
@@ -439,15 +440,21 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       });
       const file = blobToShareableFile(blob, mimeType);
       const shareData = canShareVideoFile(file, { title: monthLabel });
+      let shared = false;
       if (shareData) {
-        await navigator.share(shareData).catch(() => {});
-        setExportPhase('idle');
+        // A rejection here just means the OS share sheet opened and the user
+        // picked nothing (cancelled it, or — on desktop — there was no real
+        // target like Instagram to pick) — not a failure worth reporting.
+        // Either way, a finished render should never end in silence: fall
+        // through to the download link so something is always visible.
+        try { await navigator.share(shareData); shared = true; } catch {}
+      }
+      setExportPhase('idle');
+      if (shared) {
+        setExportShared(true);
+        setTimeout(() => setExportShared(false), 2500);
       } else {
-        // Render succeeded but this browser/device can't hand a file to
-        // Web Share (desktop, or over Web Share's OS-level size limit) —
-        // don't throw away a finished export, offer it as a download instead.
         setExportDownloadUrl(URL.createObjectURL(blob));
-        setExportPhase('idle');
       }
     } catch (e) {
       if (e?.name !== 'AbortError') setExportPhase('error');
@@ -597,20 +604,27 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
                       Cancel
                     </button>
                   </div>
+                ) : exportShared ? (
+                  <p style={{ fontSize: 14, color: 'var(--accent)', textAlign: 'center', margin: 0, fontWeight: 700 }}>
+                    Done!
+                  </p>
                 ) : exportDownloadUrl ? (
                   <>
                     <a href={exportDownloadUrl} download="patina-reel.mp4" className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", textAlign: 'center', textDecoration: 'none', display: 'block', marginBottom: 8 }}>
                       Download video
                     </a>
                     <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: 0 }}>
-                      This browser can't hand the video straight to Instagram — save it, then share it from your files.
+                      Save it, then share it however you'd like — Instagram, Photos, wherever.
                     </p>
                   </>
                 ) : (
                   <>
                     <button onClick={handleExportShare} className="btn btn-gold" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
-                      Export &amp; share to Instagram
+                      Export video
                     </button>
+                    <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: '8px 0 0' }}>
+                      Saves a video of this reel to your device — pick "Save Video" to add it to your photos, then share it wherever you'd like.
+                    </p>
                     {exportPhase === 'error' && (
                       <p style={{ fontSize: 12, color: '#D4856A', margin: '10px 0 0', textAlign: 'center' }}>
                         Something went wrong rendering the video. Please try again.
