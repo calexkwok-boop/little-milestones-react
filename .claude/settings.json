@@ -59,7 +59,13 @@
       "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=fresh-exporting\")",
       "Bash(curl -s --get \"http://127.0.0.1:9333/eval\" --data-urlencode 'expr=\\(\\(\\) => { navigator.share = async \\(data\\) => { window.__lastFile = data.files[0]; return true; }; navigator.canShare = \\(\\) => true; return \"patched\"; }\\)\\(\\)')",
       "Bash(curl -s \"http://127.0.0.1:9333/sleep?ms=16000\")",
-      "Bash(curl -s --get \"http://127.0.0.1:9333/click\" --data-urlencode 'sel=text=Export video')"
+      "Bash(curl -s --get \"http://127.0.0.1:9333/click\" --data-urlencode 'sel=text=Export video')",
+      "Bash(npx --no-install playwright screenshot -b chromium --viewport-size 1600,900 file:///C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/gen_landscape.html C:/Users/a_kwo/AppData/Local/Temp/claude/c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react/a7938cc7-8657-4305-bc28-7e3ec0ba7e77/scratchpad/landscape-test-photo.png)",
+      "Bash(curl -s --get http://127.0.0.1:9333/setfiles --data-urlencode 'sel=input[accept=\"image/*,video/*\"]' --data-urlencode path=__TRACKED_VAR__/landscape-test-photo.png)",
+      "Bash(curl -s --get \"http://127.0.0.1:9333/type\" --data-urlencode \"text=Landscape crop test\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/sleep?ms=20000\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=landscape-check1\")",
+      "Bash(curl -s \"http://127.0.0.1:9333/screenshot?name=landscape-check2\")"
     ],
     "additionalDirectories": [
       "\\tmp"

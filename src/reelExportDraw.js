@@ -76,13 +76,32 @@ function loadImage(url) {
   });
 }
 
-// The foreground fills the whole frame (cover-fit, cropping edges as needed)
-// rather than being letterboxed — a blurred backdrop layer only ever mattered
-// to fill letterbox gaps, so cover-fit removes the need for one entirely,
-// and with it the size mismatch a cover-background/contain-foreground split
-// produced for non-portrait photos (huge blurred backdrop, tiny letterboxed
-// photo — noticeable on anything not already close to the reel's own 9:16).
-async function preloadPhotoLike(url, mediaType, assets, key) {
+// Portrait/square photos fill the whole frame (cover-fit, cropping overflow)
+// — that's the common case and cropping a small margin off a photo already
+// close to the reel's own 9:16 shape isn't noticeable. Landscape photos are
+// the opposite trade: cropping them to fill a 9:16 frame cuts off a real
+// chunk of the photo, so those fall back to contain-fit with a blurred
+// cover-fill backdrop behind — the same "blurred bars" treatment
+// Instagram/TikTok Stories use for landscape source content.
+function isLandscape(w, h) { return w / h > 1.05; }
+
+// Identical every frame of a slide — pre-rendering it once avoids re-running
+// ctx.filter (an expensive full-canvas blur) on every one of ~900 frames in
+// a 30s reel. Only generated for landscape photos (see isLandscape above).
+function makeBlurredBackdrop(img, cropY) {
+  const off = document.createElement('canvas');
+  off.width = CANVAS_W; off.height = CANVAS_H;
+  const ctx = off.getContext('2d');
+  ctx.filter = 'blur(36px) brightness(0.5)';
+  const scale = Math.max(CANVAS_W / img.naturalWidth, CANVAS_H / img.naturalHeight) * 1.15;
+  const w = img.naturalWidth * scale, h = img.naturalHeight * scale;
+  const x = (CANVAS_W - w) / 2;
+  const y = (CANVAS_H - h) * (cropY ?? 50) / 100;
+  ctx.drawImage(img, x, y, w, h);
+  return off;
+}
+
+async function preloadPhotoLike(url, mediaType, cropY, assets, key) {
   if (mediaType === 'video') {
     const video = document.createElement('video');
     video.crossOrigin = 'anonymous';
@@ -94,23 +113,30 @@ async function preloadPhotoLike(url, mediaType, assets, key) {
       video.onerror = resolve;
     });
     assets.videos.set(key, video);
+    if (video.videoWidth && isLandscape(video.videoWidth, video.videoHeight)) {
+      const thumb = await loadImage(videoThumbUrl(url, 'so_0,w_1600,q_auto,f_auto'));
+      if (thumb) assets.backdrops.set(key, makeBlurredBackdrop(thumb, cropY));
+    }
     return;
   }
   const img = await loadImage(cloudinaryTransform(url, 'w_1600,q_auto,f_auto'));
   if (!img) return;
+  if (isLandscape(img.naturalWidth, img.naturalHeight)) {
+    assets.backdrops.set(key, makeBlurredBackdrop(img, cropY));
+  }
   assets.images.set(key, img);
 }
 
 export async function preloadAssets(timeline, onProgress) {
-  const assets = { images: new Map(), videos: new Map(), avatars: new Map() };
+  const assets = { images: new Map(), videos: new Map(), backdrops: new Map(), avatars: new Map() };
   const slideItems = timeline.items.filter(it => it.kind === 'slide');
   let done = 0;
   for (const item of slideItems) {
     const s = item.slide;
     if (s.type === 'photo') {
-      await preloadPhotoLike(s.url, s.mediaType, assets, item.index);
+      await preloadPhotoLike(s.url, s.mediaType, s.cropY, assets, item.index);
     } else if (s.type === 'trip') {
-      await preloadPhotoLike(s.photo.url, s.photo.mediaType, assets, item.index);
+      await preloadPhotoLike(s.photo.url, s.photo.mediaType, s.photo.cropY, assets, item.index);
       // Only one avatar is preloaded per trip slide (whichever person has
       // one) — the static-arc simplification's effort/value line. Stored
       // with its own URL so drawing can tell *whose* avatar it is, rather
@@ -265,17 +291,20 @@ function drawPhotoLike(ctx, index, elapsedIntoSlide, durationMs, cropY, assets) 
   const naturalW = video ? video.videoWidth : source.naturalWidth;
   const naturalH = video ? video.videoHeight : source.naturalHeight;
   if (!naturalW || !naturalH) return;
-  // Cover-fit (fills the whole frame, cropping overflow) rather than
-  // contain-fit — matches how Instagram/TikTok Stories handle non-portrait
-  // source photos, and avoids the huge-blurred-backdrop/tiny-letterboxed-photo
-  // mismatch a contain-fit foreground produced for anything not already
-  // close to the reel's own 9:16 shape.
-  const fitScale = Math.max(CANVAS_W / naturalW, CANVAS_H / naturalH) * scale;
+
+  const backdrop = assets.backdrops.get(index);
+  if (backdrop) ctx.drawImage(backdrop, 0, 0);
+
+  // Landscape photos (backdrop present) use contain-fit, so the whole photo
+  // stays visible against the blurred fill; everything else uses cover-fit,
+  // filling the frame with a small, unnoticeable crop. See isLandscape.
+  const fitScale = (backdrop ? Math.min(CANVAS_W / naturalW, CANVAS_H / naturalH) : Math.max(CANVAS_W / naturalW, CANVAS_H / naturalH)) * scale;
   const w = naturalW * fitScale, h = naturalH * fitScale;
   const x = (CANVAS_W - w) / 2 + dx;
   // Horizontal crop stays centered; vertical crop follows the entry's own
   // configured cropY (0 = top-aligned, 100 = bottom-aligned), same semantics
-  // as the live app's `background-position: center {cropY}%`.
+  // as the live app's `background-position: center {cropY}%`. Irrelevant
+  // (and harmless) for contain-fit, since nothing overflows to crop there.
   const y = (CANVAS_H - h) * ((cropY ?? 50) / 100) + dy;
   ctx.drawImage(source, x, y, w, h);
 
