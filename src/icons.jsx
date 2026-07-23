@@ -1,7 +1,11 @@
 // Inline line-icon set, replacing the @tabler/icons-webfont CDN dependency.
 // Registry is keyed by the exact strings used as data (e.g. MILESTONE_TYPES icon
 // fields in constants.js), so those data definitions didn't need to change.
-const S = 2.1;
+const S = 1.55;
+// Icons were drawn with a bit of internal padding inside the 24x24 grid, which
+// under-fills the box compared to the old icon font's glyphs — scale the
+// content up around center so it reads at the same visual size as before.
+const SCALE = 1.4;
 
 const ICONS = {
   'ti-x': <path d="M4 4l16 16M20 4L4 20" />,
@@ -133,10 +137,10 @@ export function Icon({ name, style, className, ...rest }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
-      style={{ width: '1em', height: '1em', display: 'inline-block', flexShrink: 0, verticalAlign: 'middle', ...style }}
+      style={{ width: '1em', height: '1em', display: 'inline-block', flexShrink: 0, verticalAlign: 'middle', overflow: 'visible', ...style }}
       {...rest}
     >
-      {glyph}
+      <g transform={`translate(12 12) scale(${SCALE}) translate(-12 -12)`}>{glyph}</g>
     </svg>
   );
 }
