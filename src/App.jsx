@@ -915,7 +915,10 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
           Dear {allKids ? buildSalutation(entry, allKids) : kid.name},
         </p>
         {preview && (
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 16 : 14, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.65 }}>
+          <p style={{
+            fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 16 : 14, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.65,
+            ...(featured ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
+          }}>
             {preview}
           </p>
         )}
@@ -1082,7 +1085,6 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
   const previewLen = featured ? 200 : 90;
   const preview = entry.text.length > previewLen ? entry.text.slice(0, previewLen) + '…' : entry.text;
   const photoH = featured ? 140 : 92;
-  const thumbSize = featured ? 110 : 74;
 
   return (
     <div
@@ -1097,7 +1099,7 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
         </div>
         {entry.shared === false && <Icon name="ti-lock" style={{ fontSize: featured ? 12 : 10, color: accent }} title="Private" />}
       </div>
-      <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 15 : 12.5, lineHeight: 1.5, color: 'var(--text)', margin: featured ? '0 0 12px' : '0 0 8px', whiteSpace: 'pre-wrap' }}>
+      <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 15 : 12.5, lineHeight: 1.5, color: 'var(--text)', margin: featured ? '0 0 12px' : '0 0 8px', whiteSpace: 'pre-wrap', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
         {preview}
       </p>
       {entry.media?.length === 1 && (
@@ -1106,10 +1108,10 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
         </div>
       )}
       {entry.media?.length > 1 && (
-        <div style={{ marginBottom: featured ? 12 : 8, display: 'flex', gap: featured ? 8 : 6, overflowX: 'auto' }}>
-          {entry.media.slice(0, 3).map((m, i) => (
-            <div key={i} style={{ width: thumbSize, height: thumbSize, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-              <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_240,q_auto,f_auto" />
+        <div style={{ marginBottom: featured ? 12 : 8, display: 'flex', gap: 2, overflowX: 'auto', height: photoH, borderRadius: 10 }}>
+          {entry.media.map((m, i) => (
+            <div key={i} style={{ flexShrink: 0, width: photoH * (4 / 3), height: photoH, position: 'relative' }}>
+              <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_800,e_sharpen:60,q_auto,f_auto" />
             </div>
           ))}
         </div>
@@ -1148,7 +1150,6 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
   const previewLen = featured ? 200 : 90;
   const preview = entry.text.length > previewLen ? entry.text.slice(0, previewLen) + '…' : entry.text;
   const photoH = featured ? 140 : 92;
-  const thumbSize = featured ? 110 : 74;
 
   return (
     <div
@@ -1171,7 +1172,7 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
         </p>
       </div>
       <div style={{ padding: featured ? '14px 17px 13px' : '11px 13px 10px' }}>
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 15 : 12.5, lineHeight: 1.5, color: 'var(--text)', margin: featured ? '0 0 12px' : '0 0 8px', whiteSpace: 'pre-wrap' }}>
+        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 15 : 12.5, lineHeight: 1.5, color: 'var(--text)', margin: featured ? '0 0 12px' : '0 0 8px', whiteSpace: 'pre-wrap', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {preview}
         </p>
         {entry.media?.length === 1 && (
@@ -1180,10 +1181,10 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
           </div>
         )}
         {entry.media?.length > 1 && (
-          <div style={{ marginBottom: featured ? 12 : 8, display: 'flex', gap: featured ? 8 : 6, overflowX: 'auto' }}>
-            {entry.media.slice(0, 3).map((m, i) => (
-              <div key={i} style={{ width: thumbSize, height: thumbSize, borderRadius: 10, overflow: 'hidden', flexShrink: 0 }}>
-                <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_240,q_auto,f_auto" />
+          <div style={{ marginBottom: featured ? 12 : 8, display: 'flex', gap: 2, overflowX: 'auto', height: photoH, borderRadius: 10 }}>
+            {entry.media.map((m, i) => (
+              <div key={i} style={{ flexShrink: 0, width: photoH * (4 / 3), height: photoH, position: 'relative' }}>
+                <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_800,e_sharpen:60,q_auto,f_auto" />
               </div>
             ))}
           </div>
@@ -4012,7 +4013,11 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                 <KidChip key={k.id} kid={k} active={selectedKids.includes(k.id)} onClick={() => setSelectedKids(prev => prev.includes(k.id) ? prev.filter(id => id !== k.id) : [...prev, k.id])} />
               ))}
             </div>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", margin: '10px 2px 0' }}>Today &middot; {dateDisplay}</p>
+            <button onClick={openDateEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", margin: '10px 0 0', padding: '0 2px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+              <Icon name="ti-calendar" style={{ fontSize: 12 }} />
+              {dateDisplay}
+              {dateFromPhoto && <span style={{ fontSize: 10 }}>&middot; photo</span>}
+            </button>
           </div>
         ) : (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, marginBottom: 24 }}>
