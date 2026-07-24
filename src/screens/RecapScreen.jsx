@@ -49,6 +49,50 @@ function RecapEntryRow({ entry, kids, onOpenEntry, nextIsMilestone }) {
   );
 }
 
+// One cell per entry, photo or not — replaces the old split where only the
+// "photos" filter got a grid and everything else (including the default
+// view) got a text list. A photo/video entry shows its media; a text-only
+// entry gets a small tinted card (entry.palette, the same colors used
+// everywhere else an entry has no photo) with an excerpt, so it still shows
+// up rather than only existing in the old list view. Milestones keep a
+// gold ring + star regardless of which kind of cell they are.
+function RecapGridCell({ entry, onOpenEntry }) {
+  const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
+  const media = entry.media?.[0];
+  const isVideo = media?.type === 'video';
+  return (
+    <div
+      onClick={() => onOpenEntry(entry)}
+      style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', position: 'relative', background: media ? 'var(--bg-card)' : entry.palette.bg, boxShadow: m ? '0 0 0 2px #C8993E' : 'none' }}
+    >
+      {media ? (
+        <>
+          {isVideo ? (
+            <img src={videoThumbUrl(media.url, 'so_0,w_240,q_auto,f_auto')} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+          ) : (
+            <img src={cloudinaryTransform(media.url, 'w_240,q_auto,f_auto')} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+          )}
+          {isVideo && (
+            <div style={{ position: 'absolute', bottom: 5, right: 5, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ padding: '9px 8px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, lineHeight: 0.6, color: entry.palette.tint, opacity: 0.55 }}>"</span>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, lineHeight: 1.4, margin: '5px 0 0', color: entry.palette.tint, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>
+            {(entry.text || '').slice(0, 100)}
+          </p>
+        </div>
+      )}
+      {m && (
+        <Icon name="ti-star-filled" style={{ position: 'absolute', top: 5, right: 5, fontSize: 13, color: '#C8993E', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }} />
+      )}
+    </div>
+  );
+}
+
 function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget, onWatchMonthReel }) {
   const [viewMode, setViewMode] = useState(initialTarget?.viewMode || 'month');
   const [selectedMonth, setSelectedMonth] = useState(initialTarget?.month || TODAY.slice(0, 7));
@@ -238,15 +282,6 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
               >
                 <Icon name="ti-chevron-right" />
               </button>
-              {viewMode === 'month' && onWatchMonthReel && (
-                <button
-                  onClick={() => onWatchMonthReel(selectedMonth)}
-                  title="Watch this month's reel"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C8993E', fontSize: 16, padding: 4, marginLeft: 2, display: 'flex' }}
-                >
-                  <Icon name="ti-player-play" />
-                </button>
-              )}
             </div>
           )}
 
@@ -265,6 +300,26 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                   <KidThumb kid={kid} size={48} />
                 </button>
               ))}
+            </div>
+          )}
+
+          {viewMode === 'month' && onWatchMonthReel && momentCount > 0 && (
+            <div
+              onClick={() => onWatchMonthReel(selectedMonth)}
+              style={{ display: 'flex', alignItems: 'center', gap: 11, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '11px 13px', cursor: 'pointer' }}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(180deg, #D4A84B 0%, #B8872E 100%)', boxShadow: '0 2px 6px rgba(140,100,20,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="ti-player-play-filled" style={{ fontSize: 15, color: '#fff', marginLeft: 2 }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Watch your {monthLabel} reel</p>
+                <p style={{ fontSize: 11, color: 'var(--text-2)', margin: '2px 0 0' }}>
+                  {momentCount} moment{momentCount !== 1 ? 's' : ''}
+                  {milestoneCount > 0 ? ` · ${milestoneCount} milestone${milestoneCount !== 1 ? 's' : ''}` : ''}
+                  {photoCount > 0 ? ` · ${photoCount} photo${photoCount !== 1 ? 's' : ''}` : ''}
+                </p>
+              </div>
+              <Icon name="ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
             </div>
           )}
 
@@ -305,58 +360,47 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                 </div>
               </div>
 
-              {recapFilter === 'photos' ? (
-                (() => {
-                  const allPhotos = periodEntries.flatMap(e => (e.media || []).map(m => ({ ...m, entry: e })));
-                  return (
+              {(() => {
+                // One grid, filtered — replaces the old split where "photos" got
+                // a grid (of individual media items) and everything else got a
+                // text list (of entries). Filtering now always narrows the same
+                // entry grid, so tapping a stat tile never swaps the whole layout.
+                const filterByRecap = (list) => {
+                  if (recapFilter === 'milestones') return list.filter(e => e.milestone);
+                  if (recapFilter === 'favorites') return list.filter(e => e.favorited);
+                  if (recapFilter === 'photos') return list.filter(e => e.media?.length > 0);
+                  return list;
+                };
+                const nothingHere = <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>Nothing here yet.</p>;
+
+                if (viewMode === 'month') {
+                  const filtered = filterByRecap(monthEntries);
+                  return filtered.length === 0 ? nothingHere : (
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                      {allPhotos.map((item, i) => (
-                        <div
-                          key={i}
-                          onClick={() => onOpenEntry(item.entry)}
-                          style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', background: 'var(--bg-card)', position: 'relative' }}
-                        >
-                          {item.type === 'video' ? (
-                            <>
-                              <img src={videoThumbUrl(item.url, 'so_0,w_240,q_auto,f_auto')} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
-                              <div style={{ position: 'absolute', bottom: 4, right: 4, width: 16, height: 16, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <Icon name="ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
-                              </div>
-                            </>
-                          ) : (
-                            <img src={cloudinaryTransform(item.url, 'w_240,q_auto,f_auto')} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
-                          )}
-                        </div>
-                      ))}
+                      {filtered.map(e => <RecapGridCell key={e.id} entry={e} onOpenEntry={onOpenEntry} />)}
                     </div>
                   );
-                })()
-              ) : recapFilter === 'favorites' ? (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {periodEntries.filter(e => e.favorited).map((e, i, arr) => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} nextIsMilestone={!!arr[i + 1]?.milestone} />)}
-                </div>
-              ) : recapFilter === 'milestones' ? (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {periodEntries.filter(e => e.milestone).map(e => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} />)}
-                </div>
-              ) : viewMode === 'month' ? (
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  {monthEntries.map((e, i, arr) => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} nextIsMilestone={!!arr[i + 1]?.milestone} />)}
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {(viewMode === 'year' ? yearGroups : allGroups).map(group => (
-                    <div key={group.label} style={{ display: 'flex', flexDirection: 'column' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 6 }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.4, textTransform: 'uppercase' }}>{group.label}</span>
-                        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                        <span style={{ fontSize: 11, color: 'var(--border-light)', fontWeight: 600 }}>{group.entries.length}</span>
+                }
+                const groups = (viewMode === 'year' ? yearGroups : allGroups)
+                  .map(group => ({ ...group, entries: filterByRecap(group.entries) }))
+                  .filter(group => group.entries.length > 0);
+                return groups.length === 0 ? nothingHere : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    {groups.map(group => (
+                      <div key={group.label} style={{ display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.4, textTransform: 'uppercase' }}>{group.label}</span>
+                          <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                          <span style={{ fontSize: 11, color: 'var(--border-light)', fontWeight: 600 }}>{group.entries.length}</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                          {group.entries.map(e => <RecapGridCell key={e.id} entry={e} onOpenEntry={onOpenEntry} />)}
+                        </div>
                       </div>
-                      {group.entries.map((e, i, arr) => <RecapEntryRow key={e.id} entry={e} kids={kids} onOpenEntry={onOpenEntry} nextIsMilestone={!!arr[i + 1]?.milestone} />)}
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
             </>
           )}
           </>
