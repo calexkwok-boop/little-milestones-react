@@ -9,7 +9,7 @@
 // shimmer sweep, and the closing stats' count-up are all simplified to static
 // or linear approximations, since this renders once, unattended, into a
 // silent export rather than being watched live.
-import { slideDurationMs, videoThumbUrl } from './screens/reelShared.jsx';
+import { slideDurationMs, videoThumbUrl, TRIP_ARC_MS } from './screens/reelShared.jsx';
 import { cloudinaryTransform, VIDEO_DELIVERY_TRANSFORM } from './constants.js';
 
 export const CANVAS_W = 1080;
@@ -17,7 +17,6 @@ export const CANVAS_H = 1920;
 
 const INTRO_MS = 1500;
 const CLOSING_MS = 2200;
-const TRIP_ARC_STATIC_MS = 1800;
 const CROSSFADE_MS = 500;
 
 // Mirrors App.css kb1-kb4 — scale/translate fractions of the drawn image's
@@ -36,6 +35,29 @@ const CLOSING_BG = '#1E2A1E';
 function lerp(a, b, t) { return a + (b - a) * t; }
 function easeInOut(t) { return t < 0.5 ? 2 * t * t : 1 - ((-2 * t + 2) ** 2) / 2; }
 function clamp01(v) { return Math.max(0, Math.min(1, v)); }
+
+// Quadratic bezier point/tangent — mirrors the live trip slide's own SVG
+// path (reelShared.jsx's `M 24 139 Q 150 8 276 68`, App.css's `tripFly`
+// keyframe) so the plane in the export follows the identical curve shape,
+// just re-anchored to this canvas's own arc-card layout (see drawTripArc).
+function bezierPoint(t, p0, p1, p2) {
+  const mt = 1 - t;
+  return {
+    x: mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x,
+    y: mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y,
+  };
+}
+function bezierTangentAngle(t, p0, p1, p2) {
+  const dx = 2 * (1 - t) * (p1.x - p0.x) + 2 * t * (p2.x - p1.x);
+  const dy = 2 * (1 - t) * (p1.y - p0.y) + 2 * t * (p2.y - p1.y);
+  return Math.atan2(dy, dx);
+}
+// Matches the tripFly keyframe's opacity stops (0%→0, 8%→1, 92%→1, 100%→0).
+function tripFlyOpacity(t) {
+  if (t < 0.08) return t / 0.08;
+  if (t > 0.92) return (1 - t) / 0.08;
+  return 1;
+}
 
 // ── Timeline ────────────────────────────────────────────────────────────
 
@@ -106,6 +128,14 @@ async function preloadPhotoLike(url, mediaType, assets, key) {
   assets.images.set(key, img);
 }
 
+// Cached by URL rather than by slide index — a trip slide can have several
+// people's avatars at once (unlike a text slide's single kid), and keying by
+// URL means anyone appearing across multiple slides only loads once.
+async function preloadAvatar(url, assets, transform) {
+  if (!url || assets.avatars.has(url)) return;
+  assets.avatars.set(url, await loadImage(cloudinaryTransform(url, transform)));
+}
+
 export async function preloadAssets(timeline, onProgress) {
   const assets = { images: new Map(), videos: new Map(), avatars: new Map() };
   const slideItems = timeline.items.filter(it => it.kind === 'slide');
@@ -116,15 +146,11 @@ export async function preloadAssets(timeline, onProgress) {
       await preloadPhotoLike(s.url, s.mediaType, assets, item.index);
     } else if (s.type === 'trip') {
       await preloadPhotoLike(s.photo.url, s.photo.mediaType, assets, item.index);
-      // Only one avatar is preloaded per trip slide (whichever person has
-      // one) — the static-arc simplification's effort/value line. Stored
-      // with its own URL so drawing can tell *whose* avatar it is, rather
-      // than mistakenly showing it for every person who happens to have one.
-      const avatarUrl = s.tripPeople?.find(p => p.avatar)?.avatar;
-      if (avatarUrl) assets.avatars.set(item.index, { url: avatarUrl, img: await loadImage(cloudinaryTransform(avatarUrl, 'w_100,h_100,c_fill,q_auto,f_auto')) });
+      for (const person of s.tripPeople || []) {
+        await preloadAvatar(person.avatar, assets, 'w_100,h_100,c_fill,q_auto,f_auto');
+      }
     } else if (s.type === 'text') {
-      const avatarUrl = s.kidAvatar ?? s.kid?.avatar;
-      if (avatarUrl) assets.avatars.set(item.index, { url: avatarUrl, img: await loadImage(cloudinaryTransform(avatarUrl, 'w_200,h_200,c_fill,q_auto,f_auto')) });
+      await preloadAvatar(s.kidAvatar ?? s.kid?.avatar, assets, 'w_200,h_200,c_fill,q_auto,f_auto');
     }
     done++;
     onProgress?.(done / slideItems.length);
@@ -261,11 +287,30 @@ function drawPhotoLike(ctx, index, elapsedIntoSlide, durationMs, cropY, assets) 
   const source = video || img;
   if (!source) return;
 
-  const kb = KEN_BURNS[index % 4];
-  const t = easeInOut(clamp01(elapsedIntoSlide / durationMs));
-  const scale = lerp(kb.fromScale, kb.toScale, t);
-  const dx = lerp(kb.fromX, kb.toX, t) * CANVAS_W;
-  const dy = lerp(kb.fromY, kb.toY, t) * CANVAS_H;
+  // Mirrors ReelSlideVideo (reelShared.jsx): starts the clip from 0 the
+  // moment its slide becomes active, same as the live reel — without this,
+  // drawImage on a video just repeatedly paints whatever frame it loaded on
+  // (its first), so the export would hold a frozen still for the whole
+  // slide instead of actual video motion. Guarded by a flag on the element
+  // itself so repeated draw calls across frames (and the crossfade preview
+  // of this same slide as "next") don't keep rewinding it back to 0.
+  if (video && !video.__reelStarted) {
+    video.__reelStarted = true;
+    video.currentTime = 0;
+    video.play().catch(() => {});
+  }
+
+  // Ken Burns is a still-photo-only effect live too (ReelSlideVideo never
+  // gets the kb animation class) — a moving video panning/zooming on top of
+  // its own motion reads as a bug, not a flourish.
+  let scale = 1, dx = 0, dy = 0;
+  if (!video) {
+    const kb = KEN_BURNS[index % 4];
+    const t = easeInOut(clamp01(elapsedIntoSlide / durationMs));
+    scale = lerp(kb.fromScale, kb.toScale, t);
+    dx = lerp(kb.fromX, kb.toX, t) * CANVAS_W;
+    dy = lerp(kb.fromY, kb.toY, t) * CANVAS_H;
+  }
 
   const naturalW = video ? video.videoWidth : source.naturalWidth;
   const naturalH = video ? video.videoHeight : source.naturalHeight;
@@ -320,11 +365,12 @@ function drawTextSlide(ctx, item, assets) {
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
   const kidFirst = s.kidName ?? s.kid?.name?.split(' ')[0];
   const accent = s.kidAccent ?? s.kid?.accent;
+  const avatarUrl = s.kidAvatar ?? s.kid?.avatar;
   const cx = CANVAS_W / 2;
   let y = CANVAS_H / 2 - 160;
 
   if (kidFirst || accent) {
-    drawAvatarCircle(ctx, cx, y, 56, assets.avatars.get(item.index)?.img, kidFirst?.charAt(0), accent);
+    drawAvatarCircle(ctx, cx, y, 56, assets.avatars.get(avatarUrl), kidFirst?.charAt(0), accent);
     y += 130;
   }
 
@@ -357,11 +403,13 @@ function drawTextSlide(ctx, item, assets) {
   }
 }
 
-// Static arc card (home → destination dashed line, avatars, distance) instead
-// of the live reel's animated plane-along-a-bezier — real content, without
-// reimplementing an SVG offset-path motion animation in canvas for a
-// silent, unattended export. See plan doc for the reasoning.
-function drawTripArc(ctx, item, assets) {
+// Arc card (home → destination dashed line, avatars, distance) with the
+// same animated plane-along-a-bezier the live reel uses — same curve shape
+// (reelShared.jsx's `M 24 139 Q 150 8 276 68`, re-anchored to homeX/destX/
+// the control point below), same opacity envelope (tripFlyOpacity), same
+// "auto 45deg" facing (the ✈️ glyph's own artwork rests pointing
+// up-and-right, so the tangent angle needs that same fixed offset).
+function drawTripArc(ctx, item, arcElapsedMs, assets) {
   const s = item.slide;
   ctx.fillStyle = CARD_BG;
   ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
@@ -372,56 +420,69 @@ function drawTripArc(ctx, item, assets) {
   ctx.fillText(dateLabel, CANVAS_W / 2, CANVAS_H / 2 - 320);
 
   if (s.tripPeople?.length) {
-    // Only one avatar is preloaded per trip slide (see preloadAssets) —
-    // match it back to whichever person it actually belongs to; everyone
-    // else falls back to their initial, same as a missing avatar does live.
-    const preloaded = assets.avatars.get(item.index);
     const r = 30, overlap = 18;
     const totalW = r * 2 + (s.tripPeople.length - 1) * (r * 2 - overlap);
     let x = CANVAS_W / 2 - totalW / 2 + r;
     for (let i = 0; i < s.tripPeople.length; i++) {
       const person = s.tripPeople[i];
-      const img = person.avatar && person.avatar === preloaded?.url ? preloaded.img : null;
+      const img = person.avatar ? assets.avatars.get(person.avatar) : null;
       drawAvatarCircle(ctx, x, CANVAS_H / 2 - 240, r, img, person.name?.charAt(0), person.accent);
       x += r * 2 - overlap;
     }
   }
 
   const boxCx = CANVAS_W / 2, boxCy = CANVAS_H / 2 - 40;
-  const homeX = boxCx - 260, homeY = boxCy + 100;
-  const destX = boxCx + 260, destY = boxCy - 100;
+  const home = { x: boxCx - 260, y: boxCy + 100 };
+  const control = { x: boxCx, y: boxCy - 220 };
+  const dest = { x: boxCx + 260, y: boxCy - 100 };
   ctx.strokeStyle = 'rgba(255,255,255,0.3)';
   ctx.lineWidth = 3;
   ctx.setLineDash([12, 14]);
   ctx.beginPath();
-  ctx.moveTo(homeX, homeY);
-  ctx.quadraticCurveTo(boxCx, boxCy - 220, destX, destY);
+  ctx.moveTo(home.x, home.y);
+  ctx.quadraticCurveTo(control.x, control.y, dest.x, dest.y);
   ctx.stroke();
   ctx.setLineDash([]);
 
   ctx.fillStyle = GOLD;
-  [[homeX, homeY], [destX, destY]].forEach(([px, py]) => {
+  [home, dest].forEach(({ x: px, y: py }) => {
     ctx.beginPath(); ctx.arc(px, py, 8, 0, Math.PI * 2); ctx.fill();
   });
 
   ctx.font = '600 24px Urbanist, sans-serif';
   ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.fillText('Home', homeX, homeY + 44);
+  ctx.fillText('Home', home.x, home.y + 44);
   ctx.fillStyle = '#E5C97E';
   ctx.font = '700 24px Urbanist, sans-serif';
-  ctx.fillText(s.destinationLabel, destX, destY + 44);
+  ctx.fillText(s.destinationLabel, dest.x, dest.y + 44);
 
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '600 22px Urbanist, sans-serif';
   ctx.fillText(`${s.distanceMiles.toLocaleString()} miles from home`, CANVAS_W / 2, CANVAS_H / 2 + 260);
+
+  const t = clamp01(arcElapsedMs / TRIP_ARC_MS);
+  const opacity = tripFlyOpacity(t);
+  if (opacity > 0) {
+    const p = bezierPoint(t, home, control, dest);
+    const angle = bezierTangentAngle(t, home, control, dest) + Math.PI / 4;
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.translate(p.x, p.y);
+    ctx.rotate(angle);
+    ctx.font = '46px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('✈️', 0, 0);
+    ctx.restore();
+  }
 }
 function drawTripSlide(ctx, item, elapsedIntoSlide, assets) {
-  if (elapsedIntoSlide < TRIP_ARC_STATIC_MS) {
-    drawTripArc(ctx, item, assets);
+  if (elapsedIntoSlide < TRIP_ARC_MS) {
+    drawTripArc(ctx, item, elapsedIntoSlide, assets);
     return;
   }
-  const photoElapsed = elapsedIntoSlide - TRIP_ARC_STATIC_MS;
-  drawPhotoLike(ctx, item.index, photoElapsed, item.durationMs - TRIP_ARC_STATIC_MS, item.slide.photo.cropY, assets);
+  const photoElapsed = elapsedIntoSlide - TRIP_ARC_MS;
+  drawPhotoLike(ctx, item.index, photoElapsed, item.durationMs - TRIP_ARC_MS, item.slide.photo.cropY, assets);
   drawCaption(ctx, item.slide.photoCaption);
 }
 
