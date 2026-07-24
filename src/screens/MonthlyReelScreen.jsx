@@ -194,13 +194,22 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
 
   useReelImagePreload(slides);
 
-  // Intro card
-  useEffect(() => {
-    const t1 = setTimeout(() => setIntroFading(true), 2600);
-    const t2 = setTimeout(() => { setShowIntro(false); playSong1(); }, 3200);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Intro card requires a tap rather than auto-advancing on a timer — a
+  // browser only allows a media element's first unmuted play() to actually
+  // produce sound if it happens synchronously inside a real user gesture.
+  // playSong1() (and the song-2 priming inside it) called from a setTimeout
+  // doesn't count as one, even though the timer itself was scheduled from a
+  // gesture — that produced a real bug where song 2 looked like it was
+  // playing (the "now playing" UI isn't gated on the play() promise) but
+  // produced no audio until the viewer separately paused/unpaused, which
+  // *is* a real gesture. Same fix the shared/public reel page already uses
+  // for the same reason (see its own `handleStart`).
+  function handleStartReel() {
+    if (!showIntro) return;
+    playSong1();
+    setIntroFading(true);
+    setTimeout(() => setShowIntro(false), 600);
+  }
 
   // Which pool entries this reel draws for song 1 / song 2 — same
   // saved-vs-unsaved rule as the photo shuffle above: an unsaved reel gets a
@@ -544,15 +553,18 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
 
       {!showStats && <ReelBottomBar activeSlide={currentSlide} activeSong={activeSong} />}
 
-      {/* Opening title card */}
+      {/* Opening title card — tap to begin (see handleStartReel for why) */}
       {showIntro && (
-        <div style={{ position: 'absolute', inset: 0, zIndex: 9, background: 'rgba(38,58,44,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', transition: 'opacity 0.6s ease', opacity: introFading ? 0 : 1 }}>
+        <div onClick={handleStartReel} style={{ position: 'absolute', inset: 0, zIndex: 9, background: 'rgba(38,58,44,0.97)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'opacity 0.6s ease', opacity: introFading ? 0 : 1 }}>
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'rgba(200,153,62,0.75)', margin: '0 0 16px', letterSpacing: 0.5 }}>
             {reelType === 'range' ? 'Patina' : 'Your month with Patina'}
           </p>
           <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: 44, fontWeight: 700, margin: 0, lineHeight: 1.25, textAlign: 'center', padding: '0 24px', background: 'linear-gradient(90deg, #fff 20%, rgba(200,153,62,0.95) 50%, #fff 80%)', backgroundSize: '200% auto', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'shimmer 2.8s linear infinite' }}>
             {monthLabel}
           </p>
+          <button onClick={handleStartReel} style={{ marginTop: 32, width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,0.14)', border: '2px solid rgba(255,255,255,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}>
+            <Icon name="ti-player-play-filled" style={{ fontSize: 24, marginLeft: 3 }} />
+          </button>
         </div>
       )}
 
