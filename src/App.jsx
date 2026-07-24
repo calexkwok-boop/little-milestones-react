@@ -9,6 +9,7 @@ import { supabase, supabaseConfigured } from './supabase.js';
 import { SessionCtx, DataCtx, NotifCtx, useSession, useData, useNotif } from './contexts.js';
 import KidThumb from './KidThumb.jsx';
 import SectionSwitcher from './SectionSwitcher.jsx';
+import { Coachmark } from './Coachmark.jsx';
 const LazyBirthdaySlideshowScreen = lazy(() => import('./screens/BirthdaySlideshowScreen'));
 const LazyMonthlyReelScreen = lazy(() => import('./screens/MonthlyReelScreen'));
 const LazyReelEditScreen = lazy(() => import('./screens/ReelEditScreen'));
@@ -366,14 +367,19 @@ function AvatarImg({ src, alt, fallback }) {
   return <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} loading="lazy" />;
 }
 
-function KidChip({ kid, active, onClick, icon, label }) {
+function KidChip({ kid, active, onClick, icon, label, badge }) {
   return (
     <div
       className={`kid-chip ${active ? 'active' : ''}`}
       style={active ? { background: kid ? kid.accent : 'var(--accent)' } : {}}
       onClick={onClick}
     >
-      {kid ? <KidThumb kid={kid} /> : <span className="thumb"><Icon name={icon} style={{ fontSize: 11 }} /></span>}
+      <span style={{ position: 'relative', display: 'flex', flexShrink: 0 }}>
+        {kid ? <KidThumb kid={kid} /> : <span className="thumb"><Icon name={icon} style={{ fontSize: 11 }} /></span>}
+        {badge && (
+          <span style={{ position: 'absolute', top: -1, right: -1, width: 9, height: 9, borderRadius: '50%', background: '#E05C6A', border: '1.5px solid var(--bg-input)' }} />
+        )}
+      </span>
       {label ?? kid?.name}
     </div>
   );
@@ -392,12 +398,12 @@ function AuthorChip({ member, onClick, active }) {
   );
 }
 
-function KidSelector({ kids, selected, onSelect, showBoth }) {
+function KidSelector({ kids, selected, onSelect, showBoth, unseenKidIds }) {
   return (
     <div className="scrollx">
       <KidChip active={selected === null} onClick={() => onSelect(null)} icon="ti-layout-list" label="All" />
       {kids.map(k => (
-        <KidChip key={k.id} kid={k} active={selected === k.id} onClick={() => onSelect(k.id)} />
+        <KidChip key={k.id} kid={k} active={selected === k.id} onClick={() => onSelect(k.id)} badge={unseenKidIds?.has(k.id)} />
       ))}
       {showBoth && kids.length >= 2 && (
         <KidChip active={selected === 'both'} onClick={() => onSelect('both')} icon="ti-users" label="Together" />
@@ -1384,7 +1390,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, onSeePartnerLetters, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist, onGenerateShareLink }) {
+function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist, onGenerateShareLink }) {
   const [quickToast, setQuickToast] = useState(null);
   function showQuickToast(msg) {
     setQuickToast(msg);
@@ -1516,6 +1522,18 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     setCircleViewer({ entry, entryKids, kidLabel, age, friendName: member?.real_name || member?.display_name || '', friendAvatar: member?.avatar_url || null, entryDate });
   }
 
+
+  // Which kid pills get the "new letter" dot — every kid tagged on an entry
+  // a family member (not me) wrote that I haven't opened yet. Tapping that
+  // kid's pill already filters the feed to just them, which is where the
+  // new letter actually lives — no separate banner/screen needed.
+  const unseenKidIds = useMemo(() => {
+    const set = new Set();
+    if (unseenPartnerIds.length === 0) return set;
+    const unseenSet = new Set(unseenPartnerIds);
+    entries.forEach(e => { if (unseenSet.has(e.id)) e.kids?.forEach(id => set.add(id)); });
+    return set;
+  }, [entries, unseenPartnerIds]);
 
   const onThisDay = useMemo(() => entries
     .filter(e => e.date.slice(5) === todayMMDD && parseInt(e.date.slice(0, 4)) < todayYear
@@ -1810,28 +1828,8 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           <Header />
 
           {kids.length > 1 && (
-            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth />
+            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth unseenKidIds={unseenKidIds} />
           )}
-
-          {unseenPartnerIds.length > 0 && (() => {
-            const partner = familyMembers.find(m => m.user_id !== currentUserId);
-            const name = partner?.real_name || partner?.display_name || 'Your partner';
-            const count = unseenPartnerIds.length;
-            return (
-              <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <Icon name="ti-sparkles" style={{ color: '#C8993E', fontSize: 17, flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: 13, color: 'var(--accent)', fontWeight: 500 }}>
-                  {name} added {count === 1 ? 'a new letter' : `${count} new letters`}
-                </span>
-                <button
-                  onClick={() => onSeePartnerLetters?.()}
-                  style={{ background: 'var(--accent)', border: 'none', borderRadius: 8, padding: '5px 10px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}
-                >
-                  See all
-                </button>
-              </div>
-            );
-          })()}
 
           {birthdayToday.map(k => (
             <div key={k.id} onClick={() => onBirthdayTodayClick?.(k)} style={{ background: 'linear-gradient(160deg, #2A4035 0%, #4A5E50 60%, #3A5548 100%)', borderRadius: 16, padding: '26px 20px', textAlign: 'center', cursor: 'pointer', position: 'relative', overflow: 'hidden' }}>
@@ -2759,91 +2757,6 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
     </div>
   );
 });
-
-// ─── Coachmark ───────────────────────────────────────────────────────────
-// A one-time contextual tooltip that spotlights a real UI element the moment
-// it's actually on screen, instead of explaining a feature in the abstract
-// before there's any content to point at (see the "no onboarding at all"
-// discoverability hole this was built to fix). Dismissal — a tap anywhere,
-// same as most coachmark UIs — is remembered per user per feature id via
-// localStorage, mirroring the existing `patina-recap-seen-*` / bday-dismissed
-// pattern elsewhere in this file, so it only ever interrupts once.
-function useCoachmarkSeen(id, userId) {
-  const key = `patina-coachmarks-seen-${userId || 'anon'}`;
-  const [seen, setSeen] = useState(() => {
-    try { return !!JSON.parse(localStorage.getItem(key) || '{}')[id]; } catch { return false; }
-  });
-  const markSeen = useCallback(() => {
-    setSeen(true);
-    try {
-      const all = JSON.parse(localStorage.getItem(key) || '{}');
-      all[id] = true;
-      localStorage.setItem(key, JSON.stringify(all));
-    } catch {}
-  }, [key, id]);
-  return [seen, markSeen];
-}
-
-function Coachmark({ id, userId, active, targetRef, text, placement = 'bottom' }) {
-  const [seen, markSeen] = useCoachmarkSeen(id, userId);
-  const [rect, setRect] = useState(null);
-
-  useEffect(() => {
-    if (seen || !active || !targetRef.current) { setRect(null); return; }
-    function measure() { if (targetRef.current) setRect(targetRef.current.getBoundingClientRect()); }
-    measure();
-    window.addEventListener('resize', measure);
-    window.addEventListener('scroll', measure, true);
-    return () => { window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true); };
-  }, [seen, active, targetRef]);
-
-  // Any tap anywhere dismisses it — including the real button underneath the
-  // spotlight, which still fires its own click normally since this listener
-  // only observes (capture phase, no preventDefault/stopPropagation).
-  useEffect(() => {
-    if (seen || !active || !rect) return;
-    function onAnyClick() { markSeen(); }
-    document.addEventListener('click', onAnyClick, true);
-    return () => document.removeEventListener('click', onAnyClick, true);
-  }, [seen, active, rect, markSeen]);
-
-  if (seen || !active || !rect) return null;
-  const pad = 6;
-  const bubbleWidth = 210;
-  const left = Math.max(16, Math.min(rect.left, window.innerWidth - bubbleWidth - 16));
-  // Rendered via a portal straight into <body> rather than in place — every
-  // `.screen` plays a mount animation that animates `transform`, which makes
-  // it a new containing block for any `position: fixed` descendant for the
-  // duration of that animation. Left in place, these overlays would measure
-  // the target correctly (getBoundingClientRect is always viewport-relative)
-  // but then render themselves relative to that animating screen instead of
-  // the real viewport — visibly offset from the button they're supposed to
-  // be spotlighting. A portal sidesteps the whole containing-block problem.
-  return createPortal(
-    <>
-      <div
-        style={{
-          position: 'fixed', zIndex: 9998, pointerEvents: 'none',
-          top: rect.top - pad, left: rect.left - pad, width: rect.width + pad * 2, height: rect.height + pad * 2,
-          borderRadius: 999, boxShadow: '0 0 0 2000px rgba(20,26,20,0.62)',
-        }}
-      />
-      <div
-        style={{
-          position: 'fixed', zIndex: 9999, left, width: bubbleWidth,
-          top: placement === 'bottom' ? rect.bottom + 14 : undefined,
-          bottom: placement === 'top' ? window.innerHeight - rect.top + 14 : undefined,
-          background: '#2C3828', color: '#F8F4EC', borderRadius: 14, padding: '12px 14px',
-          fontSize: 12, lineHeight: 1.5, fontFamily: "'Urbanist', sans-serif", boxShadow: '0 8px 20px rgba(0,0,0,0.3)', pointerEvents: 'none',
-        }}
-      >
-        {text}
-        <div style={{ marginTop: 8, fontSize: 10.5, fontWeight: 700, color: '#C8D9C4', textTransform: 'uppercase', letterSpacing: 0.5 }}>Got it →</div>
-      </div>
-    </>,
-    document.body
-  );
-}
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
@@ -7764,9 +7677,15 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 }
 
 const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) {
-  const { pendingRequestCount = 0, circleBadge = 0 } = useNotif() ?? {};
+  const { pendingRequestCount = 0, circleBadge = 0, unseenPartnerIds = [] } = useNotif() ?? {};
+  const { kids = [] } = useData() ?? {};
+  // Only child in the family — Home's kid-pill row (and its per-kid unseen
+  // dot) never renders, since there's nothing to filter. That's the only
+  // place a new partner letter would otherwise surface, so this tab needs
+  // its own badge as the fallback for exactly that case.
+  const homeBadge = kids.length <= 1 ? unseenPartnerIds.length : 0;
   const tabs = [
-    { id: 'home', icon: 'ti-home', label: 'Home', group: ['home'] },
+    { id: 'home', icon: 'ti-home', label: 'Home', group: ['home'], badge: homeBadge },
     { id: 'circle-feed', icon: 'ti-users', label: 'Friends', group: ['circle-feed', 'friends'], badge: pendingRequestCount + circleBadge },
   ];
   const tabsRight = [
@@ -9565,6 +9484,7 @@ export default function App() {
   }, [screen]);
 
   const openEntry = useCallback((entry) => {
+    markPartnerEntrySeen(entry.id);
     setEntrySource(screenRef.current);
     setActiveEntry(entry);
     setScreen('entry-detail');
@@ -10752,7 +10672,6 @@ export default function App() {
         <ReactionToast message={reactionToast.message} onDismiss={() => setReactionToast(null)} />
       )}
       {screen === 'home' && (() => {
-        const partnerMember = familyMembers.find(m => m.user_id !== session?.user?.id) || null;
         const selfMember = familyMembers.find(m => m.user_id === session?.user?.id) || null;
         return (
           <HomeScreen
@@ -10766,7 +10685,6 @@ export default function App() {
             onCompare={() => setScreen('compare')}
             onUpdateCrop={handleUpdateCrop}
             onGenerateShareLink={handleGenerateShareLink}
-            onSeePartnerLetters={() => { setLetterAuthorId(partnerMember?.user_id || null); setScreen('partner-letters'); }}
             self={selfMember}
             onRefresh={handleRefresh}
             onToggleFavorite={handleToggleFavorite}
@@ -10812,7 +10730,7 @@ export default function App() {
               self={selfMember}
               partner={partnerMember}
               onBack={() => setScreen('home')}
-              onOpenEntry={(entry) => { markPartnerEntrySeen(entry.id); openEntry(entry); }}
+              onOpenEntry={openEntry}
               onMarkAllRead={markAllSeen}
               scrollPos={partnerLettersScrollPos}
               onSwitchSection={switchSection}
@@ -10932,7 +10850,18 @@ export default function App() {
               onOpenEntry={openEntry}
               onSwitchSection={switchSection}
               initialTarget={recapTarget}
+              userId={session?.user?.id}
               onWatchMonthReel={month => setReelMonth(month)}
+              onEditMonthReel={month => {
+                const [y, m] = month.split('-').map(Number);
+                const recap = computeMonthRecap(entries, month);
+                const startDate = `${month}-01`;
+                const endDate = `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+                const existingSaved = savedReels.find(r => r.startDate === startDate && r.endDate === endDate);
+                setEditingReel(existingSaved
+                  ? { id: existingSaved.id, title: existingSaved.title, startDate, endDate, song: existingSaved.song ?? null, song2: existingSaved.song2 ?? null, durationSec: existingSaved.durationSec ?? 30, slideRefs: existingSaved.slideRefs ?? null }
+                  : { id: null, title: recap.label, startDate, endDate, song: null, song2: null, durationSec: 30, slideRefs: null });
+              }}
             />
           </ScreenErrorBoundary>
         </div>
@@ -11266,6 +11195,7 @@ export default function App() {
                 onSaveReel={({ song, song2 } = {}) => handleCreateSavedReel({ title: recap.label, startDate, endDate, song: song || null, song2: song2 || null })}
                 onUnsaveReel={handleDeleteSavedReel}
                 onStatClick={filter => { const month = reelMonth; setReelMonth(null); openRecapFor({ viewMode: 'month', month, recapFilter: filter }); }}
+                userId={session?.user?.id}
               />
             </Suspense>
           </ScreenErrorBoundary>
@@ -11295,6 +11225,7 @@ export default function App() {
                 onClose={() => setRangeReel(null)}
                 onGenerateReelShare={handleGenerateReelShare}
                 onRevokeReelShare={handleRevokeReelShare}
+                userId={session?.user?.id}
               />
             </Suspense>
           </ScreenErrorBoundary>

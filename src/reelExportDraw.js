@@ -339,24 +339,40 @@ function drawPhotoLike(ctx, index, elapsedIntoSlide, durationMs, cropY, assets) 
   ctx.fillRect(0, CANVAS_H * 0.55, CANVAS_W, CANVAS_H * 0.45);
 }
 
-function drawCaption(ctx, caption) {
+function drawCaption(ctx, caption, sameAgeAnchorName, kidFirstName) {
   if (!caption) return;
   ctx.textAlign = 'center';
+  const sameAgeLine = sameAgeAnchorName ? `Remember when ${kidFirstName} was the same age as ${sameAgeAnchorName}?` : null;
+
   ctx.font = '700 28px Urbanist, sans-serif';
+  const captionW = ctx.measureText(caption).width;
+  let sameAgeW = 0;
+  if (sameAgeLine) {
+    ctx.font = 'italic 400 26px "Source Serif 4", serif';
+    sameAgeW = ctx.measureText(sameAgeLine).width;
+  }
+
   const padX = 28, padY = 14;
-  const textW = ctx.measureText(caption).width;
-  const boxW = textW + padX * 2, boxH = 56 + padY;
-  const x = (CANVAS_W - boxW) / 2, y = CANVAS_H - 220;
+  const badgeH = sameAgeLine ? 44 : 0;
+  const textW = Math.max(captionW, sameAgeW);
+  const boxW = textW + padX * 2, boxH = 56 + padY + badgeH;
+  const x = (CANVAS_W - boxW) / 2, y = CANVAS_H - 220 - badgeH;
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   roundRect(ctx, x, y, boxW, boxH, 12);
   ctx.fill();
+  if (sameAgeLine) {
+    ctx.font = 'italic 400 26px "Source Serif 4", serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillText(sameAgeLine, CANVAS_W / 2, y + 34);
+    ctx.font = '700 28px Urbanist, sans-serif';
+  }
   ctx.fillStyle = '#fff';
-  ctx.fillText(caption, CANVAS_W / 2, y + boxH / 2 + 10);
+  ctx.fillText(caption, CANVAS_W / 2, y + boxH - padY - 18);
 }
 
 function drawPhotoSlide(ctx, item, elapsedIntoSlide, assets) {
   drawPhotoLike(ctx, item.index, elapsedIntoSlide, item.durationMs, item.slide.cropY, assets);
-  drawCaption(ctx, item.slide.caption);
+  drawCaption(ctx, item.slide.caption, item.slide.sameAgeAnchorName, item.slide.kid?.name?.split(' ')[0]);
 }
 
 function drawTextSlide(ctx, item, assets) {

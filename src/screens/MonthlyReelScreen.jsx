@@ -59,12 +59,6 @@ const SONG_POOL = [
       || rs.find(r => /jack johnson/i.test(r.artistName) && /better together/i.test(r.trackName)) || rs[0],
   },
   {
-    search: 'unforgettable natalie cole',
-    pick: rs => rs.find(r => /natalie cole/i.test(r.artistName) && /^unforgettable$/i.test(r.trackName))
-      || rs.find(r => /natalie cole/i.test(r.artistName) && /unforgettable/i.test(r.trackName))
-      || rs.find(r => /unforgettable/i.test(r.trackName)) || rs[0],
-  },
-  {
     search: 'afterglow ed sheeran',
     pick: rs => rs.find(r => /^ed sheeran$/i.test(r.artistName) && /^afterglow$/i.test(r.trackName))
       || rs.find(r => /ed sheeran/i.test(r.artistName) && /afterglow/i.test(r.trackName)) || rs[0],
@@ -89,7 +83,7 @@ async function fetchPoolSong(spec) {
 
 const RECAP_QUOTE = "Isn't it funny how day by day nothing changes, but when you look back, everything is different.";
 
-function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, customSong2 = null, forceLongReel = null, reelId = null, slideRefs = null, onAutoPickSong, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onUnsaveReel, onStatClick }) {
+function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDate, monthLabel, stats, reelType = 'monthly', customSong = null, customSong2 = null, forceLongReel = null, reelId = null, slideRefs = null, onAutoPickSong, onClose, onGenerateReelShare, onRevokeReelShare, onSaveReel, onUnsaveReel, onStatClick, userId }) {
   // The same full, unbudgeted candidate pool the reel editor uses — a frozen
   // reel (slideRefs below) resolves its exact saved picks against this; an
   // auto-built one (slideRefs null) samples/budgets from it exactly as before.
@@ -584,6 +578,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
           onReplay={replay}
           primaryAction={{ label: 'Keep going', onClick: onClose }}
           onStatClick={onStatClick}
+          userId={userId}
         />
       )}
 

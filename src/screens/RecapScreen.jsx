@@ -3,6 +3,7 @@ import { Icon } from '../icons';
 import { TODAY, milestoneInfo, cloudinaryTransform, videoThumbUrl } from '../constants.js';
 import KidThumb from '../KidThumb.jsx';
 import SectionSwitcher from '../SectionSwitcher.jsx';
+import { Coachmark } from '../Coachmark.jsx';
 
 function RecapEntryRow({ entry, kids, onOpenEntry, nextIsMilestone }) {
   const entryKids = (entry.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
@@ -93,7 +94,8 @@ function RecapGridCell({ entry, onOpenEntry }) {
   );
 }
 
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget, onWatchMonthReel }) {
+function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget, onWatchMonthReel, onEditMonthReel, userId }) {
+  const editReelBtnRef = useRef(null);
   const [viewMode, setViewMode] = useState(initialTarget?.viewMode || 'month');
   const [selectedMonth, setSelectedMonth] = useState(initialTarget?.month || TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
@@ -319,6 +321,26 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                   {photoCount > 0 ? ` · ${photoCount} photo${photoCount !== 1 ? 's' : ''}` : ''}
                 </p>
               </div>
+              {onEditMonthReel && (
+                <>
+                  <button
+                    ref={editReelBtnRef}
+                    onClick={e => { e.stopPropagation(); onEditMonthReel(selectedMonth); }}
+                    title="Edit this month's reel"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--bg-elevated)', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    <Icon name="ti-pencil" style={{ fontSize: 13, color: 'var(--text-2)' }} />
+                  </button>
+                  <Coachmark
+                    id="recap-edit-month-reel"
+                    userId={userId}
+                    active={true}
+                    targetRef={editReelBtnRef}
+                    placement="top"
+                    text="Tap here to pick your own photos and songs for this month's reel."
+                  />
+                </>
+              )}
               <Icon name="ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
             </div>
           )}

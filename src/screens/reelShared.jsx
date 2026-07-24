@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
 import { cloudinaryTransform, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, exactAgeLabel } from '../constants.js';
+import { Coachmark } from '../Coachmark.jsx';
 
 // Everything in this file is used by BOTH the live in-app reel
 // (MonthlyReelScreen) and its public replay page (SharedReelScreen) — slide
@@ -196,8 +197,21 @@ export function buildReelCandidates(entries, kids, familyMembers, startDate, end
     for (const m of e.media) {
       if (seen.has(m.url)) continue;
       seen.add(m.url);
-      const kid = kids.find(k => e.kids.includes(k.id));
-      photoCandidates.push({ type: 'photo', url: m.url, mediaType: m.type, date: e.date, cropY: e.cropY ?? 50, kid, caption: captionFor(kid, e.date), entryId: e.id, durationMs: PHOTO_SLIDE_MS });
+      // A same-age-match photo carries its own kidId + a stashed historical
+      // date in sameAgeDates (App.jsx's handleAddSameAgeMatch) — the entry's
+      // own `date` is when the *anchor* photo was taken, not this one, so
+      // captioning off e.date would give the matched kid her current age
+      // instead of her age in the actual photo. Ordinary media (kidId null)
+      // falls back to the old entry-level resolution, unchanged.
+      const matchedKid = m.kidId ? kids.find(k => k.id === m.kidId) : null;
+      const kid = matchedKid || kids.find(k => e.kids.includes(k.id));
+      const captionDate = (matchedKid && e.sameAgeDates?.[m.kidId]) || e.date;
+      // Flag it as a same-age match (and name who it's matched against) so the
+      // slide can say so — otherwise a years-old photo just appears in this
+      // month's reel with no explanation for why it's there.
+      const anchorKidId = matchedKid ? e.kids.find(id => !(e.sameAgeDates || {})[id]) : null;
+      const sameAgeAnchorName = anchorKidId ? kids.find(k => k.id === anchorKidId)?.name?.split(' ')[0] : null;
+      photoCandidates.push({ type: 'photo', url: m.url, mediaType: m.type, date: e.date, cropY: e.cropY ?? 50, kid, caption: captionFor(kid, captionDate), sameAgeAnchorName, entryId: e.id, durationMs: PHOTO_SLIDE_MS });
     }
   }
 
@@ -356,18 +370,18 @@ export function autoSampleSlides(candidates, { forceLongReel = null, reelId = nu
     return 0;
   });
 
-  // A letter/note pairs with its own entry's photo or video when that media
-  // survived the budget — read the words, then see the moment right after,
-  // rather than the two landing in unrelated parts of the reel. Only falls
-  // back to even spacing (not by real date — two letters a day apart would
-  // otherwise land right next to each other instead of reading as separate
-  // beats) when that entry's media didn't make the cut. Skips the very
-  // first/last slot in that fallback so a quote doesn't open or close the
-  // reel outright.
+  // A letter/note pairs with a photo or video right after it — its own
+  // entry's media if that survived the budget, otherwise the nearest photo
+  // from that same calendar day (a letter written about "you want a bite,
+  // daddy?" should lead straight into the photo of that bite, even when
+  // they were logged as separate entries). Only falls back to even spacing
+  // when nothing from that day made the cut. Skips the very first/last slot
+  // in that fallback so a quote doesn't open or close the reel outright.
   let combined = spine.slice();
   const unpaired = [];
   textCandidates.forEach(textSlide => {
-    const pairIdx = combined.findIndex(s => s.type !== 'trip' && s.entryId === textSlide.entryId);
+    let pairIdx = combined.findIndex(s => s.type !== 'trip' && s.entryId === textSlide.entryId);
+    if (pairIdx === -1) pairIdx = combined.findIndex(s => s.type !== 'trip' && s.date === textSlide.date);
     if (pairIdx !== -1) combined.splice(pairIdx, 0, textSlide);
     else unpaired.push(textSlide);
   });
@@ -904,6 +918,11 @@ export function useReelAudioEngine({ song, song2, totalBaseMs, holdSong1 }) {
 export function ReelBottomBar({ activeSlide, activeSong }) {
   return (
     <div style={{ position: 'relative', zIndex: 1, marginTop: 'auto', padding: '0 20px 32px', textAlign: 'center' }}>
+      {activeSlide?.type === 'photo' && activeSlide?.sameAgeAnchorName && (
+        <p key={`sa-${activeSlide.url}`} style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13.5, fontWeight: 400, color: 'rgba(255,255,255,0.75)', margin: '0 0 6px', animation: 'captionIn 0.5s ease forwards' }}>
+          Remember when {activeSlide.kid?.name?.split(' ')[0]} was the same age as {activeSlide.sameAgeAnchorName}?
+        </p>
+      )}
       {activeSlide?.type === 'photo' && activeSlide?.caption && (
         <p key={activeSlide.url} style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.5)', margin: '0 0 10px', letterSpacing: 1, textTransform: 'uppercase', animation: 'captionIn 0.5s ease forwards' }}>
           {activeSlide.caption}
@@ -923,7 +942,8 @@ export function ReelBottomBar({ activeSlide, activeSong }) {
 // optional share button, and a primary action that's a button on the live
 // reel ("Keep going", closes back to the app) or a link on the shared page
 // ("Start your own family journal", since there's no app to return to).
-export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onShare, onSave, saved, savingSave, saveToast, onReplay, primaryAction, onStatClick }) {
+export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onShare, onSave, saved, savingSave, saveToast, onReplay, primaryAction, onStatClick, userId }) {
+  const saveBtnRef = useRef(null);
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#1E2A1E', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: '0 32px' }}>
       {saveToast && (
@@ -943,6 +963,7 @@ export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onS
       ].filter(Boolean).map((btn, i) => (
         <button
           key={btn.key}
+          ref={btn.key === 'save' ? saveBtnRef : undefined}
           onClick={btn.onClick}
           disabled={btn.disabled}
           aria-label={btn.label}
@@ -951,6 +972,16 @@ export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onS
           <Icon name={btn.icon} />
         </button>
       ))}
+      {onSave && !saved && (
+        <Coachmark
+          id="reel-save-bookmark"
+          userId={userId}
+          active={true}
+          targetRef={saveBtnRef}
+          placement="bottom"
+          text="Bookmark this reel to save it to Keepsakes — so you can rewatch or edit it anytime."
+        />
+      )}
       <p className="fade-up" style={{ fontSize: 11, fontWeight: 700, color: 'rgba(200,153,62,0.8)', letterSpacing: 1.6, textTransform: 'uppercase', margin: '0 0 16px', animationDelay: '0ms' }}>{monthLabel}</p>
       <h1 className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: '#fff', textAlign: 'center', margin: '0 0 6px', lineHeight: 1.35, animationDelay: '120ms' }}>
         "{quote}"
