@@ -861,8 +861,8 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
   const [videoPlaying, setVideoPlaying] = useState(false);
   useVideoAutoPause(photoRef, videoPlaying, () => setVideoPlaying(false));
   const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
-  const preview = cleanText.length > (featured ? 160 : 110)
-    ? cleanText.slice(0, featured ? 160 : 110) + '…'
+  const preview = cleanText.length > (featured ? 160 : 55)
+    ? cleanText.slice(0, featured ? 160 : 55) + '…'
     : cleanText;
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
@@ -9323,7 +9323,11 @@ export default function App() {
         };
         setEntries(prev => [newEntry, ...prev.filter(e => e.id !== newEntry.id)]);
         setPartnerToast({ entry: newEntry, authorName });
-        setUnseenPartnerIds(prev => [...prev, newEntry.id]);
+        // Seeing the live toast counts as "notified" on its own — no need to
+        // also leave a persistent badge for something that just got announced
+        // in real time. The badge is reserved for entries that arrived while
+        // this session wasn't open to catch the toast at all.
+        markPartnerEntrySeen(newEntry.id);
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'entry_likes' }, payload => {
         const { entry_id, user_id } = payload.new;
