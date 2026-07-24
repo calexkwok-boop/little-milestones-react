@@ -2989,6 +2989,31 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                     <Icon name="ti-heart-filled" style={{ fontSize: 80, color: '#fff', filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.35))', animation: 'likeHeartPop 0.8s ease forwards' }} />
                   </div>
                 )}
+                {media.length > 1 && (
+                  <div style={{ opacity: videoPlaying ? 0 : 1, pointerEvents: videoPlaying ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
+                    <button
+                      onClick={e => { e.stopPropagation(); setActiveSlide(i => (i - 1 + media.length) % media.length); }}
+                      style={{ position: 'absolute', top: '50%', left: 10, transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
+                    >
+                      <Icon name="ti-chevron-left" style={{ fontSize: 16 }} />
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); setActiveSlide(i => (i + 1) % media.length); }}
+                      style={{ position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
+                    >
+                      <Icon name="ti-chevron-right" style={{ fontSize: 16 }} />
+                    </button>
+                    <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5, zIndex: 5 }}>
+                      {media.map((_, i) => (
+                        <span
+                          key={i}
+                          onClick={e => { e.stopPropagation(); setActiveSlide(i); }}
+                          style={{ width: i === activeSlide ? 14 : 6, height: 6, borderRadius: 999, background: i === activeSlide ? '#fff' : 'rgba(255,255,255,0.45)', cursor: 'pointer', transition: 'width 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -9913,7 +9938,7 @@ export default function App() {
     }
 
     // Optimistically show entry and navigate away immediately
-    const optimisticEntry = { id: entry.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, sameAgeDates };
+    const optimisticEntry = { id: entry.id, userId: session.user.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, sameAgeDates };
     setEntries(prev => [optimisticEntry, ...prev]);
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone, entry: optimisticEntry });
