@@ -7242,6 +7242,21 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
     return map;
   }, [friends, currentUserId]);
 
+  // Notifications backfilled from notification_log (anything that arrived
+  // while this session wasn't open to catch the realtime event) never had a
+  // name to attach — the log only stores the pre-built body text, not who
+  // sent it by name. Resolving it here means the avatar can fall back to an
+  // initial instead of a bare "?" even when the photo itself fails to load.
+  const friendNameMap = useMemo(() => {
+    const map = {};
+    friends.forEach(fr => {
+      const isReq = fr.requester_id === currentUserId;
+      const id = isReq ? fr.addressee_id : fr.requester_id;
+      map[id] = isReq ? fr.addressee_display_name : fr.requester_display_name;
+    });
+    return map;
+  }, [friends, currentUserId]);
+
   function handleQueryChange(val) {
     setSearchQuery(val);
     clearTimeout(searchTimer.current);
@@ -7442,7 +7457,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                     if (onOpenFriendEntry) onOpenFriendEntry(n.entryId);
                   }} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 14px', borderBottom: idx < reactionNotifications.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
                     <div style={{ position: 'relative', flexShrink: 0 }}>
-                      <FriendAvatar name={n.fromName} avatarUrl={friendAvatarMap[n.fromUserId]} size={36} />
+                      <FriendAvatar name={n.fromName || friendNameMap[n.fromUserId]} avatarUrl={friendAvatarMap[n.fromUserId]} size={36} />
                       <span style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: n.type === 'like' ? '#E05C6A' : n.type === 'reply' ? '#7A6A8A' : 'var(--accent)', border: '1.5px solid var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Icon name={n.type === 'like' ? 'ti-heart-filled' : n.type === 'reply' ? 'ti-arrow-back-up' : 'ti-message-circle'} style={{ fontSize: 8, color: '#fff' }} />
                       </span>
