@@ -7151,7 +7151,7 @@ function FriendAvatar({ name, avatarUrl, size = 38 }) {
   );
 }
 
-function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberIds = [], onBack, onSearch, onSendRequest, onInviteFriend, onRespond, onUnfriend, onOpenFriendEntry, onFriendBirthdayClick, socialName, friendUserFamilyMap = {}, onSwitchSection, onOpenNotificationHistory }) {
+function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberIds = [], familyMembers = [], onBack, onSearch, onSendRequest, onInviteFriend, onRespond, onUnfriend, onOpenFriendEntry, onFriendBirthdayClick, socialName, friendUserFamilyMap = {}, onSwitchSection, onOpenNotificationHistory }) {
   const { reactionNotifications = [], birthdayNotifications = [], friendRequests = [], onClearReactions, onDismissReaction, onDismissBirthday } = useNotif() ?? {};
   const { userId: currentUserId, session } = useSession() ?? {};
   const [searchQuery, setSearchQuery] = useState('');
@@ -7232,6 +7232,14 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
   const pendingIncoming = friendRequests.filter(r => r.addressee_id === currentUserId);
   const pendingOutgoing = friendRequests.filter(r => r.requester_id === currentUserId);
 
+  // Whoever reacted/commented on an entry can be either an actual friend
+  // (connected via friend_requests) OR a co-parent in your own family liking
+  // something inside your shared journal — those are two entirely separate
+  // relationships/tables (family_members has no overlap with friend_requests),
+  // so both need to be folded in here or a family member's reaction silently
+  // has no avatar/name to resolve to (same root cause as the earlier bug
+  // where a co-parent's real name didn't show on the family profile card —
+  // see [[project_rls_profiles_families]] — just resurfacing in a new spot).
   const friendAvatarMap = useMemo(() => {
     const map = {};
     friends.forEach(fr => {
@@ -7239,8 +7247,9 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
       const id = isReq ? fr.addressee_id : fr.requester_id;
       map[id] = isReq ? fr.addressee_avatar_url : fr.requester_avatar_url;
     });
+    familyMembers.forEach(m => { if (m.user_id) map[m.user_id] = m.avatar_url; });
     return map;
-  }, [friends, currentUserId]);
+  }, [friends, familyMembers, currentUserId]);
 
   // Notifications backfilled from notification_log (anything that arrived
   // while this session wasn't open to catch the realtime event) never had a
@@ -7254,8 +7263,9 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
       const id = isReq ? fr.addressee_id : fr.requester_id;
       map[id] = isReq ? fr.addressee_display_name : fr.requester_display_name;
     });
+    familyMembers.forEach(m => { if (m.user_id) map[m.user_id] = m.real_name || m.display_name; });
     return map;
-  }, [friends, currentUserId]);
+  }, [friends, familyMembers, currentUserId]);
 
   function handleQueryChange(val) {
     setSearchQuery(val);
@@ -10990,6 +11000,7 @@ export default function App() {
           friendKids={friendKids}
           friendEntries={friendEntries}
           familyMemberIds={familyMembers.filter(m => m.user_id !== session?.user?.id).map(m => m.user_id)}
+          familyMembers={familyMembers}
           onBack={() => setScreen('home')}
           onSearch={handleSearchUsers}
           onSendRequest={handleSendFriendRequest}
