@@ -169,7 +169,7 @@ function findTripsThisMonth(monthEntries, homePt, kids, familyMembers) {
       destLng: farthest.locationLng,
       destinationLabel: farthest.location || 'somewhere new',
       distanceMiles,
-      photo: { url: photo.url, mediaType: photo.type, cropY: farthest.cropY ?? 50 },
+      photo: { url: photo.url, mediaType: photo.type, cropY: photo.cropY ?? (photo === farthest.media[0] ? farthest.cropY : null) ?? 50 },
       photoCaption: captionFor(photoKid, farthest.date),
       tripPeople,
       tripEntryIds: new Set(clusterEntries.map(e => e.id)),
@@ -211,7 +211,8 @@ export function buildReelCandidates(entries, kids, familyMembers, startDate, end
       // month's reel with no explanation for why it's there.
       const anchorKidId = matchedKid ? e.kids.find(id => !(e.sameAgeDates || {})[id]) : null;
       const sameAgeAnchorName = anchorKidId ? kids.find(k => k.id === anchorKidId)?.name?.split(' ')[0] : null;
-      photoCandidates.push({ type: 'photo', url: m.url, mediaType: m.type, date: e.date, cropY: e.cropY ?? 50, kid, caption: captionFor(kid, captionDate), sameAgeAnchorName, entryId: e.id, durationMs: PHOTO_SLIDE_MS });
+      const cropY = m.cropY ?? (m === e.media[0] ? e.cropY : null) ?? 50;
+      photoCandidates.push({ type: 'photo', url: m.url, mediaType: m.type, date: e.date, cropY, kid, caption: captionFor(kid, captionDate), sameAgeAnchorName, entryId: e.id, durationMs: PHOTO_SLIDE_MS });
     }
   }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { Icon } from '../icons';
 import { QRCodeSVG } from 'qrcode.react';
-import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl } from '../constants.js';
+import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl, photoCropY } from '../constants.js';
 
 // `cropY` is saved as "the point in the photo that should stay centered" (0-100, top-to-bottom),
 // not a raw scroll-percentage — so it has to be re-projected into an `object-position` value
@@ -160,7 +160,7 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
   const photo = !isContinued && entry.media?.length > 0 ? entry.media[0] : null;
   const photoIsVideo = photo?.type === 'video';
   const photoSrc = photo ? (photoIsVideo ? videoThumbUrl(photo.url, 'so_0,w_700,q_auto,f_auto') : cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto')) : null;
-  const cropY = entry.cropY ?? 50;
+  const cropY = photoCropY(entry.media, 0, entry);
   const photoHeight = 220;
   const audioItems = !isContinued ? [
     entry.song?.previewUrl && { title: entry.song.name, subtitle: entry.song.artist, art: entry.song.artworkUrl, qrValue: entry.song.previewUrl },
@@ -244,7 +244,7 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
                   </div>
                   <div style={{ background: '#FFFDF8', padding: '8px 9px 7px', display: photo ? 'flex' : 'block', gap: 9 }}>
                     {photo && (
-                      <CroppedPhoto src={photoSrc} cropY={entry.cropY} height={66} width={66} style={{ borderRadius: 6 }} />
+                      <CroppedPhoto src={photoSrc} cropY={photoCropY(entry.media, 0, entry)} height={66} width={66} style={{ borderRadius: 6 }} />
                     )}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{
@@ -284,7 +284,7 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
               >
                 <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 10px 10px 0', borderColor: `transparent ${hexToRgba(accent, 0.5)} transparent transparent`, borderRadius: '0 8px 0 0' }} />
                 {photo && (
-                  <CroppedPhoto src={photoSrc} cropY={entry.cropY} height={66} width={66} style={{ borderRadius: 6 }} />
+                  <CroppedPhoto src={photoSrc} cropY={photoCropY(entry.media, 0, entry)} height={66} width={66} style={{ borderRadius: 6 }} />
                 )}
                 <div style={{ flex: photo ? 1 : undefined, minWidth: 0 }}>
                 <span style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 8, fontWeight: 700, letterSpacing: 0.5, textTransform: 'uppercase', color: hexToRgba(accent, 0.9) }}>{nameLabel}</span>
@@ -372,7 +372,7 @@ function PairedPage({ entry, kids, pageText, isContinued = false, hasMore = fals
               const src = isVideo ? videoThumbUrl(side.photo.url, `so_0,w_${twoUp ? 400 : 300},q_auto,f_auto`) : cloudinaryTransform(side.photo.url, `w_${twoUp ? 400 : 300},q_auto,f_auto`);
               return (
                 <div key={i} style={cardStyle}>
-                  <CroppedPhoto src={src} cropY={entry.cropY} height={cardHeight} />
+                  <CroppedPhoto src={src} cropY={side.photo.cropY ?? (entry.media[0] === side.photo ? entry.cropY : null) ?? 50} height={cardHeight} />
                 </div>
               );
             })}

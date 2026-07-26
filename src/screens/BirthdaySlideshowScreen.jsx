@@ -47,7 +47,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
         for (const m of e.media) {
           if (seen.has(m.url)) continue;
           seen.add(m.url);
-          out.push({ url: m.url, type: m.type, date: e.date, cropY: e.cropY ?? 50 });
+          out.push({ url: m.url, type: m.type, date: e.date, cropY: m.cropY ?? (m === e.media[0] ? e.cropY : null) ?? 50 });
         }
       }
       return { out, seen };
@@ -64,7 +64,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
       [result[i], result[j]] = [result[j], result[i]];
     }
     // TEST VIDEO — remove after testing
-    const testVideo = uniqueEntries.flatMap(e => (e.media || []).filter(m => m.type === 'video').map(m => ({ url: m.url, type: 'video', date: e.date, cropY: e.cropY ?? 50 }))).sort((a, b) => a.date.localeCompare(b.date))[0];
+    const testVideo = uniqueEntries.flatMap(e => (e.media || []).filter(m => m.type === 'video').map(m => ({ url: m.url, type: 'video', date: e.date, cropY: m.cropY ?? (m === e.media[0] ? e.cropY : null) ?? 50 }))).sort((a, b) => a.date.localeCompare(b.date))[0];
     if (testVideo && !seen.has(testVideo.url)) result.unshift(testVideo);
     return result.slice(0, 9);
   }, [entries, kid.id]);

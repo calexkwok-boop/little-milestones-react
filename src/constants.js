@@ -146,19 +146,28 @@ export function videoThumbUrl(videoUrl, transforms = 'so_0,q_auto,f_auto') {
   } catch { return null; }
 }
 
+// Crop position is stored per-photo (entry_media.crop_y) going forward, not
+// per-entry — only photo #1 falls back to the legacy entry-level value
+// (entries.crop_y), which is all that old data ever had. Every other photo
+// defaults to center rather than inheriting photo #1's framing.
+export function photoCropY(media, index, entry) {
+  return media?.[index]?.cropY ?? (index === 0 ? entry?.cropY : null) ?? 50;
+}
+
 export function entryBgStyle(entry) {
   if (entry.media && entry.media.length > 0) {
     const m = entry.media[0];
+    const cropY = photoCropY(entry.media, 0, entry);
     if (!m.url?.startsWith('http')) return { background: entry.palette.bg };
     if (m.type === 'video') {
       if (!m.url.includes('res.cloudinary.com')) return { background: entry.palette.bg };
       const thumbUrl = m.url
         .replace('/video/upload/', '/video/upload/so_0,w_800,e_sharpen:60,q_auto,f_auto/')
         .replace(/\.[^/.]+$/, '.jpg');
-      return { backgroundImage: `url('${thumbUrl}')`, backgroundSize: 'cover', backgroundPosition: 'center' };
+      return { backgroundImage: `url('${thumbUrl}')`, backgroundSize: 'cover', backgroundPosition: `center ${cropY}%` };
     }
     const url = cloudinaryTransform(m.url, 'w_800,e_sharpen:60,q_auto,f_auto');
-    return { backgroundImage: `url('${url}')`, backgroundSize: 'cover', backgroundPosition: 'center' };
+    return { backgroundImage: `url('${url}')`, backgroundSize: 'cover', backgroundPosition: `center ${cropY}%` };
   }
   return { background: entry.palette.bg };
 }

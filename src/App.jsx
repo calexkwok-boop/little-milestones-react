@@ -25,7 +25,7 @@ import SameAgeMatchScreen from './screens/SameAgeMatchScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY, AMAZON_GIFT_FALLBACK_URL,
-  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl,
+  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, photoCropY, cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl,
   AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM,
 } from './constants.js';
 
@@ -349,14 +349,6 @@ function loadLocalData() {
 }
 
 // ─── Shared bits ─────────────────────────────────────────────────────────
-
-function FadeImg({ src, style, loading = 'lazy', ...props }) {
-  const [loaded, setLoaded] = useState(false);
-  return (
-    <img src={src} style={{ ...style, opacity: loaded ? 1 : 0, transition: 'opacity 0.35s ease' }}
-      onLoad={() => setLoaded(true)} loading={loading} {...props} />
-  );
-}
 
 function AvatarImg({ src, alt, fallback }) {
   const [broken, setBroken] = useState(false);
@@ -882,10 +874,10 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
           {entry.media[0].type === 'video' ? (
             <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
               {videoPlaying ? (
-                <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
               ) : (
                 <>
-                  <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} />
+                  <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
@@ -894,7 +886,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
                 </>
               )}
             </div>
-          ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} fade />
+          ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
           }
         </div>
       )}
@@ -905,7 +897,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
         >
           {entry.media.map((item, i) => (
             <div key={i} style={{ flexShrink: 0, width: cardH * (4 / 3), height: cardH, position: 'relative' }}>
-              <FeedMediaThumb item={item} cropY={cropY} transform="w_800,e_sharpen:60,q_auto,f_auto" />
+              <FeedMediaThumb item={item} cropY={photoCropY(entry.media, i, entry)} transform="w_800,e_sharpen:60,q_auto,f_auto" />
             </div>
           ))}
         </div>
@@ -1104,14 +1096,14 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
       </p>
       {entry.media?.length === 1 && (
         <div style={{ marginBottom: featured ? 12 : 8, borderRadius: 10, overflow: 'hidden', height: photoH }}>
-          <FeedMediaThumb item={entry.media[0]} cropY={entry.cropY} transform="w_500,q_auto,f_auto" />
+          <FeedMediaThumb item={entry.media[0]} cropY={photoCropY(entry.media, 0, entry)} transform="w_500,q_auto,f_auto" />
         </div>
       )}
       {entry.media?.length > 1 && (
         <div style={{ marginBottom: featured ? 12 : 8, display: 'flex', gap: 2, overflowX: 'auto', height: photoH, borderRadius: 10 }}>
           {entry.media.map((m, i) => (
             <div key={i} style={{ flexShrink: 0, width: photoH * (4 / 3), height: photoH, position: 'relative' }}>
-              <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_800,e_sharpen:60,q_auto,f_auto" />
+              <FeedMediaThumb item={m} cropY={photoCropY(entry.media, i, entry)} transform="w_800,e_sharpen:60,q_auto,f_auto" />
             </div>
           ))}
         </div>
@@ -1177,14 +1169,14 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
         </p>
         {entry.media?.length === 1 && (
           <div style={{ marginBottom: featured ? 12 : 8, borderRadius: 10, overflow: 'hidden', height: photoH }}>
-            <FeedMediaThumb item={entry.media[0]} cropY={entry.cropY} transform="w_500,q_auto,f_auto" />
+            <FeedMediaThumb item={entry.media[0]} cropY={photoCropY(entry.media, 0, entry)} transform="w_500,q_auto,f_auto" />
           </div>
         )}
         {entry.media?.length > 1 && (
           <div style={{ marginBottom: featured ? 12 : 8, display: 'flex', gap: 2, overflowX: 'auto', height: photoH, borderRadius: 10 }}>
             {entry.media.map((m, i) => (
               <div key={i} style={{ flexShrink: 0, width: photoH * (4 / 3), height: photoH, position: 'relative' }}>
-                <FeedMediaThumb item={m} cropY={entry.cropY} transform="w_800,e_sharpen:60,q_auto,f_auto" />
+                <FeedMediaThumb item={m} cropY={photoCropY(entry.media, i, entry)} transform="w_800,e_sharpen:60,q_auto,f_auto" />
               </div>
             ))}
           </div>
@@ -1245,10 +1237,10 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
             {entry.media[0].type === 'video' ? (
               <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
                 {videoPlaying ? (
-                  <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={cropY} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                  <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                 ) : (
                   <>
-                    <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={cropY} onError={e => { e.target.style.display = 'none'; }} />
+                    <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} onError={e => { e.target.style.display = 'none'; }} />
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                       <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
@@ -1257,7 +1249,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
                   </>
                 )}
               </div>
-            ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} cropY={cropY} fade />
+            ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
             }
           </div>
         )}
@@ -2473,7 +2465,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
             ? playingHero
               ? <video src={cloudinaryTransform(heroMedia.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               : <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
-            : <CroppedImg src={cloudinaryTransform(heroMedia.url, 'w_1200,q_auto,f_auto')} cropY={entry.cropY ?? 50} fade />
+            : <CroppedImg src={cloudinaryTransform(heroMedia.url, 'w_1200,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
           }
           {heroMedia.type === 'video' && !playingHero && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setPlayingHero(true); }}>
@@ -2529,10 +2521,11 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
               <div className="journal-thumb-strip">
                 {extraMedia.map((mm, i) => (
                   <div key={i} className="journal-thumb" style={{ position: 'relative' }}>
-                    {mm.type === 'video'
-                      ? <img src={videoThumbUrl(mm.url, 'so_0,w_200,h_200,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} alt="" loading="lazy" />
-                      : <FadeImg src={cloudinaryTransform(mm.url, 'w_200,h_200,c_fill,q_auto,f_auto')} loading="lazy" alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: 8 }} />
-                    }
+                    <CroppedImg
+                      src={mm.type === 'video' ? videoThumbUrl(mm.url, 'so_0,w_200,q_auto,f_auto') : cloudinaryTransform(mm.url, 'w_200,q_auto,f_auto')}
+                      cropY={photoCropY(entry.media, i + 1, entry)}
+                      style={{ borderRadius: 8, overflow: 'hidden' }}
+                    />
                     {mm.type === 'video' && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Icon name="ti-player-play" style={{ fontSize: 12, color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }} /></div>}
                   </div>
                 ))}
@@ -2796,7 +2789,6 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   }
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
-  const [cropY, setCropY] = useState(entry.cropY ?? 50);
   const [people, setPeople] = useState(entry.people || []);
   const [showPeopleTagger, setShowPeopleTagger] = useState(false);
   const [peopleInput, setPeopleInput] = useState('');
@@ -2950,14 +2942,14 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                       <CroppedVideo
                         src={item.url}
                         poster={videoThumbUrl(item.url, `so_0,e_sharpen:60,q_auto,f_auto`)}
-                        cropY={cropY}
+                        cropY={photoCropY(media, i, entry)}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         preload="metadata" playsInline controls
                         onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)}
                       />
                     </div>
                   ) : (
-                    <CroppedBg key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }} src={cloudinaryTransform(item.url, 'w_1200,e_sharpen:60,q_auto,f_auto')} cropY={cropY}>
+                    <CroppedBg key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }} src={cloudinaryTransform(item.url, 'w_1200,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(media, i, entry)}>
                       <div className="video-play-overlay" style={{ display: 'none' }} />
                     </CroppedBg>
                   )
@@ -3394,9 +3386,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           url={media[activeSlide].type === 'video'
             ? videoThumbUrl(media[activeSlide].url, 'so_0,w_1200,q_auto,f_auto')
             : cloudinaryTransform(media[activeSlide].url, 'w_1200,q_auto,f_auto')}
-          cropY={cropY}
+          cropY={photoCropY(media, activeSlide, entry)}
           cardHeight={260}
-          onSave={newY => { setCropY(newY); onUpdateCrop?.(entry.id, newY); setShowCrop(false); }}
+          onSave={newY => { onUpdateCrop?.(entry.id, media[activeSlide].url, newY); setShowCrop(false); }}
           onClose={() => setShowCrop(false)}
         />
       )}
@@ -8734,7 +8726,7 @@ function normalizeEntry(e) {
     milestone: e.milestone,
     ageMonths: e.age_months,
     palette: e.palette || PALETTES[0],
-    media: (e.entry_media || []).filter(m => m.url?.startsWith('http')).map(m => ({ url: m.url, type: m.type, kidId: m.kid_id || null })),
+    media: (e.entry_media || []).filter(m => m.url?.startsWith('http')).map(m => ({ url: m.url, type: m.type, kidId: m.kid_id || null, cropY: m.crop_y ?? null })),
     createdAt: e.created_at || null,
     signedAs: e.signed_as,
     authorId: e.author_id || null,
@@ -9080,7 +9072,7 @@ export default function App() {
         try { savedCrops = JSON.parse(localStorage.getItem(`patina-crop-positions-${session.user.id}`) || '{}'); } catch {}
         setEntries(entriesData.map(e => {
           const n = normalizeEntry(e);
-          if (savedCrops[n.id] != null) n.cropY = savedCrops[n.id];
+          n.media = n.media.map(m => savedCrops[`${n.id}::${m.url}`] != null ? { ...m, cropY: savedCrops[`${n.id}::${m.url}`] } : m);
           return n;
         }));
       }
@@ -9551,15 +9543,17 @@ export default function App() {
     setScreen('entry-detail');
   }, []);
 
-  async function handleUpdateCrop(entryId, y) {
-    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, cropY: y } : e));
-    setActiveEntry(prev => prev?.id === entryId ? { ...prev, cropY: y } : prev);
+  async function handleUpdateCrop(entryId, mediaUrl, y) {
+    const applyCrop = media => (media || []).map(m => m.url === mediaUrl ? { ...m, cropY: y } : m);
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, media: applyCrop(e.media) } : e));
+    setActiveEntry(prev => prev?.id === entryId ? { ...prev, media: applyCrop(prev.media) } : prev);
     try {
-      const stored = JSON.parse(localStorage.getItem(`patina-crop-positions-${session?.user?.id}`) || '{}');
-      localStorage.setItem(`patina-crop-positions-${session?.user?.id}`, JSON.stringify({ ...stored, [entryId]: y }));
+      const key = `patina-crop-positions-${session?.user?.id}`;
+      const stored = JSON.parse(localStorage.getItem(key) || '{}');
+      localStorage.setItem(key, JSON.stringify({ ...stored, [`${entryId}::${mediaUrl}`]: y }));
     } catch {}
     if (!localMode && supabase && session) {
-      await supabase.from('entries').update({ crop_y: y }).eq('id', entryId);
+      await supabase.from('entry_media').update({ crop_y: y }).eq('entry_id', entryId).eq('url', mediaUrl);
     }
   }
 
@@ -9809,7 +9803,11 @@ export default function App() {
     if (data) {
       let savedCrops = {};
       try { savedCrops = JSON.parse(localStorage.getItem(`patina-crop-positions-${session?.user?.id}`) || '{}'); } catch {}
-      setEntries(data.map(e => { const n = normalizeEntry(e); if (savedCrops[n.id] != null) n.cropY = savedCrops[n.id]; return n; }));
+      setEntries(data.map(e => {
+        const n = normalizeEntry(e);
+        n.media = n.media.map(m => savedCrops[`${n.id}::${m.url}`] != null ? { ...m, cropY: savedCrops[`${n.id}::${m.url}`] } : m);
+        return n;
+      }));
       const sharedIds = data.filter(e => e.shared !== false).map(e => e.id);
       if (sharedIds.length > 0) {
         const [{ data: lks }, { data: cms }] = await Promise.all([
@@ -9851,12 +9849,12 @@ export default function App() {
         let fileObj = item.type === 'image' && compressedFiles?.has(item.url)
           ? await compressedFiles.get(item.url)
           : fileObjs?.[i];
-        if (!fileObj) return { url: item.url, type: item.type, kidId: item.kidId ?? null };
+        if (!fileObj) return { url: item.url, type: item.type, kidId: item.kidId ?? null, cropY: item.cropY ?? null };
         const isVid = item.type === 'video';
         if (isVid && fileObj.size > 100 * 1024 * 1024) return { url: null, type: item.type, err: `Video is ${Math.round(fileObj.size / 1024 / 1024)}MB — please trim it to under 100MB` };
         try {
           const uploaded = await uploadToCloudinary(fileObj, isVid ? 'video' : 'image');
-          return { url: uploaded, type: item.type, kidId: item.kidId ?? null };
+          return { url: uploaded, type: item.type, kidId: item.kidId ?? null, cropY: item.cropY ?? null };
         } catch (e) {
           console.error('Media upload failed:', e);
           return { url: null, type: item.type, err: e?.message || 'Unknown error' };
@@ -9866,7 +9864,10 @@ export default function App() {
       const saved = results.filter(r => r.url && !r.url.startsWith('blob:') && !r.url.startsWith('data:'));
       const failed = results.find(r => r.err);
       if (saved.length > 0) {
-        await supabase.from('entry_media').insert(saved.map(m => ({ entry_id: entryRowId, url: m.url, type: m.type, kid_id: m.kidId ?? null })));
+        // entry_media is fully deleted and re-inserted on every edit (see the
+        // caller above) — omitting crop_y here would silently wipe every
+        // photo's crop the next time the entry is saved for any reason.
+        await supabase.from('entry_media').insert(saved.map(m => ({ entry_id: entryRowId, url: m.url, type: m.type, kid_id: m.kidId ?? null, crop_y: m.cropY ?? null })));
       }
       return { saved, failed };
     }
@@ -10115,7 +10116,7 @@ export default function App() {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, media: orderedMedia } : e));
     if (localMode || !supabase || !session) return;
     await supabase.from('entry_media').delete().eq('entry_id', entryId);
-    await supabase.from('entry_media').insert(orderedMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type, kid_id: m.kidId ?? null })));
+    await supabase.from('entry_media').insert(orderedMedia.map(m => ({ entry_id: entryId, url: m.url, type: m.type, kid_id: m.kidId ?? null, crop_y: m.cropY ?? null })));
   }
 
   async function handleToggleEntryShared(entryId, sharedWith) {
