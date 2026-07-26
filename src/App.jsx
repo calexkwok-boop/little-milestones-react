@@ -9553,7 +9553,14 @@ export default function App() {
       localStorage.setItem(key, JSON.stringify({ ...stored, [`${entryId}::${mediaUrl}`]: y }));
     } catch {}
     if (!localMode && supabase && session) {
-      await supabase.from('entry_media').update({ crop_y: y }).eq('entry_id', entryId).eq('url', mediaUrl);
+      // .select() forces the response to report which rows actually matched —
+      // a bare .update() returns 200 with no data even when RLS silently
+      // excluded every row, so without this an update that never persisted
+      // looks identical to one that succeeded.
+      const { data, error } = await supabase.from('entry_media').update({ crop_y: y }).eq('entry_id', entryId).eq('url', mediaUrl).select();
+      if (error || !data || data.length === 0) {
+        console.error('Crop did not persist — entry_media update matched no rows.', error);
+      }
     }
   }
 
