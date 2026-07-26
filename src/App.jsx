@@ -3018,9 +3018,11 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
         <div className="scrollpad">
           {m && (
             <div className="milestone-entry" style={{ borderRadius: 16, padding: '18px 20px', textAlign: 'center' }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 8px' }}>Milestone</p>
-              <Icon name={m.icon} style={{ fontSize: 28, color: '#C8993E', display: 'block', marginBottom: 8 }} />
-              <p style={{ fontSize: 15, fontWeight: 700, color: '#7A6030', margin: 0 }}>{m.label}</p>
+              <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>Milestone</p>
+              <div style={{ width: 52, height: 52, borderRadius: '50%', margin: '0 auto 10px', background: 'linear-gradient(160deg, #F5D78E 0%, #C8993E 100%)', boxShadow: '0 3px 10px rgba(200,153,62,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name={m.icon} style={{ fontSize: 24, color: '#fff' }} />
+              </div>
+              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#7A6030', margin: 0 }}>{m.label}</p>
             </div>
           )}
           {sides && (() => {

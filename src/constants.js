@@ -116,7 +116,7 @@ export function sameAgeDaysApart(sides) {
 
 export function milestoneInfo(id) {
   if (!id) return null;
-  if (id.startsWith('custom:')) return { id: 'custom', label: id.slice(7), icon: 'ti-star' };
+  if (id.startsWith('custom:')) return { id: 'custom', label: id.slice(7), icon: 'ti-star-filled' };
   return MILESTONE_TYPES.find(m => m.id === id) ?? null;
 }
 
