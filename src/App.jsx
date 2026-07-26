@@ -2505,7 +2505,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
                 ))}
               </div>
               <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--accent)' }}>{nameLabel}</span>
-              {entryKids.length === 1 && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {exactAgeLabel(entryKids[0].birthdate, entry.date)}</span>}
+              {entryKids.length === 1 && entryKids[0].birthdate && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>· {exactAgeLabel(entryKids[0].birthdate, entry.date)}</span>}
               <div style={{ marginLeft: 'auto', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                 {entry.type === 'note' && <Icon name={entry.prompt ? 'ti-bulb' : 'ti-notebook'} style={{ fontSize: 11, color: entry.prompt ? PROMPT_ACCENT : 'var(--text-muted)' }} />}
                 {reactionCount?.likes > 0 && (
@@ -4465,8 +4465,9 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         )}
         {/* Fix grammar */}
         {text.trim().length > 0 && !generating && (
-          <button onClick={handlePolish} disabled={polishing} style={{ background: 'none', border: 'none', cursor: polishing ? 'default' : 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: polishing ? 'var(--border)' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
-            <Icon name="ti-writing" style={{ animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
+          <button onClick={handlePolish} disabled={polishing} style={{ background: 'none', border: 'none', cursor: polishing ? 'default' : 'pointer', height: 44, display: 'flex', alignItems: 'center', gap: 5, padding: '0 10px', color: polishing ? 'var(--border)' : 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", borderRadius: 10 }}>
+            <Icon name="ti-writing" style={{ fontSize: 16, animation: polishing ? 'spin 1s linear infinite' : 'none' }} />
+            {polishing ? 'Fixing…' : 'Fix grammar'}
           </button>
         )}
         {/* Sharing */}
@@ -5704,6 +5705,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                                 <div style={{ aspectRatio: '3/4', background: '#000', position: 'relative' }}>
                                   <video
                                     src={cloudinaryTransform(e.media[0].url, VIDEO_DELIVERY_TRANSFORM)}
+                                    poster={videoThumbUrl(e.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')}
                                     autoPlay playsInline controls
                                     style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
                                     onClick={ev => ev.stopPropagation()}
@@ -10780,20 +10782,22 @@ export default function App() {
         const selfMember = familyMembers.find(m => m.user_id === session?.user?.id) || null;
         return (
           <div style={{ display: screen === 'partner-letters' ? 'contents' : 'none' }}>
-            <PartnerLettersScreen
-              entries={entries}
-              kids={kids}
-              unseenIds={unseenPartnerIds}
-              authorId={letterAuthorId}
-              currentUserId={session?.user?.id}
-              self={selfMember}
-              partner={partnerMember}
-              onBack={() => setScreen('home')}
-              onOpenEntry={openEntry}
-              onMarkAllRead={markAllSeen}
-              scrollPos={partnerLettersScrollPos}
-              onSwitchSection={switchSection}
-            />
+            <ScreenErrorBoundary onBack={() => setScreen('home')}>
+              <PartnerLettersScreen
+                entries={entries}
+                kids={kids}
+                unseenIds={unseenPartnerIds}
+                authorId={letterAuthorId}
+                currentUserId={session?.user?.id}
+                self={selfMember}
+                partner={partnerMember}
+                onBack={() => setScreen('home')}
+                onOpenEntry={openEntry}
+                onMarkAllRead={markAllSeen}
+                scrollPos={partnerLettersScrollPos}
+                onSwitchSection={switchSection}
+              />
+            </ScreenErrorBoundary>
           </div>
         );
       })()}
