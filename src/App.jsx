@@ -5687,7 +5687,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                         const isFriendKid = !!kid.isFriend;
                         const fi = isFriendKid ? (friendInfoMap[kid.userId] || {}) : null;
                         return (
-                          <div key={e.id} className={m ? 'milestone-entry' : undefined}
+                          <div key={`${e.id}-${kid.id}`} className={m ? 'milestone-entry' : undefined}
                             style={{ borderRadius: 12, cursor: 'pointer', padding: m ? 2 : 0 }}
                             onClick={() => isFriendKid
                               ? setPhotoViewer({ entry: e, kid, ageStr, isFriend: true, friendName: fi?.name || 'Friend', friendAvatar: fi?.avatar || null })
@@ -5696,7 +5696,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                               {playingVideoId === e.id ? (
                                 <div style={{ aspectRatio: '3/4', background: '#000', position: 'relative' }}>
                                   <video
-                                    src={cloudinaryTransform(e.media[0].url, VIDEO_DELIVERY_TRANSFORM)}
+                                    src={cloudinaryTransform(e.media[0].url, 'w_720,q_auto,f_auto')}
                                     poster={videoThumbUrl(e.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')}
                                     autoPlay playsInline controls
                                     style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
