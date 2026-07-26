@@ -17,8 +17,13 @@ export const AVATAR_TRANSFORM_LG = 'w_200,h_200,c_fill,q_auto,f_auto'; // ~100-1
 // portrait clips) is already under this width and passes through
 // untouched. 1920 (true 1080p) is deliberately roomier than a phone-screen
 // player needs, so a video still looks sharp full-size on a tablet; only
-// genuinely 4K+ originals get scaled down at all.
-export const VIDEO_DELIVERY_TRANSFORM = 'w_1920,q_auto,f_auto';
+// genuinely 4K+ originals get scaled down at all. `c_limit` is load-bearing
+// here, not decorative — most phone videos are shot portrait (e.g. 1080
+// wide), and a bare `w_1920` (Cloudinary's default crop mode scales to
+// exactly that width) would have *upscaled* those to 1920 wide instead of
+// leaving them alone, producing a bigger, slower-loading file than the
+// original for the most common case.
+export const VIDEO_DELIVERY_TRANSFORM = 'w_1920,c_limit,q_auto,f_auto';
 
 export const MOODS = ['Proud', 'Joyful', 'Surprised', 'Exhausted', 'Grateful', 'Nostalgic'];
 
