@@ -125,7 +125,30 @@ function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onEdit, onD
   );
 }
 
-function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSection, onStartBuilding, onDeleteReel, onWatchReel, onEditReel }) {
+// A kid's Patina Jar, shown as its own row above the real saved_reels list —
+// no swipe-to-edit/delete (deleting a clip lives inside PatinaJarScreen
+// itself, per-clip, not here) and no date range to format, so it doesn't
+// reuse ReelRow, which assumes both.
+function PatinaJarRow({ reel, onWatch }) {
+  return (
+    <button
+      onClick={onWatch}
+      style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', cursor: 'pointer', width: '100%', textAlign: 'left', fontFamily: "'Urbanist', sans-serif" }}
+    >
+      <span style={{ width: 40, height: 40, borderRadius: 10, overflow: 'hidden', background: reel.kidAccent || 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        {reel.kidAvatar
+          ? <img src={cloudinaryTransform(reel.kidAvatar, 'w_100,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
+          : <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{reel.kidName?.[0]}</span>}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.kidName}'s Patina Jar</p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{reel.countThisYear}/12 this year</p>
+      </div>
+    </button>
+  );
+}
+
+function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], onBack, onSwitchSection, onStartBuilding, onDeleteReel, onWatchReel, onWatchPatinaJar, onEditReel }) {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -199,7 +222,15 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
             </div>
           </div>
 
-          {savedReels.length === 0 ? (
+          {patinaJarReels.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {patinaJarReels.map(reel => (
+                <PatinaJarRow key={reel.id} reel={reel} onWatch={() => onWatchPatinaJar(reel.kidId)} />
+              ))}
+            </div>
+          )}
+
+          {savedReels.length === 0 && patinaJarReels.length === 0 ? (
             <div className="empty-state">
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
                 <Icon name="ti-movie" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
@@ -207,7 +238,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], onBack, onSwitchSecti
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No reels saved yet</p>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Tap + above to build one for any date range.</p>
             </div>
-          ) : (
+          ) : savedReels.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {savedReels.map(reel => (
                 <ReelRow

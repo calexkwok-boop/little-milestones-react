@@ -4,7 +4,7 @@ import { supabase } from '../supabase.js';
 import AvatarCropModal from '../AvatarCropModal.jsx';
 import KidThumb from '../KidThumb.jsx';
 import usePushNotifications from '../usePushNotifications.js';
-import { cloudinaryTransform, AVATAR_TRANSFORM_LG } from '../constants.js';
+import { cloudinaryTransform, AVATAR_TRANSFORM_LG, AVATAR_TRANSFORM_SM } from '../constants.js';
 
 const NOTIFICATION_PREF_KEYS = ['birthday_reminders', 'friend_activity', 'partner_activity', 'prompt_nudges'];
 const NOTIFICATION_PREF_DEFAULTS = { birthday_reminders: true, friend_activity: true, partner_activity: true, prompt_nudges: true };
@@ -44,7 +44,7 @@ function AvatarImg({ src, alt, fallback }) {
   return <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} loading="lazy" />;
 }
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, familyName, onUpdateFamilyName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onArchiveKid, onRestoreKid, onEraseKid, onOpenGrowth, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms, onViewKidMoments, onViewKidMilestones }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, familyName, onUpdateFamilyName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onArchiveKid, onRestoreKid, onEraseKid, onOpenGrowth, patinaJarEntries = [], onOpenPatinaJar, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms, onViewKidMoments, onViewKidMilestones }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
@@ -214,10 +214,16 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 </div>
                 <button
                   className="btn btn-outline"
-                  style={{ width: '100%', fontSize: 13, padding: '10px 16px' }}
-                  onClick={() => onOpenGrowth?.(k.id)}
+                  style={{ width: '100%', fontSize: 13, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}
+                  onClick={() => onOpenPatinaJar?.(k.id)}
                 >
-                  <Icon name="ti-ruler" style={{ fontSize: 15 }} />Growth chart
+                  <span style={{ width: 20, height: 20, borderRadius: '50%', overflow: 'hidden', background: k.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <AvatarImg src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_SM)} alt={k.name} fallback={<span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 10, color: '#fff' }}>{k.name[0]}</span>} />
+                  </span>
+                  Patina Jar
+                  <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {patinaJarEntries.filter(r => r.kidId === k.id && r.year === new Date().getFullYear()).length}/12
+                  </span>
                 </button>
               </div>
             );

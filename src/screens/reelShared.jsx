@@ -912,6 +912,86 @@ export function useReelAudioEngine({ song, song2, totalBaseMs, holdSong1 }) {
   };
 }
 
+// Patina Jar's compilation audio: one song, looped for the whole runtime,
+// held at a fixed low "duck" level under each clip's own voice for as long
+// as playback runs — a different shape from useReelAudioEngine above, which
+// plays a song once (or crossfades two) and scales slide durations to match
+// however long the music runs. There's no slide-duration budget here (clip
+// advancement is driven by each <video>'s own `onended`, owned by the
+// caller, not this hook) and no song2/crossfade — just start-duck and
+// end-fade around an otherwise-constant volume. Reuses the same GainNode
+// approach as useReelAudioEngine's ensureAudioGraph for the same reason:
+// iOS Safari silently ignores <audio>.volume; only a GainNode's gain works.
+function fadeGain(gainNode, ctx, from, to, durationMs, onDone) {
+  const STEPS = Math.max(6, Math.round(durationMs / 60));
+  let step = 0;
+  const id = setInterval(() => {
+    step++;
+    const v = from + (to - from) * (step / STEPS);
+    gainNode.gain.value = Math.max(0, Math.min(1, v));
+    if (step >= STEPS) { clearInterval(id); onDone?.(); }
+  }, durationMs / STEPS);
+}
+
+export function usePatinaJarAudioEngine({ song }) {
+  const audioRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  const DUCK_GAIN = 0.18;
+  const FADE_MS = 900;
+
+  function ensureAudioGraph() {
+    if (audioCtxRef.current || !audioRef.current) return;
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const source = ctx.createMediaElementSource(audioRef.current);
+      const gain = ctx.createGain();
+      gain.gain.value = 0; // silent until start() fades it in
+      source.connect(gain).connect(ctx.destination);
+      audioCtxRef.current = ctx;
+      gainNodeRef.current = gain;
+    } catch {}
+    audioCtxRef.current?.resume?.().catch(() => {});
+  }
+
+  useEffect(() => {
+    if (song && audioRef.current) {
+      const a = audioRef.current;
+      a.crossOrigin = 'anonymous';
+      a.loop = true;
+      a.src = song.previewUrl;
+      a.load();
+    }
+  }, [song]);
+
+  // Called from the "Watch compilation" tap itself — the real user gesture
+  // iOS requires before any <audio> will actually produce sound.
+  function start() {
+    const a = audioRef.current;
+    if (!a?.src) return;
+    ensureAudioGraph();
+    a.currentTime = 0;
+    a.play().catch(() => {});
+    const gain = gainNodeRef.current;
+    if (gain) fadeGain(gain, audioCtxRef.current, gain.gain.value, DUCK_GAIN, FADE_MS);
+  }
+
+  function stop() {
+    const a = audioRef.current;
+    const gain = gainNodeRef.current;
+    if (gain) fadeGain(gain, audioCtxRef.current, gain.gain.value, 0, FADE_MS, () => a?.pause());
+    else a?.pause();
+  }
+
+  return {
+    audioRef,
+    audioElementProps: { preload: 'auto', crossOrigin: 'anonymous' },
+    start, stop,
+  };
+}
+
 // Caption (for the active photo slide) + "now playing" song credit, pinned
 // to the bottom of the screen. Trip and text slides caption themselves
 // (TripSlide, TextSlide above) since their content lives on a solid card

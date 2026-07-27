@@ -42,6 +42,27 @@ export const AVATAR_TRANSFORM_LG = 'w_200,h_200,c_fill,q_auto,f_auto'; // ~100-1
 // original for the most common case.
 export const VIDEO_DELIVERY_TRANSFORM = 'w_1920,c_limit,q_auto,f_auto';
 
+// Patina Jar: one fixed question per calendar month, repeating every year —
+// this March always asks the same thing as last March, so answers can be
+// compared across years. 1-indexed (index 0 unused) to match Date's
+// getMonth()+1 / month_index in patina_jar_entries directly, no off-by-one.
+export const PATINA_JAR_QUESTIONS = [
+  null,
+  "What's your favorite color right now?",
+  "What's something that makes you laugh?",
+  "What's your favorite food right now?",
+  "What's your favorite thing to do?",
+  "What's something you're really good at?",
+  "What do you want to be when you grow up?",
+  "Who's your best friend right now?",
+  "What's your favorite song right now?",
+  "What's something new you learned?",
+  "What's your biggest wish right now?",
+  "What's something you're grateful for?",
+  "What was your favorite memory this year?",
+];
+export const PATINA_JAR_RECORD_MAX_MS = 2 * 60 * 1000;
+
 export const MOODS = ['Proud', 'Joyful', 'Surprised', 'Exhausted', 'Grateful', 'Nostalgic'];
 
 export const MILESTONE_TYPES = [

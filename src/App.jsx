@@ -28,6 +28,8 @@ const LazyReelEditScreen = lazy(() => import('./screens/ReelEditScreen'));
 import RecapScreen from './screens/RecapScreen';
 import SavedReelsScreen from './screens/SavedReelsScreen';
 const LazyGrowthScreen = lazy(() => import('./screens/GrowthScreen'));
+const LazyPatinaJarScreen = lazy(() => import('./screens/PatinaJarScreen'));
+const LazyPatinaJarRecordScreen = lazy(() => import('./screens/PatinaJarRecordScreen'));
 const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
 const LazyNotificationHistoryScreen = lazy(() => import('./screens/NotificationHistoryScreen'));
 const LazySharedEntryScreen = lazy(() => import('./screens/SharedEntryScreen'));
@@ -4533,6 +4535,9 @@ export default function App() {
   const [rangeReel, setRangeReel] = useState(null); // { startDate, endDate, title } — the currently-open custom-range reel, or null when closed
   const [savedReels, setSavedReels] = useState([]); // saved_reels rows: { id, title, startDate, endDate, song, song2, durationSec, slideRefs }
   const [editingReel, setEditingReel] = useState(null); // the saved_reels row currently open in the reel editor, or null when closed
+  const [patinaJarKidId, setPatinaJarKidId] = useState(null); // which kid's Patina Jar/record screen is open
+  const [patinaJarBackScreen, setPatinaJarBackScreen] = useState('profile'); // where "back" returns to — 'profile' or 'reels'
+  const [patinaJarEntries, setPatinaJarEntries] = useState([]); // patina_jar_entries rows: { id, kidId, year, monthIndex, videoUrl, createdAt }
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showFriendsPrivacyExplainer, setShowFriendsPrivacyExplainer] = useState(false);
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
@@ -4729,8 +4734,8 @@ export default function App() {
         ? supabase.from('entries').select('*, entry_media(*)').eq('family_id', currentFamilyId).order('date', { ascending: false })
         : supabase.from('entries').select('*, entry_media(*)').eq('user_id', session.user.id).order('date', { ascending: false });
       const kidsQ = currentFamilyId
-        ? supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url, archived_at').eq('family_id', currentFamilyId).order('created_at')
-        : supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url, archived_at').eq('user_id', session.user.id).order('created_at');
+        ? supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url, archived_at, patina_jar_song').eq('family_id', currentFamilyId).order('created_at')
+        : supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url, archived_at, patina_jar_song').eq('user_id', session.user.id).order('created_at');
       const familyNameQ = currentFamilyId
         ? supabase.from('families').select('name').eq('id', currentFamilyId).maybeSingle()
         : Promise.resolve({ data: null });
@@ -4780,7 +4785,7 @@ export default function App() {
       }
 
       if (kidsData) {
-        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null, archivedAt: k.archived_at || null })));
+        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null, archivedAt: k.archived_at || null, patinaJarSong: k.patina_jar_song || null })));
         setProfileKidId(kidsData[0]?.id ?? null);
       }
       if (entriesData) {
@@ -4799,6 +4804,9 @@ export default function App() {
       if (currentFamilyId) {
         const { data: savedReelsData } = await supabase.from('saved_reels').select('id, title, start_date, end_date, song, song2, duration_sec, slide_refs, created_at').eq('family_id', currentFamilyId).order('created_at', { ascending: false });
         if (savedReelsData) setSavedReels(savedReelsData.map(r => ({ id: r.id, title: r.title, startDate: r.start_date, endDate: r.end_date, song: r.song || null, song2: r.song2 || null, durationSec: r.duration_sec || 30, slideRefs: r.slide_refs || null })));
+
+        const { data: patinaJarData } = await supabase.from('patina_jar_entries').select('id, kid_id, year, month_index, video_url, created_at').eq('family_id', currentFamilyId);
+        if (patinaJarData) setPatinaJarEntries(patinaJarData.map(r => ({ id: r.id, kidId: r.kid_id, year: r.year, monthIndex: r.month_index, videoUrl: r.video_url, createdAt: r.created_at })));
       }
 
       // Load friend data (gracefully skipped if tables don't exist yet)
@@ -5385,6 +5393,39 @@ export default function App() {
     if (!localMode && supabase) await supabase.from('saved_reels').update({ [field]: song }).eq('id', id);
   }
 
+  // One row per kid per (year, month) — re-recording a month is delete-then-
+  // insert (see the unique constraint in patina-jar-entries-table.sql), not
+  // an update, so there's no corresponding handleUpdatePatinaJarEntry.
+  async function handleCreatePatinaJarEntry({ kidId, year, monthIndex, videoUrl }) {
+    if (localMode || !supabase || !session || !familyId) {
+      const row = { id: Date.now(), kidId, year, monthIndex, videoUrl, createdAt: new Date().toISOString() };
+      setPatinaJarEntries(prev => [...prev, row]);
+      return row;
+    }
+    const { data, error } = await supabase.from('patina_jar_entries').insert({
+      kid_id: kidId, family_id: familyId, year, month_index: monthIndex, video_url: videoUrl, created_by: session.user.id,
+    }).select('id, kid_id, year, month_index, video_url, created_at').single();
+    if (error || !data) {
+      alert('Could not save this recording. Please try again.\n' + (error?.message || ''));
+      return null;
+    }
+    const row = { id: data.id, kidId: data.kid_id, year: data.year, monthIndex: data.month_index, videoUrl: data.video_url, createdAt: data.created_at };
+    setPatinaJarEntries(prev => [...prev, row]);
+    return row;
+  }
+
+  async function handleDeletePatinaJarEntry(id) {
+    const removed = patinaJarEntries.find(r => r.id === id);
+    setPatinaJarEntries(prev => prev.filter(r => r.id !== id));
+    if (!localMode && supabase) await supabase.from('patina_jar_entries').delete().eq('id', id);
+    if (removed?.videoUrl) deleteCloudinaryMedia([], [removed.videoUrl]);
+  }
+
+  async function handleUpdatePatinaJarSong(kidId, song) {
+    setKids(prev => prev.map(k => k.id === kidId ? { ...k, patinaJarSong: song } : k));
+    if (!localMode && supabase) await supabase.from('kids').update({ patina_jar_song: song }).eq('id', kidId);
+  }
+
   async function handleToggleFavorite(entryId) {
     const entry = entries.find(e => e.id === entryId);
     if (!entry) return;
@@ -5551,6 +5592,24 @@ export default function App() {
     entries.forEach(e => (e.people || []).forEach(p => set.add(p)));
     return [...set].sort();
   }, [entries]);
+
+  // One synthetic card per kid with >=1 Patina Jar recording, for the Reels
+  // tab — kept as its own list (not merged into savedReels itself) since
+  // SavedReelsScreen's empty-state check and swipe-hint effect are both
+  // keyed directly off savedReels.length/savedReels[0], and these cards have
+  // no startDate/endDate for formatRangeLabel to work with anyway.
+  const patinaJarCards = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const kidIdsWithClips = [...new Set(patinaJarEntries.map(r => r.kidId))];
+    return kids.filter(k => kidIdsWithClips.includes(k.id)).map(k => ({
+      id: `patina-jar-${k.id}`,
+      kidId: k.id,
+      kidName: k.name,
+      kidAvatar: k.avatar,
+      kidAccent: k.accent,
+      countThisYear: patinaJarEntries.filter(r => r.kidId === k.id && r.year === currentYear).length,
+    }));
+  }, [patinaJarEntries, kids]);
 
 
   function editEntry(entry) {
@@ -5901,10 +5960,10 @@ export default function App() {
     if (existingMemberships?.length > 0) {
       const existingFamilyId = existingMemberships[0].family_id;
       setFamilyId(existingFamilyId);
-      const { data: kidsData } = await supabase.from('kids').select('id, name, birthdate, accent, avatar_url, sex, growth_log, wishlist_url, archived_at').eq('family_id', existingFamilyId).order('created_at');
+      const { data: kidsData } = await supabase.from('kids').select('id, name, birthdate, accent, avatar_url, sex, growth_log, wishlist_url, archived_at, patina_jar_song').eq('family_id', existingFamilyId).order('created_at');
       if (kidsData?.length > 0) {
         // Already have kids — just load them
-        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null, archivedAt: k.archived_at || null })));
+        setKids(kidsData.map(k => ({ id: k.id, name: k.name, birthdate: k.birthdate, accent: k.accent || KID_ACCENTS[0], avatar: k.avatar_url, sex: k.sex || null, growthLog: k.growth_log || [], wishlistUrl: k.wishlist_url || null, archivedAt: k.archived_at || null, patinaJarSong: k.patina_jar_song || null })));
         setProfileKidId(kidsData[0]?.id ?? null);
         setPostOnboardInvite(true);
         return { success: true, familyId: existingFamilyId };
@@ -6007,7 +6066,7 @@ export default function App() {
     setFamilyId(invite.family_id);
     setMyDisplayName(displayName);
     const [{ data: kidsData }, { data: entriesData }, { data: membersData }] = await Promise.all([
-      supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url, archived_at').eq('family_id', invite.family_id).order('created_at'),
+      supabase.from('kids').select('id, name, birthdate, accent, avatar_url, user_id, sex, growth_log, family_id, wishlist_url, archived_at, patina_jar_song').eq('family_id', invite.family_id).order('created_at'),
       supabase.from('entries').select('*, entry_media(*)').eq('family_id', invite.family_id).order('date', { ascending: false }),
       supabase.from('family_members').select('id, user_id, family_id, display_name, avatar_url').eq('family_id', invite.family_id),
     ]);
@@ -6670,10 +6729,12 @@ export default function App() {
             <SavedReelsScreen
               entries={entries}
               savedReels={savedReels}
+              patinaJarReels={patinaJarCards}
               onBack={() => setScreen('home')}
               onSwitchSection={switchSection}
               onDeleteReel={handleDeleteSavedReel}
               onWatchReel={reel => setRangeReel({ id: reel.id, startDate: reel.startDate, endDate: reel.endDate, title: reel.title, song: reel.song || null, song2: reel.song2 || null, durationSec: reel.durationSec || 30, slideRefs: reel.slideRefs || null })}
+              onWatchPatinaJar={kidId => { setPatinaJarKidId(kidId); setPatinaJarBackScreen('reels'); setScreen('patina-jar'); }}
               onEditReel={reel => setEditingReel(reel)}
               onStartBuilding={({ title, startDate, endDate }) => setEditingReel({ id: null, title, startDate, endDate, song: null, song2: null, durationSec: 30, slideRefs: null })}
             />
@@ -6832,6 +6893,8 @@ export default function App() {
           avatarUploading={avatarUploading}
           currentUserId={session?.user?.id}
           onOpenGrowth={kidId => { setGrowthKidId(kidId); setScreen('growth'); }}
+          patinaJarEntries={patinaJarEntries}
+          onOpenPatinaJar={kidId => { setPatinaJarKidId(kidId); setPatinaJarBackScreen('profile'); setScreen('patina-jar'); }}
           onViewKidMoments={kidId => { setKidFilter(kidId); setJournalMilestonesOnly(false); setJournalBackScreen('profile'); setScreen('journal'); }}
           onViewKidMilestones={kidId => { setKidFilter(kidId); setJournalMilestonesOnly(true); setJournalBackScreen('profile'); setScreen('journal'); }}
           onCreateBook={() => setScreen('book-builder')}
@@ -6887,6 +6950,45 @@ export default function App() {
               />
             </Suspense>
           </ScreenErrorBoundary>
+        ) : null;
+      })()}
+
+      {screen === 'patina-jar' && patinaJarKidId && (() => {
+        const kid = kids.find(k => k.id === patinaJarKidId);
+        return kid ? (
+          <ScreenErrorBoundary onBack={() => setScreen(patinaJarBackScreen)}>
+            <Suspense fallback={<div className="screen" />}>
+              <LazyPatinaJarScreen
+                kid={kid}
+                entries={patinaJarEntries.filter(r => r.kidId === kid.id)}
+                song={kid.patinaJarSong}
+                onUpdateSong={song => handleUpdatePatinaJarSong(kid.id, song)}
+                onBack={() => setScreen(patinaJarBackScreen)}
+                onRecord={() => setScreen('patina-jar-record')}
+                onDeleteEntry={handleDeletePatinaJarEntry}
+              />
+            </Suspense>
+          </ScreenErrorBoundary>
+        ) : null;
+      })()}
+
+      {screen === 'patina-jar-record' && patinaJarKidId && (() => {
+        const kid = kids.find(k => k.id === patinaJarKidId);
+        const now = new Date();
+        return kid ? (
+          <Suspense fallback={<div className="screen" />}>
+            <LazyPatinaJarRecordScreen
+              kid={kid}
+              year={now.getFullYear()}
+              monthIndex={now.getMonth() + 1}
+              onCancel={() => setScreen('patina-jar')}
+              onUploadToCloudinary={uploadToCloudinary}
+              onSave={async ({ year, monthIndex, videoUrl }) => {
+                await handleCreatePatinaJarEntry({ kidId: kid.id, year, monthIndex, videoUrl });
+                setScreen('patina-jar');
+              }}
+            />
+          </Suspense>
         ) : null;
       })()}
 
