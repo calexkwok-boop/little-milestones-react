@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     let pushError = null;
     try {
       const admin = createClient(supabaseUrl, serviceKey);
-      await sendPushToUser(admin, partnerUserId, {
+      const result = await sendPushToUser(admin, partnerUserId, {
         title: 'New letter',
         body: `${authorName} wrote a new letter to ${kidNames}.`,
         url: entryId ? `/?open=${entryId}` : '/',
@@ -81,6 +81,7 @@ Deno.serve(async (req) => {
         kind: 'partner_entry',
         category: 'partner_activity',
       });
+      if (result.errors) pushError = result.errors.join('; ');
     } catch (err) {
       pushError = (err as Error).message;
     }

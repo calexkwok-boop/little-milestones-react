@@ -141,8 +141,8 @@ function dataUrlToBlob(dataUrl) {
 // is invoked (never awaited by the caller, never blocks the UI on failure).
 function triggerPush(body) {
   if (!supabase) return;
-  supabase.functions.invoke('send-push', { body }).then(({ error }) => {
-    if (error) console.error('send-push failed:', error);
+  supabase.functions.invoke('send-push', { body }).then(({ data, error }) => {
+    if (error || data?.errors) console.error('send-push failed:', error || data?.errors);
   }).catch(err => console.error('send-push request failed:', err));
 }
 

@@ -78,6 +78,11 @@ export async function sendPushToUser(admin: any, userId: string, payload: PushPa
   if (!subs || subs.length === 0) return { sent: 0 };
 
   let sent = 0;
+  // Only 404/410 mean the subscription itself is dead — every other failure
+  // (bad VAPID config, malformed payload, the push service erroring) used to
+  // vanish with zero trace, which is exactly the kind of silent breakage that
+  // took a whole separate diagnostic session to track down for notify-partner.
+  const errors: string[] = [];
   await Promise.all(subs.map(async (sub: { id: string; endpoint: string; p256dh: string; auth: string }) => {
     try {
       await webpush.sendNotification(
@@ -88,9 +93,11 @@ export async function sendPushToUser(admin: any, userId: string, payload: PushPa
     } catch (err: any) {
       if (err?.statusCode === 404 || err?.statusCode === 410) {
         await admin.from('push_subscriptions').delete().eq('id', sub.id);
+      } else {
+        errors.push(`${err?.statusCode ?? 'unknown status'}: ${err?.body || err?.message || 'unknown error'}`);
       }
     }
   }));
 
-  return { sent };
+  return { sent, errors: errors.length > 0 ? errors : undefined };
 }

@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { sendPushToUser } from '../_shared/push.ts';
+import { sendPushToUser, type PushPayload } from '../_shared/push.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -77,6 +77,16 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceRoleKey);
     const today = new Date();
     let sentCount = 0;
+    // sendPushToUser never throws for a webpush failure — it catches those
+    // internally and returns { sent, errors } — so counting a send as
+    // successful just because the call didn't throw was masking real
+    // failures behind an inflated sentCount with zero trace of what broke.
+    const pushErrors: string[] = [];
+    async function push(userId: string, payload: PushPayload) {
+      const result = await sendPushToUser(admin, userId, payload);
+      if (result.sent > 0) sentCount++;
+      if (result.errors) pushErrors.push(...result.errors.map(e => `${payload.tag}/${userId}: ${e}`));
+    }
 
     // ── Birthdays (friend kids: today + 7-day-out; own kids: 7-day-out wishlist nudge) ──
     const { data: kids } = await admin.from('kids').select('id, name, family_id, birthdate').not('birthdate', 'is', null);
@@ -112,7 +122,7 @@ Deno.serve(async (req) => {
           const id = `own-bday-${kid.id}-${today.getFullYear()}`;
           if (await alreadySent(admin, id, undefined)) continue;
           if (!isTargetLocalHour(await getUserTimezone(admin, ownerId), today)) continue;
-          await sendPushToUser(admin, ownerId, {
+          await push(ownerId, {
             title: 'Birthday coming up',
             body: `${kid.name}'s ${age}${age % 10 === 1 && age !== 11 ? 'st' : age % 10 === 2 && age !== 12 ? 'nd' : age % 10 === 3 && age !== 13 ? 'rd' : 'th'} birthday is in a week — add a wishlist so friends can shop for gift ideas.`,
             url: '/',
@@ -121,7 +131,6 @@ Deno.serve(async (req) => {
             category: 'birthday_reminders',
           });
           await markSent(admin, id, ownerId);
-          sentCount++;
         }
       }
 
@@ -132,7 +141,7 @@ Deno.serve(async (req) => {
         const id = `friend-bday-${kid.id}-${today.getFullYear()}-${days === 0 ? 'today' : '7day'}`;
         if (await alreadySent(admin, id, undefined)) continue;
         if (!isTargetLocalHour(await getUserTimezone(admin, friendId), today)) continue;
-        await sendPushToUser(admin, friendId, {
+        await push(friendId, {
           title: days === 0 ? "It's a birthday!" : 'Birthday coming up',
           body: days === 0 ? `It's ${kid.name}'s birthday today!` : `${kid.name}'s birthday is in a week.`,
           url: `/?openBirthday=${kid.id}`,
@@ -141,7 +150,6 @@ Deno.serve(async (req) => {
           category: 'birthday_reminders',
         });
         await markSent(admin, id, friendId);
-        sentCount++;
       }
     }
 
@@ -176,7 +184,7 @@ Deno.serve(async (req) => {
         const id = `prompt-nudge-${mostOverdue.id}`;
         if (await alreadySent(admin, id, 7)) continue; // don't nag more than once a week
         if (!isTargetLocalHour(await getUserTimezone(admin, ownerId), today)) continue;
-        await sendPushToUser(admin, ownerId, {
+        await push(ownerId, {
           title: 'A little nudge',
           body: `Haven't heard about ${mostOverdue.name} in a few days — got a story to share?`,
           url: '/',
@@ -185,11 +193,12 @@ Deno.serve(async (req) => {
           category: 'prompt_nudges',
         });
         await markSent(admin, id, ownerId);
-        sentCount++;
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, sent: sentCount }), {
+    if (pushErrors.length > 0) console.error('send-scheduled-notifications push errors:', pushErrors);
+
+    return new Response(JSON.stringify({ ok: true, sent: sentCount, errors: pushErrors.length > 0 ? pushErrors : undefined }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {

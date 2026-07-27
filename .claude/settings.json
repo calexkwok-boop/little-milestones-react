@@ -82,7 +82,8 @@
       "Bash(awk 'NR==2764,NR==3527' src/App.jsx)",
       "Bash(awk 'NR==1394,NR==2452' src/App.jsx)",
       "Bash(xargs grep -l \"entry_media\")",
-      "Bash(xargs grep -l \"create policy\\\\|for update\\\\|for insert\")"
+      "Bash(xargs grep -l \"create policy\\\\|for update\\\\|for insert\")",
+      "Bash(sort -k5 -n -r)"
     ],
     "additionalDirectories": [
       "\\tmp"

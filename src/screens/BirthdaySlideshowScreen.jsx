@@ -50,22 +50,19 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
           out.push({ url: m.url, type: m.type, date: e.date, cropY: m.cropY ?? (m === e.media[0] ? e.cropY : null) ?? 50 });
         }
       }
-      return { out, seen };
+      return out;
     }
 
     // Prefer photos from the past year (this is a "year in review" recap), but if this kid has
     // no photos from the last 12 months, fall back to all-time rather than showing an empty
     // slideshow — some photos beat "no photos yet" when photos genuinely exist.
     const recentEntries = uniqueEntries.filter(e => new Date(e.date + 'T12:00:00') >= oneYearAgo);
-    const { out: result, seen } = collectMedia(recentEntries.length > 0 ? recentEntries : uniqueEntries);
+    const result = collectMedia(recentEntries.length > 0 ? recentEntries : uniqueEntries);
 
     for (let i = result.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [result[i], result[j]] = [result[j], result[i]];
     }
-    // TEST VIDEO — remove after testing
-    const testVideo = uniqueEntries.flatMap(e => (e.media || []).filter(m => m.type === 'video').map(m => ({ url: m.url, type: 'video', date: e.date, cropY: m.cropY ?? (m === e.media[0] ? e.cropY : null) ?? 50 }))).sort((a, b) => a.date.localeCompare(b.date))[0];
-    if (testVideo && !seen.has(testVideo.url)) result.unshift(testVideo);
     return result.slice(0, 9);
   }, [entries, kid.id]);
 
