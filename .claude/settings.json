@@ -83,7 +83,18 @@
       "Bash(awk 'NR==1394,NR==2452' src/App.jsx)",
       "Bash(xargs grep -l \"entry_media\")",
       "Bash(xargs grep -l \"create policy\\\\|for update\\\\|for insert\")",
-      "Bash(sort -k5 -n -r)"
+      "Bash(sort -k5 -n -r)",
+      "Bash(awk 'NR==8228,NR==8759' src/App.jsx)",
+      "Bash(awk 'NR==7815,NR==7975' src/App.jsx)",
+      "Bash(awk 'NR==7975,NR==8061' src/App.jsx)",
+      "Bash(awk 'NR==7048,NR==7143' src/App.jsx)",
+      "Bash(awk 'NR==7159,NR==7739' src/App.jsx)",
+      "Bash(awk 'NR==4745,NR==5342' src/App.jsx)",
+      "Bash(awk 'NR==5342,NR==5944' src/App.jsx)",
+      "Bash(awk 'NR==5995,NR==6153' src/App.jsx)",
+      "Bash(awk 'NR==6239,NR==6974' src/App.jsx)",
+      "Bash(npm run *)",
+      "Bash(powershell -Command \"Stop-Process -Id 18280 -Force\")"
     ],
     "additionalDirectories": [
       "\\tmp"

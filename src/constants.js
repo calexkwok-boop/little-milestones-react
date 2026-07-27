@@ -2,6 +2,23 @@ export const KIDS_INITIAL = [];
 
 export const AMAZON_GIFT_FALLBACK_URL = 'https://www.amazon.com/s?k=gifts+for+kids';
 
+export const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
+
+export const PROMPT_ACCENT = '#C8993E';
+
+const PROD_APP_URL = 'https://app.patinafamily.com';
+
+// Auth email links (magic link, password reset) need an absolute redirect —
+// localhost obviously can't be that target, so dev/preview always redirects
+// through the production app instead of wherever this happened to be running.
+export function getAuthRedirectUrl() {
+  if (typeof window === 'undefined') return PROD_APP_URL;
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return PROD_APP_URL;
+  }
+  return window.location.origin;
+}
+
 // Two shared avatar transform presets, reused everywhere a kid/friend/member avatar
 // renders — before this, near-identical avatar circles across the app each requested
 // their own slightly different width (w_36, w_40, w_44, w_48...), so the same photo
@@ -117,6 +134,28 @@ export function sameAgeDaysApart(sides) {
   const ageDays = s => (new Date(s.date + 'T12:00:00') - new Date(s.kid.birthdate + 'T12:00:00')) / 86400000;
   const days = sides.map(ageDays);
   return Math.round(Math.max(...days) - Math.min(...days));
+}
+
+export function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'Just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d === 1) return 'Yesterday';
+  if (d < 7) return new Date(ts).toLocaleDateString('en-US', { weekday: 'short' });
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+export function daysUntilBirthday(birthdate) {
+  const [, bm, bd] = birthdate.split('-').map(Number);
+  const [ty, tm, td] = TODAY.split('-').map(Number);
+  const today = new Date(ty, tm - 1, td);
+  let next = new Date(ty, bm - 1, bd);
+  if (next < today) next = new Date(ty + 1, bm - 1, bd);
+  return Math.round((next - today) / 86400000);
 }
 
 export function milestoneInfo(id) {
