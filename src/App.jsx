@@ -141,7 +141,9 @@ function dataUrlToBlob(dataUrl) {
 // is invoked (never awaited by the caller, never blocks the UI on failure).
 function triggerPush(body) {
   if (!supabase) return;
-  supabase.functions.invoke('send-push', { body }).catch(() => {});
+  supabase.functions.invoke('send-push', { body }).then(({ error }) => {
+    if (error) console.error('send-push failed:', error);
+  }).catch(err => console.error('send-push request failed:', err));
 }
 
 // notification_log.url is written server-side as `/?open=<entryId>` (see
@@ -3678,7 +3680,14 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         };
         mediaRecorderRef.current = recorder;
         recorder.start();
-      }).catch(() => {});
+      }).catch(() => {
+        // Dictation itself runs through the browser's own speech-recognition
+        // audio pipeline, entirely separate from this getUserMedia call — so
+        // this failing doesn't stop the words from being typed out, it just
+        // means nothing gets saved as a playable voice memo alongside them.
+        // That's easy to miss silently, since the text still shows up fine.
+        setMediaError("Couldn't access the microphone to save a voice memo — your dictated text will still be typed out, just without the audio.");
+      });
     }
     const recognition = new SR();
     recognition.continuous = true;
@@ -9996,7 +10005,9 @@ export default function App() {
       const kidNames = kidIds.map(id => kids.find(k => k.id === id)?.name.split(' ')[0]).filter(Boolean).join(' & ');
       supabase.functions.invoke('notify-partner', {
         body: { authorName, partnerUserId: partnerMember.user_id, kidNames, entryDate: date, entryText: text, entryId: entry.id },
-      }).catch(() => {});
+      }).then(({ data, error }) => {
+        if (error || data?.emailError || data?.pushError) console.error('notify-partner did not fully succeed:', error || data?.emailError, data?.pushError);
+      }).catch(err => console.error('notify-partner request failed:', err));
     }
 
     // Upload media in background, then update entry with real URLs

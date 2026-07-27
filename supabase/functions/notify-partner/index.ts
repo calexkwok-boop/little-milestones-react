@@ -48,21 +48,29 @@ Deno.serve(async (req) => {
 </body>
 </html>`;
 
-    const emailRes = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: 'Patina <hello@patinafamily.com>',
-        to: [partnerEmail],
-        subject: `${authorName} wrote a new letter`,
-        html,
-      }),
-    });
+    // Email and push are two independent channels — one failing (e.g. the
+    // sending domain falling out of verification with Resend) must never
+    // prevent the other from being attempted. They used to be sequenced in
+    // one try block where an email failure threw before push's own code was
+    // ever reached, silently killing both at once.
+    let emailError = null;
+    try {
+      const emailRes = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: 'Patina <hello@patinafamily.com>',
+          to: [partnerEmail],
+          subject: `${authorName} wrote a new letter`,
+          html,
+        }),
+      });
+      if (!emailRes.ok) throw new Error(await emailRes.text());
+    } catch (err) {
+      emailError = (err as Error).message;
+    }
 
-    if (!emailRes.ok) throw new Error(await emailRes.text());
-
-    // Push is best-effort — a missing/expired subscription shouldn't fail the whole
-    // request when the email above already succeeded.
+    let pushError = null;
     try {
       const admin = createClient(supabaseUrl, serviceKey);
       await sendPushToUser(admin, partnerUserId, {
@@ -73,9 +81,11 @@ Deno.serve(async (req) => {
         kind: 'partner_entry',
         category: 'partner_activity',
       });
-    } catch { /* email already sent; push is a bonus */ }
+    } catch (err) {
+      pushError = (err as Error).message;
+    }
 
-    return new Response(JSON.stringify({ ok: true }), {
+    return new Response(JSON.stringify({ ok: true, emailError, pushError }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
