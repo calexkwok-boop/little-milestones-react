@@ -3,6 +3,7 @@ import { Icon } from '../icons';
 import { supabase } from '../supabase.js';
 import AvatarCropModal from '../AvatarCropModal.jsx';
 import KidThumb from '../KidThumb.jsx';
+import { Coachmark } from '../Coachmark.jsx';
 import usePushNotifications from '../usePushNotifications.js';
 import { cloudinaryTransform, AVATAR_TRANSFORM_LG, AVATAR_TRANSFORM_SM } from '../constants.js';
 
@@ -47,6 +48,7 @@ function AvatarImg({ src, alt, fallback }) {
 function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, familyName, onUpdateFamilyName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onArchiveKid, onRestoreKid, onEraseKid, onOpenGrowth, patinaJarEntries = [], onOpenPatinaJar, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms, onViewKidMoments, onViewKidMilestones }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
+  const patinaJarBtnRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -168,7 +170,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           <input ref={familyAvatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFamilyAvatarFile} />
 
           {/* ── Kids ── */}
-          {kids.filter(k => !k.archivedAt).map(k => {
+          {kids.filter(k => !k.archivedAt).map((k, i) => {
             const kEntries = entries.filter(e => e.kids.includes(k.id));
             const kMilestones = kEntries.filter(e => e.milestone).length;
             const bornLabel = (() => { const [y,m,d] = k.birthdate.split('-').map(Number); return new Date(y,m-1,d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); })();
@@ -213,6 +215,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   </div>
                 </div>
                 <button
+                  ref={i === 0 ? patinaJarBtnRef : undefined}
                   className="btn btn-outline"
                   style={{ width: '100%', fontSize: 13, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}
                   onClick={() => onOpenPatinaJar?.(k.id)}
@@ -225,6 +228,16 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                     {patinaJarEntries.filter(r => r.kidId === k.id && r.year === new Date().getFullYear()).length}/12
                   </span>
                 </button>
+                {i === 0 && (
+                  <Coachmark
+                    id="profile-patina-jar"
+                    userId={currentUserId}
+                    active={true}
+                    targetRef={patinaJarBtnRef}
+                    placement="bottom"
+                    text="New: ask a quick question every month, and watch the answers change year to year."
+                  />
+                )}
               </div>
             );
           })}

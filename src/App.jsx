@@ -4556,6 +4556,9 @@ export default function App() {
   const [pendingOpenBirthdayKidId, setPendingOpenBirthdayKidId] = useState(() => {
     try { return new URLSearchParams(window.location.search).get('openBirthday'); } catch { return null; }
   });
+  const [pendingOpenPatinaJarKidId, setPendingOpenPatinaJarKidId] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('openPatinaJar'); } catch { return null; }
+  });
 
   // Deep-link from a push notification tap: ?open=<entryId> is handled by the existing
   // pendingOpenEntryId flow already used for in-app notification taps; ?openBirthday=<kidId>
@@ -4571,6 +4574,19 @@ export default function App() {
       setPendingOpenBirthdayKidId(null);
     }
   }, [pendingOpenBirthdayKidId, friendKids, friendEntries]);
+  // ?openPatinaJar=<kidId> from the monthly reminder push — waits for this
+  // family's own kids (not friendKids) to load, then jumps straight to that
+  // kid's Patina Jar screen instead of leaving the tap at plain Home.
+  useEffect(() => {
+    if (!pendingOpenPatinaJarKidId || kids.length === 0) return;
+    const kid = kids.find(k => k.id === pendingOpenPatinaJarKidId);
+    if (kid) {
+      setPatinaJarKidId(kid.id);
+      setPatinaJarBackScreen('profile');
+      setScreen('patina-jar');
+      setPendingOpenPatinaJarKidId(null);
+    }
+  }, [pendingOpenPatinaJarKidId, kids]);
   const [discoverable, setDiscoverable] = useState(true);
   const [sharingDefaults, setSharingDefaults] = useState({ partner: true, family: false, friends: false });
   const [postOnboardInvite, setPostOnboardInvite] = useState(false);
@@ -5265,7 +5281,16 @@ export default function App() {
     setEntrySource(screenRef.current);
     setActiveEntry(entry);
     setScreen('entry-detail');
-  }, []);
+  // markPartnerEntrySeen is a plain function redeclared every render (it
+  // closes over `session`), not a stable useCallback — with an empty dep
+  // array here, this useCallback froze the very first render's closure,
+  // which closed over `session` while it was still null (auth resolves
+  // after mount). That stale closure's own `if (!session?.user?.id) return`
+  // guard silently no-oped on every call forever, so opening an entry never
+  // actually cleared the unseen-partner badge. Depending on the id here
+  // forces a fresh closure once session becomes real (and again on
+  // sign-out/in), which is the only part of that closure that can go stale.
+  }, [session?.user?.id]);
 
   async function handleUpdateCrop(entryId, mediaUrl, y) {
     const applyCrop = media => (media || []).map(m => m.url === mediaUrl ? { ...m, cropY: y } : m);
@@ -5406,7 +5431,22 @@ export default function App() {
       kid_id: kidId, family_id: familyId, year, month_index: monthIndex, video_url: videoUrl, created_by: session.user.id,
     }).select('id, kid_id, year, month_index, video_url, created_at').single();
     if (error || !data) {
-      alert('Could not save this recording. Please try again.\n' + (error?.message || ''));
+      // 23505 = unique_violation — someone else in the family recorded this
+      // exact kid+year+month between this screen loading and this insert
+      // landing (both parents recording around the same time). Not a
+      // transient failure "try again" would ever fix, so surface it as what
+      // it actually is and pull in the real row that won the race, rather
+      // than leaving this client's grid stuck showing the month as empty.
+      if (error?.code === '23505') {
+        const { data: existing } = await supabase.from('patina_jar_entries').select('id, kid_id, year, month_index, video_url, created_at').eq('kid_id', kidId).eq('year', year).eq('month_index', monthIndex).maybeSingle();
+        if (existing) {
+          const row = { id: existing.id, kidId: existing.kid_id, year: existing.year, monthIndex: existing.month_index, videoUrl: existing.video_url, createdAt: existing.created_at };
+          setPatinaJarEntries(prev => prev.some(r => r.id === row.id) ? prev : [...prev, row]);
+        }
+        alert("Someone in your family already recorded this month's question — you can watch it from the jar instead.");
+      } else {
+        alert('Could not save this recording. Please try again.\n' + (error?.message || ''));
+      }
       return null;
     }
     const row = { id: data.id, kidId: data.kid_id, year: data.year, monthIndex: data.month_index, videoUrl: data.video_url, createdAt: data.created_at };

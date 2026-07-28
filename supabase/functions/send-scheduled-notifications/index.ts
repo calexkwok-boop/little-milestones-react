@@ -196,6 +196,39 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── Patina Jar: one check a month (the 15th), not a running nag — if this
+    // month's question hasn't been recorded yet for a kid, remind once. The
+    // notification id encodes kid+year+month so it can only ever fire once
+    // per kid per month regardless of how many times this function runs that
+    // day; next month's different id lets it fire again naturally.
+    if (today.getDate() === 15) {
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth() + 1;
+      const { data: patinaJarRows } = await admin.from('patina_jar_entries').select('kid_id').eq('year', currentYear).eq('month_index', currentMonth);
+      const recordedKidIds = new Set((patinaJarRows || []).map((r: { kid_id: string }) => r.kid_id));
+
+      for (const [familyId, familyKids] of kidsByFamily) {
+        const owners = membersByFamily.get(familyId) || [];
+        for (const kid of familyKids) {
+          if (recordedKidIds.has(kid.id)) continue;
+          for (const ownerId of owners) {
+            const id = `patina-jar-${kid.id}-${currentYear}-${currentMonth}`;
+            if (await alreadySent(admin, id, undefined)) continue;
+            if (!isTargetLocalHour(await getUserTimezone(admin, ownerId), today)) continue;
+            await push(ownerId, {
+              title: 'Patina Jar',
+              body: `This month's question for ${kid.name} is still waiting, whenever you get a chance.`,
+              url: `/?openPatinaJar=${kid.id}`,
+              tag: `patina-jar-${kid.id}`,
+              kind: 'patina_jar',
+              category: 'prompt_nudges',
+            });
+            await markSent(admin, id, ownerId);
+          }
+        }
+      }
+    }
+
     if (pushErrors.length > 0) console.error('send-scheduled-notifications push errors:', pushErrors);
 
     return new Response(JSON.stringify({ ok: true, sent: sentCount, errors: pushErrors.length > 0 ? pushErrors : undefined }), {
