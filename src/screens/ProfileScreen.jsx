@@ -235,7 +235,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                     active={true}
                     targetRef={patinaJarBtnRef}
                     placement="bottom"
-                    text="New: ask a quick question every month, and watch the answers change year to year."
+                    text="New feature: ask a quick question every month and see how their answers change throughout the years."
                   />
                 )}
               </div>
@@ -288,7 +288,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
             })}
           </div>
 
-          <button className="btn btn-primary" style={{ background: '#7A9E8C' }} onClick={() => { setMemberPickerOpen(true); setPickerStep('type'); setPickerRole(null); setInviteCode(null); }}>
+          <button className="btn btn-primary" onClick={() => { setMemberPickerOpen(true); setPickerStep('type'); setPickerRole(null); setInviteCode(null); }}>
             <Icon name="ti-plus" />Add a family member
           </button>
 
