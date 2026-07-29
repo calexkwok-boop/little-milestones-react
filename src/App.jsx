@@ -605,15 +605,13 @@ function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDele
 }
 
 const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onLongPress }) {
-  const cardH = featured ? 200 : 150;
+  const cardH = 240;
   const photoRef = useRef(null);
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const [videoPlaying, setVideoPlaying] = useState(false);
   useVideoAutoPause(photoRef, videoPlaying, () => setVideoPlaying(false));
   const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
-  const preview = cleanText.length > (featured ? 160 : 55)
-    ? cleanText.slice(0, featured ? 160 : 55) + '…'
-    : cleanText;
+  const preview = cleanText.length > 70 ? cleanText.slice(0, 70) + '…' : cleanText;
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
@@ -637,8 +635,8 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
                 <>
                   <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
-                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 16 }} />
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 14 }} />
                     </div>
                   </div>
                 </>
@@ -660,24 +658,8 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
           ))}
         </div>
       )}
-      <div style={{ padding: '16px 18px 14px' }}>
-        <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'var(--text-muted)', margin: '0 0 7px' }}>
-          Dear {allKids ? buildSalutation(entry, allKids) : kid.name},
-        </p>
-        {preview && (
-          <p style={{
-            fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: featured ? 16 : 14, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.65,
-            ...(featured ? {} : { display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }),
-          }}>
-            {preview}
-          </p>
-        )}
-        {entry.signedAs && (
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'var(--text-muted)', margin: '0 0 10px' }}>
-            Love, {entry.signedAs}
-          </p>
-        )}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <div style={{ padding: '10px 14px 12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: preview ? 6 : 0 }}>
           {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => (
             <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <KidThumb kid={k} size={18} />
@@ -687,6 +669,14 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
             </div>
           ))}
         </div>
+        {preview && (
+          <p style={{
+            fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.4,
+            display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}>
+            {preview}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -730,8 +720,8 @@ const FeedMediaThumb = memo(function FeedMediaThumb({ item, cropY = 50, transfor
     <div ref={containerRef} style={{ width: '100%', height: '100%', position: 'relative' }} onClick={e => { e.stopPropagation(); setPlaying(true); }}>
       <CroppedImg src={videoThumbUrl(item.url, `so_0,${transform}`)} cropY={cropY} />
       <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 15 }} />
+        <div style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 12 }} />
         </div>
       </div>
     </div>
@@ -917,8 +907,8 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
                   <>
                     <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} onError={e => { e.target.style.display = 'none'; }} />
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
-                      <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 18 }} />
+                      <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 14 }} />
                       </div>
                     </div>
                   </>
@@ -1925,7 +1915,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                             <>
                               <img src={videoThumbUrl(photo.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 20 }} /></div>
+                                <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 15 }} /></div>
                               </div>
                             </>
                           )
@@ -1963,7 +1953,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 )}
                 {isVideo && !viewerPlaying && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 20 }} /></div>
+                    <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 15 }} /></div>
                   </div>
                 )}
                 {showLikeAnim && (
@@ -2522,10 +2512,10 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 {media[activeSlide]?.type !== 'video' && (
                   <button
                     onClick={e => { e.stopPropagation(); if (isOwn) setShowPeopleTagger(true); }}
-                    style={{ position: 'absolute', bottom: 12, left: 12, display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(0,0,0,0.38)', borderRadius: 999, padding: '5px 10px 5px 7px', border: 'none', cursor: isOwn ? 'pointer' : 'default' }}
+                    style={{ position: 'absolute', bottom: 12, left: 12, display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.38)', borderRadius: 999, padding: '4px 8px 4px 6px', border: 'none', cursor: isOwn ? 'pointer' : 'default' }}
                   >
-                    <Icon name="ti-user-plus" style={{ fontSize: 12, color: '#fff' }} />
-                    <span style={{ fontSize: 11, color: '#fff', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>
+                    <Icon name="ti-user-plus" style={{ fontSize: 10, color: '#fff' }} />
+                    <span style={{ fontSize: 10, color: '#fff', fontWeight: 600, fontFamily: 'Inter, sans-serif' }}>
                       {(() => {
                         const taggedFriendNames = friendKids.filter(k => entry.kids.includes(k.id)).map(k => k.name.split(' ')[0]);
                         const all = [...taggedFriendNames, ...people];
@@ -2543,15 +2533,15 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   <div style={{ opacity: videoPlaying ? 0 : 1, pointerEvents: videoPlaying ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
                     <button
                       onClick={e => { e.stopPropagation(); setActiveSlide(i => (i - 1 + media.length) % media.length); }}
-                      style={{ position: 'absolute', top: '50%', left: 10, transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
+                      style={{ position: 'absolute', top: '50%', left: 10, transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
                     >
-                      <Icon name="ti-chevron-left" style={{ fontSize: 16 }} />
+                      <Icon name="ti-chevron-left" style={{ fontSize: 13 }} />
                     </button>
                     <button
                       onClick={e => { e.stopPropagation(); setActiveSlide(i => (i + 1) % media.length); }}
-                      style={{ position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', width: 32, height: 32, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
+                      style={{ position: 'absolute', top: '50%', right: 10, transform: 'translateY(-50%)', width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
                     >
-                      <Icon name="ti-chevron-right" style={{ fontSize: 16 }} />
+                      <Icon name="ti-chevron-right" style={{ fontSize: 13 }} />
                     </button>
                     <div style={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5, zIndex: 5 }}>
                       {media.map((_, i) => (
@@ -2958,7 +2948,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
         >
           <button
             onClick={e => { e.stopPropagation(); setShowLightbox(false); }}
-            style={{ position: 'absolute', top: 16, right: 16, width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 1 }}
+            style={{ position: 'absolute', top: 16, right: 16, width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 1 }}
           >
             <Icon name="ti-x" />
           </button>
@@ -3665,7 +3655,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                         setDraftSameAgePickerSelection([]);
                         setShowDraftSameAgePicker(true);
                       }
-                    }} title="Same age" style={{ position: 'absolute', bottom: 6, right: 6, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    }} title="Same age" style={{ position: 'absolute', bottom: 6, right: 6, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="ti-arrows-diff" />
                     </button>
                     <Coachmark
@@ -3680,8 +3670,8 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                 )}
                 {item.type === 'video' && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 12 }} />
+                    <div style={{ width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 10 }} />
                     </div>
                   </div>
                 )}
@@ -3792,7 +3782,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
               ? <video src={cloudinaryTransform(previewMedia.url, VIDEO_DELIVERY_TRANSFORM)} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} controls autoPlay playsInline onClick={e => e.stopPropagation()} />
               : <img src={previewMedia.url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} alt="" loading="lazy" />
             }
-            <button onClick={() => setPreviewMedia(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 18 }}>
+            <button onClick={() => setPreviewMedia(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 14 }}>
               <Icon name="ti-x" />
             </button>
           </div>

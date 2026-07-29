@@ -490,8 +490,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
       {/* Pause/play hint */}
       {showPauseHint && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8, pointerEvents: 'none' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'introOut 0.9s ease forwards' }}>
-            <Icon name={slideshowPaused ? 'ti-player-pause' : 'ti-player-play'} style={{ fontSize: 26, color: '#fff' }} />
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'introOut 0.9s ease forwards' }}>
+            <Icon name={slideshowPaused ? 'ti-player-pause' : 'ti-player-play'} style={{ fontSize: 20, color: '#fff' }} />
           </div>
         </div>
       )}
@@ -501,7 +501,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 16px 0' }}>
         {/* Patina branding */}
         <div />
-        <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
+        <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 14 }}>
           <Icon name="ti-x" />
         </button>
       </div>
@@ -510,7 +510,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
       {showStats && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(38,58,44,0.97)', zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 36px' }}>
           {onGenerateReelShare && (
-            <button onClick={() => setShowShareSheet(true)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 16, zIndex: 3 }}>
+            <button onClick={() => setShowShareSheet(true)} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 13, zIndex: 3 }}>
               <Icon name="ti-share-2" />
             </button>
           )}

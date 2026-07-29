@@ -522,8 +522,8 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
 
       {showPauseHint && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8, pointerEvents: 'none' }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'introOut 0.9s ease forwards' }}>
-            <Icon name={slideshowPaused ? 'ti-player-pause' : 'ti-player-play'} style={{ fontSize: 26, color: '#fff' }} />
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', animation: 'introOut 0.9s ease forwards' }}>
+            <Icon name={slideshowPaused ? 'ti-player-pause' : 'ti-player-play'} style={{ fontSize: 20, color: '#fff' }} />
           </div>
         </div>
       )}
@@ -540,7 +540,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       )}
 
       <div style={{ position: 'relative', zIndex: 10, display: 'flex', justifyContent: 'flex-end', padding: '10px 16px 0' }}>
-        <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
+        <button onClick={onClose} style={{ background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 14 }}>
           <Icon name="ti-x" />
         </button>
       </div>

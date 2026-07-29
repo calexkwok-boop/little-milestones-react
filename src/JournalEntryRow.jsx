@@ -34,7 +34,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
           }
           {heroMedia.type === 'video' && !playingHero && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setPlayingHero(true); }}>
-              <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 20 }} /></div>
+              <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 15 }} /></div>
             </div>
           )}
           {entry.media.length > 1 && (

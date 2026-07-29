@@ -397,8 +397,8 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                                   {e.media?.[0]?.type === 'video' && (
                                     <button
                                       onClick={ev => { ev.stopPropagation(); setPlayingVideoId(e.id); }}
-                                      style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', zIndex: 2 }}>
-                                      <Icon name="ti-player-play-filled" style={{ fontSize: 15, color: '#fff', marginLeft: 2 }} />
+                                      style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer', zIndex: 2 }}>
+                                      <Icon name="ti-player-play-filled" style={{ fontSize: 12, color: '#fff', marginLeft: 2 }} />
                                     </button>
                                   )}
                                   <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
@@ -532,7 +532,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
         return (
           <div onClick={() => setPhotoViewer(null)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
             <div style={{ position: 'absolute', top: 16, left: 16 }}>
-              <button onClick={() => setPhotoViewer(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 18 }}>
+              <button onClick={() => setPhotoViewer(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', fontSize: 14 }}>
                 <Icon name="ti-arrow-left" />
               </button>
             </div>
