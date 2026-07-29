@@ -4563,7 +4563,15 @@ export default function App() {
   // group mounted (just hidden) so switching between its tabs is instant —
   // no remount flash, no scroll/filter reset, no refetch.
   const [circleGroupMounted, setCircleGroupMounted] = useState(false);
-  const [keepsakesGroupMounted, setKeepsakesGroupMounted] = useState(false);
+  // Split per-tab (rather than one shared flag for the whole Keepsakes group)
+  // so visiting any one of Recap/Letters/Compare/Reels for the first time
+  // doesn't force-mount all four screens' full entry lists in one synchronous
+  // burst — each still stays mounted once visited, so switching back to it is
+  // still instant, but the other three only mount when actually opened.
+  const [recapMounted, setRecapMounted] = useState(false);
+  const [partnerLettersMounted, setPartnerLettersMounted] = useState(false);
+  const [compareMounted, setCompareMounted] = useState(false);
+  const [reelsMounted, setReelsMounted] = useState(false);
   const [newEntryInitial, setNewEntryInitial] = useState(null);
   const [composeMode, setComposeMode] = useState('letter');
   const [showComposePicker, setShowComposePicker] = useState(false);
@@ -5312,7 +5320,10 @@ export default function App() {
 
   useEffect(() => {
     if (screen === 'circle-feed' || screen === 'friends') setCircleGroupMounted(true);
-    if (screen === 'recap' || screen === 'partner-letters' || screen === 'compare' || screen === 'reels') setKeepsakesGroupMounted(true);
+    if (screen === 'recap') setRecapMounted(true);
+    if (screen === 'partner-letters') setPartnerLettersMounted(true);
+    if (screen === 'compare') setCompareMounted(true);
+    if (screen === 'reels') setReelsMounted(true);
   }, [screen]);
 
   const openEntry = useCallback((entry) => {
@@ -6647,7 +6658,7 @@ export default function App() {
         );
       })()}
 
-      {keepsakesGroupMounted && (() => {
+      {partnerLettersMounted && (() => {
         const partnerMember = familyMembers.find(m => m.user_id !== session?.user?.id) || null;
         const selfMember = familyMembers.find(m => m.user_id === session?.user?.id) || null;
         return (
@@ -6777,7 +6788,7 @@ export default function App() {
         />
       )}
 
-      {keepsakesGroupMounted && (
+      {recapMounted && (
         <div style={{ display: screen === 'recap' ? 'contents' : 'none' }}>
           <ScreenErrorBoundary onBack={() => setScreen('home')}>
             <RecapScreen
@@ -6804,7 +6815,7 @@ export default function App() {
         </div>
       )}
 
-      {keepsakesGroupMounted && (
+      {reelsMounted && (
         <div style={{ display: screen === 'reels' ? 'contents' : 'none' }}>
           <ScreenErrorBoundary onBack={() => setScreen('home')}>
             <SavedReelsScreen
@@ -6846,7 +6857,7 @@ export default function App() {
         </div>
       )}
 
-      {keepsakesGroupMounted && (
+      {compareMounted && (
         <div style={{ display: screen === 'compare' ? 'contents' : 'none' }}>
           <Suspense fallback={<div className="screen" />}>
             <LazyCompareScreen
