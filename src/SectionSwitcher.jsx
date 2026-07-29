@@ -1,8 +1,8 @@
 import { Icon } from './icons';
-function SectionSwitcher({ tabs, active, onChange }) {
+function SectionSwitcher({ tabs, active, onChange, fill }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'center' }}>
-      <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 10, padding: 3, gap: 2, border: '1px solid rgba(200,153,62,0.14)' }}>
+      <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 10, padding: 3, gap: 2, border: '1px solid rgba(200,153,62,0.14)', width: fill ? '100%' : undefined }}>
         {tabs.map(t => {
           const isActive = active === t.id;
           return (
@@ -10,15 +10,16 @@ function SectionSwitcher({ tabs, active, onChange }) {
               key={t.id}
               onClick={() => onChange(t.id)}
               style={{
-                display: 'flex', alignItems: 'center', gap: 4,
-                border: 'none', borderRadius: 7, padding: '7px 10px', position: 'relative',
-                fontFamily: 'Inter, sans-serif', fontSize: 11, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                flex: fill ? 1 : undefined,
+                border: 'none', borderRadius: 7, padding: fill ? '9px 10px' : '7px 10px', position: 'relative',
+                fontFamily: 'Inter, sans-serif', fontSize: fill ? 12 : 11, fontWeight: 700, cursor: 'pointer',
                 background: isActive ? 'linear-gradient(180deg, rgba(200,153,62,0.16), rgba(200,153,62,0.09))' : 'transparent',
                 color: isActive ? '#C8993E' : 'var(--text-muted)',
                 boxShadow: isActive ? 'inset 0 0 0 1px rgba(200,153,62,0.3)' : 'none',
               }}
             >
-              {t.icon && <Icon name={t.icon} style={{ fontSize: 12 }} />}
+              {t.icon && <Icon name={t.icon} style={{ fontSize: fill ? 13 : 12 }} />}
               {t.label}
               {t.badge > 0 && (
                 <span style={{ position: 'absolute', top: 3, right: 4, width: 7, height: 7, borderRadius: '50%', background: '#E05C6A' }} />

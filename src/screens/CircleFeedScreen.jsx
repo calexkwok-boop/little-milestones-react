@@ -480,6 +480,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 tabs={[{ id: 'circle-feed', label: 'Glimpse', icon: 'ti-eye' }, { id: 'friends', label: 'Activity', icon: 'ti-activity', badge: pendingRequestCount + circleBadge }]}
                 active="circle-feed"
                 onChange={onSwitchSection}
+                fill
               />
             </div>
 

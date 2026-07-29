@@ -188,6 +188,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                 tabs={[{ id: 'circle-feed', label: 'Glimpse', icon: 'ti-eye' }, { id: 'friends', label: 'Activity', icon: 'ti-activity' }]}
                 active="friends"
                 onChange={onSwitchSection}
+                fill
               />
             </div>
           </div>
