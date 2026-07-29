@@ -1,9 +1,27 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon } from '../icons';
 import SectionSwitcher from '../SectionSwitcher.jsx';
-import KidChip, { AuthorChip } from '../KidChip.jsx';
 import JournalEntryRow from '../JournalEntryRow.jsx';
-import { milestoneInfo } from '../constants.js';
+import { milestoneInfo, cloudinaryTransform, AVATAR_TRANSFORM_SM } from '../constants.js';
+
+// Circular avatar filter, styled to match RecapScreen's kid-filter circles /
+// Home's HomeKidFilter — "All" swaps to a solid fill since it has no photo,
+// self/partner get an avatar + accent ring instead, dimming when someone
+// else is the active filter.
+function AuthorCircle({ selected, dimmed, onClick, avatarUrl, name }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{ position: 'relative', width: 48, height: 48, borderRadius: '50%', border: selected ? '2.5px solid var(--accent)' : '2px solid transparent', padding: 0, cursor: 'pointer', flexShrink: 0, opacity: dimmed ? 0.4 : 1, transition: 'opacity 0.15s, border-color 0.15s' }}
+    >
+      <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: 'var(--accent)' }}>
+        {avatarUrl
+          ? <img src={cloudinaryTransform(avatarUrl, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
+          : name?.charAt(0)?.toUpperCase() || '?'}
+      </div>
+    </button>
+  );
+}
 
 function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserId, self, partner, onBack, onOpenEntry, onMarkAllRead, scrollPos, onSwitchSection }) {
   const scrollRef = useRef(null);
@@ -88,10 +106,27 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
           </div>
 
           {partner && (
-            <div className="scrollx">
-              <KidChip active={showAll} onClick={() => setActiveAuthorId(null)} icon="ti-layout-list" label="All" />
-              {self && <AuthorChip member={self} active={isSelf} onClick={() => setActiveAuthorId(currentUserId)} />}
-              <AuthorChip member={partner} active={!showAll && !isSelf} onClick={() => setActiveAuthorId(partner.user_id)} />
+            <div className="scrollx" style={{ gap: 12, justifyContent: 'center' }}>
+              <button
+                onClick={() => setActiveAuthorId(null)}
+                style={{ width: 48, height: 48, borderRadius: '50%', border: showAll ? '2.5px solid var(--accent)' : '2px solid var(--border)', background: showAll ? 'var(--accent)' : 'var(--bg-input)', color: showAll ? '#fff' : 'var(--text-muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}
+              >All</button>
+              {self && (
+                <AuthorCircle
+                  selected={isSelf}
+                  dimmed={!showAll && !isSelf}
+                  onClick={() => setActiveAuthorId(currentUserId)}
+                  avatarUrl={self.avatar_url}
+                  name={self.real_name || self.display_name}
+                />
+              )}
+              <AuthorCircle
+                selected={!showAll && !isSelf}
+                dimmed={!showAll ? isSelf : false}
+                onClick={() => setActiveAuthorId(partner.user_id)}
+                avatarUrl={partner.avatar_url}
+                name={partnerName}
+              />
             </div>
           )}
 

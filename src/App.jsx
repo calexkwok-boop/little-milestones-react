@@ -47,7 +47,7 @@ import triggerPush from './triggerPush.js';
 import CroppedImg, { CroppedBg, useImageCropPosition } from './CroppedImg.jsx';
 import useLongPress from './useLongPress.js';
 import JournalEntryRow from './JournalEntryRow.jsx';
-import KidChip, { KidSelector } from './KidChip.jsx';
+import KidChip from './KidChip.jsx';
 
 // Used for note/prompt cards tagging more than one kid — a card "about everyone"
 // shouldn't borrow any single kid's color, so it gets a warm neutral instead.
@@ -2223,7 +2223,7 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
               <Icon name={showSearch ? 'ti-x' : 'ti-search'} />
             </button>
           </div>
-          <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth />
+          <HomeKidFilter kids={kids} selected={kidFilter} onSelect={setKidFilter} />
           {showSearch && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px' }}>
               <Icon name="ti-search" style={{ color: 'var(--text-muted)', fontSize: 16 }} />
