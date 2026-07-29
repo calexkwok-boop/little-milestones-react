@@ -2470,7 +2470,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           {media.length > 0 ? (
             <>
               <div style={{ position: 'absolute', top: 14, left: 14, zIndex: 10, opacity: videoPlaying ? 0 : 1, transition: 'opacity 0.2s', pointerEvents: videoPlaying ? 'none' : 'auto' }}>
-                <button className="icon-btn-ghost" onClick={onBack} style={{ width: 32, height: 32, fontSize: 16 }}><Icon name="ti-arrow-left" /></button>
+                <button className="icon-btn-ghost" onClick={onBack} style={{ width: 28, height: 28, fontSize: 14 }}><Icon name="ti-arrow-left" /></button>
               </div>
               <div
                 className="gallery-stage"
@@ -2514,9 +2514,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 {onUpdateCrop && !videoPlaying && (
                   <button
                     onClick={e => { e.stopPropagation(); setShowCrop(true); }}
-                    style={{ position: 'absolute', bottom: 12, right: 12, width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
+                    style={{ position: 'absolute', bottom: 12, right: 12, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 5 }}
                   >
-                    <Icon name="ti-crop" style={{ fontSize: 14 }} />
+                    <Icon name="ti-crop" style={{ fontSize: 12 }} />
                   </button>
                 )}
                 {media[activeSlide]?.type !== 'video' && (
