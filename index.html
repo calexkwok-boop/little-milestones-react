@@ -3,6 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <script>
+      // Temporary crash diagnostic: a white-screen crash on mobile Safari that
+      // survives React's own error boundaries means the failure isn't a normal
+      // caught render exception — this catches it at the raw window level
+      // (registered before the app bundle even starts) and paints the actual
+      // message directly onto the page, so it's visible with zero dev tools.
+      // Safe to remove once the underlying bug is found.
+      (function () {
+        function showCrash(msg) {
+          var el = document.getElementById('__crash_overlay__');
+          if (!el) {
+            el = document.createElement('div');
+            el.id = '__crash_overlay__';
+            el.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#1a1a1a;color:#fff;padding:20px;font:12px/1.5 monospace;overflow:auto;white-space:pre-wrap;word-break:break-word;';
+            document.body.appendChild(el);
+          }
+          el.textContent += (el.textContent ? '\n\n---\n\n' : '') + msg;
+        }
+        window.addEventListener('error', function (e) {
+          showCrash('ERROR: ' + (e.message || e.error) + '\n' + (e.error && e.error.stack || (e.filename + ':' + e.lineno + ':' + e.colno)));
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e.reason;
+          showCrash('UNHANDLED REJECTION: ' + (r && r.message || r) + (r && r.stack ? '\n' + r.stack : ''));
+        });
+      })();
+    </script>
     <title>Patina</title>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#4A5E50" />
