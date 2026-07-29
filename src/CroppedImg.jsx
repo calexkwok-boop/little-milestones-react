@@ -9,6 +9,7 @@ import { useState, useRef, useCallback, useLayoutEffect } from 'react';
 export function useImageCropPosition(url, cropY, containerRef) {
   const [objY, setObjY] = useState(cropY);
   const dimsRef = useRef(null);
+  const [inView, setInView] = useState(false);
 
   const recompute = useCallback(() => {
     const container = containerRef.current;
@@ -25,8 +26,23 @@ export function useImageCropPosition(url, cropY, containerRef) {
     setObjY((top / extra) * 100);
   }, [cropY, containerRef]);
 
+  // Wait until the container is actually near the viewport before touching
+  // the network/decoder at all — otherwise every row in a long list (a
+  // family's whole journal history, say) force-decodes its full photo the
+  // instant it mounts regardless of scroll position, which can exhaust
+  // memory on mobile Safari and crash the whole tab to a blank white screen.
   useLayoutEffect(() => {
-    if (!url) return;
+    const container = containerRef.current;
+    if (!container || typeof IntersectionObserver === 'undefined') { setInView(true); return; }
+    const io = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) { setInView(true); io.disconnect(); }
+    }, { rootMargin: '600px' });
+    io.observe(container);
+    return () => io.disconnect();
+  }, [containerRef]);
+
+  useLayoutEffect(() => {
+    if (!url || !inView) return;
     let cancelled = false;
     const img = new Image();
     img.onload = () => {
@@ -36,7 +52,7 @@ export function useImageCropPosition(url, cropY, containerRef) {
     };
     img.src = url;
     return () => { cancelled = true; };
-  }, [url, recompute]);
+  }, [url, inView, recompute]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -62,7 +78,7 @@ function CroppedImg({ src, cropY = 50, alt = '', fade = false, onClick, onError,
         onLoad={() => setLoaded(true)}
         onClick={onClick}
         onError={onError}
-        loading={fade ? 'lazy' : undefined}
+        loading="lazy"
         style={{
           width: '100%', height: '100%', objectFit: 'cover', objectPosition: `center ${objY}%`, display: 'block',
           ...(fade ? { opacity: loaded ? 1 : 0, transition: 'opacity 0.35s ease' } : {}),
