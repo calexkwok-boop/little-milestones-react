@@ -22,6 +22,7 @@ function PatinaJarRecordScreen({ kid, year, monthIndex, onCancel, onUploadToClou
   const [uploading, setUploading] = useState(false);
   const [mediaError, setMediaError] = useState('');
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [streamReady, setStreamReady] = useState(false);
 
   const videoPreviewRef = useRef(null);
   const streamRef = useRef(null);
@@ -32,6 +33,7 @@ function PatinaJarRecordScreen({ kid, year, monthIndex, onCancel, onUploadToClou
 
   useEffect(() => {
     let cancelled = false;
+    setStreamReady(false);
     if (!navigator.mediaDevices?.getUserMedia) {
       setMediaError("This browser can't access the camera to record — try a different browser or device.");
       return;
@@ -41,6 +43,7 @@ function PatinaJarRecordScreen({ kid, year, monthIndex, onCancel, onUploadToClou
       streamRef.current = stream;
       if (videoPreviewRef.current) videoPreviewRef.current.srcObject = stream;
       setMediaError('');
+      setStreamReady(true);
     }).catch(() => {
       setMediaError("Couldn't access the camera to record this month's question — check your camera and microphone permissions and try again.");
     });
@@ -145,7 +148,7 @@ function PatinaJarRecordScreen({ kid, year, monthIndex, onCancel, onUploadToClou
         ) : (
           <button
             onClick={recording ? stopRecording : startRecording}
-            disabled={!streamRef.current && !recording}
+            disabled={!streamReady && !recording}
             style={{ width: 62, height: 62, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.85)', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           >
             {recording
