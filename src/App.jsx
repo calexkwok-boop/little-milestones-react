@@ -6675,23 +6675,25 @@ export default function App() {
       })()}
 
       {screen === 'journal' && (
-        <JournalScreen
-          entries={entries}
-          kids={kids}
-          kidFilter={kidFilter}
-          setKidFilter={setKidFilter}
-          onOpenEntry={openEntry}
-          onNewEntry={() => { setComposeMode('letter'); setScreen('new-entry'); }}
-          memberCount={familyMembers.length}
-          scrollPos={journalScrollPos}
-          onRefresh={handleRefresh}
-          onToggleFavorite={handleToggleFavorite}
-          onDeleteEntry={handleQuickDelete}
-          reactionCounts={reactionCounts}
-          onBack={() => setScreen(journalBackScreen)}
-          onGenerateShareLink={handleGenerateShareLink}
-          milestonesOnly={journalMilestonesOnly}
-        />
+        <ScreenErrorBoundary onBack={() => setScreen(journalBackScreen)}>
+          <JournalScreen
+            entries={entries}
+            kids={kids}
+            kidFilter={kidFilter}
+            setKidFilter={setKidFilter}
+            onOpenEntry={openEntry}
+            onNewEntry={() => { setComposeMode('letter'); setScreen('new-entry'); }}
+            memberCount={familyMembers.length}
+            scrollPos={journalScrollPos}
+            onRefresh={handleRefresh}
+            onToggleFavorite={handleToggleFavorite}
+            onDeleteEntry={handleQuickDelete}
+            reactionCounts={reactionCounts}
+            onBack={() => setScreen(journalBackScreen)}
+            onGenerateShareLink={handleGenerateShareLink}
+            milestonesOnly={journalMilestonesOnly}
+          />
+        </ScreenErrorBoundary>
       )}
 
       {screen === 'entry-detail' && activeEntry && (
