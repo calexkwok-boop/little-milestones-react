@@ -200,18 +200,18 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   <div
                     className="stat-tile"
                     onClick={() => onViewKidMoments?.(k.id)}
-                    style={{ cursor: onViewKidMoments ? 'pointer' : undefined }}
+                    style={{ cursor: onViewKidMoments ? 'pointer' : undefined, background: 'var(--accent)', opacity: 0.65 }}
                   >
-                    <p style={{ fontSize: 18, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{kEntries.length}</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '3px 0 0' }}>moments</p>
+                    <p style={{ fontSize: 18, color: '#C8993E', margin: 0, fontWeight: 700 }}>{kEntries.length}</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: '3px 0 0', fontWeight: 600 }}>moments</p>
                   </div>
                   <div
                     className="stat-tile"
                     onClick={() => onViewKidMilestones?.(k.id)}
-                    style={{ cursor: onViewKidMilestones ? 'pointer' : undefined }}
+                    style={{ cursor: onViewKidMilestones ? 'pointer' : undefined, background: 'rgba(212,133,106,0.12)' }}
                   >
-                    <p style={{ fontSize: 18, color: 'var(--accent)', margin: 0, fontWeight: 700 }}>{kMilestones}</p>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '3px 0 0' }}>milestones</p>
+                    <p style={{ fontSize: 18, color: '#D4856A', margin: 0, fontWeight: 700 }}>{kMilestones}</p>
+                    <p style={{ fontSize: 11, color: '#D4856A', margin: '3px 0 0', fontWeight: 600 }}>milestones</p>
                   </div>
                 </div>
                 <button

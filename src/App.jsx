@@ -605,7 +605,7 @@ function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDele
 }
 
 const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onClick, cropY = 50, onLongPress }) {
-  const cardH = 240;
+  const cardH = featured ? 240 : 160;
   const photoRef = useRef(null);
   const lp = useLongPress(onLongPress ? () => onLongPress(entry) : null);
   const [videoPlaying, setVideoPlaying] = useState(false);
@@ -961,6 +961,82 @@ function SectionDivider({ label }) {
   );
 }
 
+// One cell per entry, photo or not — mirrors RecapScreen's RecapGridCell so
+// Home's "Recent"/"Recently added" lists read as the same kind of dense grid
+// as Keepsakes → Recap, rather than the old stacked full-width letter cards.
+function HomeGridCell({ entry, onOpenEntry }) {
+  const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
+  const media = entry.media?.[0];
+  const isVideo = media?.type === 'video';
+  return (
+    <div
+      onClick={() => onOpenEntry(entry)}
+      style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'pointer', position: 'relative', background: media ? 'var(--bg-card)' : entry.palette.bg, boxShadow: m ? '0 0 0 2px #C8993E' : 'none' }}
+    >
+      {media ? (
+        <>
+          {isVideo ? (
+            <CroppedImg src={videoThumbUrl(media.url, 'so_0,w_240,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
+          ) : (
+            <CroppedImg src={cloudinaryTransform(media.url, 'w_240,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
+          )}
+          {isVideo && (
+            <div style={{ position: 'absolute', bottom: 5, right: 5, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon name="ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ padding: '9px 8px', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, lineHeight: 0.6, color: entry.palette.tint, opacity: 0.55 }}>"</span>
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 10, lineHeight: 1.4, margin: '5px 0 0', color: entry.palette.tint, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}>
+            {(entry.text || '').slice(0, 100)}
+          </p>
+        </div>
+      )}
+      {m && (
+        <Icon name="ti-star-filled" style={{ position: 'absolute', top: 5, right: 5, fontSize: 13, color: '#C8993E', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }} />
+      )}
+    </div>
+  );
+}
+
+// Circular avatar filter row, styled after RecapScreen's kid-filter circles —
+// replaces KidSelector's pill chips on Home specifically (KidSelector stays
+// as-is for Journal/other screens that still use the pill style).
+function HomeKidFilter({ kids, selected, onSelect, unseenKidIds }) {
+  return (
+    <div className="scrollx" style={{ gap: 12, justifyContent: kids.length <= 4 ? 'center' : 'flex-start' }}>
+      <button
+        onClick={() => onSelect(null)}
+        style={{ width: 48, height: 48, borderRadius: '50%', border: selected === null ? '2.5px solid var(--accent)' : '2px solid var(--border)', background: selected === null ? 'var(--accent)' : 'var(--bg-input)', color: selected === null ? '#fff' : 'var(--text-muted)', fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', flexShrink: 0 }}
+      >All</button>
+      {kids.map(kid => (
+        <button
+          key={kid.id}
+          onClick={() => onSelect(kid.id)}
+          style={{ position: 'relative', width: 48, height: 48, borderRadius: '50%', border: selected === kid.id ? '2.5px solid var(--accent)' : '2px solid transparent', padding: 0, cursor: 'pointer', flexShrink: 0, opacity: selected !== null && selected !== kid.id ? 0.4 : 1, transition: 'opacity 0.15s, border-color 0.15s' }}
+        >
+          <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden' }}>
+            <KidThumb kid={kid} size={48} />
+          </div>
+          {unseenKidIds?.has(kid.id) && (
+            <span style={{ position: 'absolute', top: -1, right: -1, width: 11, height: 11, borderRadius: '50%', background: '#E05C6A', border: '2px solid var(--bg)' }} />
+          )}
+        </button>
+      ))}
+      {kids.length >= 2 && (
+        <button
+          onClick={() => onSelect('both')}
+          style={{ width: 48, height: 48, borderRadius: '50%', border: selected === 'both' ? '2.5px solid var(--accent)' : '2px solid var(--border)', background: selected === 'both' ? 'var(--accent)' : 'var(--bg-input)', color: selected === 'both' ? '#fff' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+        >
+          <Icon name="ti-users" style={{ fontSize: 16 }} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ordinal(n) {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = n % 100;
@@ -1246,18 +1322,6 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
 
   const kidMap = useMemo(() => new Map(kids.map(k => [k.id, k])), [kids]);
 
-  const letterCounts = useMemo(() => {
-    const countMap = new Map(kids.map(k => [k.id, 0]));
-    for (const e of entries) if (e.type !== 'note') for (const id of e.kids) if (countMap.has(id)) countMap.set(id, countMap.get(id) + 1);
-    return kids.map(k => ({ kid: k, count: countMap.get(k.id) ?? 0 }));
-  }, [kids, entries]);
-
-  const noteCounts = useMemo(() => {
-    const countMap = new Map(kids.map(k => [k.id, 0]));
-    for (const e of entries) if (e.type === 'note') for (const id of e.kids) if (countMap.has(id)) countMap.set(id, countMap.get(id) + 1);
-    return kids.map(k => ({ kid: k, count: countMap.get(k.id) ?? 0 }));
-  }, [kids, entries]);
-
   // Nudge toward whichever kid has gone quietest lately (by recency of their last
   // entry, not lifetime volume — an older kid naturally has more entries but isn't
   // necessarily "more written about right now"). Only shows once someone's actually
@@ -1389,12 +1453,22 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     return s % 2 === 0 ? 'once' : 'sameAge';
   }, [onceUponATime, onceUponATimeNote, sameAgeGroup, kidFilter, currentSlot]);
 
-  const Header = () => (
-    <div style={{ textAlign: 'center' }}>
-      <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
-      <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
-    </div>
-  );
+  const Header = () => {
+    const scoped = entries.filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)));
+    const letterCount = scoped.filter(e => e.type !== 'note').length;
+    const noteCount = scoped.filter(e => e.type === 'note').length;
+    return (
+      <div style={{ textAlign: 'center' }}>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
+        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
+        {letterCount > 0 && (
+          <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '4px 0 0', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
+            {letterCount} letter{letterCount !== 1 ? 's' : ''}{noteCount > 0 ? ` · ${noteCount} note${noteCount !== 1 ? 's' : ''}` : ''}
+          </p>
+        )}
+      </div>
+    );
+  };
 
   if (entries.length === 0) {
     const prompt = 'For all the things you wish they knew, and all the moments you never want to forget.';
@@ -1464,7 +1538,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           <Header />
 
           {kids.length > 1 && (
-            <KidSelector kids={kids} selected={kidFilter} onSelect={setKidFilter} showBoth unseenKidIds={unseenKidIds} />
+            <HomeKidFilter kids={kids} selected={kidFilter} onSelect={setKidFilter} unseenKidIds={unseenKidIds} />
           )}
 
           {birthdayToday.map(k => (
@@ -1699,12 +1773,11 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           )}
 
           {recent.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <SectionDivider label="Recent" />
-              {recent.map(entry => {
-                const kid = kidMap.get(entry.kids[0]);
-                return <EntryCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY} onLongPress={handleLongPress} />;
-              })}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                {recent.map(entry => <HomeGridCell key={entry.id} entry={entry} onOpenEntry={handleOpenEntry} />)}
+              </div>
               {entries.length > 3 && (
                 <button onClick={onSeeAll} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'var(--text-3)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, padding: '4px 0', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5 }}>
                   See all letters <Icon name="ti-arrow-right" style={{ fontSize: 13 }} />
@@ -1716,35 +1789,11 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           {recentlyAdded.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               <SectionDivider label="Recently added" />
-              {recentlyAdded.map(entry => {
-                const kid = kidMap.get(entry.kids[0]);
-                return <EntryCard key={entry.id} entry={entry} kid={kid} allKids={kids} featured={true} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY} onLongPress={handleLongPress} />;
-              })}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                {recentlyAdded.map(entry => <HomeGridCell key={entry.id} entry={entry} onOpenEntry={handleOpenEntry} />)}
+              </div>
             </div>
           )}
-
-          <div style={{ background: 'var(--bg-card)', borderRadius: 14, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {letterCounts.map(({ kid, count }) => {
-              const noteCount = noteCounts.find(nc => nc.kid.id === kid.id)?.count ?? 0;
-              return (
-                <div key={kid.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <KidThumb kid={kid} size={26} />
-                  <p style={{ fontSize: 14, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>
-                    <strong>{count}</strong>
-                    <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', color: 'var(--text-3)' }}> letter{count !== 1 ? 's' : ''}</span>
-                    {noteCount > 0 && (
-                      <>
-                        <span style={{ color: 'var(--text-muted)' }}> &middot; </span>
-                        <strong>{noteCount}</strong>
-                        <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', color: 'var(--text-3)' }}> note{noteCount !== 1 ? 's' : ''}</span>
-                      </>
-                    )}
-                    <span style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', color: 'var(--text-3)' }}> to {kid.name}</span>
-                  </p>
-                </div>
-              );
-            })}
-          </div>
 
 
           {(circleSnapshot.length > 0 || friendBirthdaysToday.length > 0) && (() => {
@@ -4355,10 +4404,10 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) 
   const homeBadge = kids.length <= 1 ? unseenPartnerIds.length : 0;
   const tabs = [
     { id: 'home', icon: 'ti-home', label: 'Home', group: ['home'], badge: homeBadge },
-    { id: 'circle-feed', icon: 'ti-users', label: 'Friends', group: ['circle-feed', 'friends'], badge: pendingRequestCount + circleBadge },
+    { id: 'recap', icon: 'ti-keepsakes', label: 'Keepsakes', group: ['recap', 'partner-letters', 'compare'] },
   ];
   const tabsRight = [
-    { id: 'recap', icon: 'ti-keepsakes', label: 'Keepsakes', group: ['recap', 'partner-letters', 'compare'] },
+    { id: 'circle-feed', icon: 'ti-users', label: 'Friends', group: ['circle-feed', 'friends'], badge: pendingRequestCount + circleBadge },
     { id: 'profile', icon: 'ti-profile-quill', label: 'Profile', group: ['profile'] },
   ];
 

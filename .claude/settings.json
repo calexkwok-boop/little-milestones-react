@@ -94,7 +94,13 @@
       "Bash(awk 'NR==5995,NR==6153' src/App.jsx)",
       "Bash(awk 'NR==6239,NR==6974' src/App.jsx)",
       "Bash(npm run *)",
-      "Bash(powershell -Command \"Stop-Process -Id 18280 -Force\")"
+      "Bash(powershell -Command \"Stop-Process -Id 18280 -Force\")",
+      "Bash(node \"C:\\\\Users\\\\a_kwo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react\\\\a7938cc7-8657-4305-bc28-7e3ec0ba7e77\\\\scratchpad\\\\screenshot.js\" \"C:\\\\Users\\\\a_kwo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react\\\\a7938cc7-8657-4305-bc28-7e3ec0ba7e77\\\\scratchpad\\\\home.png\")",
+      "Bash(node _screenshot_tmp.cjs \"C:\\\\Users\\\\a_kwo\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-a-kwo-Downloads-little-milestones-react-little-milestones-react\\\\a7938cc7-8657-4305-bc28-7e3ec0ba7e77\\\\scratchpad\\\\home.png\")",
+      "Bash(rm _screenshot_tmp.cjs)",
+      "Bash(npm uninstall *)",
+      "Bash(awk 'NR<=1300 && /^function [A-Z]/{line=NR; name=$0} END{print line\": \"name}' src/App.jsx)",
+      "Bash(awk 'NR>=1029 && NR<=2088 && /^function [A-Za-z]/{print NR\": \"$0}' src/App.jsx)"
     ],
     "additionalDirectories": [
       "\\tmp"

@@ -1,9 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Icon } from '../icons';
-import { TODAY, milestoneInfo, cloudinaryTransform, videoThumbUrl } from '../constants.js';
+import { TODAY, milestoneInfo, cloudinaryTransform, videoThumbUrl, photoCropY } from '../constants.js';
 import KidThumb from '../KidThumb.jsx';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 import { Coachmark } from '../Coachmark.jsx';
+import CroppedImg from '../CroppedImg.jsx';
 
 function RecapEntryRow({ entry, kids, onOpenEntry, nextIsMilestone }) {
   const entryKids = (entry.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
@@ -69,9 +70,9 @@ function RecapGridCell({ entry, onOpenEntry }) {
       {media ? (
         <>
           {isVideo ? (
-            <img src={videoThumbUrl(media.url, 'so_0,w_240,q_auto,f_auto')} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+            <CroppedImg src={videoThumbUrl(media.url, 'so_0,w_240,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
           ) : (
-            <img src={cloudinaryTransform(media.url, 'w_240,q_auto,f_auto')} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" />
+            <CroppedImg src={cloudinaryTransform(media.url, 'w_240,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
           )}
           {isVideo && (
             <div style={{ position: 'absolute', bottom: 5, right: 5, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
