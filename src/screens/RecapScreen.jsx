@@ -216,7 +216,7 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
 
             <div>
               <SectionSwitcher
-                tabs={[{ id: 'recap', label: 'Recap', icon: 'ti-sparkles' }, { id: 'partner-letters', label: 'All letters', icon: 'ti-mail' }, { id: 'compare', label: 'At the same age', icon: 'ti-arrows-diff' }, { id: 'reels', label: 'Reels', icon: 'ti-player-play' }]}
+                tabs={[{ id: 'recap', label: 'Recap', icon: 'ti-sparkles' }, { id: 'partner-letters', label: 'Letters', icon: 'ti-mail' }, { id: 'compare', label: 'Same age', icon: 'ti-arrows-diff' }, { id: 'reels', label: 'Reels', icon: 'ti-player-play' }]}
                 active="recap"
                 onChange={onSwitchSection}
               />
