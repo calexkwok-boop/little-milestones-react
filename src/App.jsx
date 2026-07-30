@@ -2766,7 +2766,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   <span style={{ position: 'absolute', left: 14, top: 0, borderRadius: '50%', boxShadow: '0 0 0 2px var(--bg-card)' }}><KidThumb kid={other} size={22} /></span>
                 </span>
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--accent)' }}>
-                  {others.length === 1 ? `Compare with ${other.name.split(' ')[0]} at the same age` : 'Compare at the same age'}
+                  {others.length === 1 ? `Find ${other.name.split(' ')[0]} at the same age` : 'Find at the same age'}
                 </span>
                 <Icon name="ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
               </button>

@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
-import { exactAge, dateForAge, cloudinaryTransform, videoThumbUrl, AVATAR_TRANSFORM_LG } from '../constants.js';
+import CroppedImg from '../CroppedImg.jsx';
+import { exactAge, dateForAge, cloudinaryTransform, videoThumbUrl, photoCropY } from '../constants.js';
 
 let _exifr = null;
 const loadExifr = () => _exifr ?? (_exifr = import('exifr').then(m => m.default));
@@ -47,12 +48,15 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
   // Show the actual photo/video being compared against, not just the source
   // kid's generic profile picture — that's the specific moment this screen
   // is trying to help match, so it's the more useful thing to see here.
+  // Fetched width-only (not server-side squared) so CroppedImg can crop to
+  // the photo's own saved focal point instead of Cloudinary's default center.
   const sourceMedia = sourceEntry.media?.[0];
   const sourceThumbUrl = sourceMedia
     ? (sourceMedia.type === 'video'
-      ? videoThumbUrl(sourceMedia.url, 'so_0,w_200,h_200,c_fill,q_auto,f_auto')
-      : cloudinaryTransform(sourceMedia.url, AVATAR_TRANSFORM_LG))
+      ? videoThumbUrl(sourceMedia.url, 'so_0,w_200,q_auto,f_auto')
+      : cloudinaryTransform(sourceMedia.url, 'w_200,q_auto,f_auto'))
     : null;
+  const sourceCropY = sourceMedia ? photoCropY(sourceEntry.media, 0, sourceEntry) : 50;
 
   async function handleFileChange(e) {
     const file = e.target.files?.[0];
@@ -88,7 +92,7 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 20 }}>
                 <div style={{ boxShadow: `0 0 0 3px ${sourceAccent}`, borderRadius: '50%' }}>
                   {sourceThumbUrl
-                    ? <img src={sourceThumbUrl} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+                    ? <div style={{ width: 64, height: 64, borderRadius: '50%', overflow: 'hidden' }}><CroppedImg src={sourceThumbUrl} cropY={sourceCropY} /></div>
                     : <KidThumb kid={sourceKid} size={64} />}
                 </div>
                 <Icon name="ti-arrows-diff" style={{ fontSize: 18, color: '#C8993E' }} />
@@ -104,7 +108,7 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
             <input ref={fileInputRef} type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={handleFileChange} />
             <button className="btn btn-gold" style={{ width: '100%', maxWidth: 320, marginTop: 18, opacity: picking ? 0.7 : 1 }} disabled={picking} onClick={() => fileInputRef.current?.click()}>
               <Icon name="ti-photo" style={{ fontSize: 17 }} />
-              {picking ? 'One moment…' : `Find a photo or video from ${monthYearLabel}`}
+              {picking ? 'One moment…' : `Find something from ${monthYearLabel}`}
             </button>
             <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, marginTop: 10, padding: 8, fontFamily: "'Urbanist', sans-serif" }}>
               Never mind
