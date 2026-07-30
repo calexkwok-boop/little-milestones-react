@@ -1,13 +1,21 @@
 import { useRef, useState } from 'react';
 import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
-import { exactAge, dateForAge } from '../constants.js';
+import { exactAge, dateForAge, cloudinaryTransform, videoThumbUrl, AVATAR_TRANSFORM_LG } from '../constants.js';
 
 let _exifr = null;
 const loadExifr = () => _exifr ?? (_exifr = import('exifr').then(m => m.default));
 
 function toISODate(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function hexToRgba(hex, alpha) {
+  const clean = (hex || '').replace('#', '');
+  const r = parseInt(clean.slice(0, 2), 16) || 0;
+  const g = parseInt(clean.slice(2, 4), 16) || 0;
+  const b = parseInt(clean.slice(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
 // Prefers the photo's own EXIF capture date over the computed target — same
@@ -24,7 +32,6 @@ async function extractExifDate(file) {
 
 export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, stepLabel, onCancel, onConfirm }) {
   const [picking, setPicking] = useState(false);
-  const [copied, setCopied] = useState(false);
   const fileInputRef = useRef(null);
   const age = exactAge(sourceKid.birthdate, sourceEntry.date);
   const targetDate = dateForAge(targetKid.birthdate, age);
@@ -35,13 +42,17 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
       : `${age.days} day${age.days !== 1 ? 's' : ''} old`;
   const targetDateLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const monthYearLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-
-  function handleCopyMonthYear() {
-    navigator.clipboard.writeText(monthYearLabel).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1600);
-    }).catch(() => {});
-  }
+  const sourceAccent = sourceKid.accent || '#4A5E50';
+  const targetAccent = targetKid.accent || '#4A5E50';
+  // Show the actual photo/video being compared against, not just the source
+  // kid's generic profile picture — that's the specific moment this screen
+  // is trying to help match, so it's the more useful thing to see here.
+  const sourceMedia = sourceEntry.media?.[0];
+  const sourceThumbUrl = sourceMedia
+    ? (sourceMedia.type === 'video'
+      ? videoThumbUrl(sourceMedia.url, 'so_0,w_200,h_200,c_fill,q_auto,f_auto')
+      : cloudinaryTransform(sourceMedia.url, AVATAR_TRANSFORM_LG))
+    : null;
 
   async function handleFileChange(e) {
     const file = e.target.files?.[0];
@@ -67,38 +78,33 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
             <div style={{ width: 36 }} />
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '20px 8px 4px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18 }}>
-              <KidThumb kid={sourceKid} size={48} />
-              <Icon name="ti-arrow-right" style={{ fontSize: 20, color: '#C8993E' }} />
-              <KidThumb kid={targetKid} size={48} />
-            </div>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase', color: 'var(--text-muted)', margin: 0 }}>
-              {targetKid.name.split(' ')[0]} was this old on
-            </p>
-            <p style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 21, color: '#C8993E', margin: '6px 0 4px' }}>
-              {targetDateLabel}
-            </p>
-            <p style={{ fontSize: 13, color: 'var(--text-2)', margin: '0 0 16px', maxWidth: '26ch' }}>
-              {ageLabel} — same as {sourceKid.name.split(' ')[0]} in this post.
-            </p>
-            <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 12, padding: '10px 10px 10px 16px', display: 'flex', alignItems: 'center', gap: 10, width: '100%', maxWidth: 320 }}>
-              <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: 'var(--text)', textAlign: 'left' }}>
-                📍 Look for photos around {monthYearLabel}
-              </span>
-              <button onClick={handleCopyMonthYear} style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 10px', cursor: 'pointer', color: copied ? 'var(--accent)' : 'var(--text-2)', fontSize: 11.5, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", flexShrink: 0 }}>
-                <Icon name={copied ? 'ti-check' : 'ti-copy'} style={{ fontSize: 13 }} />
-                {copied ? 'Copied' : 'Copy'}
-              </button>
-            </div>
-            <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '8px 0 0', maxWidth: 320 }}>
-              Copy it, then paste into the search in Photos once it opens.
-            </p>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '8px 0 4px' }}>
 
-            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleFileChange} />
+            <div style={{
+              width: '100%', borderRadius: 18, padding: '24px 20px',
+              background: `linear-gradient(160deg, ${hexToRgba(sourceAccent, 0.16)} 0%, ${hexToRgba(targetAccent, 0.16)} 100%)`,
+              border: `1px solid ${hexToRgba(targetAccent, 0.25)}`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, marginBottom: 20 }}>
+                <div style={{ boxShadow: `0 0 0 3px ${sourceAccent}`, borderRadius: '50%' }}>
+                  {sourceThumbUrl
+                    ? <img src={sourceThumbUrl} alt="" style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', display: 'block' }} />
+                    : <KidThumb kid={sourceKid} size={64} />}
+                </div>
+                <Icon name="ti-arrows-diff" style={{ fontSize: 18, color: '#C8993E' }} />
+                <div style={{ boxShadow: `0 0 0 3px ${targetAccent}`, borderRadius: '50%' }}>
+                  <KidThumb kid={targetKid} size={64} />
+                </div>
+              </div>
+              <p style={{ fontSize: 16, color: 'var(--text)', margin: 0, lineHeight: 1.55, maxWidth: '28ch', marginLeft: 'auto', marginRight: 'auto' }}>
+                {targetKid.name.split(' ')[0]} was <strong style={{ color: 'var(--accent)' }}>{ageLabel}</strong> on <strong style={{ color: 'var(--accent)' }}>{targetDateLabel}</strong>
+              </p>
+            </div>
+
+            <input ref={fileInputRef} type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={handleFileChange} />
             <button className="btn btn-gold" style={{ width: '100%', maxWidth: 320, marginTop: 18, opacity: picking ? 0.7 : 1 }} disabled={picking} onClick={() => fileInputRef.current?.click()}>
               <Icon name="ti-photo" style={{ fontSize: 17 }} />
-              {picking ? 'One moment…' : 'Find a photo from then'}
+              {picking ? 'One moment…' : `Find a photo or video from ${monthYearLabel}`}
             </button>
             <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, marginTop: 10, padding: 8, fontFamily: "'Urbanist', sans-serif" }}>
               Never mind

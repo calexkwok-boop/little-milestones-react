@@ -2899,16 +2899,18 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
             <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 18 }}>
               <div style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-elevated)' }}>
-                <img src={pendingSameAgeMatch.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                {pendingSameAgeMatch.file?.type?.startsWith('video')
+                  ? <video src={pendingSameAgeMatch.previewUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  : <img src={pendingSameAgeMatch.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />}
               </div>
               <div>
                 <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Add {pendingSameAgeMatch.targetKid.name.split(' ')[0]} to this post?</p>
-                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '4px 0 0' }}>This photo will be added and the post will show both kids.</p>
+                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '4px 0 0' }}>This {pendingSameAgeMatch.file?.type?.startsWith('video') ? 'video' : 'photo'} will be added and the post will show both kids.</p>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={onCancelSameAgeMatch}>Cancel</button>
-              <button className="btn btn-gold" style={{ flex: 1 }} onClick={onConfirmSameAgeMatch}>Add photo</button>
+              <button className="btn btn-gold" style={{ flex: 1 }} onClick={onConfirmSameAgeMatch}>Add {pendingSameAgeMatch.file?.type?.startsWith('video') ? 'video' : 'photo'}</button>
             </div>
           </div>
         </div>
@@ -3529,7 +3531,8 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   function handleConfirmDraftSameAge(photoDate, file) {
     const targetKid = draftSameAgeTarget;
     const url = URL.createObjectURL(file);
-    setMedia(prev => [...prev, { url, type: 'image', kidId: targetKid.id }]);
+    const mediaType = file.type.startsWith('video') ? 'video' : 'image';
+    setMedia(prev => [...prev, { url, type: mediaType, kidId: targetKid.id }]);
     setFileObjects(prev => [...prev, file]);
     setSelectedKids(prev => prev.includes(targetKid.id) ? prev : [...prev, targetKid.id]);
     setSameAgeDates(prev => ({ ...prev, [targetKid.id]: photoDate }));
@@ -4225,7 +4228,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       {draftSameAgeTarget && (
         <div style={{ position: 'absolute', inset: 0, background: 'var(--bg)', zIndex: 12 }}>
           <SameAgeMatchScreen
-            sourceEntry={{ date: entryDate }}
+            sourceEntry={{ date: entryDate, media }}
             sourceKid={kids.find(k => k.id === selectedKids[0])}
             targetKid={draftSameAgeTarget}
             stepLabel={draftSameAgeQueueTotal > 1 ? `${draftSameAgeQueueTotal - draftSameAgeQueue.length} of ${draftSameAgeQueueTotal}` : null}
@@ -5938,17 +5941,18 @@ export default function App() {
   async function handleAddSameAgeMatch(sourceEntry, targetKid, photoDate, file) {
     const newKidIds = [...sourceEntry.kids, targetKid.id];
     const newSameAgeDates = { ...(sourceEntry.sameAgeDates || {}), [targetKid.id]: photoDate };
+    const mediaType = file.type.startsWith('video') ? 'video' : 'image';
     if (localMode || !supabase || !session) {
       const url = URL.createObjectURL(file);
-      const updated = { ...sourceEntry, kids: newKidIds, sameAgeDates: newSameAgeDates, media: [...sourceEntry.media, { url, type: 'image', kidId: targetKid.id }] };
+      const updated = { ...sourceEntry, kids: newKidIds, sameAgeDates: newSameAgeDates, media: [...sourceEntry.media, { url, type: mediaType, kidId: targetKid.id }] };
       setEntries(prev => prev.map(e => e.id === sourceEntry.id ? updated : e));
       return updated;
     }
     try {
-      const url = await uploadToCloudinary(file, 'image');
-      await supabase.from('entry_media').insert({ entry_id: sourceEntry.id, url, type: 'image', kid_id: targetKid.id });
+      const url = await uploadToCloudinary(file, mediaType);
+      await supabase.from('entry_media').insert({ entry_id: sourceEntry.id, url, type: mediaType, kid_id: targetKid.id });
       await supabase.from('entries').update({ kid_ids: newKidIds, same_age_dates: newSameAgeDates }).eq('id', sourceEntry.id);
-      const updated = { ...sourceEntry, kids: newKidIds, sameAgeDates: newSameAgeDates, media: [...sourceEntry.media, { url, type: 'image', kidId: targetKid.id }] };
+      const updated = { ...sourceEntry, kids: newKidIds, sameAgeDates: newSameAgeDates, media: [...sourceEntry.media, { url, type: mediaType, kidId: targetKid.id }] };
       setEntries(prev => prev.map(e => e.id === sourceEntry.id ? updated : e));
       return updated;
     } catch (err) {
