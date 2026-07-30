@@ -421,7 +421,16 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
   // through these two instead of hardcoding cream or white.
   const themeDark = theme.textMode === 'dark';
   const ink = themeDark ? '#2A3B33' : '#F8F4EC';
-  const inkDim = a => themeDark ? `rgba(42,59,51,${a})` : `rgba(255,255,255,${a})`;
+  // The lighter theme's dim text (author line, tagline, date) needs a much
+  // higher opacity floor than the dark-ground themes' white-on-dark version —
+  // dark ink at 0.5 opacity over a pale sky reads as barely-there grey, where
+  // white at 0.5 over a dark ground still reads fine.
+  const inkDim = a => themeDark ? `rgba(42,59,51,${Math.min(1, a + 0.28)})` : `rgba(255,255,255,${a})`;
+  // Dark ink over a busy illustrated background (alpine's mountains/sky) needs
+  // more than color contrast alone — a soft light halo keeps the solid-color
+  // title/year legible even where it crosses a ridge silhouette.
+  const inkShadow = themeDark ? '0 1px 2px rgba(255,255,255,0.85), 0 0 10px rgba(255,255,255,0.6)' : 'none';
+  const wordmarkColor = theme.wordmark || '#C8993E';
   const sorted = useMemo(() => [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1), [bookEntries]);
 
   const letterEntries = useMemo(() => sorted.filter(e => e.type !== 'note'), [sorted]);
@@ -626,9 +635,10 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
         </svg>
       );
     } else if (t.kind === 'mountains') {
-      // Twilight sky (drawn as the page's own `background: theme.bg` gradient,
-      // not here) with three receding mountain layers — far/mid ridges muted
-      // into the haze, the near ridge a crisp silhouette — plus a crescent moon.
+      // Sky (drawn as the page's own `background: theme.bg` gradient, not here)
+      // with three receding mountain layers — far/mid ridges muted into the
+      // haze, the near ridge a crisp silhouette — plus a crescent moon for
+      // dusk themes or a flat sun disc for daytime ones (theme.celestial).
       deco = (
         <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} viewBox="0 0 208 277" preserveAspectRatio="none" aria-hidden="true">
           <defs>
@@ -654,9 +664,25 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
               <circle cx="150" cy="52" r="13" fill="#fff" />
               <circle cx="156" cy="47" r="12" fill="#000" />
             </mask>
+            {/* Same crescent shape scaled up, for the glow layer — without this
+                the blurred halo behind the crescent renders as a plain full
+                circle, since a blur filter alone doesn't respect the mask below it. */}
+            <mask id="mtn-crescent-glow">
+              <circle cx="150" cy="52" r="17" fill="#fff" />
+              <circle cx="158" cy="45" r="15.5" fill="#000" />
+            </mask>
           </defs>
-          <circle cx="150" cy="52" r="14" fill={t.moon} opacity="0.3" filter="url(#mtn-glow)" />
-          <circle cx="150" cy="52" r="13" fill={t.moon} mask="url(#mtn-crescent)" />
+          {t.celestial === 'sun' ? (
+            <>
+              <circle cx="150" cy="52" r="17" fill={t.moon} opacity="0.25" filter="url(#mtn-glow)" />
+              <circle cx="150" cy="52" r="13" fill={t.moon} />
+            </>
+          ) : (
+            <>
+              <circle cx="150" cy="52" r="17" fill={t.moon} opacity="0.3" filter="url(#mtn-glow)" mask="url(#mtn-crescent-glow)" />
+              <circle cx="150" cy="52" r="13" fill={t.moon} mask="url(#mtn-crescent)" />
+            </>
+          )}
           <polygon points="0,190 30,165 55,180 85,150 115,175 145,155 172,177 193,163 208,172 208,277 0,277" fill={t.ridgeFar} opacity="0.75" />
           <polygon points="0,190 30,165 55,180 85,150 115,175 145,155 172,177 193,163 208,172 208,277 0,277" fill="url(#mtn-highlight)" opacity="0.6" />
           <polygon points="0,225 25,195 50,215 80,185 110,210 140,190 170,218 190,199 208,209 208,277 0,277" fill={t.ridgeMid} opacity="0.88" />
@@ -724,9 +750,9 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
           ) : (
             <>
               {(theme.kind === 'solid' || theme.kind === 'mountains') && <div style={{ width: 1, height: 40, background: inkDim(0.22) }} />}
-              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, letterSpacing: 0.5, color: '#C8993E', margin: 0, lineHeight: 1 }}>Patina</p>
+              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, letterSpacing: 0.5, color: wordmarkColor, margin: 0, lineHeight: 1, textShadow: inkShadow }}>Patina</p>
               {(theme.kind === 'solid' || theme.kind === 'mountains') && <div style={{ width: 1, height: 40, background: inkDim(0.22) }} />}
-              <h1 style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 30, color: ink, margin: 0, lineHeight: 1.25, textAlign: 'center' }}>
+              <h1 style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 30, color: ink, margin: 0, lineHeight: 1.25, textAlign: 'center', textShadow: inkShadow }}>
                 Letters to<br />{kidNameDisplay}
               </h1>
             </>
@@ -773,7 +799,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       {renderBackdrop(theme, false)}
       <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
         <div style={{ width: 40, height: 1, background: inkDim(0.3), margin: '0 auto 20px' }} />
-        <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 52, color: ink, margin: 0, lineHeight: 1, letterSpacing: -1 }}>{year}</p>
+        <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 52, color: ink, margin: 0, lineHeight: 1, letterSpacing: -1, textShadow: inkShadow }}>{year}</p>
         <div style={{ width: 40, height: 1, background: inkDim(0.3), margin: '20px auto 0' }} />
       </div>
       <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
@@ -789,7 +815,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       <div style={{ background: theme.bg, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
         {renderBackdrop(theme, true)}
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%' }}>
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: '#C8993E', margin: 0 }}>Patina</p>
+          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: wordmarkColor, margin: 0, textShadow: inkShadow }}>Patina</p>
           <div style={{ width: 1, height: 32, background: inkDim(0.2) }} />
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: inkDim(0.6), margin: 0, lineHeight: 1.9, textAlign: 'center' }}>
             Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet, perilous attempt to slow down time. A gift for you to one day hold, and an anchor for us to inhabit today.

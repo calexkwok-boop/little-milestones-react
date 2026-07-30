@@ -877,7 +877,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
   const photoRef = useRef(null);
   const [videoPlaying, setVideoPlaying] = useState(false);
   useVideoAutoPause(photoRef, videoPlaying, () => setVideoPlaying(false));
-  const preview = entry.text.length > 200 ? entry.text.slice(0, 200) + '…' : entry.text;
+  const preview = entry.text.length > 140 ? entry.text.slice(0, 140) + '…' : entry.text;
   const yearLabel = yearsAgo === 1 ? 'One year ago today' : `${yearsAgo} years ago today`;
 
   return (
@@ -935,7 +935,10 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
             Dear {allKids ? buildSalutation(entry, allKids) : kid.name},
           </p>
           {preview && (
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 17, color: 'var(--text)', margin: '0 0 16px', lineHeight: 1.75 }}>
+            <p style={{
+              fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text)', margin: '0 0 14px', lineHeight: 1.6,
+              display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+            }}>
               {preview}
             </p>
           )}

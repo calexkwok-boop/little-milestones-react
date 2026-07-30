@@ -16,14 +16,14 @@ export const PROMPT_ACCENT = '#C8993E';
 export const BOOK_COVER_THEMES = [
   { id: 'forest', name: 'Forest', kind: 'solid', bg: '#4A5E50' },
   { id: 'midnight', name: 'Midnight', kind: 'solid', bg: '#1F2E3F' },
-  { id: 'mountains', name: 'Mountains', kind: 'mountains', bg: 'linear-gradient(180deg, #241B3D 0%, #6B4568 50%, #D98F72 100%)', ridgeFar: '#5C4A6E', ridgeMid: '#3A2C46', ridgeNear: '#1C1424', moon: '#F5E6C8' },
+  { id: 'mountains', name: 'Mountains', kind: 'mountains', celestial: 'crescent', bg: 'linear-gradient(180deg, #241B3D 0%, #6B4568 50%, #D98F72 100%)', ridgeFar: '#5C4A6E', ridgeMid: '#3A2C46', ridgeNear: '#1C1424', moon: '#F5E6C8' },
   { id: 'charcoal', name: 'Charcoal', kind: 'solid', bg: '#2B2B2B' },
   { id: 'burgundy', name: 'Burgundy', kind: 'solid', bg: '#4E1B26' },
   { id: 'wayfinder', name: 'Wayfinder', kind: 'constellation', bg: '#1C2536', star: '#D6E4F7', line: 'rgba(255,255,255,0.3)' },
   // Same 'mountains' rendering as above, but a pale daytime sky instead of dusk —
   // light enough that the cover text needs dark ink instead of the usual cream,
   // hence textMode: 'dark' (see BookPreviewScreen's `ink`/`inkDim` helpers).
-  { id: 'alpine', name: 'Alpine', kind: 'mountains', textMode: 'dark', bg: 'linear-gradient(180deg, #A9C9E0 0%, #DCEAF0 55%, #EFE6D3 100%)', ridgeFar: '#93AABC', ridgeMid: '#6C8577', ridgeNear: '#3B5642', moon: '#FFF8E7' },
+  { id: 'alpine', name: 'Alpine', kind: 'mountains', textMode: 'dark', celestial: 'sun', bg: 'linear-gradient(180deg, #A9C9E0 0%, #DCEAF0 55%, #EFE6D3 100%)', ridgeFar: '#93AABC', ridgeMid: '#6C8577', ridgeNear: '#3B5642', moon: '#FFF8E7' },
   // Deep velvet ground with a foil corner-scrollwork frame — drawn by
   // renderBackdrop()'s 'victorian' branch; renderCoverPage() gives it its own
   // small-caps tracked wordmark and a flourished underline instead of the
