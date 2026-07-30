@@ -736,7 +736,13 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
     return (
       <div style={{ background: theme.bg, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
         {renderBackdrop(theme, true)}
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: victorian ? 12 : 18 }}>
+        <div style={{
+          position: 'relative', zIndex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: victorian ? 12 : 18,
+          // A dark-ink theme's text can land on the sky OR the dark ridge behind
+          // it — no single text color/shadow reads against both, so it gets a
+          // soft scrim panel instead, decoupling legibility from the artwork.
+          ...(themeDark ? { background: 'rgba(238,244,240,0.72)', padding: '20px 26px', borderRadius: 14, boxShadow: '0 4px 18px rgba(0,0,0,0.12)' } : {}),
+        }}>
           {victorian ? (
             <>
               <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 12, letterSpacing: 2.5, textTransform: 'uppercase', color: theme.wordmark }}>Patina</span>
@@ -797,7 +803,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
   const renderChapterPage = (year) => (
     <div style={{ background: theme.bg, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
       {renderBackdrop(theme, false)}
-      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
+      <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', ...(themeDark ? { background: 'rgba(238,244,240,0.72)', padding: '18px 30px', borderRadius: 14, boxShadow: '0 4px 18px rgba(0,0,0,0.12)' } : {}) }}>
         <div style={{ width: 40, height: 1, background: inkDim(0.3), margin: '0 auto 20px' }} />
         <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 52, color: ink, margin: 0, lineHeight: 1, letterSpacing: -1, textShadow: inkShadow }}>{year}</p>
         <div style={{ width: 40, height: 1, background: inkDim(0.3), margin: '20px auto 0' }} />
@@ -814,7 +820,10 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
     return (
       <div style={{ background: theme.bg, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
         {renderBackdrop(theme, true)}
-        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%' }}>
+        <div style={{
+          position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%', boxSizing: 'border-box',
+          ...(themeDark ? { background: 'rgba(238,244,240,0.72)', padding: '24px 26px', borderRadius: 14, boxShadow: '0 4px 18px rgba(0,0,0,0.12)' } : {}),
+        }}>
           <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: wordmarkColor, margin: 0, textShadow: inkShadow }}>Patina</p>
           <div style={{ width: 1, height: 32, background: inkDim(0.2) }} />
           <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: inkDim(0.6), margin: 0, lineHeight: 1.9, textAlign: 'center' }}>
