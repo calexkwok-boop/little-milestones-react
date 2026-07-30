@@ -198,7 +198,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     return (
       <div key={entry.id} style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
         {/* Poster row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '14px 16px 8px' }}>
           <span className="thumb" style={{ width: 42, height: 42, fontSize: 15, flexShrink: 0 }}>
             {friendInfo.avatar
               ? <img src={cloudinaryTransform(friendInfo.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
@@ -213,14 +213,6 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             </button>
             <p style={{ margin: 0, fontSize: 11, color: 'var(--text-muted)', fontFamily: 'Inter, sans-serif', marginTop: 1 }}>{dateLabel}</p>
           </div>
-          {onCompareAtAge && entry.ageMonths != null && (
-            <button
-              onClick={() => onCompareAtAge(entryKids[0]?.id ?? null, entry.ageMonths, entry.id)}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 999, padding: '5px 12px 5px 5px', cursor: 'pointer', color: 'var(--accent)', fontSize: 12, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", flexShrink: 0 }}
-            >
-              {entryKids[0] ? <KidThumb kid={entryKids[0]} size={22} /> : <Icon name="ti-arrows-diff" style={{ fontSize: 14 }} />} Same age
-            </button>
-          )}
         </div>
 
         {/* Photo — a same-age post shows every kid's photo side by side (2) or as a
@@ -260,7 +252,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                         <video src={cloudinaryTransform(photo.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                       ) : (
                         <>
-                          <img src={videoThumbUrl(photo.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                          <img src={videoThumbUrl(photo.url, 'so_0,w_500,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 15 }} /></div>
                           </div>
@@ -310,7 +302,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 <video src={cloudinaryTransform(entry.media[0].url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
               ) : (
                 <>
-                  <img src={videoThumbUrl(entry.media[0].url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                  <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 15 }} /></div>
                   </div>
@@ -338,30 +330,40 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             </p>
           </div>
         ) : entryKids.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '12px 16px 0' }}>
-            <div style={{ display: 'flex', flexShrink: 0, marginTop: 2 }}>
-              {entryKids.map((k, i) => (
-                <span key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, display: 'inline-block', width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--bg-card)', background: k.accent || 'var(--bg-elevated)', flexShrink: 0 }}>
-                  {k.avatar
-                    ? <img src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
-                    : <span style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff' }}>{k.name[0]}</span>
-                  }
-                </span>
-              ))}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 16px 0' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
+              <div style={{ display: 'flex', flexShrink: 0, marginTop: 2 }}>
+                {entryKids.map((k, i) => (
+                  <span key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, display: 'inline-block', width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--bg-card)', background: k.accent || 'var(--bg-elevated)', flexShrink: 0 }}>
+                    {k.avatar
+                      ? <img src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                      : <span style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#fff' }}>{k.name[0]}</span>
+                    }
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {entryKids.map(k => (
+                  <p key={k.id} style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-2)' }}>
+                    {k.name.split(' ')[0]}
+                    {k.birthdate && ` · ${exactAgeLabel(k.birthdate, entry.date)} · ${photoDate}`}
+                  </p>
+                ))}
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {entryKids.map(k => (
-                <p key={k.id} style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-2)' }}>
-                  {k.name.split(' ')[0]}
-                  {k.birthdate && ` · ${exactAgeLabel(k.birthdate, entry.date)} · ${photoDate}`}
-                </p>
-              ))}
-            </div>
+            {onCompareAtAge && entry.ageMonths != null && (
+              <button
+                onClick={() => onCompareAtAge(entryKids[0]?.id ?? null, entry.ageMonths, entry.id)}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 999, padding: '4px 10px 4px 4px', cursor: 'pointer', color: 'var(--accent)', fontSize: 11.5, fontWeight: 700, fontFamily: "'Urbanist', sans-serif", flexShrink: 0 }}
+              >
+                {entryKids[0] ? <KidThumb kid={entryKids[0]} size={18} /> : <Icon name="ti-arrows-diff" style={{ fontSize: 12 }} />} Same age
+              </button>
+            )}
           </div>
         )}
 
         {/* Love + notes, in words instead of icon counters */}
-        <div style={{ padding: '10px 16px 4px' }}>
+        <div style={{ padding: '8px 16px 2px' }}>
           <button
             onClick={() => handleToggleLike(entry.id)}
             style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: iLiked ? '#D4856A' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}
@@ -373,7 +375,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
 
         {/* Notes */}
         {comments.length > 0 && (
-          <div style={{ padding: '8px 16px 4px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ padding: '6px 16px 2px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {comments.map(c => (
               <p key={c.id} style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
                 <span style={{ fontWeight: 700, fontStyle: 'normal', color: 'var(--text)' }}>{c.display_name || 'Someone'}</span>
@@ -384,7 +386,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         )}
 
         {/* Note input */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 16px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 16px 14px' }}>
           <input
             value={commentDrafts[entry.id] || ''}
             onChange={e => setCommentDrafts(prev => ({ ...prev, [entry.id]: e.target.value }))}

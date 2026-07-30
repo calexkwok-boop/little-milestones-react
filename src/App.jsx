@@ -518,7 +518,7 @@ function BookCropModal({ url, mediaType, cropY, cardHeight, photoWidth, onSave, 
           }}
         >
           <div style={{ paddingTop: topPad, paddingBottom: topPad }}>
-            <img ref={mediaRef} src={isVideo ? videoThumbUrl(url) : url} style={{ width: '100%', display: 'block' }} onLoad={handleReady} alt="" loading="lazy" />
+            <img ref={mediaRef} src={isVideo ? videoThumbUrl(url, 'so_0,w_1000,q_auto,f_auto') : cloudinaryTransform(url, 'w_1000,q_auto,f_auto')} style={{ width: '100%', display: 'block' }} onLoad={handleReady} alt="" loading="lazy" />
           </div>
         </div>
 
@@ -1962,7 +1962,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                             <video src={cloudinaryTransform(photo.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                           ) : (
                             <>
-                              <img src={videoThumbUrl(photo.url)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                              <img src={videoThumbUrl(photo.url, 'so_0,w_700,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 15 }} /></div>
                               </div>
