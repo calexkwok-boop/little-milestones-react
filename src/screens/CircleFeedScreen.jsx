@@ -35,27 +35,18 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
   const [profileFamilyId, setProfileFamilyId] = useState(null);
   const [selectedEntry, setSelectedEntry] = useState(null);
   const [likeAnimId, setLikeAnimId] = useState(null);
-  const [playingVideoId, setPlayingVideoId] = useState(null);
+  const [activeVideoId, setActiveVideoId] = useState(null); // whichever video tile is currently scrolled far enough into view to autoplay
+  const [unmutedId, setUnmutedId] = useState(null); // which video (if any) has been tapped to unmute — cleared whenever the active one changes
   const [zoomedPhoto, setZoomedPhoto] = useState(null); // { url, type }
   const lastTapRef = useRef({});
   const tapTimerRef = useRef({});
   const mediaRefs = useRef({});
+  const videoRefs = useRef({}); // same keys as mediaRefs, but video tiles only
+  const visibleRatios = useRef({}); // key -> latest intersection ratio, video tiles only
 
   useEffect(() => {
     if (showSearch) searchInputRef.current?.focus();
   }, [showSearch]);
-
-  // Stop the playing video the moment it's scrolled out of view.
-  useEffect(() => {
-    if (!playingVideoId) return;
-    const el = mediaRefs.current[playingVideoId];
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) setPlayingVideoId(id => id === playingVideoId ? null : id);
-    }, { threshold: 0 });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [playingVideoId]);
 
   const familyIds = useMemo(() => Object.keys(friendFamilyMap), [friendFamilyMap]);
   const scrollRef = useRef(null);
@@ -175,6 +166,32 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     return pool;
   }, [feedEntries, searchQuery, profileFamilyId, friendKids, friendFamilyMap]);
 
+  // Autoplay whichever video tile is most visible as you scroll (muted, since
+  // browsers block unmuted autoplay without a direct user gesture) — tapping
+  // a video unmutes it; scrolling to a different one resets that back to muted.
+  // Re-observes whenever the rendered list changes, since new video tiles
+  // (and their refs) only exist after that render.
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        const key = entry.target.dataset.videoKey;
+        if (key) visibleRatios.current[key] = entry.isIntersecting ? entry.intersectionRatio : 0;
+      });
+      let bestKey = null, bestRatio = 0.6;
+      for (const [key, ratio] of Object.entries(visibleRatios.current)) {
+        if (ratio > bestRatio) { bestRatio = ratio; bestKey = key; }
+      }
+      setActiveVideoId(prev => {
+        if (bestKey === prev) return prev;
+        setUnmutedId(null);
+        return bestKey;
+      });
+    }, { threshold: [0, 0.25, 0.5, 0.6, 0.75, 1] });
+    Object.values(videoRefs.current).forEach(el => { if (el) observer.observe(el); });
+    return () => observer.disconnect();
+  }, [displayedEntries]);
+
   const profileInfo = profileFamilyId ? friendFamilyMap[profileFamilyId] : null;
 
   function renderPost(entry) {
@@ -224,13 +241,35 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 const photo = side.photo;
                 const isVideo = photo?.type === 'video';
                 const videoKey = `${entry.id}:${i}`;
-                const isPlaying = isVideo && playingVideoId === videoKey;
+                const isActive = isVideo && activeVideoId === videoKey;
+                const isUnmuted = isActive && unmutedId === videoKey;
                 return (
                   <div
                     key={i}
-                    ref={el => { mediaRefs.current[videoKey] = el; }}
+                    ref={el => {
+                      mediaRefs.current[videoKey] = el;
+                      if (isVideo) videoRefs.current[videoKey] = el; else delete videoRefs.current[videoKey];
+                    }}
+                    data-video-key={isVideo ? videoKey : undefined}
                     onClick={() => {
-                      if (isVideo && !isPlaying) { setPlayingVideoId(videoKey); return; }
+                      if (isVideo) {
+                        const now = Date.now();
+                        const wasDoubleTap = now - (lastTapRef.current[entry.id] || 0) < 320;
+                        lastTapRef.current[entry.id] = now;
+                        if (wasDoubleTap) {
+                          if (tapTimerRef.current[entry.id]) { clearTimeout(tapTimerRef.current[entry.id]); delete tapTimerRef.current[entry.id]; }
+                          if (!iLiked) handleToggleLike(entry.id);
+                          setLikeAnimId(entry.id);
+                          setTimeout(() => setLikeAnimId(id => id === entry.id ? null : id), 800);
+                          return;
+                        }
+                        tapTimerRef.current[entry.id] = setTimeout(() => {
+                          delete tapTimerRef.current[entry.id];
+                          if (activeVideoId === videoKey) setUnmutedId(id => id === videoKey ? null : videoKey);
+                          else { setActiveVideoId(videoKey); setUnmutedId(videoKey); }
+                        }, 320);
+                        return;
+                      }
                       const now = Date.now();
                       const wasDoubleTap = now - (lastTapRef.current[entry.id] || 0) < 320;
                       lastTapRef.current[entry.id] = now;
@@ -241,23 +280,23 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                         setTimeout(() => setLikeAnimId(id => id === entry.id ? null : id), 800);
                         return;
                       }
-                      if (photo && !isVideo) {
+                      if (photo) {
                         tapTimerRef.current[entry.id] = setTimeout(() => { setZoomedPhoto(photo); delete tapTimerRef.current[entry.id]; }, 320);
                       }
                     }}
                     style={{ flex: sides.length > 2 ? '0 0 70%' : 1, aspectRatio: '4/5', background: 'var(--border)', position: 'relative', cursor: 'pointer' }}
                   >
                     {photo && (isVideo ? (
-                      isPlaying ? (
-                        <video src={cloudinaryTransform(photo.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
-                      ) : (
-                        <>
+                      <>
+                        {isActive ? (
+                          <video src={cloudinaryTransform(photo.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay muted={!isUnmuted} loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : (
                           <img src={videoThumbUrl(photo.url, 'so_0,w_500,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
-                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 15 }} /></div>
-                          </div>
-                        </>
-                      )
+                        )}
+                        <div style={{ position: 'absolute', bottom: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Icon name={isUnmuted ? 'ti-volume' : 'ti-volume-off'} style={{ fontSize: 11, color: '#fff' }} />
+                        </div>
+                      </>
                     ) : (
                       <img src={cloudinaryTransform(photo.url, 'w_500,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                     ))}
@@ -275,12 +314,36 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
               </div>
             )}
           </div>
-        ) : entry.media.length > 0 && (
+        ) : entry.media.length > 0 && (() => {
+          const isVideo = entry.media[0].type === 'video';
+          const isActive = isVideo && activeVideoId === entry.id;
+          const isUnmuted = isActive && unmutedId === entry.id;
+          return (
           <div
-            ref={el => { mediaRefs.current[entry.id] = el; }}
+            ref={el => {
+              mediaRefs.current[entry.id] = el;
+              if (isVideo) videoRefs.current[entry.id] = el; else delete videoRefs.current[entry.id];
+            }}
+            data-video-key={isVideo ? entry.id : undefined}
             onClick={() => {
-              const isVideo = entry.media[0].type === 'video';
-              if (isVideo && playingVideoId !== entry.id) { setPlayingVideoId(entry.id); return; }
+              if (isVideo) {
+                const now = Date.now();
+                const wasDoubleTap = now - (lastTapRef.current[entry.id] || 0) < 320;
+                lastTapRef.current[entry.id] = now;
+                if (wasDoubleTap) {
+                  if (tapTimerRef.current[entry.id]) { clearTimeout(tapTimerRef.current[entry.id]); delete tapTimerRef.current[entry.id]; }
+                  if (!iLiked) handleToggleLike(entry.id);
+                  setLikeAnimId(entry.id);
+                  setTimeout(() => setLikeAnimId(id => id === entry.id ? null : id), 800);
+                  return;
+                }
+                tapTimerRef.current[entry.id] = setTimeout(() => {
+                  delete tapTimerRef.current[entry.id];
+                  if (activeVideoId === entry.id) setUnmutedId(id => id === entry.id ? null : entry.id);
+                  else { setActiveVideoId(entry.id); setUnmutedId(entry.id); }
+                }, 320);
+                return;
+              }
               const now = Date.now();
               const wasDoubleTap = now - (lastTapRef.current[entry.id] || 0) < 320;
               lastTapRef.current[entry.id] = now;
@@ -291,23 +354,21 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 setTimeout(() => setLikeAnimId(id => id === entry.id ? null : id), 800);
                 return;
               }
-              if (!isVideo) {
-                tapTimerRef.current[entry.id] = setTimeout(() => { setZoomedPhoto(entry.media[0]); delete tapTimerRef.current[entry.id]; }, 320);
-              }
+              tapTimerRef.current[entry.id] = setTimeout(() => { setZoomedPhoto(entry.media[0]); delete tapTimerRef.current[entry.id]; }, 320);
             }}
             style={{ margin: '0 14px', borderRadius: 16, overflow: 'hidden', aspectRatio: '4/5', background: 'var(--border)', position: 'relative', cursor: 'pointer' }}
           >
-            {entry.media[0].type === 'video' ? (
-              playingVideoId === entry.id ? (
-                <video src={cloudinaryTransform(entry.media[0].url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
-              ) : (
-                <>
+            {isVideo ? (
+              <>
+                {isActive ? (
+                  <video src={cloudinaryTransform(entry.media[0].url, VIDEO_DELIVERY_TRANSFORM)} autoPlay muted={!isUnmuted} loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                ) : (
                   <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 15 }} /></div>
-                  </div>
-                </>
-              )
+                )}
+                <div style={{ position: 'absolute', bottom: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name={isUnmuted ? 'ti-volume' : 'ti-volume-off'} style={{ fontSize: 13, color: '#fff' }} />
+                </div>
+              </>
             ) : (
               <img src={cloudinaryTransform(entry.media[0].url, 'w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
             )}
@@ -317,7 +378,8 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
               </div>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* Kid caption, below the photo like a letter salutation — a same-age post
             already shows each kid's name/age on their own photo tile above, so this
@@ -331,8 +393,8 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           </div>
         ) : entryKids.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '10px 16px 0' }}>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0 }}>
-              <div style={{ display: 'flex', flexShrink: 0, marginTop: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <div style={{ display: 'flex', flexShrink: 0 }}>
                 {entryKids.map((k, i) => (
                   <span key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, display: 'inline-block', width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', border: '2px solid var(--bg-card)', background: k.accent || 'var(--bg-elevated)', flexShrink: 0 }}>
                     {k.avatar

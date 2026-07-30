@@ -662,7 +662,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
                 onClick={() => setPreviewItem(null)}
                 style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--bg-elevated)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               >
-                <Icon name="ti-x" style={{ fontSize: 13 }} />
+                <Icon name="ti-x" style={{ fontSize: 14 }} />
               </button>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '20px 22px 28px' }}>

@@ -1048,7 +1048,7 @@ export function MonthlyClosingCard({ monthLabel, quote, stats, countedStats, onS
           onClick={btn.onClick}
           disabled={btn.disabled}
           aria-label={btn.label}
-          style={{ position: 'absolute', top: 16, right: 16 + i * 36, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: btn.disabled ? 'default' : 'pointer', opacity: btn.disabled ? 0.6 : 1, color: btn.color || '#fff', fontSize: 13 }}
+          style={{ position: 'absolute', top: 16, right: 16 + i * 36, background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: btn.disabled ? 'default' : 'pointer', opacity: btn.disabled ? 0.6 : 1, color: btn.color || '#fff', fontSize: 14 }}
         >
           <Icon name={btn.icon} />
         </button>

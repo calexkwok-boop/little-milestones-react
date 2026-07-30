@@ -316,7 +316,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], 
                   onClick={() => { setShowCreate(false); resetForm(); }}
                   style={{ width: 28, height: 28, borderRadius: '50%', border: 'none', background: 'var(--bg-elevated)', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
                 >
-                  <Icon name="ti-x" style={{ fontSize: 13 }} />
+                  <Icon name="ti-x" style={{ fontSize: 14 }} />
                 </button>
               </div>
             </div>

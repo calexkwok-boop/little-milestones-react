@@ -387,8 +387,8 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                                   />
                                   <button
                                     onClick={ev => { ev.stopPropagation(); setPlayingVideoId(null); }}
-                                    style={{ position: 'absolute', top: 6, left: 6, background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 26, height: 26, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', zIndex: 4 }}>
-                                    <Icon name="ti-x" style={{ fontSize: 12 }} />
+                                    style={{ position: 'absolute', top: 6, left: 6, background: 'rgba(0,0,0,0.4)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff', zIndex: 4 }}>
+                                    <Icon name="ti-x" style={{ fontSize: 14 }} />
                                   </button>
                                 </div>
                               ) : (

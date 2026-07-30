@@ -893,7 +893,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
             <Icon name="ti-lock" style={{ color: '#fff', fontSize: 12 }} />
           </div>
         )}
-        {entry.media && entry.media.length > 0 && (
+        {entry.media && entry.media.length === 1 && (
           <div
             ref={photoRef}
             onClick={e => { e.stopPropagation(); onClick?.(); }}
@@ -916,6 +916,18 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
               </div>
             ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
             }
+          </div>
+        )}
+        {entry.media && entry.media.length > 1 && (
+          <div
+            onClick={e => { e.stopPropagation(); onClick?.(); }}
+            style={{ display: 'flex', gap: 2, overflowX: 'auto', height: cardH, cursor: 'pointer' }}
+          >
+            {entry.media.map((item, i) => (
+              <div key={i} style={{ flexShrink: 0, width: cardH * (4 / 3), height: cardH, position: 'relative' }}>
+                <FeedMediaThumb item={item} cropY={photoCropY(entry.media, i, entry)} transform="w_1000,e_sharpen:60,q_auto,f_auto" />
+              </div>
+            ))}
           </div>
         )}
         <div style={{ padding: '20px 20px 18px' }}>
@@ -1926,7 +1938,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                   <Icon name="ti-pencil" />
                 </button>
               )}
-              <button onClick={() => setCircleViewer(null)} style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 34, height: 34, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', fontSize: 16, flexShrink: 0 }}>
+              <button onClick={() => setCircleViewer(null)} style={{ background: 'var(--bg-elevated)', border: 'none', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-2)', fontSize: 14, flexShrink: 0 }}>
                 <Icon name="ti-x" />
               </button>
             </div>
@@ -6946,6 +6958,7 @@ export default function App() {
             darkMode={effectiveDark}
             onBack={() => setScreen('profile')}
             onPreview={config => { setBookConfig(config); setScreen('book-preview'); }}
+            onUploadToCloudinary={uploadToCloudinary}
           />
         </ScreenErrorBoundary>
       )}

@@ -6,6 +6,35 @@ export const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0
 
 export const PROMPT_ACCENT = '#C8993E';
 
+// Book cover/chapter-divider/back-cover looks a user can pick in the book builder.
+// `kind: 'solid'` is a flat dark ground — the grid texture, cream text (#F8F4EC),
+// gold "Patina" wordmark (#C8993E), and white-alpha divider lines all read correctly
+// against any solid `bg` without per-theme overrides. 'constellation' and 'mountains'
+// are illustrated looks that need their own extra fields, used by BookPreviewScreen's
+// renderBackdrop() to draw the star field / mountain ridgelines. `bg` on 'mountains'
+// is itself a CSS gradient string (the sky), not a flat color.
+export const BOOK_COVER_THEMES = [
+  { id: 'forest', name: 'Forest', kind: 'solid', bg: '#4A5E50' },
+  { id: 'midnight', name: 'Midnight', kind: 'solid', bg: '#1F2E3F' },
+  { id: 'mountains', name: 'Mountains', kind: 'mountains', bg: 'linear-gradient(180deg, #241B3D 0%, #6B4568 50%, #D98F72 100%)', ridgeFar: '#5C4A6E', ridgeMid: '#3A2C46', ridgeNear: '#1C1424', moon: '#F5E6C8' },
+  { id: 'charcoal', name: 'Charcoal', kind: 'solid', bg: '#2B2B2B' },
+  { id: 'burgundy', name: 'Burgundy', kind: 'solid', bg: '#4E1B26' },
+  { id: 'wayfinder', name: 'Wayfinder', kind: 'constellation', bg: '#1C2536', star: '#D6E4F7', line: 'rgba(255,255,255,0.3)' },
+  // Same 'mountains' rendering as above, but a pale daytime sky instead of dusk —
+  // light enough that the cover text needs dark ink instead of the usual cream,
+  // hence textMode: 'dark' (see BookPreviewScreen's `ink`/`inkDim` helpers).
+  { id: 'alpine', name: 'Alpine', kind: 'mountains', textMode: 'dark', bg: 'linear-gradient(180deg, #A9C9E0 0%, #DCEAF0 55%, #EFE6D3 100%)', ridgeFar: '#93AABC', ridgeMid: '#6C8577', ridgeNear: '#3B5642', moon: '#FFF8E7' },
+  // Deep velvet ground with a foil corner-scrollwork frame — drawn by
+  // renderBackdrop()'s 'victorian' branch; renderCoverPage() gives it its own
+  // small-caps tracked wordmark and a flourished underline instead of the
+  // generic title block the other kinds share.
+  { id: 'victorian', name: 'Victorian', kind: 'victorian', bg: 'radial-gradient(ellipse at 50% 35%, #7A3752 0%, #5C2A3D 60%, #4A2033 100%)', frameGold: '#C9A44C', wordmark: '#D9BE86' },
+  // No fixed palette — the user supplies their own photo (bookConfig.coverPhotoUrl),
+  // shown translucent under a dark scrim so the standard cream text block still
+  // reads. `bg` is just the base tone the photo blends against before/without one.
+  { id: 'photo', name: 'Your Photo', kind: 'photo', bg: '#241F1C' },
+];
+
 const PROD_APP_URL = 'https://app.patinafamily.com';
 
 // Auth email links (magic link, password reset) need an absolute redirect —

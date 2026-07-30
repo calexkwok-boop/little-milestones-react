@@ -60,13 +60,13 @@ function PatinaJarCompilation({ entries, song, onClose }) {
       ))}
 
       <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
-        <button onClick={e => { e.stopPropagation(); onClose(); }} style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+        <button onClick={e => { e.stopPropagation(); onClose(); }} style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.4)', border: 'none', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
           <Icon name="ti-x" />
         </button>
         <span style={{ background: 'rgba(0,0,0,0.4)', color: '#fff', fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 999, fontFamily: "'Urbanist', sans-serif" }}>
           {monthYearLabel(active.year, active.monthIndex)} · {index + 1}/{entries.length}
         </span>
-        <span style={{ width: 26 }} />
+        <span style={{ width: 28 }} />
       </div>
 
       {!started && (
@@ -253,7 +253,7 @@ function PatinaJarScreen({ kid, entries, song, onUpdateSong, onBack, onRecord, o
 
       {singleWatchEntry && (
         <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 45, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSingleWatchEntry(null)}>
-          <button onClick={() => setSingleWatchEntry(null)} style={{ position: 'absolute', top: 16, left: 16, width: 26, height: 26, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <button onClick={() => setSingleWatchEntry(null)} style={{ position: 'absolute', top: 16, left: 16, width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             <Icon name="ti-x" />
           </button>
           <video

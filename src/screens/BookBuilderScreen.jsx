@@ -1,14 +1,35 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
-import { TODAY, cloudinaryTransform, AVATAR_TRANSFORM_SM } from '../constants.js';
+import { TODAY, cloudinaryTransform, AVATAR_TRANSFORM_SM, BOOK_COVER_THEMES } from '../constants.js';
 
-export default function BookBuilderScreen({ kids = [], entries = [], familyMembers = [], myDisplayName, darkMode, onBack, onPreview }) {
+export default function BookBuilderScreen({ kids = [], entries = [], familyMembers = [], myDisplayName, darkMode, onBack, onPreview, onUploadToCloudinary }) {
   const [selectedKids, setSelectedKids] = useState(() => kids.map(k => k.id));
   const [rangeMode, setRangeMode] = useState('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState(TODAY);
   const [favoritesOnly, setFavoritesOnly] = useState(true);
+  const [coverTheme, setCoverTheme] = useState(BOOK_COVER_THEMES[0].id);
+  const [coverPhotoUrl, setCoverPhotoUrl] = useState(null);
+  const [uploadingCoverPhoto, setUploadingCoverPhoto] = useState(false);
+  const [coverPhotoError, setCoverPhotoError] = useState('');
+  const coverPhotoInputRef = useRef(null);
+
+  async function handleCoverPhotoChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !onUploadToCloudinary) return;
+    setUploadingCoverPhoto(true);
+    setCoverPhotoError('');
+    try {
+      const url = await onUploadToCloudinary(file, 'image');
+      setCoverPhotoUrl(url);
+    } catch {
+      setCoverPhotoError("Couldn't upload that photo — try again.");
+    } finally {
+      setUploadingCoverPhoto(false);
+    }
+  }
 
   const authorMembers = useMemo(() => {
     return familyMembers.map(m => ({
@@ -61,10 +82,12 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
       authorLabel: authorSummary,
       authorSummary,
       recipientSummary,
+      coverTheme,
+      coverPhotoUrl: coverTheme === 'photo' ? coverPhotoUrl : null,
     });
   }
 
-  const canPreview = selectedKids.length > 0 && textEntries.length > 0;
+  const canPreview = selectedKids.length > 0 && textEntries.length > 0 && (coverTheme !== 'photo' || !!coverPhotoUrl);
   const sectionLabel = { fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 1.2, textTransform: 'uppercase', margin: '0 0 10px' };
   const chipBtn = (selected) => ({ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 8px 8px', borderRadius: 40, border: `2px solid ${selected ? 'var(--accent)' : darkMode ? 'rgba(255,255,255,0.1)' : 'var(--border)'}`, background: selected ? 'var(--bg-elevated)' : 'transparent', cursor: 'pointer', transition: 'all 0.15s' });
 
@@ -149,6 +172,65 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
             );
           })}
         </div>
+      </div>
+
+      {/* Cover style */}
+      <div>
+        <p style={sectionLabel}>Cover</p>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          {BOOK_COVER_THEMES.map(theme => {
+            const selected = coverTheme === theme.id;
+            return (
+              <button key={theme.id} onClick={() => setCoverTheme(theme.id)} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                <div style={{
+                  width: 42, height: 56, borderRadius: 5, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: theme.kind === 'photo' && coverPhotoUrl
+                    ? `url(${cloudinaryTransform(coverPhotoUrl, 'w_100,h_130,c_fill,q_auto,f_auto')}) center/cover`
+                    : theme.bg,
+                  boxShadow: selected ? `0 0 0 2px var(--bg-card), 0 0 0 4px var(--accent)` : '0 2px 6px rgba(0,0,0,0.18)', transition: 'box-shadow 0.15s',
+                }}>
+                  {theme.kind === 'constellation' ? (
+                    <>
+                      <span style={{ position: 'absolute', top: 11, left: 13, width: 2, height: 2, borderRadius: '50%', background: theme.star, boxShadow: `0 0 3px ${theme.star}` }} />
+                      <span style={{ position: 'absolute', top: 21, left: 25, width: 3, height: 3, borderRadius: '50%', background: theme.star, boxShadow: `0 0 4px ${theme.star}` }} />
+                      <span style={{ position: 'absolute', top: 34, left: 17, width: 2, height: 2, borderRadius: '50%', background: theme.star, boxShadow: `0 0 3px ${theme.star}` }} />
+                      <span style={{ position: 'absolute', top: 15, left: 31, width: 2, height: 2, borderRadius: '50%', background: theme.star, boxShadow: `0 0 3px ${theme.star}` }} />
+                    </>
+                  ) : theme.kind === 'mountains' ? (
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 24, background: theme.ridgeNear, clipPath: 'polygon(0% 100%, 0% 65%, 22% 25%, 42% 58%, 62% 15%, 82% 50%, 100% 30%, 100% 100%)' }} />
+                  ) : theme.kind === 'photo' ? (
+                    !coverPhotoUrl && <Icon name="ti-photo" style={{ fontSize: 17, color: 'rgba(255,255,255,0.55)' }} />
+                  ) : (
+                    <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 13, color: '#C8993E' }}>P</span>
+                  )}
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 600, color: selected ? 'var(--text)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}>{theme.name}</span>
+              </button>
+            );
+          })}
+        </div>
+        {coverTheme === 'photo' && (
+          <div style={{ marginTop: 12 }}>
+            <input ref={coverPhotoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleCoverPhotoChange} />
+            {coverPhotoUrl ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', borderRadius: 12, padding: '10px 12px' }}>
+                <img src={cloudinaryTransform(coverPhotoUrl, 'w_100,h_130,c_fill,q_auto,f_auto')} alt="" style={{ width: 36, height: 47, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />
+                <p style={{ flex: 1, fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>Photo selected</p>
+                <button onClick={() => coverPhotoInputRef.current?.click()} style={{ background: 'none', border: 'none', color: 'var(--accent)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>Change</button>
+              </div>
+            ) : (
+              <button
+                onClick={() => coverPhotoInputRef.current?.click()}
+                disabled={uploadingCoverPhoto}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '12px 16px', background: 'var(--bg-card)', border: `1.5px dashed ${darkMode ? 'rgba(255,255,255,0.15)' : 'var(--border)'}`, borderRadius: 12, cursor: uploadingCoverPhoto ? 'default' : 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif" }}
+              >
+                {uploadingCoverPhoto ? <Icon name="ti-loader-2" style={{ fontSize: 15, animation: 'spin 1s linear infinite' }} /> : <Icon name="ti-photo" style={{ fontSize: 15 }} />}
+                {uploadingCoverPhoto ? 'Uploading…' : 'Choose a photo'}
+              </button>
+            )}
+            {coverPhotoError && <p style={{ fontSize: 12, color: '#C4A09C', margin: '6px 0 0' }}>{coverPhotoError}</p>}
+          </div>
+        )}
       </div>
 
       {/* Entry count */}

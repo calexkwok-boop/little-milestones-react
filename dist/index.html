@@ -3,6 +3,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+    <script>
+      // Temporary crash diagnostic: a white-screen crash on mobile Safari that
+      // survives React's own error boundaries means the failure isn't a normal
+      // caught render exception — this catches it at the raw window level
+      // (registered before the app bundle even starts) and paints the actual
+      // message directly onto the page, so it's visible with zero dev tools.
+      // Safe to remove once the underlying bug is found.
+      (function () {
+        function showCrash(msg) {
+          var el = document.getElementById('__crash_overlay__');
+          if (!el) {
+            el = document.createElement('div');
+            el.id = '__crash_overlay__';
+            el.style.cssText = 'position:fixed;inset:0;z-index:999999;background:#1a1a1a;color:#fff;padding:20px;font:12px/1.5 monospace;overflow:auto;white-space:pre-wrap;word-break:break-word;';
+            document.body.appendChild(el);
+          }
+          el.textContent += (el.textContent ? '\n\n---\n\n' : '') + msg;
+        }
+        window.addEventListener('error', function (e) {
+          showCrash('ERROR: ' + (e.message || e.error) + '\n' + (e.error && e.error.stack || (e.filename + ':' + e.lineno + ':' + e.colno)));
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e.reason;
+          showCrash('UNHANDLED REJECTION: ' + (r && r.message || r) + (r && r.stack ? '\n' + r.stack : ''));
+        });
+      })();
+    </script>
     <title>Patina</title>
     <link rel="manifest" href="/manifest.json" />
     <meta name="theme-color" content="#4A5E50" />
@@ -24,7 +51,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;800&family=Figtree:wght@400;500;600;700;800&family=DM+Sans:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;1,8..60,400&family=Cormorant+Garamond:ital,wght@1,700&display=swap" rel="stylesheet" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.33.0/dist/tabler-icons.min.css" />
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       html, body { height: 100%; overflow: hidden; }
@@ -46,10 +72,10 @@
         height: 100%;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-t-nCVq2f.js"></script>
+    <script type="module" crossorigin src="/assets/index-D-bSTZyG.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-react-nf7bT_Uh.js">
     <link rel="modulepreload" crossorigin href="/assets/vendor-supabase-Be25SE7n.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-Cg2oO3sx.css">
+    <link rel="stylesheet" crossorigin href="/assets/index-DjiQohiB.css">
   </head>
   <body>
     <div id="root"></div>
@@ -59,6 +85,28 @@
           navigator.serviceWorker.register('/sw.js').catch(() => {});
         });
       }
+    </script>
+    <script>
+      // iOS Safari still auto-zooms on input focus even with maximum-scale=1
+      // in the static tag above, once the app is running installed as a
+      // home-screen PWA (apple-mobile-web-app-capable) — that meta value is
+      // only honored at page load in that mode, not re-checked on focus.
+      // Re-asserting user-scalable=no at the moment of focus forces WebKit to
+      // re-read it, which is the only combination that actually blocks the
+      // zoom in standalone mode; reverting on blur restores normal pinch-zoom
+      // for the rest of the app.
+      (function () {
+        var viewport = document.querySelector('meta[name="viewport"]');
+        if (!viewport) return;
+        var normal = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';
+        var noZoom = normal + ', user-scalable=no';
+        document.addEventListener('focusin', function (e) {
+          if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) viewport.setAttribute('content', noZoom);
+        });
+        document.addEventListener('focusout', function (e) {
+          if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) viewport.setAttribute('content', normal);
+        });
+      })();
     </script>
   </body>
 </html>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { Icon } from '../icons';
 import { QRCodeSVG } from 'qrcode.react';
-import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl, photoCropY } from '../constants.js';
+import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl, photoCropY, BOOK_COVER_THEMES } from '../constants.js';
 
 // `cropY` is saved as "the point in the photo that should stay centered" (0-100, top-to-bottom),
 // not a raw scroll-percentage — so it has to be re-projected into an `object-position` value
@@ -414,7 +414,14 @@ function PairedPage({ entry, kids, pageText, isContinued = false, hasMore = fals
 }
 
 function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUserId, onNotifyMe, userEmail }) {
-  const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary } = bookConfig;
+  const { kidIds, fromDate, toDate, bookEntries, authorLabel, authorSummary, recipientSummary, coverTheme, coverPhotoUrl } = bookConfig;
+  const theme = BOOK_COVER_THEMES.find(t => t.id === coverTheme) || BOOK_COVER_THEMES[0];
+  // Every theme but 'alpine' is a dark ground with cream/white text; alpine's pale
+  // daytime sky needs dark ink instead — cover/chapter/back-cover text all read
+  // through these two instead of hardcoding cream or white.
+  const themeDark = theme.textMode === 'dark';
+  const ink = themeDark ? '#2A3B33' : '#F8F4EC';
+  const inkDim = a => themeDark ? `rgba(42,59,51,${a})` : `rgba(255,255,255,${a})`;
   const sorted = useMemo(() => [...bookEntries].sort((a, b) => a.date > b.date ? 1 : -1), [bookEntries]);
 
   const letterEntries = useMemo(() => sorted.filter(e => e.type !== 'note'), [sorted]);
@@ -575,27 +582,164 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
   })();
 
 
-  const renderCoverPage = () => {
+  // Shared decorative layer behind the cover/chapter/back-cover text — solid themes
+  // get the subtle grid texture, 'constellation' draws a star field, 'mountains' draws
+  // the ridgelines + moon. `vignette` (cover + back cover only, not chapter) adds the
+  // radial darken toward the edges on top of whichever decoration this returns.
+  function renderBackdrop(t, vignette) {
+    let deco;
+    if (t.kind === 'constellation') {
+      // Just a scattered starfield — no dipper shapes or connecting lines. A
+      // handful of brighter glowing stars (one standout, the rest smaller) plus
+      // a scatter of dim pinpricks, spread across the top and bottom so the
+      // middle stays clear for the text.
+      deco = (
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} viewBox="0 0 208 277" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <filter id="wf-glow" x="-300%" y="-300%" width="700%" height="700%">
+              <feGaussianBlur stdDeviation="2.1" />
+            </filter>
+          </defs>
+          <g fill={t.star} filter="url(#wf-glow)">
+            <circle cx="35" cy="30" r="2.6" opacity="0.75" /><circle cx="165" cy="20" r="4.6" opacity="0.95" /><circle cx="120" cy="45" r="1.7" opacity="0.5" />
+            <circle cx="70" cy="15" r="1.4" opacity="0.4" /><circle cx="190" cy="60" r="1.5" opacity="0.42" /><circle cx="10" cy="55" r="1.4" opacity="0.4" />
+            <circle cx="150" cy="35" r="1.3" opacity="0.38" />
+            <circle cx="25" cy="240" r="2.6" opacity="0.75" /><circle cx="180" cy="255" r="2.3" opacity="0.7" /><circle cx="100" cy="225" r="1.6" opacity="0.45" />
+            <circle cx="15" cy="215" r="1.4" opacity="0.4" /><circle cx="60" cy="265" r="1.5" opacity="0.42" /><circle cx="135" cy="270" r="1.4" opacity="0.4" />
+            <circle cx="195" cy="235" r="1.3" opacity="0.38" />
+            <circle cx="15" cy="130" r="1.3" opacity="0.35" /><circle cx="195" cy="155" r="1.3" opacity="0.35" />
+            <circle cx="45" cy="110" r="1.4" opacity="0.4" /><circle cx="170" cy="100" r="1.3" opacity="0.38" /><circle cx="25" cy="160" r="1.3" opacity="0.35" />
+            <circle cx="185" cy="175" r="1.4" opacity="0.4" /><circle cx="110" cy="95" r="1.3" opacity="0.38" /><circle cx="65" cy="190" r="1.3" opacity="0.35" />
+            <circle cx="150" cy="180" r="1.4" opacity="0.4" /><circle cx="95" cy="150" r="1.6" opacity="0.45" />
+          </g>
+          <g fill={t.star}>
+            <circle cx="35" cy="30" r="1.2" /><circle cx="120" cy="45" r="0.8" /><circle cx="70" cy="15" r="0.65" />
+            <circle cx="190" cy="60" r="0.7" /><circle cx="10" cy="55" r="0.65" /><circle cx="150" cy="35" r="0.6" />
+            <circle cx="25" cy="240" r="1.2" /><circle cx="180" cy="255" r="1.1" /><circle cx="100" cy="225" r="0.75" />
+            <circle cx="15" cy="215" r="0.65" /><circle cx="60" cy="265" r="0.7" /><circle cx="135" cy="270" r="0.65" />
+            <circle cx="195" cy="235" r="0.6" /><circle cx="15" cy="130" r="0.6" /><circle cx="195" cy="155" r="0.6" />
+            <circle cx="45" cy="110" r="0.65" /><circle cx="170" cy="100" r="0.6" /><circle cx="25" cy="160" r="0.6" />
+            <circle cx="185" cy="175" r="0.65" /><circle cx="110" cy="95" r="0.6" /><circle cx="65" cy="190" r="0.6" />
+            <circle cx="150" cy="180" r="0.65" /><circle cx="95" cy="150" r="0.75" />
+          </g>
+          <circle cx="165" cy="20" r="1.9" fill="#F3F8FF" />
+        </svg>
+      );
+    } else if (t.kind === 'mountains') {
+      // Twilight sky (drawn as the page's own `background: theme.bg` gradient,
+      // not here) with three receding mountain layers — far/mid ridges muted
+      // into the haze, the near ridge a crisp silhouette — plus a crescent moon.
+      deco = (
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} viewBox="0 0 208 277" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <filter id="mtn-glow" x="-300%" y="-300%" width="700%" height="700%">
+              <feGaussianBlur stdDeviation="3" />
+            </filter>
+            {/* Overlaid on each ridge (same silhouette, reused as-is) to fake
+                directional light: a soft highlight catching the upper slopes,
+                and — on the foreground ridge only — a shadow deepening the base,
+                so the flat fills read as lit peaks instead of paper cutouts. */}
+            <linearGradient id="mtn-highlight" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#fff" stopOpacity="0.3" />
+              <stop offset="45%" stopColor="#fff" stopOpacity="0" />
+            </linearGradient>
+            <linearGradient id="mtn-shadow" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="55%" stopColor="#000" stopOpacity="0" />
+              <stop offset="100%" stopColor="#000" stopOpacity="0.25" />
+            </linearGradient>
+            {/* A second, offset circle knocked out of the moon disc — works
+                regardless of the sky's gradient color, unlike overpainting
+                with a solid "sky" circle would. */}
+            <mask id="mtn-crescent">
+              <circle cx="150" cy="52" r="13" fill="#fff" />
+              <circle cx="156" cy="47" r="12" fill="#000" />
+            </mask>
+          </defs>
+          <circle cx="150" cy="52" r="14" fill={t.moon} opacity="0.3" filter="url(#mtn-glow)" />
+          <circle cx="150" cy="52" r="13" fill={t.moon} mask="url(#mtn-crescent)" />
+          <polygon points="0,190 30,165 55,180 85,150 115,175 145,155 172,177 193,163 208,172 208,277 0,277" fill={t.ridgeFar} opacity="0.75" />
+          <polygon points="0,190 30,165 55,180 85,150 115,175 145,155 172,177 193,163 208,172 208,277 0,277" fill="url(#mtn-highlight)" opacity="0.6" />
+          <polygon points="0,225 25,195 50,215 80,185 110,210 140,190 170,218 190,199 208,209 208,277 0,277" fill={t.ridgeMid} opacity="0.88" />
+          <polygon points="0,225 25,195 50,215 80,185 110,210 140,190 170,218 190,199 208,209 208,277 0,277" fill="url(#mtn-highlight)" opacity="0.5" />
+          <polygon points="0,260 20,230 45,250 75,215 100,245 130,220 160,250 190,225 208,240 208,277 0,277" fill={t.ridgeNear} />
+          <polygon points="0,260 20,230 45,250 75,215 100,245 130,220 160,250 190,225 208,240 208,277 0,277" fill="url(#mtn-highlight)" opacity="0.4" />
+          <polygon points="0,260 20,230 45,250 75,215 100,245 130,220 160,250 190,225 208,240 208,277 0,277" fill="url(#mtn-shadow)" />
+        </svg>
+      );
+    } else if (t.kind === 'victorian') {
+      // A solid rule + a dotted rule just inside it, plus one small scroll
+      // shape hand-placed in each corner (mirrored, not repeated via CSS
+      // transform, since this is SVG rather than the artifact's HTML/CSS).
+      deco = (
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} viewBox="0 0 208 277" preserveAspectRatio="none" aria-hidden="true">
+          <rect x="11" y="11" width="186" height="255" fill="none" stroke={t.frameGold} strokeWidth="2" opacity="0.7" />
+          <rect x="7" y="7" width="194" height="263" fill="none" stroke={t.frameGold} strokeWidth="1" strokeDasharray="1 3" opacity="0.45" />
+          <path d="M8,8 Q8,26 26,26 Q17,26 17,17 Q17,9 8,8 Z" fill={t.frameGold} opacity="0.75" />
+          <path d="M200,8 Q200,26 182,26 Q191,26 191,17 Q191,9 200,8 Z" fill={t.frameGold} opacity="0.75" />
+          <path d="M8,269 Q8,251 26,251 Q17,251 17,260 Q17,268 8,269 Z" fill={t.frameGold} opacity="0.75" />
+          <path d="M200,269 Q200,251 182,251 Q191,251 191,260 Q191,268 200,269 Z" fill={t.frameGold} opacity="0.75" />
+        </svg>
+      );
+    } else if (t.kind === 'photo') {
+      // The user's own photo, faded translucent under a dark scrim (same idea
+      // as entryBgStyle/tintedScrimStyle elsewhere) so the standard cream
+      // text block still reads regardless of what's in the photo.
+      deco = coverPhotoUrl ? (
+        <>
+          <img src={cloudinaryTransform(coverPhotoUrl, 'w_800,q_auto,f_auto')} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.4 }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(10,8,6,0.4) 0%, rgba(10,8,6,0.6) 100%)' }} />
+        </>
+      ) : null;
+    } else {
+      deco = <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />;
+    }
+    // A flat black vignette reads as a dirty smudge on the pale mountains skies
+    // (especially alpine's) — warm dark-brown instead, so it feels like falloff
+    // toward evening/shade rather than a grime ring.
+    const vignetteTint = t.kind === 'mountains' ? 'rgba(28,16,10,0.16)' : 'rgba(0,0,0,0.1)';
     return (
-      <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.1) 100%)', pointerEvents: 'none' }} />
-        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 18 }}>
-          <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.22)' }} />
-          <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, letterSpacing: 0.5, color: '#C8993E', margin: 0, lineHeight: 1 }}>Patina</p>
-          <div style={{ width: 1, height: 40, background: 'rgba(255,255,255,0.22)' }} />
-          <h1 style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 30, color: '#F8F4EC', margin: 0, lineHeight: 1.25, textAlign: 'center' }}>
-            Letters to<br />{kidNameDisplay}
-          </h1>
+      <>
+        {deco}
+        {vignette && <div style={{ position: 'absolute', inset: 0, background: `radial-gradient(ellipse at center, transparent 40%, ${vignetteTint} 100%)`, pointerEvents: 'none' }} />}
+      </>
+    );
+  }
+
+  const renderCoverPage = () => {
+    const victorian = theme.kind === 'victorian';
+    return (
+      <div style={{ background: theme.bg, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
+        {renderBackdrop(theme, true)}
+        <div style={{ position: 'relative', zIndex: 1, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: victorian ? 12 : 18 }}>
+          {victorian ? (
+            <>
+              <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 12, letterSpacing: 2.5, textTransform: 'uppercase', color: theme.wordmark }}>Patina</span>
+              <h1 style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 26, color: ink, margin: 0, lineHeight: 1.3, textAlign: 'center' }}>
+                Letters to<br />{kidNameDisplay}
+              </h1>
+              <svg width="50" height="12" viewBox="0 0 44 10" style={{ display: 'block' }} aria-hidden="true">
+                <path d="M2,5 Q12,0 22,5 T42,5" fill="none" stroke={theme.frameGold} strokeWidth="1" />
+              </svg>
+            </>
+          ) : (
+            <>
+              {(theme.kind === 'solid' || theme.kind === 'mountains') && <div style={{ width: 1, height: 40, background: inkDim(0.22) }} />}
+              <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 30, letterSpacing: 0.5, color: '#C8993E', margin: 0, lineHeight: 1 }}>Patina</p>
+              {(theme.kind === 'solid' || theme.kind === 'mountains') && <div style={{ width: 1, height: 40, background: inkDim(0.22) }} />}
+              <h1 style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 30, color: ink, margin: 0, lineHeight: 1.25, textAlign: 'center' }}>
+                Letters to<br />{kidNameDisplay}
+              </h1>
+            </>
+          )}
           {authorSummary && authorSummary.toLowerCase() !== kidNameDisplay.toLowerCase() && (
-            <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.7)', margin: 0, letterSpacing: 1.2, textTransform: 'uppercase' }}>
+            <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 10, color: inkDim(0.7), margin: 0, letterSpacing: 1.2, textTransform: 'uppercase' }}>
               Love, {authorSummary}
             </p>
           )}
-          <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 10, color: 'rgba(255,255,255,0.62)', margin: 0, lineHeight: 1.7, textAlign: 'center', maxWidth: 240 }}>
-            For all the moments you may have forgotten, and all the things I never want you to forget
+          <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 10, color: inkDim(0.62), margin: 0, lineHeight: 1.7, textAlign: 'center', maxWidth: 240 }}>
+            For all the things I wish you knew, and all the moments I hope you never forget
           </p>
-          {dateRangeLabel && <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 11, color: 'rgba(255,255,255,0.48)', margin: 0, letterSpacing: 1 }}>{dateRangeLabel.toUpperCase()}</p>}
+          {dateRangeLabel && <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 11, color: inkDim(0.48), margin: 0, letterSpacing: 1 }}>{dateRangeLabel.toUpperCase()}</p>}
         </div>
       </div>
     );
@@ -625,12 +769,12 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
   );
 
   const renderChapterPage = (year) => (
-    <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
+    <div style={{ background: theme.bg, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
+      {renderBackdrop(theme, false)}
       <div style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-        <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,0.3)', margin: '0 auto 20px' }} />
-        <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 52, color: '#F8F4EC', margin: 0, lineHeight: 1, letterSpacing: -1 }}>{year}</p>
-        <div style={{ width: 40, height: 1, background: 'rgba(255,255,255,0.3)', margin: '20px auto 0' }} />
+        <div style={{ width: 40, height: 1, background: inkDim(0.3), margin: '0 auto 20px' }} />
+        <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 52, color: ink, margin: 0, lineHeight: 1, letterSpacing: -1 }}>{year}</p>
+        <div style={{ width: 40, height: 1, background: inkDim(0.3), margin: '20px auto 0' }} />
       </div>
       <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
         <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" loading="lazy" />
@@ -642,16 +786,15 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
   const renderBackCover = () => {
     const weOrI = authorLabel?.toLowerCase() === 'our family' || (authorSummary || '').includes(' and ') ? 'We' : 'I';
     return (
-      <div style={{ background: '#4A5E50', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 1px, transparent 1px, transparent 6px), repeating-linear-gradient(0deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 1px, transparent 1px, transparent 6px)", pointerEvents: 'none' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.1) 100%)', pointerEvents: 'none' }} />
+      <div style={{ background: theme.bg, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 32px', position: 'relative', overflow: 'hidden' }}>
+        {renderBackdrop(theme, true)}
         <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, width: '100%' }}>
           <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, color: '#C8993E', margin: 0 }}>Patina</p>
-          <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
-          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: 'rgba(255,255,255,0.6)', margin: 0, lineHeight: 1.9, textAlign: 'center' }}>
+          <div style={{ width: 1, height: 32, background: inkDim(0.2) }} />
+          <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 12, color: inkDim(0.6), margin: 0, lineHeight: 1.9, textAlign: 'center' }}>
             Patina is the beauty that comes with age. These letters capture the mark you left on the quiet, seemingly unremarkable days that turned out to matter most. Writing them is our quiet, perilous attempt to slow down time. A gift for you to one day hold, and an anchor for us to inhabit today.
           </p>
-          <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.2)' }} />
+          <div style={{ width: 1, height: 32, background: inkDim(0.2) }} />
         </div>
         <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
           <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" loading="lazy" />
@@ -687,7 +830,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
   return (
     <div className="screen" style={{ background: '#1E2820' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', flexShrink: 0 }}>
-        <button className="icon-btn-ghost" onClick={onBack}><Icon name="ti-x" /></button>
+        <button className="icon-btn-ghost" onClick={onBack} style={{ width: 28, height: 28, fontSize: 14 }}><Icon name="ti-x" /></button>
         <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0, fontWeight: 600 }}>{pageLabel}</p>
         <div style={{ width: 36 }} />
       </div>

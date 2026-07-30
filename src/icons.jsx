@@ -93,6 +93,8 @@ const ICONS = {
   'ti-walk': <><circle cx="13.5" cy="4.2" r="1.8" /><path d="M13 7.7l-2.5 3 3 2.2-1.2 6.3" /><path d="M12 9.2l-4 1.5" /><path d="M13.8 12.9l3.2 1.6-.6 4.5" /></>,
   'ti-school': <><path d="M12 4L2.5 8.5 12 13l9.5-4.5z" /><path d="M6.5 10.7v4c0 1.5 2.5 2.8 5.5 2.8s5.5-1.3 5.5-2.8v-4" /><path d="M21.5 8.5v6" /></>,
   'ti-piano': <><rect x="4" y="6" width="16" height="12" rx="1.5" /><path d="M8 6v7.5M12 6v7.5M16 6v7.5" /><path d="M4 13.5h16" /></>,
+  'ti-volume': <><path d="M10 8.3L6 11H3v2h3l4 2.7V8.3z" /><path d="M15.3 9a4 4 0 010 6" /></>,
+  'ti-volume-off': <><path d="M10 8.3L6 11H3v2h3l4 2.7V8.3z" /><path d="M17 10l4 4M21 10l-4 4" /></>,
 };
 
 // The Profile nav tab uses the actual quill+inkwell silhouette lifted from
