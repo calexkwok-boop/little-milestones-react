@@ -597,7 +597,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             <Icon name="ti-x" />
           </button>
           <img
-            src={cloudinaryTransform(zoomedPhoto.url, 'w_1600,q_auto,f_auto')}
+            src={cloudinaryTransform(zoomedPhoto.url, 'w_1000,q_auto,f_auto')}
             alt=""
             onClick={e => e.stopPropagation()}
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}

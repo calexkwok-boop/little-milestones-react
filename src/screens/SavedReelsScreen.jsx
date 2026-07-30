@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../icons';
 import { cloudinaryTransform } from '../constants.js';
 import SectionSwitcher from '../SectionSwitcher.jsx';
+import { Coachmark } from '../Coachmark.jsx';
 
 function formatRangeLabel(startDate, endDate) {
   const s = new Date(startDate + 'T12:00:00');
@@ -148,7 +149,7 @@ function PatinaJarRow({ reel, onWatch }) {
   );
 }
 
-function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], onBack, onSwitchSection, onStartBuilding, onDeleteReel, onWatchReel, onWatchPatinaJar, onEditReel }) {
+function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], onBack, onSwitchSection, onStartBuilding, onDeleteReel, onWatchReel, onWatchPatinaJar, onEditReel, currentMonthRecap, userId, onWatchMonthReel, onEditMonthReel }) {
   const [showCreate, setShowCreate] = useState(false);
   const [title, setTitle] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -157,6 +158,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], 
   const endDateInputRef = useRef(null);
   const [deleteTarget, setDeleteTarget] = useState(null); // the reel pending delete confirmation, or null
   const [openSwipeId, setOpenSwipeId] = useState(null); // which reel row, if any, is currently swiped open
+  const editReelBtnRef = useRef(null);
 
   // Swipe-to-edit/delete has no other visual cue that it exists — the first
   // time someone actually has a reel to show it on, briefly auto-open the
@@ -222,6 +224,46 @@ function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], 
               />
             </div>
           </div>
+
+          {currentMonthRecap && currentMonthRecap.letters > 0 && onWatchMonthReel && (
+            <div
+              onClick={onWatchMonthReel}
+              style={{ display: 'flex', alignItems: 'center', gap: 11, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '11px 13px', cursor: 'pointer' }}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(180deg, #D4A84B 0%, #B8872E 100%)', boxShadow: '0 2px 6px rgba(140,100,20,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="ti-player-play-filled" style={{ fontSize: 15, color: '#fff', marginLeft: 2 }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Watch your {currentMonthRecap.label} reel</p>
+                <p style={{ fontSize: 11, color: 'var(--text-2)', margin: '2px 0 0' }}>
+                  {currentMonthRecap.letters} moment{currentMonthRecap.letters !== 1 ? 's' : ''}
+                  {currentMonthRecap.milestones > 0 ? ` · ${currentMonthRecap.milestones} milestone${currentMonthRecap.milestones !== 1 ? 's' : ''}` : ''}
+                  {currentMonthRecap.photos > 0 ? ` · ${currentMonthRecap.photos} photo${currentMonthRecap.photos !== 1 ? 's' : ''}` : ''}
+                </p>
+              </div>
+              {onEditMonthReel && (
+                <>
+                  <button
+                    ref={editReelBtnRef}
+                    onClick={e => { e.stopPropagation(); onEditMonthReel(); }}
+                    title="Edit this month's reel"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--bg-elevated)', cursor: 'pointer', flexShrink: 0 }}
+                  >
+                    <Icon name="ti-pencil" style={{ fontSize: 13, color: 'var(--text-2)' }} />
+                  </button>
+                  <Coachmark
+                    id="reels-edit-month-reel"
+                    userId={userId}
+                    active={true}
+                    targetRef={editReelBtnRef}
+                    placement="top"
+                    text="Tap here to pick your own photos and songs for this month's reel."
+                  />
+                </>
+              )}
+              <Icon name="ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
+            </div>
+          )}
 
           {patinaJarReels.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

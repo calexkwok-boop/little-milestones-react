@@ -3,7 +3,6 @@ import { Icon } from '../icons';
 import { TODAY, milestoneInfo, cloudinaryTransform, videoThumbUrl, photoCropY } from '../constants.js';
 import KidThumb from '../KidThumb.jsx';
 import SectionSwitcher from '../SectionSwitcher.jsx';
-import { Coachmark } from '../Coachmark.jsx';
 import CroppedImg from '../CroppedImg.jsx';
 
 function RecapEntryRow({ entry, kids, onOpenEntry, nextIsMilestone }) {
@@ -95,8 +94,7 @@ function RecapGridCell({ entry, onOpenEntry }) {
   );
 }
 
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget, onWatchMonthReel, onEditMonthReel, userId }) {
-  const editReelBtnRef = useRef(null);
+function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget }) {
   const [viewMode, setViewMode] = useState(initialTarget?.viewMode || 'month');
   const [selectedMonth, setSelectedMonth] = useState(initialTarget?.month || TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
@@ -131,11 +129,11 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
   }, [entries, searchQuery, kids]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const segTabStyle = (tab) => ({
-    border: 'none', borderRadius: 7, padding: '8px 12px',
-    fontFamily: 'Inter, sans-serif', fontSize: 11.5, fontWeight: 600, cursor: 'pointer',
-    background: viewMode === tab ? 'var(--bg-input)' : 'transparent',
+    border: 'none', background: 'none', padding: 6,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    cursor: 'pointer',
     color: viewMode === tab ? 'var(--accent)' : 'var(--text-muted)',
-    boxShadow: viewMode === tab ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+    opacity: viewMode === tab ? 1 : 0.55,
   });
 
   const monthLabel = new Date(selectedMonth + '-15T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -261,34 +259,6 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
           ) : (
           <>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: 9, padding: 3 }}>
-              <button style={segTabStyle('month')} onClick={() => setViewMode('month')}>Month</button>
-              <button style={segTabStyle('year')} onClick={() => setViewMode('year')}>Year</button>
-              <button style={segTabStyle('all')} onClick={() => setViewMode('all')}>All</button>
-            </div>
-          </div>
-
-          {viewMode !== 'all' && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <button
-                onClick={viewMode === 'month' ? prevMonth : () => setSelectedYear(y => String(Number(y) - 1))}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 16, padding: 4, display: 'flex' }}
-              >
-                <Icon name="ti-chevron-left" />
-              </button>
-              <h2 style={{ fontSize: 17, color: 'var(--accent)', margin: 0, fontWeight: 700, minWidth: 150, textAlign: 'center' }}>
-                {viewMode === 'month' ? monthLabel : selectedYear}
-              </h2>
-              <button
-                onClick={viewMode === 'month' ? nextMonth : () => { if (canGoNextYear) setSelectedYear(y => String(Number(y) + 1)); }}
-                style={{ background: 'none', border: 'none', cursor: (viewMode === 'month' ? canGoNextMonth : canGoNextYear) ? 'pointer' : 'default', color: (viewMode === 'month' ? canGoNextMonth : canGoNextYear) ? 'var(--text-muted)' : 'transparent', fontSize: 16, padding: 4, display: 'flex' }}
-              >
-                <Icon name="ti-chevron-right" />
-              </button>
-            </div>
-          )}
-
           {kids.length > 1 && (
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'center' }}>
               <button
@@ -307,45 +277,32 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
             </div>
           )}
 
-          {viewMode === 'month' && onWatchMonthReel && momentCount > 0 && (
-            <div
-              onClick={() => onWatchMonthReel(selectedMonth)}
-              style={{ display: 'flex', alignItems: 'center', gap: 11, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '11px 13px', cursor: 'pointer' }}
-            >
-              <div style={{ width: 40, height: 40, borderRadius: '50%', flexShrink: 0, background: 'linear-gradient(180deg, #D4A84B 0%, #B8872E 100%)', boxShadow: '0 2px 6px rgba(140,100,20,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Icon name="ti-player-play-filled" style={{ fontSize: 15, color: '#fff', marginLeft: 2 }} />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: viewMode === 'all' ? 'center' : 'space-between', gap: 8 }}>
+            {viewMode !== 'all' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <button
+                  onClick={viewMode === 'month' ? prevMonth : () => setSelectedYear(y => String(Number(y) - 1))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 15, padding: 4, display: 'flex', flexShrink: 0 }}
+                >
+                  <Icon name="ti-chevron-left" />
+                </button>
+                <h2 style={{ fontSize: 15, color: 'var(--accent)', margin: 0, fontWeight: 700, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  {viewMode === 'month' ? monthLabel : selectedYear}
+                </h2>
+                <button
+                  onClick={viewMode === 'month' ? nextMonth : () => { if (canGoNextYear) setSelectedYear(y => String(Number(y) + 1)); }}
+                  style={{ background: 'none', border: 'none', cursor: (viewMode === 'month' ? canGoNextMonth : canGoNextYear) ? 'pointer' : 'default', color: (viewMode === 'month' ? canGoNextMonth : canGoNextYear) ? 'var(--text-muted)' : 'transparent', fontSize: 15, padding: 4, display: 'flex', flexShrink: 0 }}
+                >
+                  <Icon name="ti-chevron-right" />
+                </button>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Watch your {monthLabel} reel</p>
-                <p style={{ fontSize: 11, color: 'var(--text-2)', margin: '2px 0 0' }}>
-                  {momentCount} moment{momentCount !== 1 ? 's' : ''}
-                  {milestoneCount > 0 ? ` · ${milestoneCount} milestone${milestoneCount !== 1 ? 's' : ''}` : ''}
-                  {photoCount > 0 ? ` · ${photoCount} photo${photoCount !== 1 ? 's' : ''}` : ''}
-                </p>
-              </div>
-              {onEditMonthReel && (
-                <>
-                  <button
-                    ref={editReelBtnRef}
-                    onClick={e => { e.stopPropagation(); onEditMonthReel(selectedMonth); }}
-                    title="Edit this month's reel"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--bg-elevated)', cursor: 'pointer', flexShrink: 0 }}
-                  >
-                    <Icon name="ti-pencil" style={{ fontSize: 13, color: 'var(--text-2)' }} />
-                  </button>
-                  <Coachmark
-                    id="recap-edit-month-reel"
-                    userId={userId}
-                    active={true}
-                    targetRef={editReelBtnRef}
-                    placement="top"
-                    text="Tap here to pick your own photos and songs for this month's reel."
-                  />
-                </>
-              )}
-              <Icon name="ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
+            )}
+            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+              <button title="Month" style={segTabStyle('month')} onClick={() => setViewMode('month')}><Icon name="ti-calendar" style={{ fontSize: 16 }} /></button>
+              <button title="Year" style={segTabStyle('year')} onClick={() => setViewMode('year')}><Icon name="ti-calendar-event" style={{ fontSize: 16 }} /></button>
+              <button title="All" style={segTabStyle('all')} onClick={() => setViewMode('all')}><Icon name="ti-layout-list" style={{ fontSize: 16 }} /></button>
             </div>
-          )}
+          </div>
 
           {momentCount === 0 ? (
             <div className="empty-state">

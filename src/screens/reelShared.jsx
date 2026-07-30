@@ -480,7 +480,7 @@ export function TripSlide({ trip, active, arcMs }) {
   }, [active, arcMs]);
 
   const isVideo = trip.photo.mediaType === 'video';
-  const photoSrc = isVideo ? videoThumbUrl(trip.photo.url, 'so_0,w_1600,q_auto,f_auto') : cloudinaryTransform(trip.photo.url, 'w_1600,q_auto,f_auto');
+  const photoSrc = isVideo ? videoThumbUrl(trip.photo.url, 'so_0,w_1000,q_auto,f_auto') : cloudinaryTransform(trip.photo.url, 'w_1000,q_auto,f_auto');
 
   return (
     <>
@@ -600,7 +600,7 @@ export function useReelImagePreload(slides) {
     slides.forEach(s => {
       if (s.type === 'text') return;
       const media = s.type === 'trip' ? s.photo : s;
-      const src = media.mediaType === 'video' ? videoThumbUrl(media.url, 'so_0,w_1600,q_auto,f_auto') : cloudinaryTransform(media.url, 'w_1600,q_auto,f_auto');
+      const src = media.mediaType === 'video' ? videoThumbUrl(media.url, 'so_0,w_1000,q_auto,f_auto') : cloudinaryTransform(media.url, 'w_1000,q_auto,f_auto');
       if (src) { const img = new Image(); img.src = src; }
     });
   }, [slides]);

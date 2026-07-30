@@ -30,7 +30,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
             ? playingHero
               ? <video src={cloudinaryTransform(heroMedia.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               : <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
-            : <CroppedImg src={cloudinaryTransform(heroMedia.url, 'w_1200,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
+            : <CroppedImg src={cloudinaryTransform(heroMedia.url, 'w_1000,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
           }
           {heroMedia.type === 'video' && !playingHero && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setPlayingHero(true); }}>

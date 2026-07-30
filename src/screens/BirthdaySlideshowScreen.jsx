@@ -161,8 +161,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
     // Preload all slide images so they're cached before display
     slides.forEach(s => {
       const src = s.type === 'video'
-        ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto')
-        : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
+        ? videoThumbUrl(s.url, 'so_0,w_1000,q_auto,f_auto')
+        : cloudinaryTransform(s.url, 'w_1000,q_auto,f_auto');
       const img = new Image();
       img.src = src;
     });
@@ -459,8 +459,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
     <div style={{ position: 'absolute', inset: 0, background: '#000', zIndex: 100, display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {slides.map((s, i) => {
         const isVideo = s.type === 'video';
-        const thumbSrc = videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto');
-        const imgSrc = cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
+        const thumbSrc = videoThumbUrl(s.url, 'so_0,w_1000,q_auto,f_auto');
+        const imgSrc = cloudinaryTransform(s.url, 'w_1000,q_auto,f_auto');
         const bgSrc = isVideo ? thumbSrc : imgSrc;
         const kbAnim = `kb${(i % 4) + 1} ${slideInterval}ms ease-in-out forwards`;
         const isActive = !showIntro && i === index;

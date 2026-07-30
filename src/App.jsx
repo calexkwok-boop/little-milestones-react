@@ -902,10 +902,10 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
             {entry.media[0].type === 'video' ? (
               <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
                 {videoPlaying ? (
-                  <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                  <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, 'so_0,w_1000,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                 ) : (
                   <>
-                    <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_1600,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} onError={e => { e.target.style.display = 'none'; }} />
+                    <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_1000,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} onError={e => { e.target.style.display = 'none'; }} />
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                       <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 14 }} />
@@ -1494,7 +1494,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                 {kids.map((k, i) => (
                   <div key={k.id} onClick={() => { if (!onAvatarUpload) return; avatarUploadKidIdRef.current = k.id; setShowAvatarSheet(true); }} style={{ width: 116, height: 116, borderRadius: '50%', background: k.accent || 'var(--border)', border: '3px solid var(--bg)', marginLeft: i > 0 ? -24 : 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, cursor: 'pointer' }}>
                     {k.avatar
-                      ? <img src={cloudinaryTransform(k.avatar, 'w_232,h_232,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
+                      ? <img src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_LG)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
                       : <span style={{ fontSize: 44, fontWeight: 700, color: '#fff' }}>{k.name.charAt(0)}</span>}
                   </div>
                 ))}
@@ -2545,7 +2545,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                       />
                     </div>
                   ) : (
-                    <CroppedBg key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }} src={cloudinaryTransform(item.url, 'w_1200,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(media, i, entry)}>
+                    <CroppedBg key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }} src={cloudinaryTransform(item.url, 'w_1000,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(media, i, entry)}>
                       <div className="video-play-overlay" style={{ display: 'none' }} />
                     </CroppedBg>
                   )
@@ -2984,8 +2984,8 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
       {showCrop && media[activeSlide] && (
         <CropModal
           url={media[activeSlide].type === 'video'
-            ? videoThumbUrl(media[activeSlide].url, 'so_0,w_1200,q_auto,f_auto')
-            : cloudinaryTransform(media[activeSlide].url, 'w_1200,q_auto,f_auto')}
+            ? videoThumbUrl(media[activeSlide].url, 'so_0,w_1000,q_auto,f_auto')
+            : cloudinaryTransform(media[activeSlide].url, 'w_1000,q_auto,f_auto')}
           cropY={photoCropY(media, activeSlide, entry)}
           cardHeight={260}
           onSave={newY => { onUpdateCrop?.(entry.id, media[activeSlide].url, newY); setShowCrop(false); }}
@@ -3004,7 +3004,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <Icon name="ti-x" />
           </button>
           <img
-            src={cloudinaryTransform(media[activeSlide].url, 'w_1200,q_auto,f_auto')}
+            src={cloudinaryTransform(media[activeSlide].url, 'w_1000,q_auto,f_auto')}
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
             alt=""
           />
@@ -6802,18 +6802,6 @@ export default function App() {
               onOpenEntry={openEntry}
               onSwitchSection={switchSection}
               initialTarget={recapTarget}
-              userId={session?.user?.id}
-              onWatchMonthReel={month => setReelMonth(month)}
-              onEditMonthReel={month => {
-                const [y, m] = month.split('-').map(Number);
-                const recap = computeMonthRecap(entries, month);
-                const startDate = `${month}-01`;
-                const endDate = `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
-                const existingSaved = savedReels.find(r => r.startDate === startDate && r.endDate === endDate);
-                setEditingReel(existingSaved
-                  ? { id: existingSaved.id, title: existingSaved.title, startDate, endDate, song: existingSaved.song ?? null, song2: existingSaved.song2 ?? null, durationSec: existingSaved.durationSec ?? 30, slideRefs: existingSaved.slideRefs ?? null }
-                  : { id: null, title: recap.label, startDate, endDate, song: null, song2: null, durationSec: 30, slideRefs: null });
-              }}
             />
           </ScreenErrorBoundary>
         </div>
@@ -6833,6 +6821,20 @@ export default function App() {
               onWatchPatinaJar={kidId => { setPatinaJarKidId(kidId); setPatinaJarBackScreen('reels'); setScreen('patina-jar'); }}
               onEditReel={reel => setEditingReel(reel)}
               onStartBuilding={({ title, startDate, endDate }) => setEditingReel({ id: null, title, startDate, endDate, song: null, song2: null, durationSec: 30, slideRefs: null })}
+              currentMonthRecap={computeMonthRecap(entries, TODAY.slice(0, 7))}
+              userId={session?.user?.id}
+              onWatchMonthReel={() => setReelMonth(TODAY.slice(0, 7))}
+              onEditMonthReel={() => {
+                const month = TODAY.slice(0, 7);
+                const [y, m] = month.split('-').map(Number);
+                const recap = computeMonthRecap(entries, month);
+                const startDate = `${month}-01`;
+                const endDate = `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+                const existingSaved = savedReels.find(r => r.startDate === startDate && r.endDate === endDate);
+                setEditingReel(existingSaved
+                  ? { id: existingSaved.id, title: existingSaved.title, startDate, endDate, song: existingSaved.song ?? null, song2: existingSaved.song2 ?? null, durationSec: existingSaved.durationSec ?? 30, slideRefs: existingSaved.slideRefs ?? null }
+                  : { id: null, title: recap.label, startDate, endDate, song: null, song2: null, durationSec: 30, slideRefs: null });
+              }}
             />
           </ScreenErrorBoundary>
         </div>

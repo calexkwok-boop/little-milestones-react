@@ -130,7 +130,7 @@ function SharedReelScreen({ token, effectiveDark }) {
           );
         }
         const isVideo = s.mediaType === 'video';
-        const thumbSrc = isVideo ? videoThumbUrl(s.url, 'so_0,w_1600,q_auto,f_auto') : cloudinaryTransform(s.url, 'w_1600,q_auto,f_auto');
+        const thumbSrc = isVideo ? videoThumbUrl(s.url, 'so_0,w_1000,q_auto,f_auto') : cloudinaryTransform(s.url, 'w_1000,q_auto,f_auto');
         const kbAnim = `kb${(i % 4) + 1} ${slideDurationMs(s, durationScale)}ms ease-in-out forwards`;
         return (
           <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 1s ease' }}>

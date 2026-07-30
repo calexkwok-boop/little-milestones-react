@@ -30,17 +30,20 @@ export const AVATAR_TRANSFORM_LG = 'w_200,h_200,c_fill,q_auto,f_auto'; // ~100-1
 // Applied to every <video> playback source app-wide — without it, every video
 // element streamed the raw uploaded file untouched (often 4K phone footage
 // at high bitrate), regardless of how small the player actually renders.
-// It's a max, not a forced downscale — most phone video (especially
-// portrait clips) is already under this width and passes through
-// untouched. 1920 (true 1080p) is deliberately roomier than a phone-screen
-// player needs, so a video still looks sharp full-size on a tablet; only
-// genuinely 4K+ originals get scaled down at all. `c_limit` is load-bearing
-// here, not decorative — most phone videos are shot portrait (e.g. 1080
-// wide), and a bare `w_1920` (Cloudinary's default crop mode scales to
-// exactly that width) would have *upscaled* those to 1920 wide instead of
-// leaving them alone, producing a bigger, slower-loading file than the
-// original for the most common case.
-export const VIDEO_DELIVERY_TRANSFORM = 'w_1920,c_limit,q_auto,f_auto';
+// It's a max, not a forced downscale, thanks to `c_limit` — a bare `w_960`
+// (Cloudinary's default crop mode scales to exactly that width) would
+// *upscale* a smaller video instead of leaving it alone, producing a
+// bigger, slower-loading file than the original for the most common case.
+// 960 (not the previous 1920) is sized to this app's actual layout: the
+// whole UI is a fixed-width card capped at 420px CSS width everywhere
+// (index.html, `#root { max-width: 420px }`) — on phone, tablet, or
+// desktop alike, since it's a fixed card, not a responsive layout that
+// grows — so 960 already covers ~2.3x retina density with room to spare;
+// the video player never actually renders wider than that regardless of
+// the viewing device. Most landscape phone footage (1920+ wide) gets
+// meaningfully downscaled here, which is the point; portrait clips (often
+// ~1080 wide) take a modest, visually negligible step down too.
+export const VIDEO_DELIVERY_TRANSFORM = 'w_960,c_limit,q_auto,f_auto';
 
 // Patina Jar: one fixed question per calendar month, repeating every year —
 // this March always asks the same thing as last March, so answers can be
