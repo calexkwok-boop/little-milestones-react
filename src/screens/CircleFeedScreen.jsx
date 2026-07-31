@@ -78,7 +78,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     if (!supabase || familyIds.length === 0) return;
     const { data: entriesData } = await supabase
       .from('entries')
-      .select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, same_age_dates, entry_media!inner(url, type, kid_id)')
+      .select('id, date, created_at, kid_ids, mood, milestone, age_months, family_id, user_id, same_age_dates, entry_media!inner(url, type, kid_id, crop_y)')
       .in('family_id', familyIds)
       .neq('shared', false)
       .order('created_at', { ascending: false })
@@ -94,7 +94,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
       familyId: e.family_id,
       userId: e.user_id,
       sameAgeDates: e.same_age_dates || null,
-      media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type, kidId: m.kid_id || null })),
+      media: (e.entry_media || []).map(m => ({ url: m.url, type: m.type, kidId: m.kid_id || null, cropY: m.crop_y ?? null })),
     }));
 
     setFeedEntries(normalized);
@@ -211,6 +211,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
       for (const [key, ratio] of Object.entries(visibleRatios.current)) {
         if (ratio > bestRatio) { bestRatio = ratio; bestKey = key; }
       }
+      console.log('[autoplay debug]', { ratios: { ...visibleRatios.current }, bestKey, bestRatio });
       setActiveVideoId(prev => {
         if (bestKey === prev) return prev;
         setUnmutedId(null);
@@ -218,6 +219,8 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         return bestKey;
       });
     }, { threshold: [0, 0.25, 0.5, 0.6, 0.75, 1] });
+    const observedCount = Object.values(videoRefs.current).filter(Boolean).length;
+    console.log('[autoplay debug] observing', observedCount, 'video tile(s), keys:', Object.keys(videoRefs.current));
     Object.values(videoRefs.current).forEach(el => { if (el) observer.observe(el); });
     return () => observer.disconnect();
   }, [displayedEntries]);
