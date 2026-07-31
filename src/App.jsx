@@ -1117,7 +1117,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist, onGenerateShareLink }) {
+function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist, onGenerateShareLink, onSameAgeMatch }) {
   const [quickToast, setQuickToast] = useState(null);
   function showQuickToast(msg) {
     setQuickToast(msg);
@@ -1378,6 +1378,33 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
   const friendBirthdaysToday = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [friendKids]);
   const friendBirthdayNextWeek = useMemo(() => friendKids.filter(k => { if (!k.birthdate) return false; const d = daysUntilBirthday(k.birthdate); return d > 0 && d <= 7; }), [friendKids]);
 
+  // Client-side mirror of the same-age push's detection (send-scheduled-notifications) —
+  // this is what shows the in-app banner, computed fresh on every render rather than
+  // persisted/dismissed, so (like the birthday banners above) it just stays visible for
+  // as long as the underlying age match is still true rather than needing its own
+  // read/dismiss state. Stops at the first match found across kid pairs — one banner
+  // is plenty; there's no need to queue up every sibling pair that happens to qualify.
+  const sameAgeMatchBanner = useMemo(() => {
+    for (const kidA of kids) {
+      if (!kidA.birthdate || kidA.archivedAt) continue;
+      const ageA = exactAge(kidA.birthdate, TODAY);
+      const ageAMonths = ageA.years * 12 + ageA.months;
+      for (const kidB of kids) {
+        if (kidB.id === kidA.id || !kidB.birthdate || kidB.archivedAt) continue;
+        let best = null;
+        for (const entry of entries) {
+          if (!entry.kids?.includes(kidB.id) || entry.kids?.includes(kidA.id)) continue;
+          const ageB = exactAge(kidB.birthdate, entry.date);
+          if (ageB.years * 12 + ageB.months !== ageAMonths) continue;
+          const hasMedia = entry.media?.length > 0;
+          if (!best || (hasMedia && !best.hasMedia)) best = { entry, hasMedia };
+        }
+        if (best) return { kidA, kidB, entry: best.entry };
+      }
+    }
+    return null;
+  }, [kids, entries]);
+
   // "Recent" and "Recently added" already claim these entries at the top of the
   // feed, so the look-back sections below must not pull the same post back in.
   const recentAndAddedIds = useMemo(() => new Set([...recent, ...recentlyAdded].map(e => e.id)), [recent, recentlyAdded]);
@@ -1615,6 +1642,25 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
               </button>
             </div>
           ))}
+
+          {sameAgeMatchBanner && onSameAgeMatch && (
+            <div
+              onClick={() => onSameAgeMatch(sameAgeMatchBanner.entry, sameAgeMatchBanner.kidB, sameAgeMatchBanner.kidA)}
+              style={{ background: 'var(--bg-nav)', borderRadius: 14, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14, cursor: 'pointer' }}
+            >
+              <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(200,153,62,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name="ti-arrows-diff" style={{ fontSize: 18, color: '#C8993E' }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--accent)', margin: '0 0 2px' }}>
+                  {sameAgeMatchBanner.kidA.name} just turned the age {sameAgeMatchBanner.kidB.name} was in this letter
+                </p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+                  Take a look, and add a photo from today
+                </p>
+              </div>
+            </div>
+          )}
 
           {wishlistPromptKid && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', zIndex: 30, display: 'flex', alignItems: 'flex-end' }} onClick={() => setWishlistPromptKid(null)}>
@@ -4624,6 +4670,11 @@ export default function App() {
   const [pendingOpenPatinaJarKidId, setPendingOpenPatinaJarKidId] = useState(() => {
     try { return new URLSearchParams(window.location.search).get('openPatinaJar'); } catch { return null; }
   });
+  // ?sameAgeKid=<kidId> rides alongside ?open=<entryId> on the same-age push —
+  // read once at mount just like the others above.
+  const [pendingOpenSameAgeKidId, setPendingOpenSameAgeKidId] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('sameAgeKid'); } catch { return null; }
+  });
 
   // Deep-link from a push notification tap: ?open=<entryId> is handled by the existing
   // pendingOpenEntryId flow already used for in-app notification taps; ?openBirthday=<kidId>
@@ -4652,6 +4703,20 @@ export default function App() {
       setPendingOpenPatinaJarKidId(null);
     }
   }, [pendingOpenPatinaJarKidId, kids]);
+  // ?sameAgeKid=<kidId> from the same-age push — once the ?open=<entryId>
+  // half of the link (handled by the existing pendingOpenEntryId flow inside
+  // HomeScreen) has actually landed on that entry, skip straight to the
+  // same-age photo picker instead of leaving the tap sitting on the plain
+  // post with the "Find X at the same age" button still requiring its own tap.
+  useEffect(() => {
+    if (!pendingOpenSameAgeKidId || !activeEntry || screen !== 'entry-detail') return;
+    const targetKid = kids.find(k => k.id === pendingOpenSameAgeKidId);
+    const sourceKid = kids.find(k => activeEntry.kids?.includes(k.id));
+    if (!targetKid || !sourceKid) return;
+    setSameAgeMatch({ sourceEntry: activeEntry, sourceKid, targetKid, queue: [], queueTotal: 1 });
+    setScreen('same-age-match');
+    setPendingOpenSameAgeKidId(null);
+  }, [pendingOpenSameAgeKidId, activeEntry, screen, kids]);
   const [discoverable, setDiscoverable] = useState(true);
   const [sharingDefaults, setSharingDefaults] = useState({ partner: true, family: false, friends: false });
   const [postOnboardInvite, setPostOnboardInvite] = useState(false);
@@ -6673,6 +6738,11 @@ export default function App() {
             onBirthdayTodayClick={kid => setBirthdaySlideshow(kid)}
             onFriendBirthdayClick={kid => setBirthdaySlideshowFriend({ kid, entries: friendEntries })}
             onUpdateKidWishlist={handleUpdateKidWishlist}
+            onSameAgeMatch={(entry, sourceKid, targetKid) => {
+              openEntry(entry);
+              setSameAgeMatch({ sourceEntry: entry, sourceKid, targetKid, queue: [], queueTotal: 1 });
+              setScreen('same-age-match');
+            }}
           />
         );
       })()}

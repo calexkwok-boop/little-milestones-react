@@ -112,7 +112,8 @@
       "Bash(xxd)",
       "WebFetch(domain:support.cloudinary.com)",
       "WebFetch(domain:cloudinary.com)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(deno --version)"
     ],
     "additionalDirectories": [
       "\\tmp"

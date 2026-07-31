@@ -27,6 +27,19 @@ function turningAge(birthdate: string, today: Date): number {
   return bdayYear - by;
 }
 
+// Same month-borrow logic as exactAge() in src/constants.js, collapsed to just
+// the years*12+months total this block actually needs (the day-of-month only
+// matters here for whether it nudges the month count down by one).
+function exactAgeMonths(birthdate: string, dateStr: string): number {
+  const [by, bm, bd] = birthdate.split('-').map(Number);
+  const [ey, em, ed] = dateStr.split('-').map(Number);
+  let years = ey - by;
+  let months = em - bm;
+  if (ed - bd < 0) months--;
+  if (months < 0) { years--; months += 12; }
+  return years * 12 + months;
+}
+
 // A notification is sent at most once per `id`. Birthday ids encode the year, so
 // they naturally re-fire next year. Prompt-nudge ids don't encode a date, so they're
 // re-checked against `cooldownDays` instead — a rolling "don't nag more than once a week."
@@ -154,7 +167,9 @@ Deno.serve(async (req) => {
     }
 
     // ── Prompt of day: whichever kid in a family has gone longest without an entry ──
-    const { data: entries } = await admin.from('entries').select('family_id, kid_ids, created_at, date');
+    // (id + entry_media pulled here too, up front, for the same-age block further down —
+    // one shared query instead of a second fetch of the same table.)
+    const { data: entries } = await admin.from('entries').select('id, family_id, kid_ids, created_at, date, entry_media(url)');
     const lastActivityByKid = new Map<string, number>();
     for (const e of entries || []) {
       const ts = e.created_at ? new Date(e.created_at).getTime() : new Date(e.date + 'T12:00:00').getTime();
@@ -221,6 +236,61 @@ Deno.serve(async (req) => {
               url: `/?openPatinaJar=${kid.id}`,
               tag: `patina-jar-${kid.id}`,
               kind: 'patina_jar',
+              category: 'prompt_nudges',
+            });
+            await markSent(admin, id, ownerId);
+          }
+        }
+      }
+    }
+
+    // ── Same age: kid A just reached — to the exact month — the age kid B
+    // was tagged at in some existing entry that doesn't already include A.
+    // ("Miles just turned the age Ellie was in this letter.") The
+    // notification id encodes the kid pair *and* the specific age in months,
+    // so unlike the birthday/prompt nudges above this needs no cooldown —
+    // that exact id can only ever become true once, ever.
+    const kidsWithBirthdateByFamily = new Map<string, typeof kids>();
+    for (const kid of kids || []) {
+      if (!kidsWithBirthdateByFamily.has(kid.family_id)) kidsWithBirthdateByFamily.set(kid.family_id, []);
+      kidsWithBirthdateByFamily.get(kid.family_id)!.push(kid);
+    }
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    for (const [familyId, familyKidsFull] of kidsWithBirthdateByFamily) {
+      if (familyKidsFull.length < 2) continue; // needs a sibling to compare against
+      const familyEntries = (entries || []).filter((e: any) => e.family_id === familyId);
+      const owners = membersByFamily.get(familyId) || [];
+
+      for (const kidA of familyKidsFull) {
+        const ageAMonths = exactAgeMonths(kidA.birthdate, todayStr);
+        if (ageAMonths < 0) continue;
+
+        for (const kidB of familyKidsFull) {
+          if (kidB.id === kidA.id) continue;
+
+          // Among kidB's entries at exactly this age that don't already tag
+          // kidA, prefer one with a photo/video — more worth tapping into
+          // than a text-only note.
+          let best: { entry: any; hasMedia: boolean } | null = null;
+          for (const entry of familyEntries) {
+            if (!entry.kid_ids?.includes(kidB.id) || entry.kid_ids?.includes(kidA.id)) continue;
+            if (exactAgeMonths(kidB.birthdate, entry.date) !== ageAMonths) continue;
+            const hasMedia = (entry.entry_media || []).length > 0;
+            if (!best || (hasMedia && !best.hasMedia)) best = { entry, hasMedia };
+          }
+          if (!best) continue;
+
+          const id = `same-age-${kidA.id}-${kidB.id}-${ageAMonths}`;
+          for (const ownerId of owners) {
+            if (await alreadySent(admin, id, undefined)) continue;
+            if (!isTargetLocalHour(await getUserTimezone(admin, ownerId), today)) continue;
+            await push(ownerId, {
+              title: 'Same age!',
+              body: `${kidA.name} just turned the age ${kidB.name} was in this letter — take a look.`,
+              url: `/?open=${best.entry.id}&sameAgeKid=${kidA.id}`,
+              tag: `same-age-${kidA.id}-${kidB.id}`,
+              kind: 'same_age',
               category: 'prompt_nudges',
             });
             await markSent(admin, id, ownerId);
