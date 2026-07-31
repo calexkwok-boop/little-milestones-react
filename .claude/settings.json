@@ -113,7 +113,8 @@
       "WebFetch(domain:support.cloudinary.com)",
       "WebFetch(domain:cloudinary.com)",
       "WebSearch",
-      "Bash(deno --version)"
+      "Bash(deno --version)",
+      "Bash(git fetch *)"
     ],
     "additionalDirectories": [
       "\\tmp"
