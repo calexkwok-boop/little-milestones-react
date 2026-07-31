@@ -7,11 +7,31 @@ import SectionSwitcher from '../SectionSwitcher.jsx';
 import FriendAvatar from '../FriendAvatar.jsx';
 import usePullToRefresh from '../usePullToRefresh.jsx';
 import triggerPush from '../triggerPush.js';
+import CroppedImg, { useImageCropPosition } from '../CroppedImg.jsx';
 import {
   PROMPT_ACCENT, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM,
-  cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl, exactAgeLabel,
+  cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl, exactAgeLabel, photoCropY,
   PHOTO_MD, PHOTO_LG, PHOTO_SQUARE,
 } from '../constants.js';
+
+// Same-shaped as App.jsx's CroppedVideo, duplicated locally rather than
+// imported — that one doesn't forward the underlying <video> node, and this
+// screen needs direct access to it (videoElRefs) for the tap-to-pause/resume
+// controls below. `onRefEl` reports the node up without giving up the crop
+// hook, which has to own the ref itself to measure the rendered box.
+function CroppedFeedVideo({ src, poster, cropY, onRefEl, style, ...props }) {
+  const videoRef = useRef(null);
+  const { objY } = useImageCropPosition(poster, cropY, videoRef);
+  return (
+    <video
+      ref={el => { videoRef.current = el; onRefEl?.(el); }}
+      src={cloudinaryTransform(src, VIDEO_DELIVERY_TRANSFORM)}
+      poster={poster}
+      style={{ ...style, objectPosition: `center ${objY}%` }}
+      {...props}
+    />
+  );
+}
 
 function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCompareAtAge, onSwitchSection, friends = [], familyMemberIds = [], onSearchUsers, onSendRequest }) {
   const { userId: currentUserId, myDisplayName, familyMembers = [] } = useSession() ?? {};
@@ -305,9 +325,17 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                     {photo && (isVideo ? (
                       <>
                         {isActive ? (
-                          <video ref={el => { videoElRefs.current[videoKey] = el; }} src={cloudinaryTransform(photo.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay muted={!isUnmuted} playsInline onEnded={() => setPausedVideoId(videoKey)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          <CroppedFeedVideo
+                            src={photo.url}
+                            poster={videoThumbUrl(photo.url, `so_0,${PHOTO_MD}`)}
+                            cropY={photo?.cropY ?? 50}
+                            onRefEl={el => { videoElRefs.current[videoKey] = el; }}
+                            autoPlay muted={!isUnmuted} playsInline
+                            onEnded={() => setPausedVideoId(videoKey)}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                          />
                         ) : (
-                          <img src={videoThumbUrl(photo.url, `so_0,${PHOTO_MD}`)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                          <CroppedImg src={videoThumbUrl(photo.url, `so_0,${PHOTO_MD}`)} cropY={photo?.cropY ?? 50} />
                         )}
                         <div style={{ position: 'absolute', bottom: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Icon name={isUnmuted ? 'ti-volume' : 'ti-volume-off'} style={{ fontSize: 11, color: '#fff' }} />
@@ -321,7 +349,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                         )}
                       </>
                     ) : (
-                      <img src={cloudinaryTransform(photo.url, PHOTO_MD)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                      <CroppedImg src={cloudinaryTransform(photo.url, PHOTO_MD)} cropY={photo?.cropY ?? 50} />
                     ))}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '22px 10px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,0.6))' }}>
                       <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#fff' }}>{side.kid.name.split(' ')[0]}</p>
@@ -390,9 +418,17 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             {isVideo ? (
               <>
                 {isActive ? (
-                  <video ref={el => { videoElRefs.current[entry.id] = el; }} src={cloudinaryTransform(entry.media[0].url, VIDEO_DELIVERY_TRANSFORM)} autoPlay muted={!isUnmuted} playsInline onEnded={() => setPausedVideoId(entry.id)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <CroppedFeedVideo
+                    src={entry.media[0].url}
+                    poster={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)}
+                    cropY={photoCropY(entry.media, 0, entry)}
+                    onRefEl={el => { videoElRefs.current[entry.id] = el; }}
+                    autoPlay muted={!isUnmuted} playsInline
+                    onEnded={() => setPausedVideoId(entry.id)}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
                 ) : (
-                  <img src={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                  <CroppedImg src={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} />
                 )}
                 <div style={{ position: 'absolute', bottom: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name={isUnmuted ? 'ti-volume' : 'ti-volume-off'} style={{ fontSize: 13, color: '#fff' }} />
@@ -406,7 +442,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 )}
               </>
             ) : (
-              <img src={cloudinaryTransform(entry.media[0].url, PHOTO_LG)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+              <CroppedImg src={cloudinaryTransform(entry.media[0].url, PHOTO_LG)} cropY={photoCropY(entry.media, 0, entry)} />
             )}
             {likeAnimId === entry.id && (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
