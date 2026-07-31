@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
-import { cloudinaryTransform } from '../constants.js';
+import { cloudinaryTransform, PHOTO_XS } from '../constants.js';
 import { supabase } from '../supabase.js';
 import {
   buildReelCandidates, autoSampleSlides, resolveSlideRefs, slideToRef,
@@ -40,7 +40,7 @@ function CardThumb({ item, large }) {
   const { w, h } = cardSize(item, large);
   if (item.type === 'trip') {
     return (
-      <div style={{ width: w, height: h, borderRadius: 11, background: 'linear-gradient(135deg, rgba(200,153,62,0.35), rgba(74,94,80,0.5))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, flexShrink: 0, padding: '0 6px', boxSizing: 'border-box' }}>
+      <div style={{ width: w, height: h, borderRadius: 11, background: 'linear-gradient(135deg, rgba(200,153,62,0.35), rgba(var(--accent-rgb),0.5))', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, flexShrink: 0, padding: '0 6px', boxSizing: 'border-box' }}>
         <span style={{ fontSize: large ? 27 : 17 }}>✈️</span>
         <span style={{ fontSize: large ? 11.5 : 8, fontWeight: 700, color: '#3a4a3f', textAlign: 'center', lineHeight: 1.15, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{item.destinationLabel}</span>
       </div>
@@ -54,7 +54,7 @@ function CardThumb({ item, large }) {
       </div>
     );
   }
-  const src = item.mediaType === 'video' ? videoThumbUrl(item.url, 'so_0,w_200,q_auto,f_auto') : cloudinaryTransform(item.url, 'w_200,q_auto,f_auto');
+  const src = item.mediaType === 'video' ? videoThumbUrl(item.url, `so_0,${PHOTO_XS}`) : cloudinaryTransform(item.url, PHOTO_XS);
   return (
     <div style={{ width: w, height: h, borderRadius: 11, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: 'center', border: '1px solid var(--border)', position: 'relative', flexShrink: 0, WebkitTouchCallout: 'none', WebkitUserDrag: 'none' }}>
       {item.mediaType === 'video' && (
@@ -458,7 +458,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
         <button
           onPointerDown={e => e.stopPropagation()}
           onClick={e => { e.stopPropagation(); removeFromSlides(key); }}
-          style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: '#D4856A', color: '#fff', border: '2px solid var(--bg)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
+          style={{ position: 'absolute', top: -6, right: -6, width: 19, height: 19, borderRadius: '50%', background: 'var(--coral)', color: '#fff', border: '2px solid var(--bg)', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3, cursor: 'pointer' }}
         >×</button>
         <CardThumb item={item} large />
         <span style={{ fontSize: 8.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4, color: 'var(--text-muted)' }}>{cardLabel(item)}</span>

@@ -474,7 +474,7 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
                 style={{ fontSize: 16, padding: '15px 18px', marginBottom: 24 }}
               />
               {saveError && (
-                <p style={{ fontSize: 13, color: '#D4856A', margin: '0 0 12px', textAlign: 'center', lineHeight: 1.5 }}>{saveError}</p>
+                <p style={{ fontSize: 13, color: 'var(--coral)', margin: '0 0 12px', textAlign: 'center', lineHeight: 1.5 }}>{saveError}</p>
               )}
               <button className="btn btn-primary" style={{ width: '100%', opacity: savingProfile ? 0.6 : 1 }} onClick={handleReallyDone} disabled={savingProfile}>
                 {savingProfile ? 'Saving…' : 'Continue'}

@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
 import CroppedImg from '../CroppedImg.jsx';
-import { exactAge, dateForAge, cloudinaryTransform, videoThumbUrl, photoCropY } from '../constants.js';
+import { exactAge, dateForAge, cloudinaryTransform, videoThumbUrl, photoCropY, PHOTO_XS } from '../constants.js';
 
 let _exifr = null;
 const loadExifr = () => _exifr ?? (_exifr = import('exifr').then(m => m.default));
@@ -53,8 +53,8 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
   const sourceMedia = sourceEntry.media?.[0];
   const sourceThumbUrl = sourceMedia
     ? (sourceMedia.type === 'video'
-      ? videoThumbUrl(sourceMedia.url, 'so_0,w_200,q_auto,f_auto')
-      : cloudinaryTransform(sourceMedia.url, 'w_200,q_auto,f_auto'))
+      ? videoThumbUrl(sourceMedia.url, `so_0,${PHOTO_XS}`)
+      : cloudinaryTransform(sourceMedia.url, PHOTO_XS))
     : null;
   const sourceCropY = sourceMedia ? photoCropY(sourceEntry.media, 0, sourceEntry) : 50;
 

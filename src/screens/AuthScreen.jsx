@@ -134,7 +134,7 @@ function AuthScreen() {
             </p>
           )}
           {error && (
-            <p style={{ fontSize: 13, color: '#D4856A', marginBottom: 12, textAlign: 'center', lineHeight: 1.4 }}>{error}</p>
+            <p style={{ fontSize: 13, color: 'var(--coral)', marginBottom: 12, textAlign: 'center', lineHeight: 1.4 }}>{error}</p>
           )}
           <button
             className="btn btn-primary"

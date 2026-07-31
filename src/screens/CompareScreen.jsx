@@ -6,7 +6,7 @@ import FriendAvatar from '../FriendAvatar.jsx';
 import {
   MILESTONE_TYPES, TODAY,
   milestoneInfo, sameAgeSides, exactAge, exactAgeLabel, ageLabel,
-  cloudinaryTransform, AVATAR_TRANSFORM_SM, VIDEO_DELIVERY_TRANSFORM, videoThumbUrl, entryBgStyle, tintedScrimStyle,
+  cloudinaryTransform, AVATAR_TRANSFORM_SM, VIDEO_DELIVERY_TRANSFORM, videoThumbUrl, entryBgStyle, tintedScrimStyle, PHOTO_LG,
 } from '../constants.js';
 
 function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], friends = [], currentUserId, onBack, onOpenEntry, initialFriendKidId = null, initialCompareAge = null, initialEntryId = null, onSwitchSection, onSameAge }) {
@@ -378,8 +378,8 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                               {playingVideoId === e.id ? (
                                 <div style={{ aspectRatio: '3/4', background: '#000', position: 'relative' }}>
                                   <video
-                                    src={cloudinaryTransform(e.media[0].url, 'w_720,q_auto,f_auto')}
-                                    poster={videoThumbUrl(e.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')}
+                                    src={cloudinaryTransform(e.media[0].url, VIDEO_DELIVERY_TRANSFORM)}
+                                    poster={videoThumbUrl(e.media[0].url, `so_0,${PHOTO_LG}`)}
                                     autoPlay playsInline controls
                                     style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
                                     onClick={ev => ev.stopPropagation()}

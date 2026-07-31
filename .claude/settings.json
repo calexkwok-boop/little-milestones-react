@@ -108,7 +108,11 @@
       "Bash(base64 -w0 sourceserif-italic.woff)",
       "Bash(base64 -w0 urbanist-var.woff2)",
       "Bash(python3 -)",
-      "Bash(grep -o \"base64,[A-Za-z0-9+/]\\\\{20\\\\}\" cover-concepts.html)"
+      "Bash(grep -o \"base64,[A-Za-z0-9+/]\\\\{20\\\\}\" cover-concepts.html)",
+      "Bash(xxd)",
+      "WebFetch(domain:support.cloudinary.com)",
+      "WebFetch(domain:cloudinary.com)",
+      "WebSearch"
     ],
     "additionalDirectories": [
       "\\tmp"

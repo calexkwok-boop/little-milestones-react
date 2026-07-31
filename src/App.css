@@ -46,6 +46,9 @@
   --border: #CCDAC8;
   --border-light: #B8CCB4;
   --accent: #4A5E50;
+  --accent-rgb: 74,94,80;
+  --coral: #D4856A;
+  --coral-rgb: 212,133,106;
   --nav-frame-bg: rgba(251,248,242,0.82);
 
   font-family: 'Urbanist', sans-serif;
@@ -73,6 +76,9 @@
   --border: #CCDAC8;
   --border-light: #B8CCB4;
   --accent: #4A5E50;
+  --accent-rgb: 74,94,80;
+  --coral: #D4856A;
+  --coral-rgb: 212,133,106;
   background: var(--bg);
 }
 .app-root[data-theme="dark"] {
@@ -89,7 +95,14 @@
   --text-muted: #6B6F68;
   --border: #2C2F2C;
   --border-light: #242625;
-  --accent: #7FB07F;
+  /* Toned down from their light-mode source colors — full-brightness green/coral
+     read as neon against this near-black bg — but kept far enough apart in hue
+     (clearly green vs. clearly red-orange) that the two "moments"/"milestones"
+     stat tiles on the profile don't converge into the same muddy mid-tone. */
+  --accent: #5E9868;
+  --accent-rgb: 94,152,104;
+  --coral: #C17A5A;
+  --coral-rgb: 193,122,90;
   --nav-frame-bg: rgba(16,17,18,0.90);
 }
 .app-root[data-theme="dark"] .icon-btn {

@@ -5,7 +5,7 @@ import AvatarCropModal from '../AvatarCropModal.jsx';
 import KidThumb from '../KidThumb.jsx';
 import { Coachmark } from '../Coachmark.jsx';
 import usePushNotifications from '../usePushNotifications.js';
-import { cloudinaryTransform, AVATAR_TRANSFORM_LG, AVATAR_TRANSFORM_SM } from '../constants.js';
+import { cloudinaryTransform, AVATAR_TRANSFORM_LG, AVATAR_TRANSFORM_SM, exactAgeLabel, TODAY } from '../constants.js';
 
 const NOTIFICATION_PREF_KEYS = ['birthday_reminders', 'friend_activity', 'partner_activity', 'prompt_nudges'];
 const NOTIFICATION_PREF_DEFAULTS = { birthday_reminders: true, friend_activity: true, partner_activity: true, prompt_nudges: true };
@@ -195,7 +195,8 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 >
                   {k.name} <Icon name="ti-pencil" style={{ fontSize: 12, color: 'var(--text-muted)' }} />
                 </p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>Born {bornLabel}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 2px' }}>Born {bornLabel}</p>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px' }}>{exactAgeLabel(k.birthdate, TODAY)} old</p>
                 <div style={{ display: 'flex', gap: 10, marginBottom: 12 }}>
                   <div
                     className="stat-tile"
@@ -208,7 +209,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   <div
                     className="stat-tile"
                     onClick={() => onViewKidMilestones?.(k.id)}
-                    style={{ cursor: onViewKidMilestones ? 'pointer' : undefined, background: '#D4856A' }}
+                    style={{ cursor: onViewKidMilestones ? 'pointer' : undefined, background: 'var(--coral)' }}
                   >
                     <p style={{ fontSize: 18, color: '#fff', margin: 0, fontWeight: 700 }}>{kMilestones}</p>
                     <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)', margin: '3px 0 0', fontWeight: 600 }}>milestones</p>
@@ -396,7 +397,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                   </>
                 )}
                 {notifError && (
-                  <p style={{ fontSize: 11.5, color: '#D4856A', margin: '10px 0 0', lineHeight: 1.5 }}>{notifError}</p>
+                  <p style={{ fontSize: 11.5, color: 'var(--coral)', margin: '10px 0 0', lineHeight: 1.5 }}>{notifError}</p>
                 )}
               </div>
             </div>
@@ -569,7 +570,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 {onArchiveKid && (
                   <button
                     onClick={() => { setRemoveChoiceKid(editingKid); setEditingKid(null); }}
-                    style={{ display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', color: '#D4856A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginTop: 16, padding: 0 }}
+                    style={{ display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--coral)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginTop: 16, padding: 0 }}
                   >
                     Remove from family
                   </button>
@@ -592,9 +593,9 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 </button>
                 <button
                   onClick={() => { setErasingKid(removeChoiceKid); setRemoveChoiceKid(null); setEraseNameInput(''); }}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', background: 'rgba(212,133,106,0.1)', border: '1px solid rgba(212,133,106,0.35)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer', marginBottom: 14 }}
+                  style={{ display: 'block', width: '100%', textAlign: 'left', background: 'rgba(var(--coral-rgb),0.1)', border: '1px solid rgba(var(--coral-rgb),0.35)', borderRadius: 12, padding: '14px 16px', cursor: 'pointer', marginBottom: 14 }}
                 >
-                  <p style={{ fontSize: 14, fontWeight: 700, color: '#D4856A', margin: '0 0 3px' }}>Delete completely</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--coral)', margin: '0 0 3px' }}>Delete completely</p>
                   <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: 0, lineHeight: 1.4 }}>Permanently deletes {removeChoiceKid.name} and every photo/letter that's only about them. Letters shared with a sibling keep the sibling's side but lose theirs. This can't be undone.</p>
                 </button>
                 <button onClick={() => setRemoveChoiceKid(null)} style={{ display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: 0 }}>
@@ -608,7 +609,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           {erasingKid && (
             <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 21, padding: '0 16px' }} onClick={() => setErasingKid(null)}>
               <div style={{ background: 'var(--bg-card)', borderRadius: 20, padding: '24px 20px 28px', width: '100%' }} onClick={e => e.stopPropagation()}>
-                <p style={{ fontSize: 15, fontWeight: 700, color: '#D4856A', margin: '0 0 4px' }}>Delete {erasingKid.name} completely?</p>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--coral)', margin: '0 0 4px' }}>Delete {erasingKid.name} completely?</p>
                 <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.5 }}>This can't be undone. Type <strong>{erasingKid.name}</strong> to confirm.</p>
                 <input
                   className="input-field"
@@ -620,7 +621,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
                 />
                 <button
                   className="btn"
-                  style={{ width: '100%', background: '#D4856A', color: '#fff', opacity: eraseNameInput.trim() === erasingKid.name ? 1 : 0.4 }}
+                  style={{ width: '100%', background: 'var(--coral)', color: '#fff', opacity: eraseNameInput.trim() === erasingKid.name ? 1 : 0.4 }}
                   disabled={eraseNameInput.trim() !== erasingKid.name}
                   onClick={() => { onEraseKid?.(erasingKid.id); setErasingKid(null); }}
                 >
@@ -734,8 +735,8 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
       {showDeleteConfirm && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !deleting && setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Icon name="ti-trash" style={{ fontSize: 20, color: '#D4856A' }} />
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(var(--coral-rgb),0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Icon name="ti-trash" style={{ fontSize: 20, color: 'var(--coral)' }} />
             </div>
             <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Delete your account?</p>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center', lineHeight: 1.55 }}>
@@ -747,7 +748,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>Cancel</button>
               <button
                 className="btn"
-                style={{ flex: 1, background: '#D4856A', color: '#fff', opacity: deleting ? 0.6 : 1 }}
+                style={{ flex: 1, background: 'var(--coral)', color: '#fff', opacity: deleting ? 0.6 : 1 }}
                 disabled={deleting}
                 onClick={async () => {
                   setDeleting(true);
@@ -777,7 +778,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowHidePostsPrompt(false)} disabled={hidingPosts}>Keep them visible</button>
               <button
                 className="btn"
-                style={{ flex: 1, background: '#D4856A', color: '#fff', opacity: hidingPosts ? 0.6 : 1 }}
+                style={{ flex: 1, background: 'var(--coral)', color: '#fff', opacity: hidingPosts ? 0.6 : 1 }}
                 disabled={hidingPosts}
                 onClick={async () => {
                   setHidingPosts(true);

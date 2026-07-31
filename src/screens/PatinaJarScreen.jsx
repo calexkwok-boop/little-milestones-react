@@ -229,7 +229,7 @@ function PatinaJarScreen({ kid, entries, song, onUpdateSong, onBack, onRecord, o
                   <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setConfirmingDelete(false)}>Cancel</button>
                   <button
                     className="btn"
-                    style={{ flex: 1, background: '#D4856A', color: '#fff' }}
+                    style={{ flex: 1, background: 'var(--coral)', color: '#fff' }}
                     onClick={() => { onDeleteEntry(sheetEntry.id); setSheetEntry(null); setConfirmingDelete(false); }}
                   >
                     Delete
@@ -241,7 +241,7 @@ function PatinaJarScreen({ kid, entries, song, onUpdateSong, onBack, onRecord, o
                 <button className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={() => { setSingleWatchEntry(sheetEntry); setSheetEntry(null); }}>Watch</button>
                 <button
                   onClick={() => setConfirmingDelete(true)}
-                  style={{ display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', color: '#D4856A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: 0 }}
+                  style={{ display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--coral)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: 0 }}
                 >
                   Delete this recording
                 </button>

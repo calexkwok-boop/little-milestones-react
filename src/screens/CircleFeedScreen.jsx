@@ -10,6 +10,7 @@ import triggerPush from '../triggerPush.js';
 import {
   PROMPT_ACCENT, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM,
   cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl, exactAgeLabel,
+  PHOTO_MD, PHOTO_LG, PHOTO_SQUARE,
 } from '../constants.js';
 
 function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCompareAtAge, onSwitchSection, friends = [], familyMemberIds = [], onSearchUsers, onSendRequest }) {
@@ -37,11 +38,13 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
   const [likeAnimId, setLikeAnimId] = useState(null);
   const [activeVideoId, setActiveVideoId] = useState(null); // whichever video tile is currently scrolled far enough into view to autoplay
   const [unmutedId, setUnmutedId] = useState(null); // which video (if any) has been tapped to unmute — cleared whenever the active one changes
+  const [pausedVideoId, setPausedVideoId] = useState(null); // the active video, if it's been tapped to pause — cleared whenever the active one changes
   const [zoomedPhoto, setZoomedPhoto] = useState(null); // { url, type }
   const lastTapRef = useRef({});
   const tapTimerRef = useRef({});
   const mediaRefs = useRef({});
   const videoRefs = useRef({}); // same keys as mediaRefs, but video tiles only
+  const videoElRefs = useRef({}); // same keys, but the actual <video> node — for imperative play()/pause()
   const visibleRatios = useRef({}); // key -> latest intersection ratio, video tiles only
 
   useEffect(() => {
@@ -134,6 +137,12 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
     if (owner) triggerPush({ targetUserId: owner, kind: 'comment', entryId, fromName: socialName, commentPreview: body });
   }
 
+  async function handleDeleteComment(entryId, commentId) {
+    if (!supabase || !currentUserId) return;
+    setCommentsMap(prev => ({ ...prev, [entryId]: (prev[entryId] || []).filter(c => c.id !== commentId) }));
+    await supabase.from('entry_comments').delete().eq('id', commentId).eq('user_id', currentUserId);
+  }
+
   function friendUserId(fr) {
     return fr.requester_id === currentUserId ? fr.addressee_id : fr.requester_id;
   }
@@ -185,6 +194,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
       setActiveVideoId(prev => {
         if (bestKey === prev) return prev;
         setUnmutedId(null);
+        setPausedVideoId(null);
         return bestKey;
       });
     }, { threshold: [0, 0.25, 0.5, 0.6, 0.75, 1] });
@@ -243,6 +253,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 const videoKey = `${entry.id}:${i}`;
                 const isActive = isVideo && activeVideoId === videoKey;
                 const isUnmuted = isActive && unmutedId === videoKey;
+                const isPaused = isActive && pausedVideoId === videoKey;
                 return (
                   <div
                     key={i}
@@ -265,8 +276,13 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                         }
                         tapTimerRef.current[entry.id] = setTimeout(() => {
                           delete tapTimerRef.current[entry.id];
-                          if (activeVideoId === videoKey) setUnmutedId(id => id === videoKey ? null : videoKey);
-                          else { setActiveVideoId(videoKey); setUnmutedId(videoKey); }
+                          if (activeVideoId === videoKey) {
+                            const el = videoElRefs.current[videoKey];
+                            if (pausedVideoId === videoKey) { if (el?.ended) el.currentTime = 0; el?.play(); setPausedVideoId(null); }
+                            else { el?.pause(); setPausedVideoId(videoKey); }
+                          } else {
+                            setActiveVideoId(videoKey); setUnmutedId(videoKey); setPausedVideoId(null);
+                          }
                         }, 320);
                         return;
                       }
@@ -289,16 +305,23 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                     {photo && (isVideo ? (
                       <>
                         {isActive ? (
-                          <video src={cloudinaryTransform(photo.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay muted={!isUnmuted} loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                          <video ref={el => { videoElRefs.current[videoKey] = el; }} src={cloudinaryTransform(photo.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay muted={!isUnmuted} playsInline onEnded={() => setPausedVideoId(videoKey)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                         ) : (
-                          <img src={videoThumbUrl(photo.url, 'so_0,w_500,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                          <img src={videoThumbUrl(photo.url, `so_0,${PHOTO_MD}`)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                         )}
                         <div style={{ position: 'absolute', bottom: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Icon name={isUnmuted ? 'ti-volume' : 'ti-volume-off'} style={{ fontSize: 11, color: '#fff' }} />
                         </div>
+                        {isPaused && (
+                          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Icon name="ti-player-play-filled" style={{ fontSize: 15, color: '#fff', marginLeft: 2 }} />
+                            </div>
+                          </div>
+                        )}
                       </>
                     ) : (
-                      <img src={cloudinaryTransform(photo.url, 'w_500,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                      <img src={cloudinaryTransform(photo.url, PHOTO_MD)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                     ))}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '22px 10px 8px', background: 'linear-gradient(transparent, rgba(0,0,0,0.6))' }}>
                       <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#fff' }}>{side.kid.name.split(' ')[0]}</p>
@@ -318,6 +341,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           const isVideo = entry.media[0].type === 'video';
           const isActive = isVideo && activeVideoId === entry.id;
           const isUnmuted = isActive && unmutedId === entry.id;
+          const isPaused = isActive && pausedVideoId === entry.id;
           return (
           <div
             ref={el => {
@@ -339,8 +363,13 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 }
                 tapTimerRef.current[entry.id] = setTimeout(() => {
                   delete tapTimerRef.current[entry.id];
-                  if (activeVideoId === entry.id) setUnmutedId(id => id === entry.id ? null : entry.id);
-                  else { setActiveVideoId(entry.id); setUnmutedId(entry.id); }
+                  if (activeVideoId === entry.id) {
+                    const el = videoElRefs.current[entry.id];
+                    if (pausedVideoId === entry.id) { if (el?.ended) el.currentTime = 0; el?.play(); setPausedVideoId(null); }
+                    else { el?.pause(); setPausedVideoId(entry.id); }
+                  } else {
+                    setActiveVideoId(entry.id); setUnmutedId(entry.id); setPausedVideoId(null);
+                  }
                 }, 320);
                 return;
               }
@@ -361,16 +390,23 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             {isVideo ? (
               <>
                 {isActive ? (
-                  <video src={cloudinaryTransform(entry.media[0].url, VIDEO_DELIVERY_TRANSFORM)} autoPlay muted={!isUnmuted} loop playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                  <video ref={el => { videoElRefs.current[entry.id] = el; }} src={cloudinaryTransform(entry.media[0].url, VIDEO_DELIVERY_TRANSFORM)} autoPlay muted={!isUnmuted} playsInline onEnded={() => setPausedVideoId(entry.id)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                 ) : (
-                  <img src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                  <img src={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                 )}
                 <div style={{ position: 'absolute', bottom: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Icon name={isUnmuted ? 'ti-volume' : 'ti-volume-off'} style={{ fontSize: 13, color: '#fff' }} />
                 </div>
+                {isPaused && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Icon name="ti-player-play-filled" style={{ fontSize: 20, color: '#fff', marginLeft: 2 }} />
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
-              <img src={cloudinaryTransform(entry.media[0].url, 'w_800,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+              <img src={cloudinaryTransform(entry.media[0].url, PHOTO_LG)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
             )}
             {likeAnimId === entry.id && (
               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
@@ -428,7 +464,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         <div style={{ padding: '8px 16px 2px' }}>
           <button
             onClick={() => handleToggleLike(entry.id)}
-            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: iLiked ? '#D4856A' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}
+            style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: iLiked ? 'var(--coral)' : 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif" }}
           >
             <Icon name={`ti-heart${iLiked ? '-filled' : ''}`} style={{ fontSize: 18 }} />
             {likeLabel && <span style={{ fontSize: 13, fontWeight: 600 }}>{likeLabel}</span>}
@@ -439,10 +475,17 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         {comments.length > 0 && (
           <div style={{ padding: '6px 16px 2px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             {comments.map(c => (
-              <p key={c.id} style={{ margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
-                <span style={{ fontWeight: 700, fontStyle: 'normal', color: 'var(--text)' }}>{c.display_name || 'Someone'}</span>
-                {' — '}{c.body}
-              </p>
+              <div key={c.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                <p style={{ flex: 1, minWidth: 0, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6 }}>
+                  <span style={{ fontWeight: 700, fontStyle: 'normal', color: 'var(--text)' }}>{c.display_name || 'Someone'}</span>
+                  {' — '}{c.body}
+                </p>
+                {c.user_id === currentUserId && (
+                  <button onClick={() => handleDeleteComment(entry.id, c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px 0', flexShrink: 0 }}>
+                    <Icon name="ti-trash" style={{ fontSize: 12 }} />
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         )}
@@ -510,8 +553,8 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                     <div key={entry.id} onClick={() => setSelectedEntry(entry)} style={{ aspectRatio: '1', background: 'var(--border)', cursor: 'pointer', overflow: 'hidden', position: 'relative' }}>
                       {thumb ? (
                         thumb.type === 'video'
-                          ? <img src={videoThumbUrl(thumb.url, 'so_0,w_400,h_400,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
-                          : <img src={cloudinaryTransform(thumb.url, 'w_400,h_400,c_fill,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                          ? <img src={videoThumbUrl(thumb.url, `so_0,${PHOTO_SQUARE}`)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                          : <img src={cloudinaryTransform(thumb.url, PHOTO_SQUARE)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                       ) : (
                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Icon name="ti-letter" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
@@ -661,7 +704,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             <Icon name="ti-x" />
           </button>
           <img
-            src={cloudinaryTransform(zoomedPhoto.url, 'w_1000,q_auto,f_auto')}
+            src={cloudinaryTransform(zoomedPhoto.url, PHOTO_LG)}
             alt=""
             onClick={e => e.stopPropagation()}
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}

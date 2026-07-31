@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Icon } from '../icons';
 import { supabase } from '../supabase.js';
-import { cloudinaryTransform, exactAgeLabel, AVATAR_TRANSFORM_SM, VIDEO_DELIVERY_TRANSFORM } from '../constants.js';
+import { cloudinaryTransform, exactAgeLabel, AVATAR_TRANSFORM_SM, VIDEO_DELIVERY_TRANSFORM, PHOTO_LG } from '../constants.js';
 
 function SharedEntryScreen({ token, effectiveDark }) {
   const theme = effectiveDark ? 'dark' : undefined;
@@ -55,7 +55,7 @@ function SharedEntryScreen({ token, effectiveDark }) {
             {entry.media[0].type === 'video' ? (
               <video src={cloudinaryTransform(entry.media[0].url, VIDEO_DELIVERY_TRANSFORM)} controls playsInline style={{ width: '100%', display: 'block' }} />
             ) : (
-              <img src={cloudinaryTransform(entry.media[0].url, 'w_1000,q_auto,f_auto')} style={{ width: '100%', display: 'block' }} alt="" loading="lazy" />
+              <img src={cloudinaryTransform(entry.media[0].url, PHOTO_LG)} style={{ width: '100%', display: 'block' }} alt="" loading="lazy" />
             )}
           </div>
         )}

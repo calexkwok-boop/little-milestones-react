@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { Icon } from '../icons';
-import { TODAY, milestoneInfo, cloudinaryTransform, videoThumbUrl, photoCropY } from '../constants.js';
+import { TODAY, milestoneInfo, cloudinaryTransform, videoThumbUrl, photoCropY, PHOTO_XS } from '../constants.js';
 import KidThumb from '../KidThumb.jsx';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 import CroppedImg from '../CroppedImg.jsx';
@@ -69,9 +69,9 @@ function RecapGridCell({ entry, onOpenEntry }) {
       {media ? (
         <>
           {isVideo ? (
-            <CroppedImg src={videoThumbUrl(media.url, 'so_0,w_240,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
+            <CroppedImg src={videoThumbUrl(media.url, `so_0,${PHOTO_XS}`)} cropY={photoCropY(entry.media, 0, entry)} fade />
           ) : (
-            <CroppedImg src={cloudinaryTransform(media.url, 'w_240,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
+            <CroppedImg src={cloudinaryTransform(media.url, PHOTO_XS)} cropY={photoCropY(entry.media, 0, entry)} fade />
           )}
           {isVideo && (
             <div style={{ position: 'absolute', bottom: 5, right: 5, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -94,7 +94,7 @@ function RecapGridCell({ entry, onOpenEntry }) {
   );
 }
 
-function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget }) {
+function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, initialTarget, onWatchMonthReel }) {
   const [viewMode, setViewMode] = useState(initialTarget?.viewMode || 'month');
   const [selectedMonth, setSelectedMonth] = useState(initialTarget?.month || TODAY.slice(0, 7));
   const [selectedYear, setSelectedYear] = useState(TODAY.slice(0, 4));
@@ -320,10 +320,10 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                 </div>
                 <div
                   onClick={() => setRecapFilter(f => f === 'milestones' ? null : 'milestones')}
-                  style={{ background: recapFilter === 'milestones' ? '#D4856A' : 'rgba(212,133,106,0.12)', borderRadius: 14, padding: '14px 16px', cursor: milestoneCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'milestones' ? 0.65 : 1, transition: 'opacity 0.15s' }}
+                  style={{ background: recapFilter === 'milestones' ? 'var(--coral)' : 'rgba(var(--coral-rgb),0.12)', borderRadius: 14, padding: '14px 16px', cursor: milestoneCount > 0 ? 'pointer' : 'default', opacity: recapFilter !== null && recapFilter !== 'milestones' ? 0.65 : 1, transition: 'opacity 0.15s' }}
                 >
-                  <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'milestones' ? '#fff' : '#D4856A', margin: 0, lineHeight: 1 }}>{milestoneCount}</p>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'milestones' ? 'rgba(255,255,255,0.75)' : '#D4856A', margin: '5px 0 0' }}>milestones</p>
+                  <p style={{ fontSize: 32, fontWeight: 800, color: recapFilter === 'milestones' ? '#fff' : 'var(--coral)', margin: 0, lineHeight: 1 }}>{milestoneCount}</p>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'milestones' ? 'rgba(255,255,255,0.75)' : 'var(--coral)', margin: '5px 0 0' }}>milestones</p>
                 </div>
                 <div
                   onClick={() => setRecapFilter(f => f === 'photos' ? null : 'photos')}
@@ -340,6 +340,16 @@ function RecapScreen({ entries, kids, onBack, onOpenEntry, onSwitchSection, init
                   <p style={{ fontSize: 11, fontWeight: 600, color: recapFilter === 'favorites' ? 'rgba(255,255,255,0.75)' : '#C8993E', margin: '5px 0 0' }}>favorites</p>
                 </div>
               </div>
+
+              {viewMode === 'month' && onWatchMonthReel && (
+                <button
+                  onClick={() => onWatchMonthReel(selectedMonth)}
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', padding: '12px 16px', background: 'var(--accent)', border: 'none', borderRadius: 14, cursor: 'pointer', color: '#fff', fontSize: 14, fontWeight: 700, fontFamily: "'Urbanist', sans-serif" }}
+                >
+                  <Icon name="ti-player-play-filled" style={{ fontSize: 15 }} />
+                  Watch {monthLabel}'s reel
+                </button>
+              )}
 
               {(() => {
                 // One grid, filtered — replaces the old split where "photos" got

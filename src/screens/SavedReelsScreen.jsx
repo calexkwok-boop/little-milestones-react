@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Icon } from '../icons';
-import { cloudinaryTransform } from '../constants.js';
+import { cloudinaryTransform, AVATAR_TRANSFORM_SM, PHOTO_XS } from '../constants.js';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 import { Coachmark } from '../Coachmark.jsx';
 
@@ -91,7 +91,7 @@ function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onEdit, onD
       </button>
       <button
         onClick={() => onDelete(reel)}
-        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 72, background: '#D4856A', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+        style={{ position: 'absolute', top: 0, right: 0, bottom: 0, width: 72, background: 'var(--coral)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
       >
         <Icon name="ti-trash" style={{ fontSize: 18, color: '#fff' }} />
       </button>
@@ -108,7 +108,7 @@ function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onEdit, onD
         <div style={{ width: 40, height: 40, borderRadius: 10, background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, position: 'relative', overflow: 'hidden' }}>
           {thumbPhoto ? (
             <>
-              <img src={cloudinaryTransform(thumbPhoto.url, 'w_100,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+              <img src={cloudinaryTransform(thumbPhoto.url, PHOTO_XS)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
               <div style={{ position: 'absolute', bottom: 3, right: 3, width: 15, height: 15, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name="ti-player-play-filled" style={{ fontSize: 8, color: '#fff' }} />
               </div>
@@ -138,7 +138,7 @@ function PatinaJarRow({ reel, onWatch }) {
     >
       <span style={{ width: 40, height: 40, borderRadius: 10, overflow: 'hidden', background: reel.kidAccent || 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         {reel.kidAvatar
-          ? <img src={cloudinaryTransform(reel.kidAvatar, 'w_100,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
+          ? <img src={cloudinaryTransform(reel.kidAvatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
           : <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{reel.kidName?.[0]}</span>}
       </span>
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -333,7 +333,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], 
 
               <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 16, padding: '16px 16px 18px', marginBottom: 8 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                  <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(127,176,127,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <div style={{ width: 26, height: 26, borderRadius: 8, background: 'rgba(var(--accent-rgb),0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <Icon name="ti-calendar-event" style={{ fontSize: 13, color: 'var(--accent)' }} />
                   </div>
                   <p style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--text)', margin: 0 }}>When</p>
@@ -403,14 +403,14 @@ function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], 
       {deleteTarget && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setDeleteTarget(null)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Icon name="ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(var(--coral-rgb),0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Icon name="ti-trash" style={{ fontSize: 19, color: 'var(--coral)' }} />
             </div>
             <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px', textAlign: 'center' }}>Delete "{deleteTarget.title}"?</p>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center' }}>This can't be undone.</p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setDeleteTarget(null)}>Cancel</button>
-              <button className="btn" style={{ flex: 1, background: '#D4856A', color: '#fff' }} onClick={() => { onDeleteReel(deleteTarget.id); setDeleteTarget(null); }}>Delete</button>
+              <button className="btn" style={{ flex: 1, background: 'var(--coral)', color: '#fff' }} onClick={() => { onDeleteReel(deleteTarget.id); setDeleteTarget(null); }}>Delete</button>
             </div>
           </div>
         </div>

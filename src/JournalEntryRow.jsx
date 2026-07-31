@@ -4,7 +4,7 @@ import KidThumb from './KidThumb.jsx';
 import CroppedImg from './CroppedImg.jsx';
 import useLongPress from './useLongPress.js';
 import {
-  milestoneInfo, cloudinaryTransform, VIDEO_DELIVERY_TRANSFORM, videoThumbUrl, photoCropY, exactAgeLabel, PROMPT_ACCENT,
+  milestoneInfo, cloudinaryTransform, VIDEO_DELIVERY_TRANSFORM, videoThumbUrl, photoCropY, exactAgeLabel, PROMPT_ACCENT, PHOTO_XS, PHOTO_LG,
 } from './constants.js';
 
 const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen, onLongPress, reactionCount }) {
@@ -29,8 +29,8 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
           {heroMedia.type === 'video'
             ? playingHero
               ? <video src={cloudinaryTransform(heroMedia.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-              : <img src={videoThumbUrl(heroMedia.url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
-            : <CroppedImg src={cloudinaryTransform(heroMedia.url, 'w_1000,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
+              : <img src={videoThumbUrl(heroMedia.url, `so_0,${PHOTO_LG}`)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+            : <CroppedImg src={cloudinaryTransform(heroMedia.url, PHOTO_LG)} cropY={photoCropY(entry.media, 0, entry)} fade />
           }
           {heroMedia.type === 'video' && !playingHero && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setPlayingHero(true); }}>
@@ -87,7 +87,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
                 {extraMedia.map((mm, i) => (
                   <div key={i} className="journal-thumb" style={{ position: 'relative' }}>
                     <CroppedImg
-                      src={mm.type === 'video' ? videoThumbUrl(mm.url, 'so_0,w_200,q_auto,f_auto') : cloudinaryTransform(mm.url, 'w_200,q_auto,f_auto')}
+                      src={mm.type === 'video' ? videoThumbUrl(mm.url, `so_0,${PHOTO_XS}`) : cloudinaryTransform(mm.url, PHOTO_XS)}
                       cropY={photoCropY(entry.media, i + 1, entry)}
                       style={{ borderRadius: 8, overflow: 'hidden' }}
                     />

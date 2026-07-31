@@ -7,7 +7,7 @@ import FriendAvatar from '../FriendAvatar.jsx';
 import triggerPush from '../triggerPush.js';
 import {
   KID_ACCENTS, AVATAR_TRANSFORM_SM, VIDEO_DELIVERY_TRANSFORM, getAuthRedirectUrl,
-  cloudinaryTransform, videoThumbUrl, entryBgStyle, exactAgeLabel, timeAgo, daysUntilBirthday,
+  cloudinaryTransform, videoThumbUrl, entryBgStyle, exactAgeLabel, timeAgo, daysUntilBirthday, PHOTO_SQUARE,
 } from '../constants.js';
 
 function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberIds = [], familyMembers = [], onBack, onSearch, onSendRequest, onInviteFriend, onRespond, onUnfriend, onOpenFriendEntry, onFriendBirthdayClick, socialName, friendUserFamilyMap = {}, onSwitchSection, onOpenNotificationHistory }) {
@@ -198,9 +198,9 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
               <p style={{ fontSize: 28, fontWeight: 800, color: '#C8993E', margin: 0, lineHeight: 1 }}>{friends.length}</p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.65)', margin: '5px 0 0', fontWeight: 600 }}>friend{friends.length !== 1 ? 's' : ''}</p>
             </div>
-            <div style={{ background: pendingIncoming.length > 0 ? '#D4856A' : 'rgba(212,133,106,0.12)', borderRadius: 14, padding: '14px 12px' }}>
-              <p style={{ fontSize: 28, fontWeight: 800, color: pendingIncoming.length > 0 ? '#fff' : '#D4856A', margin: 0, lineHeight: 1 }}>{pendingIncoming.length}</p>
-              <p style={{ fontSize: 11, fontWeight: 600, color: pendingIncoming.length > 0 ? 'rgba(255,255,255,0.75)' : '#D4856A', margin: '5px 0 0' }}>requests</p>
+            <div style={{ background: pendingIncoming.length > 0 ? 'var(--coral)' : 'rgba(var(--coral-rgb),0.12)', borderRadius: 14, padding: '14px 12px' }}>
+              <p style={{ fontSize: 28, fontWeight: 800, color: pendingIncoming.length > 0 ? '#fff' : 'var(--coral)', margin: 0, lineHeight: 1 }}>{pendingIncoming.length}</p>
+              <p style={{ fontSize: 11, fontWeight: 600, color: pendingIncoming.length > 0 ? 'rgba(255,255,255,0.75)' : 'var(--coral)', margin: '5px 0 0' }}>requests</p>
             </div>
             <div style={{ background: (reactionNotifications.length + birthdayNotifications.length) > 0 ? '#C8993E' : 'rgba(200,153,62,0.12)', borderRadius: 14, padding: '14px 12px' }}>
               <p style={{ fontSize: 28, fontWeight: 800, color: (reactionNotifications.length + birthdayNotifications.length) > 0 ? '#fff' : '#C8993E', margin: 0, lineHeight: 1 }}>{reactionNotifications.length + birthdayNotifications.length}</p>
@@ -210,7 +210,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
 
           <button onClick={handleInvite} disabled={inviting} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '12px 16px', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, cursor: inviting ? 'default' : 'pointer', fontFamily: "'Urbanist', sans-serif", opacity: inviting ? 0.75 : 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(74,94,80,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'rgba(var(--accent-rgb),0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Icon name="ti-user-plus" style={{ fontSize: 16, color: 'var(--accent)' }} />
               </div>
               <div style={{ textAlign: 'left' }}>
@@ -303,8 +303,8 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                     ? n.familyNames.slice(0, -1).join(', ') + ' and ' + n.familyNames.slice(-1) + "'s family"
                     : n.familyNames[0] ? `${n.familyNames[0]}'s family` : null;
                   return (
-                    <div key={n.id} onClick={() => { n.ids.forEach(id => onDismissBirthday?.(id)); onFriendBirthdayClick?.(kid); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: (idx < groupedBirthdayNotifs.length - 1 || reactionNotifications.length > 0) ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: 'rgba(74,94,80,0.08)' }}>
-                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(74,94,80,0.15)', border: '1px solid rgba(74,94,80,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div key={n.id} onClick={() => { n.ids.forEach(id => onDismissBirthday?.(id)); onFriendBirthdayClick?.(kid); }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: (idx < groupedBirthdayNotifs.length - 1 || reactionNotifications.length > 0) ? '1px solid var(--border)' : 'none', cursor: 'pointer', background: 'rgba(var(--accent-rgb),0.08)' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(var(--accent-rgb),0.15)', border: '1px solid rgba(var(--accent-rgb),0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                         <Icon name="ti-cake" style={{ fontSize: 16, color: 'var(--accent)' }} />
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -490,8 +490,8 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
                       const m = e.media[0];
                       const isVideo = m.type === 'video';
                       const thumbSrc = isVideo
-                        ? videoThumbUrl(m.url, 'so_0,w_400,h_400,c_fill,q_auto,f_auto')
-                        : cloudinaryTransform(m.url, 'w_400,h_400,c_fill,q_auto,f_auto');
+                        ? videoThumbUrl(m.url, `so_0,${PHOTO_SQUARE}`)
+                        : cloudinaryTransform(m.url, PHOTO_SQUARE);
                       return (
                         <div key={e.id} style={{ aspectRatio: '1', overflow: 'hidden', cursor: 'pointer', position: 'relative', background: 'var(--bg-elevated)' }}
                           onClick={() => { const entryKids = theirKids.filter(k => (e.kids || []).includes(k.id)); setFriendViewer({ entry: e, entryKids: entryKids.length ? entryKids : theirKids, friendName: name, friendAvatar: avatar }); }}>

@@ -73,7 +73,7 @@ function JoinFamilyScreen({ onJoin, onBack }) {
                 autoFocus
                 onKeyDown={e => { if (e.key === 'Enter' && displayName.trim()) handleJoin(); }}
               />
-              {error && <p style={{ fontSize: 13, color: '#D4856A', marginBottom: 12, textAlign: 'center' }}>{error}</p>}
+              {error && <p style={{ fontSize: 13, color: 'var(--coral)', marginBottom: 12, textAlign: 'center' }}>{error}</p>}
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', opacity: displayName.trim() && !loading ? 1 : 0.4 }}

@@ -10,7 +10,7 @@
 // or linear approximations, since this renders once, unattended, into a
 // silent export rather than being watched live.
 import { slideDurationMs, videoThumbUrl, TRIP_ARC_MS } from './screens/reelShared.jsx';
-import { cloudinaryTransform, VIDEO_DELIVERY_TRANSFORM } from './constants.js';
+import { cloudinaryTransform, VIDEO_DELIVERY_TRANSFORM, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG } from './constants.js';
 
 export const CANVAS_W = 1080;
 export const CANVAS_H = 1920;
@@ -147,10 +147,10 @@ export async function preloadAssets(timeline, onProgress) {
     } else if (s.type === 'trip') {
       await preloadPhotoLike(s.photo.url, s.photo.mediaType, assets, item.index);
       for (const person of s.tripPeople || []) {
-        await preloadAvatar(person.avatar, assets, 'w_100,h_100,c_fill,q_auto,f_auto');
+        await preloadAvatar(person.avatar, assets, AVATAR_TRANSFORM_SM);
       }
     } else if (s.type === 'text') {
-      await preloadAvatar(s.kidAvatar ?? s.kid?.avatar, assets, 'w_200,h_200,c_fill,q_auto,f_auto');
+      await preloadAvatar(s.kidAvatar ?? s.kid?.avatar, assets, AVATAR_TRANSFORM_LG);
     }
     done++;
     onProgress?.(done / slideItems.length);

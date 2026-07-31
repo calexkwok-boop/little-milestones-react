@@ -74,6 +74,20 @@ export const AVATAR_TRANSFORM_LG = 'w_200,h_200,c_fill,q_auto,f_auto'; // ~100-1
 // ~1080 wide) take a modest, visually negligible step down too.
 export const VIDEO_DELIVERY_TRANSFORM = 'w_960,c_limit,q_auto,f_auto';
 
+// Four shared photo transform presets, same idea as the avatar pair above but
+// for entry photos — before this, call sites each picked their own width by
+// eyeballing the container (w_240, w_300, w_400, w_500, w_700, w_720, w_800,
+// w_800 sharpened, w_1000, w_1000 sharpened...). Cloudinary stores a separate
+// derived asset per distinct transform string per source file, so that sprawl
+// meant one uploaded photo could spawn 6-8 stored variants instead of 1-2,
+// multiplying real storage/transformation usage well beyond the size of the
+// original library. Snapping every call site onto one of these four lets
+// different screens share the same cached derived asset.
+export const PHOTO_XS = 'w_240,q_auto,f_auto'; // small list/grid thumbs
+export const PHOTO_SQUARE = 'w_400,h_400,c_fill,q_auto,f_auto'; // square crop-fill thumbs
+export const PHOTO_MD = 'w_500,q_auto,f_auto'; // side-by-side / compact cards
+export const PHOTO_LG = 'w_1000,e_sharpen:60,q_auto,f_auto'; // feed hero / detail / gallery
+
 // Patina Jar: one fixed question per calendar month, repeating every year —
 // this March always asks the same thing as last March, so answers can be
 // compared across years. 1-indexed (index 0 unused) to match Date's
@@ -98,7 +112,7 @@ export const PATINA_JAR_RECORD_MAX_MS = 2 * 60 * 1000;
 export const MOODS = ['Proud', 'Joyful', 'Surprised', 'Exhausted', 'Grateful', 'Nostalgic'];
 
 export const MILESTONE_TYPES = [
-  { id: 'first_steps', label: 'First steps', icon: 'ti-walk' },
+  { id: 'first_steps', label: 'First steps', icon: 'ti-sparkles' },
   { id: 'first_words', label: 'First words', icon: 'ti-message-circle' },
   { id: 'first_day_school', label: 'First day of school', icon: 'ti-school' },
   { id: 'recital', label: 'Recital / performance', icon: 'ti-piano' },
@@ -259,11 +273,11 @@ export function entryBgStyle(entry) {
     if (m.type === 'video') {
       if (!m.url.includes('res.cloudinary.com')) return { background: entry.palette.bg };
       const thumbUrl = m.url
-        .replace('/video/upload/', '/video/upload/so_0,w_800,e_sharpen:60,q_auto,f_auto/')
+        .replace('/video/upload/', `/video/upload/so_0,${PHOTO_LG}/`)
         .replace(/\.[^/.]+$/, '.jpg');
       return { backgroundImage: `url('${thumbUrl}')`, backgroundSize: 'cover', backgroundPosition: `center ${cropY}%` };
     }
-    const url = cloudinaryTransform(m.url, 'w_800,e_sharpen:60,q_auto,f_auto');
+    const url = cloudinaryTransform(m.url, PHOTO_LG);
     return { backgroundImage: `url('${url}')`, backgroundSize: 'cover', backgroundPosition: `center ${cropY}%` };
   }
   return { background: entry.palette.bg };

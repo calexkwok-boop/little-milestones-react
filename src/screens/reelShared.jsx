@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
-import { cloudinaryTransform, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, exactAgeLabel } from '../constants.js';
+import { cloudinaryTransform, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, exactAgeLabel, PHOTO_LG } from '../constants.js';
 import { Coachmark } from '../Coachmark.jsx';
 
 // Everything in this file is used by BOTH the live in-app reel
@@ -480,7 +480,7 @@ export function TripSlide({ trip, active, arcMs }) {
   }, [active, arcMs]);
 
   const isVideo = trip.photo.mediaType === 'video';
-  const photoSrc = isVideo ? videoThumbUrl(trip.photo.url, 'so_0,w_1000,q_auto,f_auto') : cloudinaryTransform(trip.photo.url, 'w_1000,q_auto,f_auto');
+  const photoSrc = isVideo ? videoThumbUrl(trip.photo.url, `so_0,${PHOTO_LG}`) : cloudinaryTransform(trip.photo.url, PHOTO_LG);
 
   return (
     <>
@@ -600,7 +600,7 @@ export function useReelImagePreload(slides) {
     slides.forEach(s => {
       if (s.type === 'text') return;
       const media = s.type === 'trip' ? s.photo : s;
-      const src = media.mediaType === 'video' ? videoThumbUrl(media.url, 'so_0,w_1000,q_auto,f_auto') : cloudinaryTransform(media.url, 'w_1000,q_auto,f_auto');
+      const src = media.mediaType === 'video' ? videoThumbUrl(media.url, `so_0,${PHOTO_LG}`) : cloudinaryTransform(media.url, PHOTO_LG);
       if (src) { const img = new Image(); img.src = src; }
     });
   }, [slides]);

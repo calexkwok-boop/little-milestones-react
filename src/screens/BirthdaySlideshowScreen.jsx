@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
-import { cloudinaryTransform, AMAZON_GIFT_FALLBACK_URL, VIDEO_DELIVERY_TRANSFORM } from '../constants.js';
+import { cloudinaryTransform, AMAZON_GIFT_FALLBACK_URL, VIDEO_DELIVERY_TRANSFORM, PHOTO_LG } from '../constants.js';
 import { supabase } from '../supabase.js';
 
 const SLIDESHOW_DURATION = 50700;
@@ -161,8 +161,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
     // Preload all slide images so they're cached before display
     slides.forEach(s => {
       const src = s.type === 'video'
-        ? videoThumbUrl(s.url, 'so_0,w_1000,q_auto,f_auto')
-        : cloudinaryTransform(s.url, 'w_1000,q_auto,f_auto');
+        ? videoThumbUrl(s.url, `so_0,${PHOTO_LG}`)
+        : cloudinaryTransform(s.url, PHOTO_LG);
       const img = new Image();
       img.src = src;
     });
@@ -459,8 +459,8 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
     <div style={{ position: 'absolute', inset: 0, background: '#000', zIndex: 100, display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {slides.map((s, i) => {
         const isVideo = s.type === 'video';
-        const thumbSrc = videoThumbUrl(s.url, 'so_0,w_1000,q_auto,f_auto');
-        const imgSrc = cloudinaryTransform(s.url, 'w_1000,q_auto,f_auto');
+        const thumbSrc = videoThumbUrl(s.url, `so_0,${PHOTO_LG}`);
+        const imgSrc = cloudinaryTransform(s.url, PHOTO_LG);
         const bgSrc = isVideo ? thumbSrc : imgSrc;
         const kbAnim = `kb${(i % 4) + 1} ${slideInterval}ms ease-in-out forwards`;
         const isActive = !showIntro && i === index;
@@ -679,7 +679,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
                 <button onClick={handleCopyShareLink} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginBottom: 10 }}>
                   {shareCopied ? 'Copied!' : 'Copy link'}
                 </button>
-                <button onClick={handleRevokeShare} disabled={shareBusy} style={{ width: '100%', background: 'none', border: 'none', color: '#D4856A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: '4px', opacity: shareBusy ? 0.6 : 1 }}>
+                <button onClick={handleRevokeShare} disabled={shareBusy} style={{ width: '100%', background: 'none', border: 'none', color: 'var(--coral)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: '4px', opacity: shareBusy ? 0.6 : 1 }}>
                   Revoke link
                 </button>
               </>
@@ -689,7 +689,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
                   {shareBusy ? 'Creating…' : 'Create link'}
                 </button>
                 {shareError && (
-                  <p style={{ fontSize: 12, color: '#D4856A', margin: '10px 0 0', textAlign: 'center' }}>
+                  <p style={{ fontSize: 12, color: 'var(--coral)', margin: '10px 0 0', textAlign: 'center' }}>
                     Something went wrong creating the link. Please try again.
                   </p>
                 )}

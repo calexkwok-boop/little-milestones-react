@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { Icon } from '../icons';
 import { QRCodeSVG } from 'qrcode.react';
-import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl, photoCropY, BOOK_COVER_THEMES } from '../constants.js';
+import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl, photoCropY, BOOK_COVER_THEMES, PHOTO_XS, PHOTO_MD, PHOTO_LG } from '../constants.js';
 
 // `cropY` is saved as "the point in the photo that should stay centered" (0-100, top-to-bottom),
 // not a raw scroll-percentage — so it has to be re-projected into an `object-position` value
@@ -159,7 +159,7 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
   const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const photo = !isContinued && entry.media?.length > 0 ? entry.media[0] : null;
   const photoIsVideo = photo?.type === 'video';
-  const photoSrc = photo ? (photoIsVideo ? videoThumbUrl(photo.url, 'so_0,w_700,q_auto,f_auto') : cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto')) : null;
+  const photoSrc = photo ? (photoIsVideo ? videoThumbUrl(photo.url, `so_0,${PHOTO_LG}`) : cloudinaryTransform(photo.url, PHOTO_LG)) : null;
   const cropY = photoCropY(entry.media, 0, entry);
   const photoHeight = 220;
   const audioItems = !isContinued ? [
@@ -225,7 +225,7 @@ function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
             const isPrompt = !!entry.prompt;
 
             const photo = entry.media?.[0];
-            const photoSrc = photo ? (photo.type === 'video' ? videoThumbUrl(photo.url, 'so_0,w_140,q_auto,f_auto') : cloudinaryTransform(photo.url, 'w_140,q_auto,f_auto')) : null;
+            const photoSrc = photo ? (photo.type === 'video' ? videoThumbUrl(photo.url, `so_0,${PHOTO_XS}`) : cloudinaryTransform(photo.url, PHOTO_XS)) : null;
 
             if (isPrompt) {
               return (
@@ -369,7 +369,7 @@ function PairedPage({ entry, kids, pageText, isContinued = false, hasMore = fals
               const cardStyle = twoUp ? { flex: 1, position: 'relative' } : { flex: '1 1 30%', minWidth: '30%', position: 'relative' };
               if (!side.photo) return <div key={i} style={{ ...cardStyle, height: cardHeight, background: '#EDE8DE' }} />;
               const isVideo = side.photo.type === 'video';
-              const src = isVideo ? videoThumbUrl(side.photo.url, `so_0,w_${twoUp ? 400 : 300},q_auto,f_auto`) : cloudinaryTransform(side.photo.url, `w_${twoUp ? 400 : 300},q_auto,f_auto`);
+              const src = isVideo ? videoThumbUrl(side.photo.url, `so_0,${PHOTO_MD}`) : cloudinaryTransform(side.photo.url, PHOTO_MD);
               return (
                 <div key={i} style={cardStyle}>
                   <CroppedPhoto src={src} cropY={side.photo.cropY ?? (entry.media[0] === side.photo ? entry.cropY : null) ?? 50} height={cardHeight} />
@@ -572,7 +572,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       const photo = content.entry.media?.[0];
       if (photo && photo.type !== 'video') {
         const img = new Image();
-        img.src = cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto');
+        img.src = cloudinaryTransform(photo.url, PHOTO_LG);
       }
     });
   }, [page, contentPages]);
@@ -712,7 +712,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       // text block still reads regardless of what's in the photo.
       deco = coverPhotoUrl ? (
         <>
-          <img src={cloudinaryTransform(coverPhotoUrl, 'w_800,q_auto,f_auto')} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.4 }} />
+          <img src={cloudinaryTransform(coverPhotoUrl, PHOTO_LG)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.4 }} />
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg, rgba(10,8,6,0.4) 0%, rgba(10,8,6,0.6) 100%)' }} />
         </>
       ) : null;

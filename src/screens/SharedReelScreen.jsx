@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
 import { supabase } from '../supabase.js';
-import { cloudinaryTransform, AVATAR_TRANSFORM_SM } from '../constants.js';
+import { cloudinaryTransform, AVATAR_TRANSFORM_SM, PHOTO_LG } from '../constants.js';
 import {
   TRIP_ARC_MS,
   videoThumbUrl, slideDurationMs, ReelSlideVideo, TripSlide, TextSlide,
@@ -130,7 +130,7 @@ function SharedReelScreen({ token, effectiveDark }) {
           );
         }
         const isVideo = s.mediaType === 'video';
-        const thumbSrc = isVideo ? videoThumbUrl(s.url, 'so_0,w_1000,q_auto,f_auto') : cloudinaryTransform(s.url, 'w_1000,q_auto,f_auto');
+        const thumbSrc = isVideo ? videoThumbUrl(s.url, `so_0,${PHOTO_LG}`) : cloudinaryTransform(s.url, PHOTO_LG);
         const kbAnim = `kb${(i % 4) + 1} ${slideDurationMs(s, durationScale)}ms ease-in-out forwards`;
         return (
           <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 1s ease' }}>

@@ -40,7 +40,7 @@ import {
   KIDS_INITIAL, ENTRIES_INITIAL, KID_ACCENTS, PROMPT_ACCENT,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY, AMAZON_GIFT_FALLBACK_URL,
   ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, photoCropY, cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl,
-  AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, getAuthRedirectUrl, timeAgo, daysUntilBirthday,
+  AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, PHOTO_XS, PHOTO_MD, PHOTO_LG, getAuthRedirectUrl, timeAgo, daysUntilBirthday,
 } from './constants.js';
 import usePullToRefresh from './usePullToRefresh.jsx';
 import triggerPush from './triggerPush.js';
@@ -518,7 +518,7 @@ function BookCropModal({ url, mediaType, cropY, cardHeight, photoWidth, onSave, 
           }}
         >
           <div style={{ paddingTop: topPad, paddingBottom: topPad }}>
-            <img ref={mediaRef} src={isVideo ? videoThumbUrl(url, 'so_0,w_1000,q_auto,f_auto') : cloudinaryTransform(url, 'w_1000,q_auto,f_auto')} style={{ width: '100%', display: 'block' }} onLoad={handleReady} alt="" loading="lazy" />
+            <img ref={mediaRef} src={isVideo ? videoThumbUrl(url, `so_0,${PHOTO_LG}`) : cloudinaryTransform(url, PHOTO_LG)} style={{ width: '100%', display: 'block' }} onLoad={handleReady} alt="" loading="lazy" />
           </div>
         </div>
 
@@ -568,7 +568,7 @@ function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDele
     // "favorited" flag, so they stay author-only — same rule as the full
     // entry-detail action sheet.
     isOwn && { icon: 'ti-link', label: 'Share link', color: 'var(--text)', fn: onShare },
-    isOwn && { icon: 'ti-trash', label: 'Delete', color: '#D4856A', fn: () => setConfirmingDelete(true) },
+    isOwn && { icon: 'ti-trash', label: 'Delete', color: 'var(--coral)', fn: () => setConfirmingDelete(true) },
   ].filter(Boolean);
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 50, display: 'flex', alignItems: 'flex-end' }} onClick={onClose}>
@@ -585,7 +585,7 @@ function QuickActionSheet({ entry, allKids, onClose, onFavorite, onShare, onDele
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, textAlign: 'center' }}>This can't be undone.</p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setConfirmingDelete(false)}>Cancel</button>
-              <button className="btn" style={{ flex: 1, background: '#D4856A', color: '#fff' }} onClick={onDelete}>Delete</button>
+              <button className="btn" style={{ flex: 1, background: 'var(--coral)', color: '#fff' }} onClick={onDelete}>Delete</button>
             </div>
           </div>
         ) : (
@@ -630,10 +630,10 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
           {entry.media[0].type === 'video' ? (
             <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
               {videoPlaying ? (
-                <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
               ) : (
                 <>
-                  <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_800,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} />
+                  <CroppedImg src={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 14 }} />
@@ -642,7 +642,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
                 </>
               )}
             </div>
-          ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
+          ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, PHOTO_LG)} cropY={photoCropY(entry.media, 0, entry)} fade />
           }
         </div>
       )}
@@ -653,7 +653,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
         >
           {entry.media.map((item, i) => (
             <div key={i} style={{ flexShrink: 0, width: cardH * (4 / 3), height: cardH, position: 'relative' }}>
-              <FeedMediaThumb item={item} cropY={photoCropY(entry.media, i, entry)} transform="w_800,e_sharpen:60,q_auto,f_auto" />
+              <FeedMediaThumb item={item} cropY={photoCropY(entry.media, i, entry)} transform={PHOTO_LG} />
             </div>
           ))}
         </div>
@@ -761,14 +761,14 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
       </p>
       {entry.media?.length === 1 && (
         <div style={{ marginBottom: featured ? 12 : 8, borderRadius: 10, overflow: 'hidden', height: photoH }}>
-          <FeedMediaThumb item={entry.media[0]} cropY={photoCropY(entry.media, 0, entry)} transform="w_500,q_auto,f_auto" />
+          <FeedMediaThumb item={entry.media[0]} cropY={photoCropY(entry.media, 0, entry)} transform={PHOTO_MD} />
         </div>
       )}
       {entry.media?.length > 1 && (
         <div style={{ marginBottom: featured ? 12 : 8, display: 'flex', gap: 2, overflowX: 'auto', height: photoH, borderRadius: 10 }}>
           {entry.media.map((m, i) => (
             <div key={i} style={{ flexShrink: 0, width: photoH * (4 / 3), height: photoH, position: 'relative' }}>
-              <FeedMediaThumb item={m} cropY={photoCropY(entry.media, i, entry)} transform="w_800,e_sharpen:60,q_auto,f_auto" />
+              <FeedMediaThumb item={m} cropY={photoCropY(entry.media, i, entry)} transform={PHOTO_LG} />
             </div>
           ))}
         </div>
@@ -834,14 +834,14 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
         </p>
         {entry.media?.length === 1 && (
           <div style={{ marginBottom: featured ? 12 : 8, borderRadius: 10, overflow: 'hidden', height: photoH }}>
-            <FeedMediaThumb item={entry.media[0]} cropY={photoCropY(entry.media, 0, entry)} transform="w_500,q_auto,f_auto" />
+            <FeedMediaThumb item={entry.media[0]} cropY={photoCropY(entry.media, 0, entry)} transform={PHOTO_MD} />
           </div>
         )}
         {entry.media?.length > 1 && (
           <div style={{ marginBottom: featured ? 12 : 8, display: 'flex', gap: 2, overflowX: 'auto', height: photoH, borderRadius: 10 }}>
             {entry.media.map((m, i) => (
               <div key={i} style={{ flexShrink: 0, width: photoH * (4 / 3), height: photoH, position: 'relative' }}>
-                <FeedMediaThumb item={m} cropY={photoCropY(entry.media, i, entry)} transform="w_800,e_sharpen:60,q_auto,f_auto" />
+                <FeedMediaThumb item={m} cropY={photoCropY(entry.media, i, entry)} transform={PHOTO_LG} />
               </div>
             ))}
           </div>
@@ -902,10 +902,10 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
             {entry.media[0].type === 'video' ? (
               <div style={{ width: '100%', height: '100%', position: 'relative', background: '#1a1a1a' }}>
                 {videoPlaying ? (
-                  <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, 'so_0,w_1000,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
+                  <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                 ) : (
                   <>
-                    <CroppedImg src={videoThumbUrl(entry.media[0].url, 'so_0,w_1000,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} onError={e => { e.target.style.display = 'none'; }} />
+                    <CroppedImg src={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} onError={e => { e.target.style.display = 'none'; }} />
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                       <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 14 }} />
@@ -914,7 +914,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
                   </>
                 )}
               </div>
-            ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, 'w_800,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
+            ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, PHOTO_LG)} cropY={photoCropY(entry.media, 0, entry)} fade />
             }
           </div>
         )}
@@ -925,7 +925,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
           >
             {entry.media.map((item, i) => (
               <div key={i} style={{ flexShrink: 0, width: cardH * (4 / 3), height: cardH, position: 'relative' }}>
-                <FeedMediaThumb item={item} cropY={photoCropY(entry.media, i, entry)} transform="w_1000,e_sharpen:60,q_auto,f_auto" />
+                <FeedMediaThumb item={item} cropY={photoCropY(entry.media, i, entry)} transform={PHOTO_LG} />
               </div>
             ))}
           </div>
@@ -991,9 +991,9 @@ function HomeGridCell({ entry, onOpenEntry }) {
       {media ? (
         <>
           {isVideo ? (
-            <CroppedImg src={videoThumbUrl(media.url, 'so_0,w_240,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
+            <CroppedImg src={videoThumbUrl(media.url, `so_0,${PHOTO_XS}`)} cropY={photoCropY(entry.media, 0, entry)} fade />
           ) : (
-            <CroppedImg src={cloudinaryTransform(media.url, 'w_240,q_auto,f_auto')} cropY={photoCropY(entry.media, 0, entry)} fade />
+            <CroppedImg src={cloudinaryTransform(media.url, PHOTO_XS)} cropY={photoCropY(entry.media, 0, entry)} fade />
           )}
           {isVideo && (
             <div style={{ position: 'absolute', bottom: 5, right: 5, width: 18, height: 18, borderRadius: '50%', background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1977,14 +1977,14 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
                             <video src={cloudinaryTransform(photo.url, VIDEO_DELIVERY_TRANSFORM)} autoPlay controls playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                           ) : (
                             <>
-                              <img src={videoThumbUrl(photo.url, 'so_0,w_700,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                              <img src={videoThumbUrl(photo.url, `so_0,${PHOTO_LG}`)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                               <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <div className="video-play-overlay"><Icon name="ti-player-play" style={{ fontSize: 15 }} /></div>
                               </div>
                             </>
                           )
                         ) : (
-                          <img src={cloudinaryTransform(photo.url, 'w_700,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
+                          <img src={cloudinaryTransform(photo.url, PHOTO_LG)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />
                         ))}
                       </div>
                     );
@@ -2552,7 +2552,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                     <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }}>
                       <CroppedVideo
                         src={item.url}
-                        poster={videoThumbUrl(item.url, `so_0,e_sharpen:60,q_auto,f_auto`)}
+                        poster={videoThumbUrl(item.url, `so_0,${PHOTO_LG}`)}
                         cropY={photoCropY(media, i, entry)}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         preload="metadata" playsInline controls
@@ -2560,7 +2560,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                       />
                     </div>
                   ) : (
-                    <CroppedBg key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }} src={cloudinaryTransform(item.url, 'w_1000,e_sharpen:60,q_auto,f_auto')} cropY={photoCropY(media, i, entry)}>
+                    <CroppedBg key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }} src={cloudinaryTransform(item.url, PHOTO_LG)} cropY={photoCropY(media, i, entry)}>
                       <div className="video-play-overlay" style={{ display: 'none' }} />
                     </CroppedBg>
                   )
@@ -2653,7 +2653,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                         title={onReorderMedia && side.photo ? (isCover ? 'Current cover photo' : 'Set as cover photo') : undefined}
                         style={{ aspectRatio: '1', borderRadius: 10, overflow: 'hidden', background: 'var(--bg-elevated)', position: 'relative', cursor: onReorderMedia && side.photo && !isCover ? 'pointer' : 'default' }}
                       >
-                        {side.photo && <img src={cloudinaryTransform(side.photo.url, 'w_400,q_auto,f_auto')} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />}
+                        {side.photo && <img src={cloudinaryTransform(side.photo.url, PHOTO_MD)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />}
                         {isCover && (
                           <span style={{ position: 'absolute', top: 5, left: 5, background: 'rgba(0,0,0,0.55)', color: '#fff', fontSize: 8.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', padding: '3px 6px', borderRadius: 6 }}>Cover</span>
                         )}
@@ -2940,7 +2940,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               supabase && { icon: 'ti-link', label: 'Share link', action: () => { setShowActionSheet(false); setShowShareLinkSheet(true); } },
               { icon: 'ti-trash', label: 'Delete entry', action: () => { setShowActionSheet(false); setShowDeleteConfirm(true); }, danger: true },
             ].filter(Boolean).map(item => (
-              <button key={item.label} onClick={item.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', color: item.danger ? '#D4856A' : 'var(--text)', fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 500 }}>
+              <button key={item.label} onClick={item.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', color: item.danger ? 'var(--coral)' : 'var(--text)', fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 500 }}>
                 <Icon name={item.icon} style={{ fontSize: 20, width: 24, flexShrink: 0 }} />
                 {item.label}
               </button>
@@ -2969,7 +2969,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 <button onClick={handleCopyShareLink} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginBottom: 10 }}>
                   {shareLinkCopied ? 'Copied!' : 'Copy link'}
                 </button>
-                <button onClick={handleRevokeShareLink} disabled={shareLinkBusy} style={{ width: '100%', background: 'none', border: 'none', color: '#D4856A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: '4px', opacity: shareLinkBusy ? 0.6 : 1 }}>
+                <button onClick={handleRevokeShareLink} disabled={shareLinkBusy} style={{ width: '100%', background: 'none', border: 'none', color: 'var(--coral)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: '4px', opacity: shareLinkBusy ? 0.6 : 1 }}>
                   Revoke link
                 </button>
               </>
@@ -2984,14 +2984,14 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
       {showDeleteConfirm && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Icon name="ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(var(--coral-rgb),0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Icon name="ti-trash" style={{ fontSize: 19, color: 'var(--coral)' }} />
             </div>
             <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px', textAlign: 'center' }}>Delete this entry?</p>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center' }}>This can't be undone.</p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
-              <button className="btn" style={{ flex: 1, background: '#D4856A', color: '#fff' }} onClick={() => { setShowDeleteConfirm(false); onDelete(entry.id); }}>Delete</button>
+              <button className="btn" style={{ flex: 1, background: 'var(--coral)', color: '#fff' }} onClick={() => { setShowDeleteConfirm(false); onDelete(entry.id); }}>Delete</button>
             </div>
           </div>
         </div>
@@ -2999,8 +2999,8 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
       {showCrop && media[activeSlide] && (
         <CropModal
           url={media[activeSlide].type === 'video'
-            ? videoThumbUrl(media[activeSlide].url, 'so_0,w_1000,q_auto,f_auto')
-            : cloudinaryTransform(media[activeSlide].url, 'w_1000,q_auto,f_auto')}
+            ? videoThumbUrl(media[activeSlide].url, `so_0,${PHOTO_LG}`)
+            : cloudinaryTransform(media[activeSlide].url, PHOTO_LG)}
           cropY={photoCropY(media, activeSlide, entry)}
           cardHeight={260}
           onSave={newY => { onUpdateCrop?.(entry.id, media[activeSlide].url, newY); setShowCrop(false); }}
@@ -3019,7 +3019,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             <Icon name="ti-x" />
           </button>
           <img
-            src={cloudinaryTransform(media[activeSlide].url, 'w_1000,q_auto,f_auto')}
+            src={cloudinaryTransform(media[activeSlide].url, PHOTO_LG)}
             style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
             alt=""
           />
@@ -3579,7 +3579,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {existingEntry && onDelete && (
-            <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)} style={{ color: '#D4856A', borderColor: 'rgba(212,133,106,0.35)' }}>
+            <button className="icon-btn" onClick={() => setShowDeleteConfirm(true)} style={{ color: 'var(--coral)', borderColor: 'rgba(var(--coral-rgb),0.35)' }}>
               <Icon name="ti-trash" />
             </button>
           )}
@@ -3809,8 +3809,8 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
           onChange={e => setText(e.target.value)}
           placeholder={isNote ? (promptText ? 'Type your answer…' : 'What just happened?') : 'You did the most surprising thing today. I never want you to forget what it felt like to be there…'}
           style={isNote ? {
-            width: '100%', border: '1px solid rgba(74,94,80,0.16)', outline: 'none', resize: 'none',
-            background: 'rgba(74,94,80,0.06)', borderRadius: 14, fontFamily: "'Source Serif 4', serif",
+            width: '100%', border: '1px solid rgba(var(--accent-rgb),0.16)', outline: 'none', resize: 'none',
+            background: 'rgba(var(--accent-rgb),0.06)', borderRadius: 14, fontFamily: "'Source Serif 4', serif",
             fontStyle: 'italic', fontSize: 17, lineHeight: 1.75, color: 'var(--text)',
             minHeight: '30vh', padding: 16,
           } : {
@@ -4185,14 +4185,14 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       {showDeleteConfirm && (
         <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(212,133,106,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Icon name="ti-trash" style={{ fontSize: 19, color: '#D4856A' }} />
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(var(--coral-rgb),0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <Icon name="ti-trash" style={{ fontSize: 19, color: 'var(--coral)' }} />
             </div>
             <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', margin: '0 0 6px', textAlign: 'center' }}>Delete this entry?</p>
             <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center' }}>This can't be undone.</p>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
-              <button className="btn" style={{ flex: 1, background: '#D4856A', color: '#fff' }} onClick={() => { setShowDeleteConfirm(false); onDelete(existingEntry.id); }}>Delete</button>
+              <button className="btn" style={{ flex: 1, background: 'var(--coral)', color: '#fff' }} onClick={() => { setShowDeleteConfirm(false); onDelete(existingEntry.id); }}>Delete</button>
             </div>
           </div>
         </div>
@@ -4315,7 +4315,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
 
 function CelebrationOverlay({ kid, milestoneType, onDone }) {
   const m = milestoneInfo(milestoneType) || { label: 'Milestone', icon: 'ti-star' };
-  const colors = ['#C8993E', '#D4856A', '#7BA99A', '#6A9EB0', '#A889B0'];
+  const colors = ['#C8993E', 'var(--coral)', '#7BA99A', '#6A9EB0', '#A889B0'];
   const [pieces, setPieces] = useState([]);
 
   useEffect(() => {
@@ -4432,7 +4432,7 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) 
   function tabStyle(tab) {
     const isActive = tab.group.includes(active);
     return {
-      backgroundColor: isActive ? 'rgba(74,94,80,0.12)' : 'transparent',
+      backgroundColor: isActive ? 'rgba(var(--accent-rgb),0.12)' : 'transparent',
       color: isActive ? 'var(--accent)' : 'var(--text-muted)',
     };
   }
@@ -4773,7 +4773,7 @@ export default function App() {
     if (seen[lastMonth]) return;
     const recap = computeMonthRecap(entries, lastMonth);
     if (recap.letters === 0) return;
-    setMonthlyRecap(recap);
+    setMonthlyRecap({ ...recap, month: lastMonth });
     seen[lastMonth] = true;
     try { localStorage.setItem(seenKey, JSON.stringify(seen)); } catch {}
   }, [entries.length, session?.user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -6817,6 +6817,7 @@ export default function App() {
               onOpenEntry={openEntry}
               onSwitchSection={switchSection}
               initialTarget={recapTarget}
+              onWatchMonthReel={month => setReelMonth(month)}
             />
           </ScreenErrorBoundary>
         </div>
@@ -7153,7 +7154,7 @@ export default function App() {
                 setShowComposePicker(false);
                 setScreen('new-entry');
               }} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: i < 2 ? '1px solid var(--border)' : 'none', cursor: 'pointer' }}>
-                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(74,94,80,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(var(--accent-rgb),0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Icon name={opt.icon} style={{ fontSize: 18, color: 'var(--accent)' }} />
                 </div>
                 <div style={{ flex: 1 }}>
@@ -7370,11 +7371,18 @@ export default function App() {
           </div>
 
           <button
-            onClick={() => setMonthlyRecap(null)}
+            onClick={() => { const month = monthlyRecap.month; setMonthlyRecap(null); setReelMonth(month); }}
             className="btn btn-gold"
-            style={{ border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, border: 'none', borderRadius: 14, padding: '15px 40px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}
           >
-            {monthlyRecap.fromList ? 'Back' : 'Keep going'}
+            <Icon name="ti-player-play-filled" style={{ fontSize: 15 }} />
+            Watch the reel
+          </button>
+          <button
+            onClick={() => setMonthlyRecap(null)}
+            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600, marginTop: 16, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}
+          >
+            {monthlyRecap.fromList ? 'Back' : 'Not now'}
           </button>
         </div>
       )}

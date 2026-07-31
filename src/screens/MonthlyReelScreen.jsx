@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
-import { cloudinaryTransform } from '../constants.js';
+import { cloudinaryTransform, PHOTO_LG } from '../constants.js';
 import { supabase } from '../supabase.js';
 import {
   TRIP_ARC_MS, MIN_TEXT_READ_MS,
@@ -90,6 +90,17 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   const candidates = useMemo(() => buildReelCandidates(entries, kids, familyMembers, startDate, endDate), [entries, kids, familyMembers, startDate, endDate]);
   const trips = candidates.trips;
 
+  // Unsaved reels (reelId == null — the default state of the monthly recap
+  // popup's "Watch the reel" flow, before anyone taps save) used to fall
+  // through to true Math.random() sampling below, which meant reopening the
+  // *same* month's recap picked a brand new random set of photos/songs every
+  // single time — none of which could reuse the browser's cache of the
+  // previous open, since every URL was different. Falling back to the date
+  // range instead of a real id keeps repeat opens of the same period
+  // idempotent (same photos, same songs, same Cloudinary URLs) while still
+  // varying naturally between genuinely different months/ranges.
+  const sampleSeed = reelId ?? `${startDate}::${endDate}`;
+
   // The stored location is often a specific address/place name — reverse
   // geocode to "City, State" for the arc label instead. Routed through the
   // reverse-geocode edge function rather than calling Google directly: the
@@ -117,7 +128,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   }, [trips]);
 
   const { slides, isLongReel } = useMemo(() => {
-    const auto = autoSampleSlides(candidates, { forceLongReel, reelId });
+    const auto = autoSampleSlides(candidates, { forceLongReel, reelId: sampleSeed });
     // Once a reel has been through the editor, slideRefs is the definitive,
     // user-arranged list — resolved against the live candidates above (so a
     // crop change or caption still updates), but the set and order are
@@ -126,7 +137,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       return { slides: resolveSlideRefs(slideRefs, candidates), isLongReel: auto.isLongReel };
     }
     return auto;
-  }, [candidates, forceLongReel, reelId, slideRefs]);
+  }, [candidates, forceLongReel, sampleSeed, slideRefs]);
 
   const [index, setIndex] = useState(0);
   const [showIntro, setShowIntro] = useState(true);
@@ -206,20 +217,19 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
   }
 
   // Which pool entries this reel draws for song 1 / song 2 — same
-  // saved-vs-unsaved rule as the photo shuffle above: an unsaved reel gets a
-  // fresh random pick every time it's opened, while a saved reel (reelId
-  // known) seeds off its own row id so it always lands on the same two songs
-  // on reopen. Song 2's draw excludes whatever song 1 picked so a long reel
-  // never doubles up on the same track.
+  // seeded-on-sampleSeed rule as the photo shuffle above, so reopening an
+  // unsaved reel doesn't also re-roll (and re-download) a different pair of
+  // preview clips every time. Song 2's draw excludes whatever song 1 picked
+  // so a long reel never doubles up on the same track.
   const song1Index = useMemo(() => {
-    const rng = reelId != null ? seededRandom(`song1-${reelId}`) : Math.random;
+    const rng = seededRandom(`song1-${sampleSeed}`);
     return Math.floor(rng() * SONG_POOL.length);
-  }, [reelId]);
+  }, [sampleSeed]);
   const song2Index = useMemo(() => {
-    const rng = reelId != null ? seededRandom(`song2-${reelId}`) : Math.random;
+    const rng = seededRandom(`song2-${sampleSeed}`);
     const idx = Math.floor(rng() * SONG_POOL.length);
     return (idx === song1Index && SONG_POOL.length > 1) ? (idx + 1) % SONG_POOL.length : idx;
-  }, [reelId, song1Index]);
+  }, [sampleSeed, song1Index]);
 
   // Background music — same iTunes preview-clip approach as the birthday
   // reel (a real, legally-served preview, not a hosted copy of the track).
@@ -501,7 +511,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
           );
         }
         const isVideo = s.mediaType === 'video';
-        const thumbSrc = isVideo ? videoThumbUrl(s.url, 'so_0,w_1000,q_auto,f_auto') : cloudinaryTransform(s.url, 'w_1000,q_auto,f_auto');
+        const thumbSrc = isVideo ? videoThumbUrl(s.url, `so_0,${PHOTO_LG}`) : cloudinaryTransform(s.url, PHOTO_LG);
         const kbAnim = `kb${(i % 4) + 1} ${slideDuration}ms ease-in-out forwards`;
         return (
           <div key={i} style={{ position: 'absolute', inset: 0, opacity: isActive ? 1 : 0, transition: 'opacity 1s ease' }}>
@@ -633,7 +643,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
                       Saves a video of this reel to your device — pick "Save Video" to add it to your photos, then share it wherever you'd like.
                     </p>
                     {exportPhase === 'error' && (
-                      <p style={{ fontSize: 12, color: '#D4856A', margin: '10px 0 0', textAlign: 'center' }}>
+                      <p style={{ fontSize: 12, color: 'var(--coral)', margin: '10px 0 0', textAlign: 'center' }}>
                         Something went wrong rendering the video. Please try again.
                       </p>
                     )}
@@ -652,7 +662,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
                 <button onClick={handleCopyShareLink} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", marginBottom: 10 }}>
                   {shareCopied ? 'Copied!' : 'Copy link'}
                 </button>
-                <button onClick={handleRevokeShare} disabled={shareBusy} style={{ width: '100%', background: 'none', border: 'none', color: '#D4856A', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: '4px', opacity: shareBusy ? 0.6 : 1 }}>
+                <button onClick={handleRevokeShare} disabled={shareBusy} style={{ width: '100%', background: 'none', border: 'none', color: 'var(--coral)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: '4px', opacity: shareBusy ? 0.6 : 1 }}>
                   Revoke link
                 </button>
               </>
@@ -662,7 +672,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
                   {shareBusy ? 'Creating…' : 'Create link'}
                 </button>
                 {shareError && (
-                  <p style={{ fontSize: 12, color: '#D4856A', margin: '10px 0 0', textAlign: 'center' }}>
+                  <p style={{ fontSize: 12, color: 'var(--coral)', margin: '10px 0 0', textAlign: 'center' }}>
                     Something went wrong creating the link. Please try again.
                   </p>
                 )}
