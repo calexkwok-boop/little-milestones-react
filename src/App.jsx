@@ -695,7 +695,7 @@ function AmazonIcon({ size = 13, aColor = 'currentColor', arrowColor = '#FF9900'
 
 function CroppedVideo({ src, poster, cropY = 50, style, ...props }) {
   const videoRef = useRef(null);
-  const objY = useImageCropPosition(poster, cropY, videoRef);
+  const { objY } = useImageCropPosition(poster, cropY, videoRef);
   // Always mounted (native poster attribute, not a poster/video swap), so on
   // scrolling out of view just pause it directly rather than unmounting.
   useVideoAutoPause(videoRef, true, () => videoRef.current?.pause());

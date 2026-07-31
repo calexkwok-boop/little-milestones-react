@@ -62,18 +62,29 @@ export function useImageCropPosition(url, cropY, containerRef) {
     return () => ro.disconnect();
   }, [recompute]);
 
-  return objY;
+  return { objY, inView };
 }
 
+// Native `loading="lazy"` is what actually used to gate the real <img>'s own
+// fetch/decode here — but Safari has a long-standing bug where it only
+// honors that attribute reliably for images scrolled by the *document*,
+// not ones inside a custom `overflow`-scrolling container (which is what
+// every screen in this app uses instead of window scroll). Inside one of
+// those, Safari loads/decodes the image the instant it mounts regardless of
+// position — silently defeating lazy-loading for every row at once, which
+// is exactly the "force-decode the whole list" crash the inView gate above
+// was meant to prevent. `inView` already comes from a real IntersectionObserver
+// (unaffected by that Safari bug), so gating the <img>'s `src` on it directly
+// — not just the hook's own internal preload — is what actually fixes it.
 function CroppedImg({ src, cropY = 50, alt = '', fade = false, onClick, onError, style, className }) {
   const containerRef = useRef(null);
   const [loaded, setLoaded] = useState(false);
-  const objY = useImageCropPosition(src, cropY, containerRef);
+  const { objY, inView } = useImageCropPosition(src, cropY, containerRef);
 
   return (
     <div ref={containerRef} className={className} style={{ width: '100%', height: '100%', ...style }}>
       <img
-        src={src}
+        src={inView ? src : undefined}
         alt={alt}
         onLoad={() => setLoaded(true)}
         onClick={onClick}
@@ -90,9 +101,9 @@ function CroppedImg({ src, cropY = 50, alt = '', fade = false, onClick, onError,
 
 export function CroppedBg({ src, cropY = 50, style, className, children }) {
   const containerRef = useRef(null);
-  const objY = useImageCropPosition(src, cropY, containerRef);
+  const { objY, inView } = useImageCropPosition(src, cropY, containerRef);
   return (
-    <div ref={containerRef} className={className} style={{ ...style, backgroundImage: `url('${src}')`, backgroundSize: 'cover', backgroundPosition: `center ${objY}%` }}>
+    <div ref={containerRef} className={className} style={{ ...style, backgroundImage: inView ? `url('${src}')` : 'none', backgroundSize: 'cover', backgroundPosition: `center ${objY}%` }}>
       {children}
     </div>
   );
