@@ -7225,7 +7225,7 @@ export default function App() {
                 onClose={() => setReelMonth(null)}
                 onGenerateReelShare={handleGenerateReelShare}
                 onRevokeReelShare={handleRevokeReelShare}
-                onSaveReel={({ song, song2 } = {}) => handleCreateSavedReel({ title: recap.label, startDate, endDate, song: song || null, song2: song2 || null })}
+                onSaveReel={({ song, song2, slideRefs } = {}) => handleCreateSavedReel({ title: recap.label, startDate, endDate, song: song || null, song2: song2 || null, slideRefs: slideRefs || null })}
                 onUnsaveReel={handleDeleteSavedReel}
                 onStatClick={filter => { const month = reelMonth; setReelMonth(null); openRecapFor({ viewMode: 'month', month, recapFilter: filter }); }}
                 userId={session?.user?.id}

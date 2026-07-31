@@ -7,7 +7,7 @@ import {
   videoThumbUrl, slideDurationMs, ReelSlideVideo, TripSlide, TextSlide,
   useReelImagePreload, useReelCountUpStats, useReelAudioEngine,
   ReelBottomBar, MonthlyClosingCard,
-  buildReelCandidates, resolveSlideRefs, autoSampleSlides, seededRandom,
+  buildReelCandidates, resolveSlideRefs, autoSampleSlides, seededRandom, slideToRef,
 } from './reelShared.jsx';
 import { isReelExportSupported, exportReelToVideo, blobToShareableFile, canShareVideoFile } from '../reelExport.js';
 
@@ -396,7 +396,12 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
       return;
     }
     setSavingReel(true);
-    const result = await onSaveReel({ song, song2: isLongReel ? song2 : null });
+    // Freeze exactly what's on screen right now — without this, the saved
+    // row would persist with no slide arrangement, and reopening it would
+    // re-sample fresh (seeded by the new row's own id instead of the month's
+    // date range), which could easily land on a different set of photos than
+    // the one the viewer actually looked at and chose to save.
+    const result = await onSaveReel({ song, song2: isLongReel ? song2 : null, slideRefs: slides.map(slideToRef) });
     setSavingReel(false);
     if (result) {
       setSavedReel(true);
