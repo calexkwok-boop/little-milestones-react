@@ -283,6 +283,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                     ref={el => {
                       mediaRefs.current[videoKey] = el;
                       if (isVideo) videoRefs.current[videoKey] = el; else delete videoRefs.current[videoKey];
+                      console.log('[autoplay debug] side tile ref', { videoKey, isVideo, mediaType: photo?.type, elPresent: !!el });
                     }}
                     data-video-key={isVideo ? videoKey : undefined}
                     onClick={() => {
@@ -378,6 +379,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             ref={el => {
               mediaRefs.current[entry.id] = el;
               if (isVideo) videoRefs.current[entry.id] = el; else delete videoRefs.current[entry.id];
+              console.log('[autoplay debug] main tile ref', { entryId: entry.id, isVideo, mediaType: entry.media[0]?.type, elPresent: !!el });
             }}
             data-video-key={isVideo ? entry.id : undefined}
             onClick={() => {
