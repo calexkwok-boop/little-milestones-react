@@ -211,7 +211,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
       for (const [key, ratio] of Object.entries(visibleRatios.current)) {
         if (ratio > bestRatio) { bestRatio = ratio; bestKey = key; }
       }
-      console.log('[autoplay debug]', { ratios: { ...visibleRatios.current }, bestKey, bestRatio });
+      console.log('%c>>> RATIOS', 'background:#c00;color:#fff;font-weight:bold', { ratios: { ...visibleRatios.current }, bestKey, bestRatio });
       setActiveVideoId(prev => {
         if (bestKey === prev) return prev;
         setUnmutedId(null);
@@ -220,7 +220,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
       });
     }, { threshold: [0, 0.25, 0.5, 0.6, 0.75, 1] });
     const observedCount = Object.values(videoRefs.current).filter(Boolean).length;
-    console.log('[autoplay debug] observing', observedCount, 'video tile(s), keys:', Object.keys(videoRefs.current));
+    console.log('%c>>> OBSERVER RAN', 'background:#c00;color:#fff;font-weight:bold', { displayedEntriesLength: displayedEntries.length, observedCount, keys: Object.keys(videoRefs.current) });
     Object.values(videoRefs.current).forEach(el => { if (el) observer.observe(el); });
     return () => observer.disconnect();
   }, [displayedEntries]);
@@ -283,7 +283,6 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                     ref={el => {
                       mediaRefs.current[videoKey] = el;
                       if (isVideo) videoRefs.current[videoKey] = el; else delete videoRefs.current[videoKey];
-                      console.log('[autoplay debug] side tile ref', { videoKey, isVideo, mediaType: photo?.type, elPresent: !!el });
                     }}
                     data-video-key={isVideo ? videoKey : undefined}
                     onClick={() => {
@@ -379,7 +378,6 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
             ref={el => {
               mediaRefs.current[entry.id] = el;
               if (isVideo) videoRefs.current[entry.id] = el; else delete videoRefs.current[entry.id];
-              console.log('[autoplay debug] main tile ref', { entryId: entry.id, isVideo, mediaType: entry.media[0]?.type, elPresent: !!el });
             }}
             data-video-key={isVideo ? entry.id : undefined}
             onClick={() => {
