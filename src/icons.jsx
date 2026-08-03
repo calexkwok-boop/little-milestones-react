@@ -94,6 +94,8 @@ const ICONS = {
   'ti-piano': <><rect x="4" y="6" width="16" height="12" rx="1.5" /><path d="M8 6v7.5M12 6v7.5M16 6v7.5" /><path d="M4 13.5h16" /></>,
   'ti-volume': <><path d="M10 8.3L6 11H3v2h3l4 2.7V8.3z" /><path d="M15.3 9a4 4 0 010 6" /></>,
   'ti-volume-off': <><path d="M10 8.3L6 11H3v2h3l4 2.7V8.3z" /><path d="M17 10l4 4M21 10l-4 4" /></>,
+  'ti-volume-filled': <><path d="M10 8.3L6 11H3v2h3l4 2.7V8.3z" fill="currentColor" stroke="none" /><path d="M15.3 9a4 4 0 010 6" /></>,
+  'ti-volume-off-filled': <><path d="M10 8.3L6 11H3v2h3l4 2.7V8.3z" fill="currentColor" stroke="none" /><path d="M17 10l4 4M21 10l-4 4" /></>,
 };
 
 // The Profile nav tab uses the actual quill+inkwell silhouette lifted from

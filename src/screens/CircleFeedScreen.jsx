@@ -32,7 +32,7 @@ function CroppedFeedVideo({ src, poster, cropY, onRefEl, style, ...props }) {
   // blocks it, and an unhandled rejection here would surface as a console
   // error on every single tile even though muted autoplay is allowed.
   useEffect(() => {
-    videoRef.current?.play().catch(() => {});
+    videoRef.current?.play().catch(err => console.warn('[video autoplay blocked]', err?.name, err?.message));
   }, [src]);
   return (
     <video
@@ -373,7 +373,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                           }}
                           style={{ position: 'absolute', bottom: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         >
-                          <Icon name={isUnmuted ? 'ti-volume' : 'ti-volume-off'} style={{ fontSize: 11, color: '#fff' }} />
+                          <Icon name={isUnmuted ? 'ti-volume-filled' : 'ti-volume-off-filled'} style={{ fontSize: 11, color: '#fff' }} />
                         </div>
                         {isPaused && (
                           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
@@ -474,7 +474,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                   }}
                   style={{ position: 'absolute', bottom: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
-                  <Icon name={isUnmuted ? 'ti-volume' : 'ti-volume-off'} style={{ fontSize: 13, color: '#fff' }} />
+                  <Icon name={isUnmuted ? 'ti-volume-filled' : 'ti-volume-off-filled'} style={{ fontSize: 13, color: '#fff' }} />
                 </div>
                 {isPaused && (
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
