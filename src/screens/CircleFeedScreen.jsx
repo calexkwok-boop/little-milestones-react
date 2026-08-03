@@ -237,13 +237,16 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
   // This screen is kept mounted and just display:none'd while another tab is
   // active (see App.jsx's circleGroupMounted), rather than unmounted — so
   // coming back to it doesn't remount CroppedFeedVideo or refire its
-  // play-on-mount effect. Mobile Safari pauses a <video> sitting in a
-  // display:none ancestor, and doesn't resume it on its own once that
-  // ancestor is visible again, so the tile that was already active needs an
-  // explicit nudge here instead of silently staying paused.
+  // play-on-mount effect. Mobile Safari doesn't just pause a <video> sitting
+  // in a display:none ancestor, it can drop its decoded buffer entirely, so a
+  // plain el.play() call on the old element can silently no-op. Bumping this
+  // key instead forces CroppedFeedVideo to fully remount — the same fresh
+  // start a real page reload gives it, but scoped to just the active tile.
+  const [visitEpoch, setVisitEpoch] = useState(0);
+  const wasActiveRef = useRef(active);
   useEffect(() => {
-    if (!active || !activeVideoId || pausedVideoId === activeVideoId) return;
-    videoElRefs.current[activeVideoId]?.play().catch(() => {});
+    if (active && !wasActiveRef.current) setVisitEpoch(e => e + 1);
+    wasActiveRef.current = active;
   }, [active]);
 
   const profileInfo = profileFamilyId ? friendFamilyMap[profileFamilyId] : null;
@@ -350,6 +353,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                       <>
                         {isActive ? (
                           <CroppedFeedVideo
+                            key={`${videoKey}-${visitEpoch}`}
                             src={photo.url}
                             poster={videoThumbUrl(photo.url, `so_0,${PHOTO_MD}`)}
                             cropY={photo?.cropY ?? 50}
@@ -361,7 +365,14 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                         ) : (
                           <CroppedImg src={videoThumbUrl(photo.url, `so_0,${PHOTO_MD}`)} cropY={photo?.cropY ?? 50} />
                         )}
-                        <div style={{ position: 'absolute', bottom: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div
+                          onClick={e => {
+                            if (!isActive) return;
+                            e.stopPropagation();
+                            setUnmutedId(prev => prev === videoKey ? null : videoKey);
+                          }}
+                          style={{ position: 'absolute', bottom: 8, right: 8, width: 22, height: 22, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
                           <Icon name={isUnmuted ? 'ti-volume' : 'ti-volume-off'} style={{ fontSize: 11, color: '#fff' }} />
                         </div>
                         {isPaused && (
@@ -443,6 +454,7 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
               <>
                 {isActive ? (
                   <CroppedFeedVideo
+                    key={`${entry.id}-${visitEpoch}`}
                     src={entry.media[0].url}
                     poster={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)}
                     cropY={photoCropY(entry.media, 0, entry)}
@@ -454,7 +466,14 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
                 ) : (
                   <CroppedImg src={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} />
                 )}
-                <div style={{ position: 'absolute', bottom: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div
+                  onClick={e => {
+                    if (!isActive) return;
+                    e.stopPropagation();
+                    setUnmutedId(prev => prev === entry.id ? null : entry.id);
+                  }}
+                  style={{ position: 'absolute', bottom: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
                   <Icon name={isUnmuted ? 'ti-volume' : 'ti-volume-off'} style={{ fontSize: 13, color: '#fff' }} />
                 </div>
                 {isPaused && (
