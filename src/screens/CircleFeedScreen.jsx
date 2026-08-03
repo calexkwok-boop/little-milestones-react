@@ -22,6 +22,18 @@ import {
 function CroppedFeedVideo({ src, poster, cropY, onRefEl, style, ...props }) {
   const videoRef = useRef(null);
   const { objY } = useImageCropPosition(poster, cropY, videoRef);
+  // iOS Safari in particular doesn't reliably honor the declarative `autoPlay`
+  // attribute on a <video> that gets inserted into the DOM dynamically (as
+  // opposed to being present in the initial page markup) — this tile only
+  // mounts once it's scrolled into view, so that's exactly what's happening
+  // here. Calling .play() imperatively once it's actually in the DOM is the
+  // standard, more reliable fix. The rejection catch is real, not
+  // defensive-for-show: play() returns a promise that rejects if the browser
+  // blocks it, and an unhandled rejection here would surface as a console
+  // error on every single tile even though muted autoplay is allowed.
+  useEffect(() => {
+    videoRef.current?.play().catch(() => {});
+  }, [src]);
   return (
     <video
       ref={el => { videoRef.current = el; onRefEl?.(el); }}
