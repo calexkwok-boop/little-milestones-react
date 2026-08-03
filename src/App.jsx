@@ -6952,6 +6952,7 @@ export default function App() {
         <div style={{ display: screen === 'circle-feed' ? 'contents' : 'none' }}>
           <Suspense fallback={<div className="screen" />}>
             <LazyCircleFeedScreen
+              active={screen === 'circle-feed'}
               onBack={() => setScreen('home')}
               friendKids={friendKids}
               friendFamilyMap={friendFamilyMap}

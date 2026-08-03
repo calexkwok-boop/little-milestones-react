@@ -45,7 +45,7 @@ function CroppedFeedVideo({ src, poster, cropY, onRefEl, style, ...props }) {
   );
 }
 
-function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCompareAtAge, onSwitchSection, friends = [], familyMemberIds = [], onSearchUsers, onSendRequest }) {
+function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCompareAtAge, onSwitchSection, friends = [], familyMemberIds = [], onSearchUsers, onSendRequest, active = true }) {
   const { userId: currentUserId, myDisplayName, familyMembers = [] } = useSession() ?? {};
   const { pendingRequestCount = 0, circleBadge = 0, friendRequests = [] } = useNotif() ?? {};
   const socialName = familyMembers.find(m => m.user_id === currentUserId)?.real_name || myDisplayName || '';
@@ -223,7 +223,6 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
       for (const [key, ratio] of Object.entries(visibleRatios.current)) {
         if (ratio > bestRatio) { bestRatio = ratio; bestKey = key; }
       }
-      console.log('%c>>> RATIOS', 'background:#c00;color:#fff;font-weight:bold', { ratios: { ...visibleRatios.current }, bestKey, bestRatio });
       setActiveVideoId(prev => {
         if (bestKey === prev) return prev;
         setUnmutedId(null);
@@ -231,11 +230,21 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
         return bestKey;
       });
     }, { threshold: [0, 0.25, 0.5, 0.6, 0.75, 1] });
-    const observedCount = Object.values(videoRefs.current).filter(Boolean).length;
-    console.log('%c>>> OBSERVER RAN', 'background:#c00;color:#fff;font-weight:bold', { displayedEntriesLength: displayedEntries.length, observedCount, keys: Object.keys(videoRefs.current) });
     Object.values(videoRefs.current).forEach(el => { if (el) observer.observe(el); });
     return () => observer.disconnect();
   }, [displayedEntries]);
+
+  // This screen is kept mounted and just display:none'd while another tab is
+  // active (see App.jsx's circleGroupMounted), rather than unmounted — so
+  // coming back to it doesn't remount CroppedFeedVideo or refire its
+  // play-on-mount effect. Mobile Safari pauses a <video> sitting in a
+  // display:none ancestor, and doesn't resume it on its own once that
+  // ancestor is visible again, so the tile that was already active needs an
+  // explicit nudge here instead of silently staying paused.
+  useEffect(() => {
+    if (!active || !activeVideoId || pausedVideoId === activeVideoId) return;
+    videoElRefs.current[activeVideoId]?.play().catch(() => {});
+  }, [active]);
 
   const profileInfo = profileFamilyId ? friendFamilyMap[profileFamilyId] : null;
 
