@@ -1019,7 +1019,7 @@ function HomeGridCell({ entry, onOpenEntry }) {
 // Circular avatar filter row, styled after RecapScreen's kid-filter circles —
 // replaces KidSelector's pill chips on Home specifically (KidSelector stays
 // as-is for Journal/other screens that still use the pill style).
-function HomeKidFilter({ kids, selected, onSelect, unseenKidIds }) {
+function HomeKidFilter({ kids, selected, onSelect, unseenKidIds, unseenKidEntry, onOpenEntry }) {
   return (
     <div className="scrollx" style={{ gap: 12, justifyContent: kids.length <= 4 ? 'center' : 'flex-start' }}>
       <button
@@ -1029,7 +1029,11 @@ function HomeKidFilter({ kids, selected, onSelect, unseenKidIds }) {
       {kids.map(kid => (
         <button
           key={kid.id}
-          onClick={() => onSelect(kid.id)}
+          onClick={() => {
+            const unseenEntry = unseenKidEntry?.get(kid.id);
+            if (unseenEntry && onOpenEntry) onOpenEntry(unseenEntry);
+            else onSelect(kid.id);
+          }}
           style={{ position: 'relative', width: 48, height: 48, borderRadius: '50%', border: selected === kid.id ? '2.5px solid var(--accent)' : '2px solid transparent', padding: 0, cursor: 'pointer', flexShrink: 0, opacity: selected !== null && selected !== kid.id ? 0.4 : 1, transition: 'opacity 0.15s, border-color 0.15s' }}
         >
           <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden' }}>
@@ -1251,15 +1255,33 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
 
 
   // Which kid pills get the "new letter" dot — every kid tagged on an entry
-  // a family member (not me) wrote that I haven't opened yet. Tapping that
-  // kid's pill already filters the feed to just them, which is where the
-  // new letter actually lives — no separate banner/screen needed.
+  // a family member (not me) wrote that I haven't opened yet. Tapping the pill
+  // used to just filter the feed to that kid, on the assumption the new
+  // letter would obviously be sitting right at the top — true only when the
+  // feed happened to be sorted with it first. The feed sorts by the entry's
+  // own date, not when it was added, so a letter backdated even slightly
+  // buried itself below already-seen ones instead. unseenKidEntry keeps the
+  // actual entry (the most recent unseen one, if a kid somehow has several)
+  // so the pill can jump straight to it instead of just filtering.
   const unseenKidIds = useMemo(() => {
     const set = new Set();
     if (unseenPartnerIds.length === 0) return set;
     const unseenSet = new Set(unseenPartnerIds);
     entries.forEach(e => { if (unseenSet.has(e.id)) e.kids?.forEach(id => set.add(id)); });
     return set;
+  }, [entries, unseenPartnerIds]);
+  const unseenKidEntry = useMemo(() => {
+    const map = new Map();
+    if (unseenPartnerIds.length === 0) return map;
+    const unseenSet = new Set(unseenPartnerIds);
+    entries.forEach(e => {
+      if (!unseenSet.has(e.id)) return;
+      e.kids?.forEach(id => {
+        const existing = map.get(id);
+        if (!existing || new Date(e.date) > new Date(existing.date)) map.set(id, e);
+      });
+    });
+    return map;
   }, [entries, unseenPartnerIds]);
 
   const onThisDay = useMemo(() => entries
@@ -1580,7 +1602,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           <Header />
 
           {kids.length > 1 && (
-            <HomeKidFilter kids={kids} selected={kidFilter} onSelect={setKidFilter} unseenKidIds={unseenKidIds} />
+            <HomeKidFilter kids={kids} selected={kidFilter} onSelect={setKidFilter} unseenKidIds={unseenKidIds} unseenKidEntry={unseenKidEntry} onOpenEntry={onOpenEntry} />
           )}
 
           {birthdayToday.map(k => (
