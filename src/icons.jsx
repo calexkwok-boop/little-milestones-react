@@ -92,10 +92,10 @@ const ICONS = {
   'ti-arrows-up-down': <><path d="M8 5v14M8 5L5 8M8 5l3 3" /><path d="M16 19V5M16 19l3-3M16 19l-3-3" /></>,
   'ti-school': <><path d="M12 4L2.5 8.5 12 13l9.5-4.5z" /><path d="M6.5 10.7v4c0 1.5 2.5 2.8 5.5 2.8s5.5-1.3 5.5-2.8v-4" /><path d="M21.5 8.5v6" /></>,
   'ti-piano': <><rect x="4" y="6" width="16" height="12" rx="1.5" /><path d="M8 6v7.5M12 6v7.5M16 6v7.5" /><path d="M4 13.5h16" /></>,
-  'ti-volume': <><path d="M10 8.3L6 11H3v2h3l4 2.7V8.3z" /><path d="M15.3 9a4 4 0 010 6" /></>,
-  'ti-volume-off': <><path d="M10 8.3L6 11H3v2h3l4 2.7V8.3z" /><path d="M17 10l4 4M21 10l-4 4" /></>,
-  'ti-volume-filled': <><path d="M10 8.3L6 11H3v2h3l4 2.7V8.3z" fill="currentColor" stroke="none" /><path d="M15.3 9a4 4 0 010 6" /></>,
-  'ti-volume-off-filled': <><path d="M10 8.3L6 11H3v2h3l4 2.7V8.3z" fill="currentColor" stroke="none" /><path d="M17 10l4 4M21 10l-4 4" /></>,
+  'ti-volume': <><path d="M11 6L6 10H3v4h3l5 4V6z" /><path d="M14 9a4 4 0 010 6" /></>,
+  'ti-volume-off': <><path d="M11 6L6 10H3v4h3l5 4V6z" /><path d="M16 9l5 5M21 9l-5 5" /></>,
+  'ti-volume-filled': <><path d="M11 6L6 10H3v4h3l5 4V6z" fill="currentColor" stroke="none" /><path d="M14 9a4 4 0 010 6" /></>,
+  'ti-volume-off-filled': <><path d="M11 6L6 10H3v4h3l5 4V6z" fill="currentColor" stroke="none" /><path d="M16 9l5 5M21 9l-5 5" /></>,
 };
 
 // The Profile nav tab uses the actual quill+inkwell silhouette lifted from

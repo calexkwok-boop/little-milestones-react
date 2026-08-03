@@ -32,7 +32,7 @@ function CroppedFeedVideo({ src, poster, cropY, onRefEl, style, ...props }) {
   // blocks it, and an unhandled rejection here would surface as a console
   // error on every single tile even though muted autoplay is allowed.
   useEffect(() => {
-    videoRef.current?.play().catch(err => console.warn('[video autoplay blocked]', err?.name, err?.message));
+    videoRef.current?.play().catch(() => {});
   }, [src]);
   return (
     <video
