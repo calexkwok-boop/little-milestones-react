@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { Icon } from '../icons';
 import { cloudinaryTransform, AVATAR_TRANSFORM_SM, PHOTO_XS } from '../constants.js';
 import SectionSwitcher from '../SectionSwitcher.jsx';
@@ -126,24 +126,69 @@ function ReelRow({ reel, thumbPhoto, open, onOpen, onClose, onWatch, onEdit, onD
   );
 }
 
+// A little glass jar that actually fills with "liquid" as the year's clips
+// come in — the interior is defined once as a clip path, then a gradient
+// rect is drawn at whatever height `filled/total` works out to and clipped
+// to that same shape, so it reads as liquid rising inside glass rather than
+// an abstract bar. Ids are namespaced per instance (useId) since a family
+// can have more than one kid's jar in the list at once.
+function JarFillGraphic({ filled, total = 12, size = 46 }) {
+  const uid = useId();
+  const clipId = `jarclip-${uid}`;
+  const gradId = `jargrad-${uid}`;
+  const progress = Math.max(0, Math.min(1, filled / total));
+  const jarPath = 'M9 7L25 7L28 12L28 30A6 6 0 0122 36L12 36A6 6 0 016 30L6 12Z';
+  const fillTop = 36 - progress * 29; // 36 = jar floor, 7 = shoulder (full)
+  return (
+    <svg width={size * 0.74} height={size} viewBox="0 0 34 40" style={{ flexShrink: 0, overflow: 'visible' }}>
+      <defs>
+        <clipPath id={clipId}><path d={jarPath} /></clipPath>
+        <linearGradient id={gradId} x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0%" stopColor="#A97C28" />
+          <stop offset="100%" stopColor="#E8C671" />
+        </linearGradient>
+      </defs>
+      <path d={jarPath} fill="rgba(255,255,255,0.55)" stroke="rgba(163,120,40,0.65)" strokeWidth="1.4" />
+      {filled > 0 && (
+        <g clipPath={`url(#${clipId})`}>
+          <rect x="0" y={fillTop} width="34" height={40 - fillTop} fill={`url(#${gradId})`} />
+          <rect x="0" y={fillTop} width="34" height="2.2" fill="#F5DFA0" />
+        </g>
+      )}
+      <rect x="9" y="2" width="16" height="5" rx="2" fill="#8C6A22" />
+      <rect x="9" y="2" width="16" height="1.6" rx="0.8" fill="rgba(255,255,255,0.22)" />
+    </svg>
+  );
+}
+
 // A kid's Patina Jar, shown as its own row above the real saved_reels list —
 // no swipe-to-edit/delete (deleting a clip lives inside PatinaJarScreen
 // itself, per-clip, not here) and no date range to format, so it doesn't
-// reuse ReelRow, which assumes both.
+// reuse ReelRow, which assumes both. A jar is a running yearly collection,
+// not a one-off clip reel, so it gets its own warm gold treatment and an
+// actual filling-jar graphic instead of ReelRow's plain photo-thumbnail look
+// — the two were previously styled identically and read as the same kind of item.
 function PatinaJarRow({ reel, onWatch }) {
   return (
     <button
       onClick={onWatch}
-      style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '12px 14px', cursor: 'pointer', width: '100%', textAlign: 'left', fontFamily: "'Urbanist', sans-serif" }}
+      style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, cursor: 'pointer', width: '100%', textAlign: 'center', fontFamily: "'Urbanist', sans-serif",
+        background: 'linear-gradient(135deg, rgba(212,168,75,0.14), rgba(184,135,46,0.05))',
+        border: '1px solid rgba(200,153,62,0.35)', borderRadius: 14, padding: '16px 10px 12px',
+      }}
     >
-      <span style={{ width: 40, height: 40, borderRadius: 10, overflow: 'hidden', background: reel.kidAccent || 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        {reel.kidAvatar
-          ? <img src={cloudinaryTransform(reel.kidAvatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
-          : <span style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{reel.kidName?.[0]}</span>}
+      <span style={{ position: 'relative', flexShrink: 0, display: 'flex' }}>
+        <JarFillGraphic filled={reel.countThisYear} size={54} />
+        <span style={{ position: 'absolute', bottom: -2, right: -8, width: 20, height: 20, borderRadius: '50%', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.3)', background: reel.kidAccent || 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {reel.kidAvatar
+            ? <img src={cloudinaryTransform(reel.kidAvatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
+            : <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{reel.kidName?.[0]}</span>}
+        </span>
       </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ width: '100%', minWidth: 0 }}>
         <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{reel.kidName}'s Patina Jar</p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{reel.countThisYear}/12 this year</p>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0' }}>{reel.countThisYear}/12 filled this year</p>
       </div>
     </button>
   );
@@ -267,9 +312,12 @@ function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], 
 
           {patinaJarReels.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {patinaJarReels.map(reel => (
-                <PatinaJarRow key={reel.id} reel={reel} onWatch={() => onWatchPatinaJar(reel.kidId)} />
-              ))}
+              <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.8, margin: '4px 2px 0' }}>Patina Jars</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+                {patinaJarReels.map(reel => (
+                  <PatinaJarRow key={reel.id} reel={reel} onWatch={() => onWatchPatinaJar(reel.kidId)} />
+                ))}
+              </div>
             </div>
           )}
 

@@ -96,6 +96,8 @@ const ICONS = {
   'ti-volume-off': <><path d="M11 6L6 10H3v4h3l5 4V6z" /><path d="M16 9l5 5M21 9l-5 5" /></>,
   'ti-volume-filled': <><path d="M11 6L6 10H3v4h3l5 4V6z" fill="currentColor" stroke="none" /><path d="M14 9a4 4 0 010 6" /></>,
   'ti-volume-off-filled': <><path d="M11 6L6 10H3v4h3l5 4V6z" fill="currentColor" stroke="none" /><path d="M16 9l5 5M21 9l-5 5" /></>,
+  'ti-jar': <><rect x="9" y="3" width="6" height="2.5" rx="1" /><path d="M9 5.5h6l2 3V19a2 2 0 01-2 2H9a2 2 0 01-2-2V8.5z" /></>,
+  'ti-jar-filled': <><rect x="9" y="3" width="6" height="2.5" rx="1" fill="currentColor" stroke="none" /><path d="M9 5.5h6l2 3V19a2 2 0 01-2 2H9a2 2 0 01-2-2V8.5z" fill="currentColor" stroke="none" /></>,
 };
 
 // The Profile nav tab uses the actual quill+inkwell silhouette lifted from
