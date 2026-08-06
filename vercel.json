@@ -1,5 +1,10 @@
 {
   "framework": "vite",
   "outputDirectory": "dist",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/calendar", "destination": "https://patina-calendar-alpha.vercel.app/calendar" },
+    { "source": "/calendar/", "destination": "https://patina-calendar-alpha.vercel.app/calendar/" },
+    { "source": "/calendar/:path*", "destination": "https://patina-calendar-alpha.vercel.app/calendar/:path*" }
+  ]
 }
