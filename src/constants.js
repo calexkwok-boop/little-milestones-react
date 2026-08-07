@@ -1,3 +1,10 @@
+// Base-relative prefix for files in public/ referenced directly in code
+// (as opposed to imported assets, which Vite's `base` config rewrites on
+// its own). Resolves to '/letters/' under this app's configured base, or
+// '/' if ever built/served without one — never hardcode a leading slash
+// for a public/ file in JSX, since that breaks under the /letters proxy.
+export const ASSET_BASE = import.meta.env.BASE_URL;
+
 export const KIDS_INITIAL = [];
 
 export const AMAZON_GIFT_FALLBACK_URL = 'https://www.amazon.com/s?k=gifts+for+kids';

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '../icons';
 import { supabase } from '../supabase.js';
-import { getAuthRedirectUrl } from '../constants.js';
+import { getAuthRedirectUrl, ASSET_BASE } from '../constants.js';
 
 function AuthScreen() {
   const [mode, setMode] = useState('signin');
@@ -95,7 +95,7 @@ function AuthScreen() {
       <div className="scroll-area">
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560, justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <img src="/icon-192.png" style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
+            <img src={`${ASSET_BASE}icon-192.png`} style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, color: 'var(--text)', margin: '0 0 10px' }}>Patina</h1>
             <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text-3)', margin: 0, textAlign: 'center' }}>
               For all the things you wish they knew, and all the moments you never want to forget.

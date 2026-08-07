@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback } from 'react';
 import { Icon } from '../icons';
 import { QRCodeSVG } from 'qrcode.react';
-import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl, photoCropY, BOOK_COVER_THEMES, PHOTO_XS, PHOTO_MD, PHOTO_LG } from '../constants.js';
+import { cloudinaryTransform, exactAgeLabel, milestoneInfo, sameAgeSides, videoThumbUrl, photoCropY, BOOK_COVER_THEMES, PHOTO_XS, PHOTO_MD, PHOTO_LG, ASSET_BASE } from '../constants.js';
 
 // `cropY` is saved as "the point in the photo that should stay centered" (0-100, top-to-bottom),
 // not a raw scroll-percentage — so it has to be re-projected into an `object-position` value
@@ -809,7 +809,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
         <div style={{ width: 40, height: 1, background: inkDim(0.3), margin: '20px auto 0' }} />
       </div>
       <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-        <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" loading="lazy" />
+        <img src={`${ASSET_BASE}quill-no-background.png`} style={{ width: 32, height: 32, opacity: 0.6 }} alt="" loading="lazy" />
       </div>
     </div>
   );
@@ -832,7 +832,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
           <div style={{ width: 1, height: 32, background: inkDim(0.2) }} />
         </div>
         <div style={{ position: 'absolute', bottom: 28, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
-          <img src="/quill-no-background.png" style={{ width: 32, height: 32, opacity: 0.6 }} alt="" loading="lazy" />
+          <img src={`${ASSET_BASE}quill-no-background.png`} style={{ width: 32, height: 32, opacity: 0.6 }} alt="" loading="lazy" />
         </div>
       </div>
     );
@@ -937,7 +937,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
             onClick={e => e.stopPropagation()}>
             {!waitlistDone ? (
               <>
-                <img src="/icon-192.png" style={{ width: 48, height: 48, borderRadius: 12, display: 'block', marginBottom: 16 }} alt="Patina" />
+                <img src={`${ASSET_BASE}icon-192.png`} style={{ width: 48, height: 48, borderRadius: 12, display: 'block', marginBottom: 16 }} alt="Patina" />
                 <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 22, color: 'var(--text)', margin: '0 0 8px', lineHeight: 1.25 }}>Print ordering<br />is coming soon</h3>
                 <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', lineHeight: 1.6 }}>
                   Your book is ready to go. Leave your email and we'll let you know the moment print ordering opens.

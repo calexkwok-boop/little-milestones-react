@@ -1,6 +1,8 @@
 // Inline line-icon set, replacing the @tabler/icons-webfont CDN dependency.
 // Registry is keyed by the exact strings used as data (e.g. MILESTONE_TYPES icon
 // fields in constants.js), so those data definitions didn't need to change.
+import { ASSET_BASE } from './constants.js';
+
 const S = 1.55;
 // Icons were drawn with a bit of internal padding inside the 24x24 grid, which
 // under-fills the box compared to the old icon font's glyphs — scale the
@@ -114,8 +116,8 @@ function QuillMark({ style, className, ...rest }) {
         flexShrink: 0,
         verticalAlign: 'middle',
         backgroundColor: 'currentColor',
-        WebkitMaskImage: 'url(/quill-mask.png)',
-        maskImage: 'url(/quill-mask.png)',
+        WebkitMaskImage: `url(${ASSET_BASE}quill-mask.png)`,
+        maskImage: `url(${ASSET_BASE}quill-mask.png)`,
         WebkitMaskSize: 'contain',
         maskSize: 'contain',
         WebkitMaskRepeat: 'no-repeat',

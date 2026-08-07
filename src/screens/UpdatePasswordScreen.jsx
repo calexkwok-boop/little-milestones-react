@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Icon } from '../icons';
 import { supabase } from '../supabase.js';
+import { ASSET_BASE } from '../constants.js';
 
 function UpdatePasswordScreen({ onDone }) {
   const [password, setPassword] = useState('');
@@ -44,7 +45,7 @@ function UpdatePasswordScreen({ onDone }) {
       <div className="scroll-area">
         <div style={{ padding: '60px 28px 48px', display: 'flex', flexDirection: 'column', minHeight: 560, justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', marginBottom: 40 }}>
-            <img src="/icon-192.png" style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
+            <img src={`${ASSET_BASE}icon-192.png`} style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: 'var(--text)', margin: '0 0 10px' }}>Set a new password</h1>
             <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 14, color: 'var(--text-3)', margin: 0 }}>
               Choose a new password for your account.

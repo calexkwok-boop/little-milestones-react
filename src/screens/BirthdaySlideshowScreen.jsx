@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
-import { cloudinaryTransform, AMAZON_GIFT_FALLBACK_URL, VIDEO_DELIVERY_TRANSFORM, PHOTO_LG } from '../constants.js';
+import { cloudinaryTransform, AMAZON_GIFT_FALLBACK_URL, VIDEO_DELIVERY_TRANSFORM, PHOTO_LG, ASSET_BASE } from '../constants.js';
 import { supabase } from '../supabase.js';
 
 const SLIDESHOW_DURATION = 50700;
@@ -582,7 +582,7 @@ function BirthdaySlideshowScreen({ kid, age, entries, onClose, isFriend = false,
             <Icon name="ti-player-play-filled" style={{ marginLeft: 3 }} />
           </button>
           <div style={{ position: 'absolute', bottom: 28, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <img src="/quill-no-background.png" style={{ width: 15, height: 15, objectFit: 'contain', opacity: 0.25 }} alt="" loading="lazy" />
+            <img src={`${ASSET_BASE}quill-no-background.png`} style={{ width: 15, height: 15, objectFit: 'contain', opacity: 0.25 }} alt="" loading="lazy" />
             <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 12, color: 'rgba(255,255,255,0.25)', letterSpacing: 0.5 }}>Patina</span>
           </div>
         </div>
