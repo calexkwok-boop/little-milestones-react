@@ -3,6 +3,9 @@
   "outputDirectory": "dist",
   "cleanUrls": true,
   "rewrites": [
+    { "source": "/letters", "destination": "/" },
+    { "source": "/letters/", "destination": "/" },
+    { "source": "/letters/:path*", "destination": "/:path*" },
     { "source": "/calendar", "destination": "https://patina-calendar-alpha.vercel.app/calendar" },
     { "source": "/calendar/", "destination": "https://patina-calendar-alpha.vercel.app/calendar/" },
     { "source": "/calendar/:path*", "destination": "https://patina-calendar-alpha.vercel.app/calendar/:path*" }
