@@ -40,7 +40,7 @@ import {
   KIDS_INITIAL, ENTRIES_INITIAL, KID_ACCENTS, PROMPT_ACCENT,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY, AMAZON_GIFT_FALLBACK_URL,
   ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, photoCropY, cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl,
-  AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, PHOTO_XS, PHOTO_MD, PHOTO_LG, getAuthRedirectUrl, timeAgo, daysUntilBirthday,
+  AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, PHOTO_XS, PHOTO_MD, PHOTO_LG, getAuthRedirectUrl, timeAgo, daysUntilBirthday, ASSET_BASE,
 } from './constants.js';
 import usePullToRefresh from './usePullToRefresh.jsx';
 import triggerPush from './triggerPush.js';
@@ -1524,7 +1524,10 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
     return (
       <div style={{ textAlign: 'center' }}>
         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 6px' }}>{todayLabel}</p>
-        <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#C8993E', margin: 0, fontWeight: 700 }}>Patina</h1>
+          <img src={`${ASSET_BASE}icon-mark-gold.png`} className="app-topbar-icon" alt="" />
+        </div>
         {letterCount > 0 && (
           <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '4px 0 0', fontFamily: "'Source Serif 4', serif", fontStyle: 'italic' }}>
             {letterCount} letter{letterCount !== 1 ? 's' : ''}{noteCount > 0 ? ` · ${noteCount} note${noteCount !== 1 ? 's' : ''}` : ''}

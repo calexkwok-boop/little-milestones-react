@@ -53,16 +53,22 @@ export function Coachmark({ id, userId, active, targetRef, text, placement = 'bo
 
   if (seen || !active || !rect) return null;
   const pad = 6;
-  const bubbleWidth = 210;
-  const left = Math.max(16, Math.min(rect.left, window.innerWidth - bubbleWidth - 16));
+  const bubbleWidth = 240;
+  // Anchored to the target's horizontal center (not its left edge) — the tail
+  // below always points at the bubble's own midpoint, so keeping the bubble
+  // itself centered on the target is what keeps the tail actually pointing at
+  // the thing it's spotlighting, not just floating near it.
+  const centerX = rect.left + rect.width / 2;
+  const left = Math.max(16, Math.min(centerX - bubbleWidth / 2, window.innerWidth - bubbleWidth - 16));
   // Rendered via a portal straight into <body> rather than in place — every
-  // `.screen` plays a mount animation that animates `transform`, which makes
-  // it a new containing block for any `position: fixed` descendant for the
-  // duration of that animation. Left in place, these overlays would measure
-  // the target correctly (getBoundingClientRect is always viewport-relative)
-  // but then render themselves relative to that animating screen instead of
-  // the real viewport — visibly offset from the button they're supposed to
-  // be spotlighting. A portal sidesteps the whole containing-block problem.
+  // `.screen` plays a 220ms translateY mount animation (screenIn in App.css)
+  // which makes it a new containing block for any `position: fixed`
+  // descendant for the duration of that animation. Left in place, these
+  // overlays would measure the target correctly (getBoundingClientRect is
+  // always viewport-relative) but then render themselves relative to that
+  // animating screen instead of the real viewport — visibly offset from the
+  // button they're supposed to be spotlighting. A portal sidesteps the whole
+  // containing-block problem.
   return createPortal(
     <>
       <div
@@ -77,13 +83,36 @@ export function Coachmark({ id, userId, active, targetRef, text, placement = 'bo
           position: 'fixed', zIndex: 9999, left, width: bubbleWidth,
           top: placement === 'bottom' ? rect.bottom + 14 : undefined,
           bottom: placement === 'top' ? window.innerHeight - rect.top + 14 : undefined,
-          background: '#2C3828', color: '#F8F4EC', borderRadius: 14, padding: '12px 14px',
-          fontSize: 12, lineHeight: 1.5, fontFamily: "'Urbanist', sans-serif", boxShadow: '0 8px 20px rgba(0,0,0,0.3)', pointerEvents: 'none',
+          background: 'var(--accent)', color: '#fff', borderRadius: 14, padding: '14px 16px',
+          textAlign: 'center', boxShadow: '0 10px 24px rgba(44,56,40,0.28)',
+          animation: `coachmark-in-${placement} 0.3s ease both`,
         }}
       >
-        {text}
-        <div style={{ marginTop: 8, fontSize: 10.5, fontWeight: 700, color: '#C8D9C4', textTransform: 'uppercase', letterSpacing: 0.5 }}>Got it</div>
+        <div
+          style={{
+            position: 'absolute', left: Math.max(20, Math.min(centerX - left, bubbleWidth - 20)) - 7,
+            [placement === 'bottom' ? 'top' : 'bottom']: -7,
+            width: 14, height: 14, background: 'var(--accent)', transform: 'rotate(45deg)',
+            borderRadius: placement === 'bottom' ? '3px 0 0 0' : '0 3px 0 0',
+          }}
+        />
+        <p style={{ fontFamily: "'Urbanist', sans-serif", fontSize: 13.5, fontWeight: 600, lineHeight: 1.4, margin: '0 0 10px' }}>{text}</p>
+        <button
+          type="button"
+          onClick={markSeen}
+          style={{
+            background: '#fff', color: 'var(--accent)', border: 'none', boxShadow: 'none',
+            padding: '8px 20px', fontSize: 13, width: 'auto', borderRadius: 12,
+            fontFamily: "'Urbanist', sans-serif", fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          Got it
+        </button>
       </div>
+      <style>{`
+        @keyframes coachmark-in-bottom { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes coachmark-in-top { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
     </>,
     document.body
   );

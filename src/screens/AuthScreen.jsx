@@ -98,7 +98,7 @@ function AuthScreen() {
             <img src={`${ASSET_BASE}icon-192.png`} style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 32, margin: '0 0 10px', background: 'linear-gradient(180deg, #D4A84B, #B8872E)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' }}>Patina</h1>
             <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text-3)', margin: 0, textAlign: 'center' }}>
-              For all the things you wish they knew, and all the moments you never want to forget.
+              For all the things you wish they knew
             </p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>

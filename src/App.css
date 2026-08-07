@@ -188,6 +188,12 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 }
 .chip.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
 
+.app-topbar-icon {
+  height: 26px;
+  width: auto;
+  flex-shrink: 0;
+}
+
 .icon-btn {
   background: var(--bg-input); border: 1px solid var(--border); cursor: pointer;
   color: var(--accent); font-size: 18px; width: 36px; height: 36px;
