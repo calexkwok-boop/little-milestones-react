@@ -78,12 +78,20 @@ export function Coachmark({ id, userId, active, targetRef, text, placement = 'bo
           borderRadius: 999, boxShadow: '0 0 0 2000px rgba(20,26,20,0.62)',
         }}
       />
+      {/* Hardcoded accent green, not var(--accent) -- this portals straight
+          into <body>, outside .app-root where every theme token is scoped,
+          so the CSS variable is invalid here. It used to silently fail: the
+          bubble's own background happened to look fine only because the
+          dark dimming scrim behind it filled in for the missing color, but
+          the "Got it" button's now-invalid text color inherited the
+          bubble's white, landing on the button's own literal white
+          background -- invisible white-on-white text. */}
       <div
         style={{
           position: 'fixed', zIndex: 9999, left, width: bubbleWidth,
           top: placement === 'bottom' ? rect.bottom + 14 : undefined,
           bottom: placement === 'top' ? window.innerHeight - rect.top + 14 : undefined,
-          background: 'var(--accent)', color: '#fff', borderRadius: 14, padding: '14px 16px',
+          background: '#4A5E50', color: '#fff', borderRadius: 14, padding: '14px 16px',
           textAlign: 'center', boxShadow: '0 10px 24px rgba(44,56,40,0.28)',
           animation: `coachmark-in-${placement} 0.3s ease both`,
         }}
@@ -92,7 +100,7 @@ export function Coachmark({ id, userId, active, targetRef, text, placement = 'bo
           style={{
             position: 'absolute', left: Math.max(20, Math.min(centerX - left, bubbleWidth - 20)) - 7,
             [placement === 'bottom' ? 'top' : 'bottom']: -7,
-            width: 14, height: 14, background: 'var(--accent)', transform: 'rotate(45deg)',
+            width: 14, height: 14, background: '#4A5E50', transform: 'rotate(45deg)',
             borderRadius: placement === 'bottom' ? '3px 0 0 0' : '0 3px 0 0',
           }}
         />
@@ -101,7 +109,7 @@ export function Coachmark({ id, userId, active, targetRef, text, placement = 'bo
           type="button"
           onClick={markSeen}
           style={{
-            background: '#fff', color: 'var(--accent)', border: 'none', boxShadow: 'none',
+            background: '#fff', color: '#4A5E50', border: 'none', boxShadow: 'none',
             padding: '8px 20px', fontSize: 13, width: 'auto', borderRadius: 12,
             fontFamily: "'Urbanist', sans-serif", fontWeight: 600, cursor: 'pointer',
           }}
