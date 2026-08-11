@@ -97,42 +97,44 @@ function AuthScreen() {
           <div style={{ textAlign: 'center', marginBottom: 52 }}>
             <img src={`${ASSET_BASE}icon-192.png`} style={{ width: 76, height: 76, borderRadius: 17, display: 'block', margin: '0 auto 20px' }} alt="" />
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 32, margin: '0 0 10px', background: 'linear-gradient(180deg, #D4A84B, #B8872E)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' }}>Patina</h1>
-            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text-3)', margin: 0, textAlign: 'center' }}>
-              For all the things you wish they knew
+            <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text)', margin: 0, textAlign: 'center' }}>
+              For all the things you wish they knew.
             </p>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16 }}>
-            <input
-              className="input-field"
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              autoComplete="email"
-              onKeyDown={e => e.key === 'Enter' && mode === 'reset' && handleSubmit()}
-            />
-            {mode !== 'reset' && (
+          <div className="auth-card" style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <input
                 className="input-field"
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                autoComplete="email"
+                onKeyDown={e => e.key === 'Enter' && mode === 'reset' && handleSubmit()}
               />
+              {mode !== 'reset' && (
+                <input
+                  className="input-field"
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                  onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+                />
+              )}
+            </div>
+            {mode === 'signin' && (
+              <p style={{ textAlign: 'right', margin: '8px 0 0' }}>
+                <button
+                  onClick={() => { setMode('reset'); setError(''); }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, padding: 0, fontFamily: "'Urbanist', sans-serif" }}
+                >
+                  Forgot password?
+                </button>
+              </p>
             )}
           </div>
-          {mode === 'signin' && (
-            <p style={{ textAlign: 'right', margin: '-8px 0 16px' }}>
-              <button
-                onClick={() => { setMode('reset'); setError(''); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 12, padding: 0, fontFamily: "'Urbanist', sans-serif" }}
-              >
-                Forgot password?
-              </button>
-            </p>
-          )}
           {error && (
             <p style={{ fontSize: 13, color: 'var(--coral)', marginBottom: 12, textAlign: 'center', lineHeight: 1.4 }}>{error}</p>
           )}

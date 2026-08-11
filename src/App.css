@@ -177,6 +177,25 @@
   box-shadow: 0 0 0 3px rgba(74,94,80,0.12);
 }
 textarea.input-field { resize: none; min-height: 120px; line-height: 1.7; font-family: 'Source Serif 4', serif; font-size: 16px; }
+
+/* Lifts the auth screen's inputs off the sage app-root background, matching
+   Patina Calendar's auth card -- a gold-tinted border plus a two-layer
+   shadow (tight contact + soft ambient lift), since body/card/input here
+   are otherwise all shades of the same earthy green and blend together
+   without it. */
+.auth-card {
+  border: 1.5px solid color-mix(in srgb, #D4A84B 35%, var(--border));
+  border-radius: 14px;
+  background: var(--bg-card);
+  padding: 16px;
+  box-shadow:
+    0 4px 10px rgba(44, 56, 40, 0.14),
+    0 18px 40px rgba(44, 56, 40, 0.24);
+}
+.auth-card .input-field:focus {
+  border-color: #B8872E;
+  box-shadow: 0 0 0 3px rgba(212, 168, 75, 0.22);
+}
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 

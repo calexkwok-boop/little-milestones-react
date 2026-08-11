@@ -163,9 +163,9 @@ function OnboardingScreen({ onDone, onJoinFamily, onSignOut, hasBackend, onGener
           {step === 'welcome' && (
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
               <img src={`${ASSET_BASE}icon-192.png`} style={{ width: 64, height: 64, borderRadius: 14, display: 'block', marginBottom: 20 }} alt="" />
-              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 36, color: '#C8993E', margin: '0 0 8px', lineHeight: 1.1 }}>Patina</h1>
-              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text-3)', lineHeight: 1.8, margin: '0 0 32px', textAlign: 'center' }}>
-                For all the things you wish they knew
+              <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 36, margin: '0 0 8px', lineHeight: 1.1, background: 'linear-gradient(180deg, #D4A84B, #B8872E)', backgroundClip: 'text', WebkitBackgroundClip: 'text', color: 'transparent' }}>Patina</h1>
+              <p style={{ fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', fontSize: 15, color: 'var(--text)', lineHeight: 1.8, margin: '0 0 32px', textAlign: 'center' }}>
+                For all the things you wish they knew.
                </p>
               <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 22px 18px', width: '100%', marginBottom: 32, textAlign: 'left' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 14 }}>
