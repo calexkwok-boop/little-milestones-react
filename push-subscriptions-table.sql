@@ -12,3 +12,8 @@ alter table public.push_subscriptions enable row level security;
 create policy "select own" on public.push_subscriptions for select using (auth.uid() = user_id);
 create policy "insert own" on public.push_subscriptions for insert with check (auth.uid() = user_id);
 create policy "delete own" on public.push_subscriptions for delete using (auth.uid() = user_id);
+-- Needed for usePushNotifications.js's upsert(..., { onConflict: 'endpoint' })
+-- -- the "on conflict, do update" path requires its own UPDATE policy.
+create policy "update own" on public.push_subscriptions for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
