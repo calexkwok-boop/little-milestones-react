@@ -2490,6 +2490,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const detailLastTapRef = useRef(0);
   const detailTapTimerRef = useRef(null);
   const detailSwipeStart = useRef(null);
+  const scrollAreaRef = useRef(null);
 
   useEffect(() => {
     if (!supabase || !session) return;
@@ -2590,7 +2591,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           {actionToast}
         </div>
       )}
-      <div className="scroll-area">
+      <div className="scroll-area" ref={scrollAreaRef}>
         <div style={{ position: 'relative' }}>
           {media.length > 0 ? (
             <>
@@ -2779,7 +2780,18 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                     <Icon name={`ti-star${entry.favorited ? '-filled' : ''}`} />
                   </button>
                   {isOwn && (
-                    <button onClick={() => setShowActionSheet(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
+                    <button
+                      onClick={() => {
+                        // The sheet itself sits fixed to the viewport, but
+                        // nothing scrolled the *page* into a state where
+                        // that's obvious -- explicitly scrolling down here
+                        // gives a visible "something just happened" cue
+                        // instead of a silent state change.
+                        scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+                        setShowActionSheet(true);
+                      }}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}
+                    >
                       <Icon name="ti-dots" />
                     </button>
                   )}
