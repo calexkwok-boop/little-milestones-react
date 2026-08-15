@@ -76,7 +76,23 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('%BASE_URL%sw.js').catch(() => {});
+          navigator.serviceWorker.register('%BASE_URL%sw.js').then(reg => {
+            // Installed (standalone) PWAs, especially on iOS, are lazy about
+            // checking for a new service worker on their own -- without this,
+            // a phone can sit on a broken cached version indefinitely, only
+            // fixable by deleting and re-adding the home-screen icon. Force a
+            // check on every open, and once a new worker actually takes over
+            // (sw.js already calls skipWaiting + clients.claim) from one that
+            // was already controlling this load, reload once so the fresh
+            // worker's fetch handling applies immediately instead of waiting
+            // for a second, unprompted reopen. A fresh-install controllerchange
+            // (no prior controller) needs no reload -- there's nothing stale yet.
+            reg.update().catch(() => {});
+            const hadController = !!navigator.serviceWorker.controller;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+              if (hadController) window.location.reload();
+            }, { once: true });
+          }).catch(() => {});
         });
       }
     </script>
