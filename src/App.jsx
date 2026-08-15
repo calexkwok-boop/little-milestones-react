@@ -2220,7 +2220,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
 
 // ─── Journal timeline ────────────────────────────────────────────────────
 
-function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos, onRefresh, onToggleFavorite, onDeleteEntry, reactionCounts = {}, onBack, onGenerateShareLink, milestonesOnly = false }) {
+function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setKidFilter, memberCount, scrollPos, onRefresh, onToggleFavorite, onDeleteEntry, reactionCounts = {}, onBack, onGenerateShareLink, milestonesOnly = false, familyMembers = [] }) {
   const { userId: currentUserId } = useSession() ?? {};
   const [quickToast, setQuickToast] = useState(null);
   function showQuickToast(msg) {
@@ -2289,10 +2289,10 @@ function JournalScreen({ entries, kids, onOpenEntry, onNewEntry, kidFilter, setK
         );
       }
       const entryKids = entry.kids.map(id => kids.find(k => k.id === id)).filter(Boolean);
-      result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onOpen={onOpenEntry} onLongPress={handleLongPress} reactionCount={reactionCounts[entry.id]} />);
+      result.push(<JournalEntryRow key={entry.id} entry={entry} entryKids={entryKids} onOpen={onOpenEntry} onLongPress={handleLongPress} reactionCount={reactionCounts[entry.id]} familyMembers={familyMembers} />);
     });
     return result;
-  }, [entries, kids, kidFilter, milestonesOnly, searchQuery, onOpenEntry, handleLongPress]);
+  }, [entries, kids, kidFilter, milestonesOnly, searchQuery, onOpenEntry, handleLongPress, familyMembers]);
 
   return (
     <div className="screen" style={{ position: 'relative' }}>
@@ -2436,7 +2436,7 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', onSameAge, onRemoveSameAgeMatch, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', familyMembers = [], onSameAge, onRemoveSameAgeMatch, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch }) {
   // Only the author can edit or delete an entry's content — family members
   // may only adjust the photo crop (handled separately, below).
   const isOwn = entry.userId === session?.user?.id;
@@ -2793,6 +2793,12 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           {entry.voiceMemoUrl && <VoiceMemoPlayer url={entry.voiceMemoUrl} />}
           {isNote ? (() => {
             const isPrompt = !!entry.prompt;
+            // Same author-lookup pattern already used for the partner
+            // push-notification toast -- entry.authorId/userId were always
+            // fetched onto the entry, just never resolved to a name and
+            // rendered anywhere in the note-specific layouts.
+            const author = familyMembers.find(m => m.user_id === (entry.authorId || entry.userId));
+            const authorName = author?.real_name || author?.display_name || null;
             if (isPrompt) return (
               <div style={{ borderRadius: 13, overflow: 'hidden', border: '1px solid var(--border)' }}>
                 <div style={{ background: PROMPT_ACCENT, padding: '13px 17px' }}>
@@ -2804,6 +2810,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 </div>
                 <div style={{ background: 'var(--bg-card)', padding: '14px 17px' }}>
                   <p style={{ fontSize: 16, color: 'var(--text)', lineHeight: 1.7, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{entry.text}</p>
+                  {authorName && (
+                    <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', margin: '8px 0 0', textAlign: 'right' }}>— {authorName}</p>
+                  )}
                 </div>
               </div>
             );
@@ -2816,6 +2825,9 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                 <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: noteAccent }}>Note</span>
               </div>
               <p style={{ fontSize: 16, color: 'var(--text)', lineHeight: 1.7, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: 'italic', whiteSpace: 'pre-wrap' }}>{entry.text}</p>
+              {authorName && (
+                <p style={{ fontSize: 12, fontWeight: 600, color: noteAccent, margin: '8px 0 0', textAlign: 'right' }}>— {authorName}</p>
+              )}
             </div>
             );
           })() : (
@@ -6817,6 +6829,7 @@ export default function App() {
             onBack={() => setScreen(journalBackScreen)}
             onGenerateShareLink={handleGenerateShareLink}
             milestonesOnly={journalMilestonesOnly}
+            familyMembers={familyMembers}
           />
         </ScreenErrorBoundary>
       )}
@@ -6843,6 +6856,7 @@ export default function App() {
           supabase={supabase}
           session={session}
           socialName={familyMembers.find(m => m.user_id === session?.user?.id)?.real_name || myDisplayName || ''}
+          familyMembers={familyMembers}
           onSameAge={(sourceEntry, sourceKid, targets) => {
             const [targetKid, ...queue] = targets;
             setSameAgeMatch({ sourceEntry, sourceKid, targetKid, queue, queueTotal: targets.length });

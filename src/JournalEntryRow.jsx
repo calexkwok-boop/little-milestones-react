@@ -7,8 +7,13 @@ import {
   milestoneInfo, cloudinaryTransform, VIDEO_DELIVERY_TRANSFORM, videoThumbUrl, photoCropY, exactAgeLabel, PROMPT_ACCENT, PHOTO_XS, PHOTO_LG,
 } from './constants.js';
 
-const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen, onLongPress, reactionCount }) {
+const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen, onLongPress, reactionCount, familyMembers = [] }) {
   const m = entry.milestone ? milestoneInfo(entry.milestone) : null;
+  // Same author-lookup pattern used for the partner push-notification toast
+  // in App.jsx -- entry.authorId/userId were always fetched, just never
+  // resolved to a name and shown in this row.
+  const author = entry.type === 'note' ? familyMembers.find(fm => fm.user_id === (entry.authorId || entry.userId)) : null;
+  const authorName = author?.real_name || author?.display_name || null;
   const d = new Date(entry.date + 'T12:00:00');
   const dayNum = d.getDate();
   const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
@@ -82,6 +87,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
               </div>
             </div>
             <p style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.65, margin: 0, fontFamily: "'Source Serif 4', serif", fontStyle: text ? 'italic' : 'normal' }}>{text}</p>
+            {authorName && <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', margin: '3px 0 0' }}>— {authorName}</p>}
             {extraMedia.length > 0 && (
               <div className="journal-thumb-strip">
                 {extraMedia.map((mm, i) => (
