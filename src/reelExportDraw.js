@@ -408,9 +408,9 @@ function drawTextSlide(ctx, item, assets) {
     ctx.fillText('"', cx, y + 30);
     y += 90;
     ctx.fillStyle = '#fff';
-    ctx.font = '700 40px Urbanist, sans-serif';
+    ctx.font = 'italic 42px "Source Serif 4", serif';
     const lines = wrapText(ctx, s.text, CANVAS_W - 220);
-    drawCenteredLines(ctx, lines, cx, y + lines.length * 28, 54);
+    drawCenteredLines(ctx, lines, cx, y + lines.length * 30, 64);
     if (kidFirst) {
       ctx.fillStyle = 'rgba(200,153,62,0.85)';
       ctx.font = '700 24px Urbanist, sans-serif';
