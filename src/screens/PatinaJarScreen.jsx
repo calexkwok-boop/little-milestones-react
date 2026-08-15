@@ -218,7 +218,7 @@ function PatinaJarScreen({ kid, entries, song, onUpdateSong, onBack, onRecord, o
       </div>
 
       {sheetEntry && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => { setSheetEntry(null); setConfirmingDelete(false); }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => { setSheetEntry(null); setConfirmingDelete(false); }}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '24px 20px 32px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>{monthYearLabel(sheetEntry.year, sheetEntry.monthIndex)}</p>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontStyle: 'italic' }}>{PATINA_JAR_QUESTIONS[sheetEntry.monthIndex]}</p>

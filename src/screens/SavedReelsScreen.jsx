@@ -350,7 +350,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], 
       </div>
 
       {showCreate && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => { setShowCreate(false); resetForm(); }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => { setShowCreate(false); resetForm(); }}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', maxHeight: '86vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
             <div style={{ flexShrink: 0, padding: '14px 20px 16px', borderBottom: '1px solid var(--border)' }}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 14px' }} />
@@ -449,7 +449,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], 
       )}
 
       {deleteTarget && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setDeleteTarget(null)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 11 }} onClick={() => setDeleteTarget(null)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 36px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(var(--coral-rgb),0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <Icon name="ti-trash" style={{ fontSize: 19, color: 'var(--coral)' }} />

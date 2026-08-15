@@ -733,7 +733,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
       )}
 
       {showDeleteConfirm && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !deleting && setShowDeleteConfirm(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !deleting && setShowDeleteConfirm(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(var(--coral-rgb),0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <Icon name="ti-trash" style={{ fontSize: 20, color: 'var(--coral)' }} />
@@ -765,7 +765,7 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
       )}
 
       {showHidePostsPrompt && (
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !hidingPosts && setShowHidePostsPrompt(false)}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !hidingPosts && setShowHidePostsPrompt(false)}>
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <Icon name="ti-eye-off" style={{ fontSize: 20, color: 'var(--accent)' }} />

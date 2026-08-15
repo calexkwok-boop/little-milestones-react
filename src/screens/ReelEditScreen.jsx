@@ -646,7 +646,7 @@ export default function ReelEditScreen({ entries, kids, familyMembers = [], reel
 
       {previewItem && (
         <div
-          style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'flex-end', zIndex: 300 }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.45)', display: 'flex', alignItems: 'flex-end', zIndex: 300 }}
           onClick={() => setPreviewItem(null)}
         >
           <div

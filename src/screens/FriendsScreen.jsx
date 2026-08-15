@@ -452,7 +452,7 @@ function FriendsScreen({ friends, friendKids, friendEntries = [], familyMemberId
           ? friendEntries.filter(e => e.media?.length > 0 && e.familyId === selectedFamilyId)
           : friendEntries.filter(e => e.media?.length > 0 && e.kids.some(kid => theirKidIds.has(kid)));
         return (
-          <div style={{ position: 'absolute', inset: 0, background: 'rgba(44,56,40,0.4)', zIndex: 30, display: 'flex', alignItems: 'flex-end' }} onClick={() => setSelectedFriendUid(null)}>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.4)', zIndex: 30, display: 'flex', alignItems: 'flex-end' }} onClick={() => setSelectedFriendUid(null)}>
             <div className="quick-sheet" style={{ background: 'var(--bg)', borderRadius: '24px 24px 0 0', width: '100%', maxHeight: '88%', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
               <div style={{ width: 40, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 4px' }} />
 
