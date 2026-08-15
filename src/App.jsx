@@ -3284,6 +3284,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   const audioChunksRef = useRef([]);
   const [voiceMemoBlob, setVoiceMemoBlob] = useState(null);
   const [voiceMemoUrl, setVoiceMemoUrl] = useState(existingEntry?.voiceMemoUrl || null);
+  const composeScrollRef = useRef(null);
 
   useEffect(() => {
     const onVisibility = () => { if (document.hidden) document.activeElement?.blur(); };
@@ -3692,7 +3693,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       </div>
 
       {/* Letter body */}
-      <div className="scroll-area" style={{ padding: '4px 24px 20px' }}>
+      <div className="scroll-area" ref={composeScrollRef} style={{ padding: '4px 24px 20px' }}>
 
         {draftRestored && (
           <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
@@ -4188,7 +4189,20 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
           </span>
         </button>
         {/* More */}
-        <button onClick={() => setShowExtras(v => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showExtras ? 'var(--accent)' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}>
+        <button
+          onClick={() => {
+            const next = !showExtras;
+            setShowExtras(next);
+            if (next) {
+              // Extras panel renders at the bottom of the scroll area, below
+              // the fold -- scroll down so opening it is actually visible.
+              requestAnimationFrame(() => {
+                composeScrollRef.current?.scrollTo({ top: composeScrollRef.current.scrollHeight, behavior: 'smooth' });
+              });
+            }
+          }}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', color: showExtras ? 'var(--accent)' : 'var(--text-muted)', fontSize: 22, borderRadius: 10 }}
+        >
           <Icon name="ti-dots" />
         </button>
         </>
