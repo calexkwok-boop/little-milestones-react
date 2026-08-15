@@ -2798,7 +2798,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             // fetched onto the entry, just never resolved to a name and
             // rendered anywhere in the note-specific layouts.
             const author = familyMembers.find(m => m.user_id === (entry.authorId || entry.userId));
-            const authorName = author?.real_name || author?.display_name || null;
+            const authorName = author?.display_name || author?.real_name || null;
             if (isPrompt) return (
               <div style={{ borderRadius: 13, overflow: 'hidden', border: '1px solid var(--border)' }}>
                 <div style={{ background: PROMPT_ACCENT, padding: '13px 17px' }}>

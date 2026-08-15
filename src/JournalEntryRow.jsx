@@ -13,7 +13,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
   // in App.jsx -- entry.authorId/userId were always fetched, just never
   // resolved to a name and shown in this row.
   const author = entry.type === 'note' ? familyMembers.find(fm => fm.user_id === (entry.authorId || entry.userId)) : null;
-  const authorName = author?.real_name || author?.display_name || null;
+  const authorName = author?.display_name || author?.real_name || null;
   const d = new Date(entry.date + 'T12:00:00');
   const dayNum = d.getDate();
   const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
