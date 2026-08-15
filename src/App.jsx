@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react';
 import { Icon } from './icons';
 import { createPortal } from 'react-dom';
+import './fonts.css';
 import './App.css';
 // exifr is only needed when reading photo metadata — lazy-load so it's excluded from the initial bundle
 let _exifr = null;

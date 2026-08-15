@@ -1,4 +1,4 @@
-const CACHE = 'patina-v9';
+const CACHE = 'patina-v10';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -46,14 +46,6 @@ self.addEventListener('fetch', e => {
   const isSameOrigin = url.origin === self.location.origin;
   const isCloudinary = url.hostname.includes('cloudinary.com');
   const isSupabase = url.hostname.includes('supabase.co');
-  // Google's CSS (fonts.googleapis.com) isn't itself hash-versioned -- the
-  // same URL's content can change over time as Google rotates which woff2
-  // file it points to, and an old file can later 404 on fonts.gstatic.com.
-  // Cache-first on the CSS pinned users to a stale mapping forever. The
-  // actual font files (fonts.gstatic.com) *are* hash-named per file, so
-  // those stay cache-first as before.
-  const isFontCss = url.hostname.includes('fonts.googleapis.com');
-  const isFontFile = url.hostname.includes('fonts.gstatic.com');
 
   // Supabase — never cache
   if (isSupabase) return;
@@ -105,39 +97,4 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Font CSS — network-first so a rotated woff2 mapping is picked up; falls
-  // back to cache only when offline.
-  if (isFontCss && request.method === 'GET') {
-    e.respondWith(
-      (async () => {
-        try {
-          const response = await fetch(request);
-          if (response.ok) {
-            const cache = await caches.open(CACHE);
-            cache.put(request, response.clone());
-          }
-          return response;
-        } catch {
-          const cached = await caches.match(request);
-          if (cached) return cached;
-          throw new Error('offline and no cached font CSS');
-        }
-      })()
-    );
-    return;
-  }
-
-  // Font files — cache-first (each URL is hash-named per file, safe forever)
-  if (isFontFile && request.method === 'GET') {
-    e.respondWith(
-      caches.open(CACHE).then(async cache => {
-        const cached = await cache.match(request);
-        if (cached) return cached;
-        const response = await fetch(request);
-        if (response.ok) cache.put(request, response.clone());
-        return response;
-      })
-    );
-    return;
-  }
 });
