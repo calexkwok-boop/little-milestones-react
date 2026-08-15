@@ -4,7 +4,7 @@ import SectionSwitcher from '../SectionSwitcher.jsx';
 import KidThumb from '../KidThumb.jsx';
 import FriendAvatar from '../FriendAvatar.jsx';
 import {
-  MILESTONE_TYPES, TODAY,
+  TODAY,
   milestoneInfo, sameAgeSides, exactAge, exactAgeLabel, ageLabel,
   cloudinaryTransform, AVATAR_TRANSFORM_SM, VIDEO_DELIVERY_TRANSFORM, videoThumbUrl, entryBgStyle, tintedScrimStyle, PHOTO_LG,
 } from '../constants.js';
@@ -40,7 +40,6 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
     });
     return map;
   }, [friends, currentUserId]);
-  const [milestoneFilter, setMilestoneFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFriendKidIds, setSelectedFriendKidIds] = useState(initialFriendKidId ? [initialFriendKidId] : []);
   const [excludedKidIds, setExcludedKidIds] = useState([]);
@@ -79,18 +78,9 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
 
   const selectedFriendKids = friendKids.filter(k => selectedFriendKidIds.includes(k.id));
   const isSearching = searchQuery.trim().length > 0;
-  const isMilestoneFiltering = !isSearching && filterTab === 'milestone' && milestoneFilter !== null;
-  const customMilestoneChips = useMemo(() => {
-    const seen = new Set();
-    return entries
-      .filter(e => e.milestone?.startsWith('custom:'))
-      .map(e => e.milestone)
-      .filter(m => seen.has(m) ? false : seen.add(m));
-  }, [entries]);
 
   function switchTab(tab) {
     setFilterTab(tab);
-    setMilestoneFilter(null);
     setSearchQuery('');
   }
 
@@ -114,11 +104,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
       || (e.people || []).some(p => p.toLowerCase().includes(q));
   }
 
-  const showMeta = isSearching || isMilestoneFiltering;
-  const emptyLabel = isSearching ? 'No matches'
-    : filterTab === 'milestone' && !milestoneFilter ? 'Pick a milestone above'
-    : isMilestoneFiltering ? 'None logged yet'
-    : 'No moments yet at this age';
+  const showMeta = isSearching;
 
   // Own kids are always present (never removed, only faded when excluded); friend kids are added/removed outright.
   const allKidColumns = [...kids, ...selectedFriendKids.map(k => ({ ...k, isFriend: true }))];
@@ -207,9 +193,6 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                 <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
               </div>
               <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                <button className="icon-btn" onClick={() => filterTab === 'milestone' ? switchTab('age') : switchTab('milestone')}>
-                  <Icon name={filterTab === 'milestone' ? 'ti-x' : 'ti-star'} />
-                </button>
                 <button className="icon-btn" onClick={() => filterTab === 'search' ? switchTab('age') : switchTab('search')}>
                   <Icon name={filterTab === 'search' ? 'ti-x' : 'ti-search'} />
                 </button>
@@ -260,48 +243,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
             </div>
           )}
 
-          {filterTab === 'milestone' && (
-            <div className="scrollx">
-              {MILESTONE_TYPES.map(ms => {
-                const active = milestoneFilter === ms.id;
-                return (
-                  <div
-                    key={ms.id}
-                    className="kid-chip"
-                    style={{ padding: '7px 14px', ...(active ? { background: '#C8993E', borderColor: '#C8993E', color: '#fff' } : {}) }}
-                    onClick={() => setMilestoneFilter(active ? null : ms.id)}
-                  >
-                    <Icon name={ms.icon} style={{ fontSize: 13 }} />
-                    {ms.label}
-                  </div>
-                );
-              })}
-              {customMilestoneChips.map(m => {
-                const active = milestoneFilter === m;
-                return (
-                  <div
-                    key={m}
-                    className="kid-chip"
-                    style={{ padding: '7px 14px', ...(active ? { background: '#C8993E', borderColor: '#C8993E', color: '#fff' } : {}) }}
-                    onClick={() => setMilestoneFilter(active ? null : m)}
-                  >
-                    <Icon name="ti-star" style={{ fontSize: 13 }} />
-                    {m.slice(7)}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {filterTab === 'milestone' && !milestoneFilter ? (
-            <div className="empty-state">
-              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <Icon name="ti-star" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
-              </div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>Pick a milestone</p>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Choose one above to compare it across ages.</p>
-            </div>
-          ) : ageGridItems ? (
+          {ageGridItems ? (
             /* ── Free-flowing 2-col grid: By Age with 2+ kids ── */
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {/* Kid tags */}
@@ -436,7 +378,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
               )}
             </div>
           ) : (
-            /* ── Original column layout: milestone/search tabs or single kid ── */
+            /* ── Original column layout: search tab or single kid ── */
             <div className="scrollx" style={{ alignItems: 'flex-start', gap: 12, paddingBottom: 8 }}>
               {allKidColumns.map(kid => {
                 const isFriendKid = !!kid.isFriend;
@@ -444,9 +386,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                 const pool = isFriendKid ? friendEntries : entries;
                 const matches = isSearching
                   ? pool.filter(e => e.kids.includes(kid.id) && entryMatchesSearch(e))
-                  : isMilestoneFiltering
-                    ? pool.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && e.milestone === milestoneFilter)
-                    : pool.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths))
+                  : pool.filter(e => e.kids.length === 1 && e.kids.includes(kid.id) && matchesAgeBucket(e.ageMonths))
                       .sort((a, b) => {
                         if (a.ageMonths !== b.ageMonths) return a.ageMonths - b.ageMonths;
                         if (!kid.birthdate || !a.date || !b.date) return (a.date || '').localeCompare(b.date || '');
@@ -477,7 +417,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                       <div style={{ background: 'var(--bg-input)', border: '1px dashed #D8CFBC', borderRadius: 12, padding: '28px 12px', textAlign: 'center' }}>
                         <Icon name={isFriendKid ? 'ti-lock' : 'ti-camera'} style={{ fontSize: 22, color: 'var(--border-light)', display: 'block', marginBottom: 8 }} />
                         <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-                          {isFriendKid ? 'Nothing shared\nat this age yet' : isSearching ? 'No matches' : isMilestoneFiltering ? 'None logged yet' : 'Nothing captured\nat this age yet'}
+                          {isFriendKid ? 'Nothing shared\nat this age yet' : isSearching ? 'No matches' : 'Nothing captured\nat this age yet'}
                         </p>
                       </div>
                     ) : matches.map(e => {
@@ -499,7 +439,7 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
                               <div style={{ position: 'relative', zIndex: 2, padding: 10, width: '100%' }}>
                                 <p style={{ fontSize: 11, color: '#fff', margin: '0 0 2px', fontWeight: 700 }}>{ageStr}</p>
                                 {showMeta && <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', margin: '0 0 2px' }}>{dateStr}</p>}
-                                {m && !isMilestoneFiltering && <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 600, opacity: 0.9 }}>{m.label}</p>}
+                                {m && <p style={{ fontSize: 11, color: '#fff', margin: 0, fontWeight: 600, opacity: 0.9 }}>{m.label}</p>}
                               </div>
                             </div>
                           </div>

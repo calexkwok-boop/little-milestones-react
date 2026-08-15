@@ -1019,7 +1019,7 @@ function HomeGridCell({ entry, onOpenEntry }) {
 // Circular avatar filter row, styled after RecapScreen's kid-filter circles —
 // replaces KidSelector's pill chips on Home specifically (KidSelector stays
 // as-is for Journal/other screens that still use the pill style).
-function HomeKidFilter({ kids, selected, onSelect, unseenKidIds, unseenKidEntry, onOpenEntry }) {
+function HomeKidFilter({ kids, selected, onSelect, unseenKidIds, unseenKidEntry, onOpenLetters }) {
   return (
     <div className="scrollx" style={{ gap: 12, justifyContent: kids.length <= 4 ? 'center' : 'flex-start' }}>
       <button
@@ -1031,7 +1031,7 @@ function HomeKidFilter({ kids, selected, onSelect, unseenKidIds, unseenKidEntry,
           key={kid.id}
           onClick={() => {
             const unseenEntry = unseenKidEntry?.get(kid.id);
-            if (unseenEntry && onOpenEntry) onOpenEntry(unseenEntry);
+            if (unseenEntry && onOpenLetters) onOpenLetters(unseenEntry.authorId);
             else onSelect(kid.id);
           }}
           style={{ position: 'relative', width: 48, height: 48, borderRadius: '50%', border: selected === kid.id ? '2.5px solid var(--accent)' : '2px solid transparent', padding: 0, cursor: 'pointer', flexShrink: 0, opacity: selected !== null && selected !== kid.id ? 0.4 : 1, transition: 'opacity 0.15s, border-color 0.15s' }}
@@ -1121,7 +1121,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist, onGenerateShareLink, onSameAgeMatch }) {
+function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist, onGenerateShareLink, onSameAgeMatch }) {
   const [quickToast, setQuickToast] = useState(null);
   function showQuickToast(msg) {
     setQuickToast(msg);
@@ -1605,7 +1605,7 @@ function HomeScreen({ onOpenEntry, onSearch, kidFilter, setKidFilter, onAddMomen
           <Header />
 
           {kids.length > 1 && (
-            <HomeKidFilter kids={kids} selected={kidFilter} onSelect={setKidFilter} unseenKidIds={unseenKidIds} unseenKidEntry={unseenKidEntry} onOpenEntry={onOpenEntry} />
+            <HomeKidFilter kids={kids} selected={kidFilter} onSelect={setKidFilter} unseenKidIds={unseenKidIds} unseenKidEntry={unseenKidEntry} onOpenLetters={onOpenLetters} />
           )}
 
           {birthdayToday.map(k => (
@@ -6767,6 +6767,7 @@ export default function App() {
             kidFilter={kidFilter}
             setKidFilter={setKidFilter}
             onOpenEntry={openEntry}
+            onOpenLetters={authorId => { setLetterAuthorId(authorId); setScreen('partner-letters'); }}
             onSearch={() => setScreen('search')}
             onAddMoment={() => { setComposeMode('letter'); setScreen('new-entry'); }}
             onStartPrompt={(prompt, kidId) => { setActivePrompt(prompt); setNewEntryInitial({ kidIds: [kidId] }); setComposeMode('note'); setScreen('new-entry'); }}
