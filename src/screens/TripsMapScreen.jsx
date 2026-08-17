@@ -30,6 +30,7 @@ function manualPinToTrip(pin) {
   return {
     id: pin.id, label: pin.label, guess: { x: pin.x, y: pin.y }, photos: [],
     entries: [], earliestDate: pin.createdAt, latestDate: pin.createdAt,
+    visits: [{ start: pin.createdAt, end: pin.createdAt }],
     kids: [], locationCoords: pin.lat != null ? { lat: pin.lat, lng: pin.lng } : null, manual: true,
   };
 }
@@ -93,6 +94,7 @@ function useTrips(entries, kids) {
         entries: sorted,
         earliestDate: sorted[0].date,
         latestDate: sorted[sorted.length - 1].date,
+        visits: groupVisits(sorted.map(e => e.date)),
         kids: tripKids,
         locationCoords: { lat: representative.locationLat, lng: representative.locationLng },
       };
@@ -101,11 +103,31 @@ function useTrips(entries, kids) {
   }, [entries, kids]);
 }
 
-function dateRangeLabel(earliestDate, latestDate) {
+// Same location doesn't mean the same trip -- a family that visits Seattle
+// every summer would otherwise show one misleading "Aug 2023 – Jul 2026"
+// range implying a single three-year trip. Splits sorted dates into visits
+// wherever consecutive ones are more than VISIT_GAP_DAYS apart, so each
+// actual trip to that place gets its own range in the label.
+const VISIT_GAP_DAYS = 90;
+function groupVisits(sortedDates) {
+  const visits = [];
+  let current = [sortedDates[0]];
+  for (let i = 1; i < sortedDates.length; i++) {
+    const gapDays = (new Date(sortedDates[i] + 'T12:00:00') - new Date(sortedDates[i - 1] + 'T12:00:00')) / 86400000;
+    if (gapDays > VISIT_GAP_DAYS) { visits.push(current); current = [sortedDates[i]]; }
+    else current.push(sortedDates[i]);
+  }
+  visits.push(current);
+  return visits.map(v => ({ start: v[0], end: v[v.length - 1] }));
+}
+
+function dateRangeLabel(visits) {
   const fmt = (d, withYear) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: withYear ? 'numeric' : undefined });
-  if (earliestDate === latestDate) return fmt(earliestDate, true);
-  const sameYear = earliestDate.slice(0, 4) === latestDate.slice(0, 4);
-  return `${fmt(earliestDate, !sameYear)} – ${fmt(latestDate, true)}`;
+  return visits.map(({ start, end }) => {
+    if (start === end) return fmt(start, true);
+    const sameYear = start.slice(0, 4) === end.slice(0, 4);
+    return `${fmt(start, !sameYear)} – ${fmt(end, true)}`;
+  }).join(', ');
 }
 
 const DRAG_THRESHOLD_PX = 6;
@@ -327,7 +349,7 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, 
             {popupTrip && (
               <div className="trip-map-popup" style={{ left: `${popupPos.x}%` }} onClick={e => e.stopPropagation()}>
                 <div className="trip-map-popup-name">{popupTrip.label}</div>
-                <div className="trip-map-popup-dates">{dateRangeLabel(popupTrip.earliestDate, popupTrip.latestDate)}</div>
+                <div className="trip-map-popup-dates">{dateRangeLabel(popupTrip.visits)}</div>
                 <button type="button" className="trip-map-popup-link" onClick={() => onOpenTrip(popupTrip.id)}>
                   View details <Icon name="ti-arrow-right" style={{ fontSize: 10 }} />
                 </button>
@@ -452,7 +474,7 @@ function TripListItem({ trip, confirmed, onOpen, onPointerDown }) {
       <div className="trip-list-card-meta">
         <div className="trip-list-card-title">{trip.label}</div>
         <div className="trip-list-card-dates">
-          {dateRangeLabel(trip.earliestDate, trip.latestDate)}
+          {dateRangeLabel(trip.visits)}
           {trip.kids.length > 0 && ` · ${trip.kids.map(k => k.name.split(' ')[0]).join(', ')}`}
         </div>
       </div>
@@ -469,7 +491,7 @@ function TripSheet({ trip, confirmed, onClose, onOpenEntry, onWriteLetter, onPla
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
           <div>
             <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>{trip.label}</h3>
-            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '3px 0 0' }}>{dateRangeLabel(trip.earliestDate, trip.latestDate)}</p>
+            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '3px 0 0' }}>{dateRangeLabel(trip.visits)}</p>
           </div>
           {trip.kids.length > 0 && (
             <div style={{ display: 'flex', flexShrink: 0 }}>
