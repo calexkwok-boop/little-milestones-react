@@ -442,7 +442,7 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
               {unconfirmedTrips.length > 0 && (
                 <>
                   <p className="trip-list-heading">Places you haven't pinned yet</p>
-                  <p className="trip-list-hint">Press and drag one up onto the map to place its pin.</p>
+                  <p className="trip-list-hint">Drag and drop onto the map to place a pin.</p>
                   <div className="trip-list">
                     {unconfirmedTrips.map(trip => (
                       <TripListItem key={trip.id} trip={trip} confirmed={false} onPointerDown={e => startListDrag(trip.id, e)} />
