@@ -12,6 +12,7 @@ import { SessionCtx, DataCtx, NotifCtx, useSession, useData, useNotif } from './
 import KidThumb from './KidThumb.jsx';
 import SectionSwitcher from './SectionSwitcher.jsx';
 import { Coachmark } from './Coachmark.jsx';
+import { queuePinConversion } from './tripPinConversion.js';
 const LazyAuthScreen = lazy(() => import('./screens/AuthScreen'));
 const LazyUpdatePasswordScreen = lazy(() => import('./screens/UpdatePasswordScreen'));
 const LazyJoinFamilyScreen = lazy(() => import('./screens/JoinFamilyScreen'));
@@ -4581,6 +4582,22 @@ export default function App() {
   const [compareMounted, setCompareMounted] = useState(false);
   const [reelsMounted, setReelsMounted] = useState(false);
   const [newEntryInitial, setNewEntryInitial] = useState(null);
+  // Set when compose was opened from a manual trip pin's "Write a letter" --
+  // consumed (and cleared) the moment this specific compose flow either
+  // saves or cancels, so it can never attach itself to some later, unrelated
+  // letter. See tripPinConversion.js for what happens with it.
+  const pendingPinConversionRef = useRef(null);
+  // One-shot: consumes (clears) the pending conversion regardless of outcome,
+  // so it can only ever apply to the entry this specific compose flow saves.
+  // No-ops without a location on the new entry -- there'd be nothing for
+  // TripsMapScreen to match it to (see tripPinConversion.js).
+  function consumePendingPinConversion(entryId, locationLat, locationLng) {
+    const pending = pendingPinConversionRef.current;
+    pendingPinConversionRef.current = null;
+    if (pending && locationLat != null && locationLng != null) {
+      queuePinConversion({ ...pending, entryId });
+    }
+  }
   const [composeMode, setComposeMode] = useState('letter');
   const [showComposePicker, setShowComposePicker] = useState(false);
   const [activePrompt, setActivePrompt] = useState(null);
@@ -5831,6 +5848,7 @@ export default function App() {
         sameAgeDates,
       };
       setEntries(prev => [newEntry, ...prev]);
+      consumePendingPinConversion(newEntry.id, locationLat, locationLng);
       if (milestone) {
         setCelebration({ kid: primaryKid, milestoneType: milestone, entry: newEntry });
       } else {
@@ -5872,6 +5890,7 @@ export default function App() {
     // Optimistically show entry and navigate away immediately
     const optimisticEntry = { id: entry.id, userId: session.user.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, sameAgeDates };
     setEntries(prev => [optimisticEntry, ...prev]);
+    consumePendingPinConversion(entry.id, locationLat, locationLng);
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone, entry: optimisticEntry });
     } else {
@@ -6806,7 +6825,7 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={activeKids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} initialLocation={newEntryInitial?.location} initialLocationCoords={newEntryInitial?.locationCoords} />
+        <NewEntryScreen kids={activeKids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); pendingPinConversionRef.current = null; }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} initialLocation={newEntryInitial?.location} initialLocationCoords={newEntryInitial?.locationCoords} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
@@ -6977,8 +6996,13 @@ export default function App() {
             kids={kids}
             onBack={() => setScreen('home')}
             onOpenEntry={openEntry}
-            onWriteLetter={trip => {
-              setNewEntryInitial({ kidIds: trip.kids.map(k => k.id), location: trip.label, locationCoords: trip.locationCoords });
+            onWriteLetter={(trip, visit) => {
+              const kidIds = (visit ? visit.kids : trip.kids).map(k => k.id);
+              setNewEntryInitial({ kidIds, location: trip.label, locationCoords: trip.locationCoords });
+              // A manual pin's placement (trip.guess) is what gets carried
+              // over to whatever real trip this letter turns into -- see
+              // handleSaveEntry and tripPinConversion.js.
+              pendingPinConversionRef.current = trip.manual ? { manualPinId: trip.id, x: trip.guess.x, y: trip.guess.y } : null;
               setComposeMode('letter');
               setScreen('new-entry');
             }}

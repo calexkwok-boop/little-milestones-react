@@ -4,6 +4,7 @@ import KidThumb from '../KidThumb.jsx';
 import LocationInput from '../LocationInput.jsx';
 import mapImage from '../assets/travel-map.png';
 import { findHomePoint, clusterIntoTrips, latLngToMapPercent } from '../tripClustering.js';
+import { resolvePendingPinConversions } from '../tripPinConversion.js';
 import { cloudinaryTransform, videoThumbUrl, PHOTO_SQUARE, PHOTO_XS } from '../constants.js';
 
 const PIN_OVERRIDES_KEY = 'patina-trip-pin-overrides';
@@ -30,7 +31,7 @@ function manualPinToTrip(pin) {
   return {
     id: pin.id, label: pin.label, guess: { x: pin.x, y: pin.y }, photos: [],
     entries: [], earliestDate: pin.createdAt, latestDate: pin.createdAt,
-    visits: [{ start: pin.createdAt, end: pin.createdAt }],
+    visits: [{ id: `${pin.id}-v0`, start: pin.createdAt, end: pin.createdAt, photos: [], kids: [], entries: [] }],
     kids: [], locationCoords: pin.lat != null ? { lat: pin.lat, lng: pin.lng } : null, manual: true,
   };
 }
@@ -94,7 +95,7 @@ function useTrips(entries, kids) {
         entries: sorted,
         earliestDate: sorted[0].date,
         latestDate: sorted[sorted.length - 1].date,
-        visits: groupVisits(sorted.map(e => e.date)),
+        visits: groupVisits(id, sorted, kids),
         kids: tripKids,
         locationCoords: { lat: representative.locationLat, lng: representative.locationLng },
       };
@@ -105,29 +106,45 @@ function useTrips(entries, kids) {
 
 // Same location doesn't mean the same trip -- a family that visits Seattle
 // every summer would otherwise show one misleading "Aug 2023 – Jul 2026"
-// range implying a single three-year trip. Splits sorted dates into visits
-// wherever consecutive ones are more than VISIT_GAP_DAYS apart, so each
-// actual trip to that place gets its own range in the label.
+// range implying a single three-year trip, and one mixed photo grid with no
+// way to tell which trip a given photo (or "Write a letter") belongs to.
+// Splits a location's entries into visits wherever consecutive ones are
+// more than VISIT_GAP_DAYS apart -- each visit keeps its own photos/kids
+// subset (not the whole trip's pooled ones) so the list can show one card
+// per visit and the sheet can group each visit's photos under its own date
+// heading with its own "Write a letter" scoped to just that trip.
 const VISIT_GAP_DAYS = 90;
-function groupVisits(sortedDates) {
-  const visits = [];
-  let current = [sortedDates[0]];
-  for (let i = 1; i < sortedDates.length; i++) {
-    const gapDays = (new Date(sortedDates[i] + 'T12:00:00') - new Date(sortedDates[i - 1] + 'T12:00:00')) / 86400000;
-    if (gapDays > VISIT_GAP_DAYS) { visits.push(current); current = [sortedDates[i]]; }
-    else current.push(sortedDates[i]);
+function groupVisits(tripId, sortedEntries, kids) {
+  const groups = [];
+  let current = [sortedEntries[0]];
+  for (let i = 1; i < sortedEntries.length; i++) {
+    const gapDays = (new Date(sortedEntries[i].date + 'T12:00:00') - new Date(sortedEntries[i - 1].date + 'T12:00:00')) / 86400000;
+    if (gapDays > VISIT_GAP_DAYS) { groups.push(current); current = [sortedEntries[i]]; }
+    else current.push(sortedEntries[i]);
   }
-  visits.push(current);
-  return visits.map(v => ({ start: v[0], end: v[v.length - 1] }));
+  groups.push(current);
+  return groups.map((group, i) => {
+    const visitKidIds = new Set(group.flatMap(e => e.kids || []));
+    return {
+      id: `${tripId}-v${i}`,
+      start: group[0].date,
+      end: group[group.length - 1].date,
+      photos: group.flatMap(e => (e.media || []).map(m => ({ ...m, entry: e }))),
+      kids: kids.filter(k => visitKidIds.has(k.id)),
+      entries: group,
+    };
+  });
+}
+
+function visitDateLabel(visit) {
+  const fmt = (d, withYear) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: withYear ? 'numeric' : undefined });
+  if (visit.start === visit.end) return fmt(visit.start, true);
+  const sameYear = visit.start.slice(0, 4) === visit.end.slice(0, 4);
+  return `${fmt(visit.start, !sameYear)} – ${fmt(visit.end, true)}`;
 }
 
 function dateRangeLabel(visits) {
-  const fmt = (d, withYear) => new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: withYear ? 'numeric' : undefined });
-  return visits.map(({ start, end }) => {
-    if (start === end) return fmt(start, true);
-    const sameYear = start.slice(0, 4) === end.slice(0, 4);
-    return `${fmt(start, !sameYear)} – ${fmt(end, true)}`;
-  }).join(', ');
+  return visits.map(visitDateLabel).join(', ');
 }
 
 const DRAG_THRESHOLD_PX = 6;
@@ -562,14 +579,14 @@ function useListDrag(mapFrameRef, scrollAreaRef, setOverrides, onTap) {
 // (NextTripCard): a left accent bar, a circular icon/photo, and a
 // title+dates stack -- much less busy than a full row of separately-styled
 // pieces.
-// One hard-stop gradient segment per kid on the trip, so a two-kid trip
+// One hard-stop gradient segment per kid on the visit, so a two-kid trip
 // reads as "both of them" at a glance instead of picking one arbitrarily.
-// A trip with no kids (or still unpinned) falls back to the plain
+// A visit with no kids (or an unpinned trip) falls back to the plain
 // gold/muted bar -- kid.accent is the same color already used for that
 // kid's avatar fallback everywhere else in the app.
-function accentBarColor(trip, confirmed) {
+function accentBarColor(visitKids, confirmed) {
   if (!confirmed) return 'var(--border-light)';
-  const colors = trip.kids.map(k => k.accent).filter(Boolean);
+  const colors = visitKids.map(k => k.accent).filter(Boolean);
   if (colors.length === 0) return '#C8993E';
   if (colors.length === 1) return colors[0];
   const step = 100 / colors.length;
@@ -577,8 +594,13 @@ function accentBarColor(trip, confirmed) {
   return `linear-gradient(to bottom, ${stops.join(', ')})`;
 }
 
-function TripListItem({ trip, confirmed, onOpen, onPointerDown }) {
-  const cover = trip.photos[0];
+// One card per *visit*, not per trip -- a place gone back to more than once
+// (family in Seattle, a yearly cabin) gets a card for each time, same
+// location name but its own date and its own kids, instead of one pooled
+// card that mixes photos and dates from years apart. Tapping any of them
+// still opens the one sheet for that whole location (see onOpen/TripSheet).
+function TripListItem({ trip, visit, confirmed, onOpen, onPointerDown }) {
+  const cover = visit.photos[0];
   return (
     <div
       className="trip-list-card"
@@ -586,7 +608,7 @@ function TripListItem({ trip, confirmed, onOpen, onPointerDown }) {
       onPointerDown={confirmed ? undefined : onPointerDown}
       style={confirmed ? undefined : { touchAction: 'none' }}
     >
-      <div className="trip-list-card-bar" style={{ background: accentBarColor(trip, confirmed) }} />
+      <div className="trip-list-card-bar" style={{ background: accentBarColor(visit.kids, confirmed) }} />
       <div className="trip-list-card-icon">
         {cover
           ? <img src={cover.type === 'video' ? videoThumbUrl(cover.url, `so_0,${PHOTO_XS}`) : cloudinaryTransform(cover.url, PHOTO_XS)} alt="" loading="lazy" />
@@ -594,11 +616,11 @@ function TripListItem({ trip, confirmed, onOpen, onPointerDown }) {
       </div>
       <div className="trip-list-card-meta">
         <div className="trip-list-card-title">{trip.label}</div>
-        <div className="trip-list-card-dates">{dateRangeLabel(trip.visits)}</div>
+        <div className="trip-list-card-dates">{visitDateLabel(visit)}</div>
       </div>
-      {trip.kids.length > 0 && (
+      {visit.kids.length > 0 && (
         <div style={{ display: 'flex', flexShrink: 0 }}>
-          {trip.kids.slice(0, 3).map((k, i) => (
+          {visit.kids.slice(0, 3).map((k, i) => (
             <div key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, border: '2px solid var(--bg-card)', borderRadius: '50%' }}>
               <KidThumb kid={k} size={22} />
             </div>
@@ -610,16 +632,19 @@ function TripListItem({ trip, confirmed, onOpen, onPointerDown }) {
   );
 }
 
+// The sheet is for the whole *location*, not a single visit -- tapping any
+// of that place's cards lands here, and every visit shows up grouped under
+// its own date heading with its own photos and its own "Write a letter"
+// (scoped to that visit's kids specifically, so the letter you end up
+// writing isn't ambiguous about which trip it's about). Pin placement
+// (Move/Place/Remove) is a location-level action, shown once up top.
 function TripSheet({ trip, confirmed, onClose, onOpenEntry, onWriteLetter, onPlaceOnMap, onRemovePin }) {
   return (
     <div className="sheet-backdrop" onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.4)', zIndex: 40, display: 'flex', alignItems: 'flex-end' }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: '22px 22px 0 0', width: '100%', maxHeight: '78%', overflowY: 'auto', padding: '10px 20px 28px' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: '22px 22px 0 0', width: '100%', maxHeight: '82%', overflowY: 'auto', padding: '10px 20px 28px' }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 16px' }} />
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
-          <div>
-            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>{trip.label}</h3>
-            <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '3px 0 0' }}>{dateRangeLabel(trip.visits)}</p>
-          </div>
+          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>{trip.label}</h3>
           {trip.kids.length > 0 && (
             <div style={{ display: 'flex', flexShrink: 0 }}>
               {trip.kids.map((k, i) => (
@@ -638,45 +663,66 @@ function TripSheet({ trip, confirmed, onClose, onOpenEntry, onWriteLetter, onPla
           </div>
         )}
 
-        {trip.manual && trip.photos.length === 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-elevated)', border: '1px dashed var(--border)', borderRadius: 10, padding: '9px 12px', marginTop: 14 }}>
-            <Icon name="ti-pencil" style={{ fontSize: 14, color: '#C8993E', flexShrink: 0 }} />
-            <p style={{ fontSize: 12, color: 'var(--text-2)', margin: 0, lineHeight: 1.4 }}>A placeholder for a memory you haven't written yet — write a letter and it'll show up here.</p>
-          </div>
+        <button className="btn btn-outline" style={{ width: '100%', marginTop: 14 }} onClick={onPlaceOnMap}>
+          <Icon name="ti-map-pin" style={{ fontSize: 15 }} />
+          {confirmed ? 'Move pin' : 'Place on map'}
+        </button>
+        {trip.manual && onRemovePin && (
+          <button
+            onClick={onRemovePin}
+            style={{ all: 'unset', display: 'flex', alignItems: 'center', gap: 4, marginTop: 10, cursor: 'pointer', color: 'var(--coral)', fontSize: 12, fontWeight: 600 }}
+          >
+            <Icon name="ti-trash" style={{ fontSize: 13 }} /> Remove this pin
+          </button>
         )}
 
-        {trip.photos.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 16 }}>
-            {trip.photos.map((m, i) => (
-              <div
-                key={`${m.url}-${i}`}
-                onClick={() => onOpenEntry(m.entry)}
-                style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', position: 'relative', background: 'var(--bg-input)' }}
-              >
-                <img
-                  src={m.type === 'video' ? videoThumbUrl(m.url, `so_0,${PHOTO_SQUARE}`) : cloudinaryTransform(m.url, PHOTO_SQUARE)}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  alt=""
-                  loading="lazy"
-                />
-                {m.type === 'video' && (
-                  <Icon name="ti-player-play-filled" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#fff', fontSize: 16, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
-                )}
+        {trip.visits.map(visit => (
+          <div key={visit.id} style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', margin: 0 }}>{visitDateLabel(visit)}</p>
+              {visit.kids.length > 0 && (
+                <div style={{ display: 'flex', flexShrink: 0 }}>
+                  {visit.kids.map((k, i) => (
+                    <div key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, border: '2px solid var(--bg-card)', borderRadius: '50%' }}>
+                      <KidThumb kid={k} size={22} />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {visit.photos.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 10 }}>
+                {visit.photos.map((m, i) => (
+                  <div
+                    key={`${m.url}-${i}`}
+                    onClick={() => onOpenEntry(m.entry)}
+                    style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', position: 'relative', background: 'var(--bg-input)' }}
+                  >
+                    <img
+                      src={m.type === 'video' ? videoThumbUrl(m.url, `so_0,${PHOTO_SQUARE}`) : cloudinaryTransform(m.url, PHOTO_SQUARE)}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                      alt=""
+                      loading="lazy"
+                    />
+                    {m.type === 'video' && (
+                      <Icon name="ti-player-play-filled" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', color: '#fff', fontSize: 16, filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))' }} />
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            ) : (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1.4 }}>
+                {trip.manual ? "A placeholder for a memory you haven't written yet." : 'No photos from this trip yet.'}
+              </p>
+            )}
 
-        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-          <button className="btn btn-outline" style={{ flex: confirmed ? '0 0 auto' : 1 }} onClick={onPlaceOnMap}>
-            <Icon name="ti-map-pin" style={{ fontSize: 15 }} />
-            {confirmed ? 'Move pin' : 'Place on map'}
-          </button>
-          <button className="btn btn-gold" style={{ flex: 1 }} onClick={() => onWriteLetter(trip)}>
-            <Icon name="ti-pencil" style={{ fontSize: 16 }} />
-            Write a letter
-          </button>
-        </div>
+            <button className="btn btn-gold" style={{ width: '100%', marginTop: 10 }} onClick={() => onWriteLetter(trip, visit)}>
+              <Icon name="ti-pencil" style={{ fontSize: 16 }} />
+              Write a letter about this trip
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -696,14 +742,49 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
   // everything downstream (map, lists, sheet) treats them identically.
   const trips = useMemo(() => [...autoTrips, ...manualPins.map(manualPinToTrip)], [autoTrips, manualPins]);
 
+  // A manual pin that just got a real letter written for it (see App.jsx's
+  // onWriteLetter) shouldn't linger as a separate, empty "haven't pinned
+  // yet" placeholder once the letter's own auto-detected trip shows up --
+  // it should just become that trip, at the same spot on the map, already
+  // confirmed. Runs whenever the trip list changes so it catches the new
+  // entry the moment it arrives (e.g. right after navigating back here).
+  useEffect(() => {
+    const resolved = resolvePendingPinConversions(autoTrips);
+    if (resolved.length === 0) return;
+    const pinIds = new Set(resolved.map(r => r.manualPinId));
+    setManualPins(prev => {
+      const next = prev.filter(p => !pinIds.has(p.id));
+      localStorage.setItem(MANUAL_PINS_KEY, JSON.stringify(next));
+      return next;
+    });
+    setOverrides(prev => {
+      const next = { ...prev };
+      for (const { manualPinId, tripId, x, y } of resolved) {
+        delete next[manualPinId];
+        next[tripId] = { x, y };
+      }
+      localStorage.setItem(PIN_OVERRIDES_KEY, JSON.stringify(next));
+      return next;
+    });
+    setActiveId(prev => (pinIds.has(prev) ? null : prev));
+  }, [autoTrips]);
+
   const activeTrip = trips.find(t => t.id === activeId) || null;
-  // Most recent trip first -- clusterIntoTrips has no inherent order of its
-  // own (it groups by proximity, not by when a cluster was first seen), so
-  // without this the lists reshuffled unpredictably as new entries changed
-  // which cluster came first in iteration order.
-  const byLatestDateDesc = (a, b) => b.latestDate.localeCompare(a.latestDate);
-  const confirmedTrips = trips.filter(t => overrides[t.id]).sort(byLatestDateDesc);
-  const unconfirmedTrips = trips.filter(t => !overrides[t.id]).sort(byLatestDateDesc);
+  // One card per visit, not per trip -- a place visited more than once
+  // (Seattle in '23, Seattle again in '26) gets a card for each time
+  // instead of one pooled card with a misleading merged date range.
+  // Pin confirmation is still a per-location decision (overrides[trip.id]),
+  // so every visit to an unconfirmed location stays in the "haven't pinned
+  // yet" group together. Most recent visit first within each group.
+  const byLatestDateDesc = (a, b) => b.visit.end.localeCompare(a.visit.end);
+  const confirmedVisitCards = trips
+    .filter(t => overrides[t.id])
+    .flatMap(trip => trip.visits.map(visit => ({ trip, visit })))
+    .sort(byLatestDateDesc);
+  const unconfirmedVisitCards = trips
+    .filter(t => !overrides[t.id])
+    .flatMap(trip => trip.visits.map(visit => ({ trip, visit })))
+    .sort(byLatestDateDesc);
 
   function openTrip(id) { setActiveId(id); }
 
@@ -777,24 +858,24 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
             </div>
           ) : (
             <>
-              {confirmedTrips.length > 0 && (
+              {confirmedVisitCards.length > 0 && (
                 <>
                   <p className="trip-list-heading">Places you've been</p>
                   <div className="trip-list">
-                    {confirmedTrips.map(trip => (
-                      <TripListItem key={trip.id} trip={trip} confirmed onOpen={() => openTrip(trip.id)} />
+                    {confirmedVisitCards.map(({ trip, visit }) => (
+                      <TripListItem key={visit.id} trip={trip} visit={visit} confirmed onOpen={() => openTrip(trip.id)} />
                     ))}
                   </div>
                 </>
               )}
 
-              {unconfirmedTrips.length > 0 && (
+              {unconfirmedVisitCards.length > 0 && (
                 <>
                   <p className="trip-list-heading">Places you haven't pinned yet</p>
                   <p className="trip-list-hint">Drag and drop onto the map to place a pin.</p>
                   <div className="trip-list">
-                    {unconfirmedTrips.map(trip => (
-                      <TripListItem key={trip.id} trip={trip} confirmed={false} onPointerDown={e => startListDrag(trip.id, e)} />
+                    {unconfirmedVisitCards.map(({ trip, visit }) => (
+                      <TripListItem key={visit.id} trip={trip} visit={visit} confirmed={false} onPointerDown={e => startListDrag(trip.id, e)} />
                     ))}
                   </div>
                 </>
