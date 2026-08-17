@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
+import LocationInput from '../LocationInput.jsx';
 import mapImage from '../assets/travel-map.png';
 import { findHomePoint, clusterIntoTrips, latLngToMapPercent } from '../tripClustering.js';
 import { cloudinaryTransform, videoThumbUrl, PHOTO_SQUARE, PHOTO_XS } from '../constants.js';
@@ -29,7 +30,7 @@ function manualPinToTrip(pin) {
   return {
     id: pin.id, label: pin.label, guess: { x: pin.x, y: pin.y }, photos: [],
     entries: [], earliestDate: pin.createdAt, latestDate: pin.createdAt,
-    kids: [], locationCoords: null, manual: true,
+    kids: [], locationCoords: pin.lat != null ? { lat: pin.lat, lng: pin.lng } : null, manual: true,
   };
 }
 
@@ -228,6 +229,13 @@ function TripMapCard({ trips, overrides, frameRef, dropTarget, onExpand, onTapPi
 
 function NewPinSheet({ onCancel, onSave }) {
   const [label, setLabel] = useState('');
+  // Real coordinates if the typed text matched an actual Places suggestion
+  // -- kept separate from where the pin sits on the illustrated map (that
+  // stays exactly wherever was tapped, on purpose; see latLngToMapPercent's
+  // own comment on why this map can't be trusted to auto-place accurately).
+  // These are only used later, if a letter gets written from this pin, so
+  // that entry gets a real location tag instead of just free text.
+  const [coords, setCoords] = useState(null);
   // Rendered as a sibling, not a descendant, of .trip-map-full.rotated (see
   // this component's call site) -- that element's rotation would otherwise
   // drag this sheet's layout into the same rotated space, and the native
@@ -238,19 +246,21 @@ function NewPinSheet({ onCancel, onSave }) {
     <div className="sheet-backdrop" onClick={onCancel} style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.4)', zIndex: 210, display: 'flex', alignItems: 'flex-end' }}>
       <form
         onClick={e => e.stopPropagation()}
-        onSubmit={e => { e.preventDefault(); if (label.trim()) onSave(label.trim()); }}
+        onSubmit={e => { e.preventDefault(); if (label.trim()) onSave(label.trim(), coords); }}
         style={{ background: 'var(--bg-card)', borderRadius: '22px 22px 0 0', width: '100%', padding: '20px 20px 28px' }}
       >
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 16px' }} />
         <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)', margin: '0 0 12px' }}>Where did you go?</p>
-        <input
-          className="input-field"
-          autoFocus
-          placeholder="e.g. Beijing, China"
-          value={label}
-          onChange={e => setLabel(e.target.value)}
-          style={{ marginBottom: 16 }}
-        />
+        <div style={{ marginBottom: 16 }}>
+          <LocationInput
+            value={label}
+            onChange={setLabel}
+            onChangeCoords={(lat, lng) => setCoords(lat != null ? { lat, lng } : null)}
+            placeholder="e.g. Beijing, China"
+            autoFocus
+            inline
+          />
+        </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button type="button" className="btn btn-outline" style={{ flex: 1 }} onClick={onCancel}>Cancel</button>
           <button type="submit" className="btn btn-gold" style={{ flex: 1 }} disabled={!label.trim()}>Add pin</button>
@@ -336,7 +346,7 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, 
       {pendingSpot && (
         <NewPinSheet
           onCancel={() => setPendingSpot(null)}
-          onSave={label => { onAddPin(label, pendingSpot.x, pendingSpot.y); setPendingSpot(null); }}
+          onSave={(label, coords) => { onAddPin(label, pendingSpot.x, pendingSpot.y, coords); setPendingSpot(null); }}
         />
       )}
     </>
@@ -545,9 +555,9 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
 
   // A manual pin is confirmed the instant it's created -- placing and
   // naming it *is* the confirmation, there's no auto-guess to correct.
-  function addManualPin(label, x, y) {
+  function addManualPin(label, x, y, coords) {
     const id = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const pin = { id, label, x, y, createdAt: new Date().toISOString().slice(0, 10) };
+    const pin = { id, label, x, y, lat: coords?.lat ?? null, lng: coords?.lng ?? null, createdAt: new Date().toISOString().slice(0, 10) };
     setManualPins(prev => {
       const next = [...prev, pin];
       localStorage.setItem(MANUAL_PINS_KEY, JSON.stringify(next));
