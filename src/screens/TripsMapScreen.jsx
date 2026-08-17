@@ -562,15 +562,31 @@ function useListDrag(mapFrameRef, scrollAreaRef, setOverrides, onTap) {
 // (NextTripCard): a left accent bar, a circular icon/photo, and a
 // title+dates stack -- much less busy than a full row of separately-styled
 // pieces.
+// One hard-stop gradient segment per kid on the trip, so a two-kid trip
+// reads as "both of them" at a glance instead of picking one arbitrarily.
+// A trip with no kids (or still unpinned) falls back to the plain
+// gold/muted bar -- kid.accent is the same color already used for that
+// kid's avatar fallback everywhere else in the app.
+function accentBarColor(trip, confirmed) {
+  if (!confirmed) return 'var(--border-light)';
+  const colors = trip.kids.map(k => k.accent).filter(Boolean);
+  if (colors.length === 0) return '#C8993E';
+  if (colors.length === 1) return colors[0];
+  const step = 100 / colors.length;
+  const stops = colors.flatMap((c, i) => [`${c} ${i * step}%`, `${c} ${(i + 1) * step}%`]);
+  return `linear-gradient(to bottom, ${stops.join(', ')})`;
+}
+
 function TripListItem({ trip, confirmed, onOpen, onPointerDown }) {
   const cover = trip.photos[0];
   return (
     <div
-      className={`trip-list-card${confirmed ? '' : ' unpinned'}`}
+      className="trip-list-card"
       onClick={confirmed ? onOpen : undefined}
       onPointerDown={confirmed ? undefined : onPointerDown}
       style={confirmed ? undefined : { touchAction: 'none' }}
     >
+      <div className="trip-list-card-bar" style={{ background: accentBarColor(trip, confirmed) }} />
       <div className="trip-list-card-icon">
         {cover
           ? <img src={cover.type === 'video' ? videoThumbUrl(cover.url, `so_0,${PHOTO_XS}`) : cloudinaryTransform(cover.url, PHOTO_XS)} alt="" loading="lazy" />
@@ -578,11 +594,17 @@ function TripListItem({ trip, confirmed, onOpen, onPointerDown }) {
       </div>
       <div className="trip-list-card-meta">
         <div className="trip-list-card-title">{trip.label}</div>
-        <div className="trip-list-card-dates">
-          {dateRangeLabel(trip.visits)}
-          {trip.kids.length > 0 && ` · ${trip.kids.map(k => k.name.split(' ')[0]).join(', ')}`}
-        </div>
+        <div className="trip-list-card-dates">{dateRangeLabel(trip.visits)}</div>
       </div>
+      {trip.kids.length > 0 && (
+        <div style={{ display: 'flex', flexShrink: 0 }}>
+          {trip.kids.slice(0, 3).map((k, i) => (
+            <div key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, border: '2px solid var(--bg-card)', borderRadius: '50%' }}>
+              <KidThumb kid={k} size={22} />
+            </div>
+          ))}
+        </div>
+      )}
       {!confirmed && <Icon name="ti-arrows-up-down" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />}
     </div>
   );
@@ -675,8 +697,13 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
   const trips = useMemo(() => [...autoTrips, ...manualPins.map(manualPinToTrip)], [autoTrips, manualPins]);
 
   const activeTrip = trips.find(t => t.id === activeId) || null;
-  const confirmedTrips = trips.filter(t => overrides[t.id]);
-  const unconfirmedTrips = trips.filter(t => !overrides[t.id]);
+  // Most recent trip first -- clusterIntoTrips has no inherent order of its
+  // own (it groups by proximity, not by when a cluster was first seen), so
+  // without this the lists reshuffled unpredictably as new entries changed
+  // which cluster came first in iteration order.
+  const byLatestDateDesc = (a, b) => b.latestDate.localeCompare(a.latestDate);
+  const confirmedTrips = trips.filter(t => overrides[t.id]).sort(byLatestDateDesc);
+  const unconfirmedTrips = trips.filter(t => !overrides[t.id]).sort(byLatestDateDesc);
 
   function openTrip(id) { setActiveId(id); }
 
