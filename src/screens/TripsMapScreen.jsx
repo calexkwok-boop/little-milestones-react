@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
 import LocationInput from '../LocationInput.jsx';
@@ -423,13 +423,16 @@ function NewPinSheet({ onCancel, onSave }) {
   );
 }
 
-const POPUP_WIDTH = 200;
 const POPUP_MARGIN = 12;
-const POPUP_GAP = 42; // clears the pin's own visual height above its tip
-const POPUP_EST_HEIGHT = 100; // rough, just enough to keep it off the top edge
+const POPUP_GAP = 42; // screen pixels between the pin's tip and the popup's anchor
+// Baseline (uncorrected) transform used both to render the popup and, in the
+// measuring effect below, to briefly probe its true on-screen footprint --
+// must stay in sync with the render transform's non-correction part.
+const POPUP_BASE_TRANSFORM = 'translateX(-50%) rotate(-90deg)';
 
 function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, onAddPin }) {
   const frameRef = useRef(null);
+  const popupRef = useRef(null);
   // Tapping a pin here shows its name in place (Calendar's own popup
   // treatment) rather than immediately leaving the enlarged view -- the
   // point of enlarging is to see exactly which pin is which before
@@ -441,22 +444,41 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, 
   const popupPos = popupTrip ? (positionFor(popupTrip) || overrides[popupTrip.id] || popupTrip.guess) : null;
 
   // The popup renders as a plain fixed-position element (see its call site,
-  // a sibling of .trip-map-full.rotated, same reasoning as NewPinSheet's own
-  // comment below) so it can be clamped to the real screen with ordinary
-  // pixel math -- a pin near any edge of the rotated map used to push half
-  // the popup off-screen with no way to see what it said. The arrow stays
-  // pointing at the true pin position even when the box itself has to slide
-  // over to stay on screen.
-  let popupStyle = null, popupArrowLeft = null;
-  if (popupTrip && frameRef.current) {
-    const screenPos = localPercentToScreen(frameRef.current, popupPos, true);
-    const rawLeft = screenPos.x - POPUP_WIDTH / 2;
-    const clampedLeft = Math.min(Math.max(rawLeft, POPUP_MARGIN), window.innerWidth - POPUP_WIDTH - POPUP_MARGIN);
-    popupArrowLeft = Math.min(Math.max(screenPos.x - clampedLeft, 16), POPUP_WIDTH - 16);
-    const rawBottom = window.innerHeight - screenPos.y + POPUP_GAP;
-    const bottom = Math.min(rawBottom, window.innerHeight - POPUP_EST_HEIGHT - POPUP_MARGIN);
-    popupStyle = { left: clampedLeft, bottom };
-  }
+  // a sibling of .trip-map-full.rotated) so its base anchor -- the pin's
+  // tip, GAP pixels away -- can be computed with ordinary screen-pixel math
+  // via localPercentToScreen. It also carries its own rotate(-90deg) to
+  // match the rest of the pre-rotated map (otherwise its text reads
+  // sideways once the phone is actually turned to view the map upright).
+  const popupBaseStyle = popupTrip && frameRef.current
+    ? (() => {
+        const screenPos = localPercentToScreen(frameRef.current, popupPos, true);
+        return { left: screenPos.x, bottom: window.innerHeight - screenPos.y + POPUP_GAP };
+      })()
+    : null;
+
+  // Rotating the box around its own anchor makes its on-screen footprint
+  // depend on its rendered height in a way that's awkward to predict
+  // analytically (which screen edge it might overflow shifts with the
+  // rotation) -- so this measures the real, laid-out box instead of trying
+  // to derive the overflow by hand, and nudges it back on screen if needed.
+  // The temporary style swap happens and gets measured before paint
+  // (useLayoutEffect), so there's nothing to see flicker.
+  const [popupCorrection, setPopupCorrection] = useState({ dx: 0, dy: 0 });
+  useLayoutEffect(() => {
+    if (!popupTrip || !popupRef.current) { setPopupCorrection({ dx: 0, dy: 0 }); return; }
+    const el = popupRef.current;
+    const prevTransform = el.style.transform;
+    el.style.transform = POPUP_BASE_TRANSFORM;
+    const rect = el.getBoundingClientRect();
+    el.style.transform = prevTransform;
+    let dx = 0, dy = 0;
+    if (rect.left < POPUP_MARGIN) dx = POPUP_MARGIN - rect.left;
+    else if (rect.right > window.innerWidth - POPUP_MARGIN) dx = (window.innerWidth - POPUP_MARGIN) - rect.right;
+    if (rect.top < POPUP_MARGIN) dy = POPUP_MARGIN - rect.top;
+    else if (rect.bottom > window.innerHeight - POPUP_MARGIN) dy = (window.innerHeight - POPUP_MARGIN) - rect.bottom;
+    setPopupCorrection({ dx, dy });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [popupTrip?.id, popupPos?.x, popupPos?.y]);
 
   function handleBackgroundTap(clientX, clientY) {
     setPopupId(null);
@@ -517,15 +539,25 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, 
           as NewPinSheet below: that element's rotation would otherwise drag
           this popup's fixed-position math into the rotated coordinate
           space, defeating the whole point of computing plain screen pixels
-          for it above. */}
-      {popupTrip && popupStyle && (
-        <div className="trip-map-popup" style={popupStyle} onPointerDown={e => e.stopPropagation()}>
+          for it above. Its own rotate(-90deg) (in POPUP_BASE_TRANSFORM)
+          replaces that lost rotation so the card still reads right-side up
+          once the phone is turned, matching the rest of the map. */}
+      {popupTrip && popupBaseStyle && (
+        <div
+          ref={popupRef}
+          className="trip-map-popup"
+          style={{
+            ...popupBaseStyle,
+            transform: `translate(${popupCorrection.dx}px, ${popupCorrection.dy}px) ${POPUP_BASE_TRANSFORM}`,
+            transformOrigin: '50% 100%',
+          }}
+          onPointerDown={e => e.stopPropagation()}
+        >
           <div className="trip-map-popup-name">{popupTrip.label}</div>
           <div className="trip-map-popup-dates">{dateRangeLabel(popupTrip.visits)}</div>
           <button type="button" className="trip-map-popup-link" onClick={() => onOpenTrip(popupTrip.id)}>
             View details <Icon name="ti-arrow-right" style={{ fontSize: 10 }} />
           </button>
-          <div className="trip-map-popup-arrow" style={{ left: popupArrowLeft }} />
         </div>
       )}
       {pendingSpot && (
@@ -759,14 +791,21 @@ function TripSheet({ trip, confirmed, onClose, onOpenEntry, onWriteLetter, onPla
               </div>
             ) : (
               <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '10px 0 0', lineHeight: 1.4 }}>
-                {trip.manual ? "A placeholder for a memory you haven't written yet." : 'No photos from this trip yet.'}
+                {visit.entries.length === 0 ? "A placeholder for a memory you haven't written yet." : 'No photos from this trip yet.'}
               </p>
             )}
 
-            <button className="btn btn-gold" style={{ width: '100%', marginTop: 10 }} onClick={() => onWriteLetter(trip, visit)}>
-              <Icon name="ti-pencil" style={{ fontSize: 16 }} />
-              Write a letter about this trip
-            </button>
+            {/* This is meant to read as an archive of what's already been
+                written, not a prompt on every past trip -- a visit only
+                gets a "write a letter" CTA when it's still just a
+                placeholder pin with nothing written for it yet. Once a
+                letter exists, tapping its photo above is the way in. */}
+            {visit.entries.length === 0 && (
+              <button className="btn btn-gold" style={{ width: '100%', marginTop: 10 }} onClick={() => onWriteLetter(trip, visit)}>
+                <Icon name="ti-pencil" style={{ fontSize: 16 }} />
+                Write a letter about this trip
+              </button>
+            )}
           </div>
         ))}
       </div>
