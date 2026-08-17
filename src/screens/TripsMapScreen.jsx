@@ -194,6 +194,108 @@ function usePinDrag(frameRef, setOverrides, onTap, rotated) {
   return { positionFor, startDrag };
 }
 
+const MIN_SCALE = 1;
+const MAX_SCALE = 4;
+
+// Pinch-to-zoom and pan for the enlarged map, plus +/- buttons for anyone
+// on a mouse or who doesn't find the pinch. Deliberately doesn't touch any
+// of the pin-placement math above -- getBoundingClientRect() on the frame
+// already reflects whatever scale/pan is currently applied to it (browsers
+// compute bounding rects post-transform), so usePinDrag and the
+// tap-to-add-a-pin handler both keep working correctly at any zoom level
+// with zero changes, including while zoomed in for more precise placement.
+//
+// A pin's own onPointerDown already stops propagation (its drag takes
+// priority), so this only ever sees pointers that land on the empty map --
+// exactly the ones that should pinch/pan/tap-to-add. `onBackgroundTap`
+// fires from here (not a separate click handler) once a single-pointer
+// gesture ends having moved less than DRAG_THRESHOLD_PX, so there's one
+// source of truth for "was this a tap or a drag," shared with panning.
+function useMapZoomPan(rotated, onBackgroundTap) {
+  const [scale, setScale] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const pointers = useRef(new Map()); // pointerId -> {x,y}
+  const gestureRef = useRef(null);
+  const [gestureActive, setGestureActive] = useState(false);
+
+  function toLocalDelta(dxScreen, dyScreen) {
+    return rotated ? { dx: -dyScreen, dy: dxScreen } : { dx: dxScreen, dy: dyScreen };
+  }
+
+  function clampPan(p, s) {
+    const bound = (s - 1) * 220;
+    return { x: Math.min(bound, Math.max(-bound, p.x)), y: Math.min(bound, Math.max(-bound, p.y)) };
+  }
+
+  function onPointerDown(e) {
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      gestureRef.current = { mode: 'pinch', startDist: Math.hypot(a.x - b.x, a.y - b.y), startScale: scale };
+    } else if (pointers.current.size === 1) {
+      gestureRef.current = { mode: scale > MIN_SCALE ? 'pan' : 'tap', startX: e.clientX, startY: e.clientY, startPan: pan, moved: false };
+    } else {
+      return;
+    }
+    setGestureActive(true);
+  }
+
+  useEffect(() => {
+    if (!gestureActive) return;
+    function onMove(e) {
+      if (!pointers.current.has(e.pointerId)) return;
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const g = gestureRef.current;
+      if (!g) return;
+      if (g.mode === 'pinch' && pointers.current.size === 2) {
+        const [a, b] = [...pointers.current.values()];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        setScale(Math.min(MAX_SCALE, Math.max(MIN_SCALE, g.startScale * (dist / g.startDist))));
+      } else if (g.mode === 'pan' || g.mode === 'tap') {
+        const dxScreen = e.clientX - g.startX, dyScreen = e.clientY - g.startY;
+        if (!g.moved && Math.hypot(dxScreen, dyScreen) > DRAG_THRESHOLD_PX) g.moved = true;
+        if (g.mode === 'pan' && g.moved) {
+          const { dx, dy } = toLocalDelta(dxScreen, dyScreen);
+          setPan(clampPan({ x: g.startPan.x + dx, y: g.startPan.y + dy }, scale));
+        }
+      }
+    }
+    function onUp(e) {
+      pointers.current.delete(e.pointerId);
+      const g = gestureRef.current;
+      if (pointers.current.size === 0) {
+        if (g?.mode === 'tap' && !g.moved) onBackgroundTap(e.clientX, e.clientY);
+        gestureRef.current = null;
+        setGestureActive(false);
+      } else if (g?.mode === 'pinch') {
+        // Lifted one finger out of a pinch -- stop scaling, don't fall back
+        // to panning with whichever finger is still down mid-gesture.
+        gestureRef.current = null;
+      }
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gestureActive, scale]);
+
+  function zoomBy(factor) {
+    setScale(s => {
+      const next = Math.min(MAX_SCALE, Math.max(MIN_SCALE, s * factor));
+      if (next === MIN_SCALE) setPan({ x: 0, y: 0 });
+      else setPan(p => clampPan(p, next));
+      return next;
+    });
+  }
+
+  return { scale, pan, onPointerDown, zoomBy };
+}
+
 function TripPin({ trip, pos, confirmed, active, onPointerDown }) {
   return (
     <button
@@ -304,16 +406,11 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, 
   const popupTrip = trips.find(t => t.id === popupId) || null;
   const popupPos = popupTrip ? (positionFor(popupTrip) || overrides[popupTrip.id] || popupTrip.guess) : null;
 
-  function handleFrameClick(e) {
-    // Pin buttons stop their own pointerdown from bubbling, but a native
-    // click can still bubble here from one regardless -- checking the
-    // actual click target (rather than relying on that stopPropagation
-    // timing) is what actually guarantees this only fires for a genuine
-    // tap on the empty map, not "dismiss the popup I just opened."
-    if (e.target !== e.currentTarget) return;
+  function handleBackgroundTap(clientX, clientY) {
     setPopupId(null);
-    setPendingSpot(frameLocalPercent(frameRef.current, e.clientX, e.clientY, true));
+    setPendingSpot(frameLocalPercent(frameRef.current, clientX, clientY, true));
   }
+  const { scale, pan, onPointerDown: onStagePointerDown, zoomBy } = useMapZoomPan(true, handleBackgroundTap);
 
   return (
     <>
@@ -330,31 +427,39 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, 
             <path d="M6 6l12 12M18 6L6 18" />
           </svg>
         </button>
-        <div className="trip-map-full-stage">
-          <div className="trip-map-frame" ref={frameRef} style={{ cursor: 'crosshair' }} onClick={handleFrameClick}>
-            <img className="trip-map-img" src={mapImage} alt="" />
-            {trips.map(trip => {
-              const pos = positionFor(trip) || overrides[trip.id] || trip.guess;
-              return (
-                <TripPin
-                  key={trip.id}
-                  trip={trip}
-                  pos={pos}
-                  confirmed={!!overrides[trip.id]}
-                  active={trip.id === popupId}
-                  onPointerDown={e => { e.stopPropagation(); startDrag(trip.id, e); }}
-                />
-              );
-            })}
-            {popupTrip && (
-              <div className="trip-map-popup" style={{ left: `${popupPos.x}%` }} onClick={e => e.stopPropagation()}>
-                <div className="trip-map-popup-name">{popupTrip.label}</div>
-                <div className="trip-map-popup-dates">{dateRangeLabel(popupTrip.visits)}</div>
-                <button type="button" className="trip-map-popup-link" onClick={() => onOpenTrip(popupTrip.id)}>
-                  View details <Icon name="ti-arrow-right" style={{ fontSize: 10 }} />
-                </button>
-              </div>
-            )}
+        <div className="trip-map-zoom-controls">
+          <button type="button" aria-label="Zoom in" disabled={scale >= MAX_SCALE} onClick={() => zoomBy(1.5)}><Icon name="ti-plus" /></button>
+          <button type="button" aria-label="Zoom out" disabled={scale <= MIN_SCALE} onClick={() => zoomBy(1 / 1.5)}>
+            <svg width="12" height="12" viewBox="0 0 24 24"><path d="M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+          </button>
+        </div>
+        <div className="trip-map-full-stage" onPointerDown={onStagePointerDown} style={{ touchAction: 'none' }}>
+          <div className="trip-map-zoom-wrap" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}>
+            <div className="trip-map-frame" ref={frameRef} style={{ cursor: scale > MIN_SCALE ? 'grab' : 'crosshair' }}>
+              <img className="trip-map-img" src={mapImage} alt="" />
+              {trips.map(trip => {
+                const pos = positionFor(trip) || overrides[trip.id] || trip.guess;
+                return (
+                  <TripPin
+                    key={trip.id}
+                    trip={trip}
+                    pos={pos}
+                    confirmed={!!overrides[trip.id]}
+                    active={trip.id === popupId}
+                    onPointerDown={e => { e.stopPropagation(); startDrag(trip.id, e); }}
+                  />
+                );
+              })}
+              {popupTrip && (
+                <div className="trip-map-popup" style={{ left: `${popupPos.x}%`, transform: `translateX(-50%) scale(${1 / scale})` }} onPointerDown={e => e.stopPropagation()}>
+                  <div className="trip-map-popup-name">{popupTrip.label}</div>
+                  <div className="trip-map-popup-dates">{dateRangeLabel(popupTrip.visits)}</div>
+                  <button type="button" className="trip-map-popup-link" onClick={() => onOpenTrip(popupTrip.id)}>
+                    View details <Icon name="ti-arrow-right" style={{ fontSize: 10 }} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div className="trip-map-rotate-hint">
@@ -362,7 +467,7 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, 
             <rect x="7" y="2" width="10" height="20" rx="2.2" />
             <path d="M11 19h2" />
           </svg>
-          <span>Drag a pin to place it, or tap an empty spot to add a new one · turn your phone sideways to line it up</span>
+          <span>Pinch or use +/- to zoom, drag a pin to place it, or tap an empty spot to add a new one · turn your phone sideways to line it up</span>
         </div>
       </div>
       {pendingSpot && (
