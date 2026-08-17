@@ -268,11 +268,113 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   border-radius: 18px;
   overflow: hidden;
   margin-top: 12px;
+  cursor: pointer;
   /* Fixed regardless of light/dark theme -- a signature illustrated object
      (like the map art itself), not a themed UI surface. */
   background: linear-gradient(160deg, #2A4035 0%, #4A5E50 60%, #3A5548 100%);
 }
-.trip-map-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.trip-map-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+
+/* Feedback while a list item is being dragged toward the map (see
+   TripsMapScreen's useListDrag) -- a plain box-shadow rather than changing
+   border-radius/size, so the frame doesn't visibly jump when the drag
+   crosses into it. */
+.trip-map-frame.drop-target {
+  box-shadow: 0 0 0 3px #C8993E, 0 8px 24px rgba(200,153,62,0.35);
+}
+
+.trip-map-caption-bar {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 9px 12px;
+  background: linear-gradient(0deg, rgba(0,0,0,0.4), rgba(0,0,0,0));
+  display: flex; align-items: center;
+  font-size: 10.5px; font-weight: 700; color: #f3ead2;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+
+/* Follows the pointer while dragging a list item toward the map --
+   position:fixed in viewport coordinates (ghost.x/y are raw clientX/clientY,
+   not frame-relative), bottom-anchored on the pointer the same way a
+   placed .trip-pin is bottom-anchored on its coordinate. */
+.trip-ghost-pin {
+  position: fixed; z-index: 60; pointer-events: none;
+  transform: translate(-50%, -100%);
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.4));
+}
+
+.trip-list-heading {
+  font-size: 11px; color: var(--text-muted); font-weight: 600;
+  letter-spacing: 0.8px; text-transform: uppercase;
+  margin: 20px 0 8px;
+}
+.trip-list-hint {
+  font-size: 11.5px; color: var(--text-muted); margin: -4px 0 8px;
+}
+.trip-list { display: flex; flex-direction: column; gap: 8px; }
+.trip-list-item {
+  all: unset; box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 9px 12px; border-radius: 12px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  cursor: pointer;
+  /* Otherwise a press-and-hold to start dragging (TripsMapScreen's
+     useListDrag) selects the label text instead on most browsers. */
+  user-select: none; -webkit-user-select: none;
+}
+.trip-list-thumb {
+  width: 38px; height: 38px; border-radius: 9px; overflow: hidden; flex-shrink: 0;
+  background: var(--bg-input); display: flex; align-items: center; justify-content: center;
+}
+.trip-list-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---------- Trips map, full-screen ---------- */
+.trip-map-full {
+  position: fixed; inset: 0; z-index: 200;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 24px; gap: 16px;
+  background: linear-gradient(160deg, #2A4035 0%, #4A5E50 60%, #3A5548 100%);
+}
+/* Always rendered pre-rotated to landscape (not conditional on detecting
+   physical rotation -- unreliable across real holding angles). The user
+   turns the phone to match, same as looking at a printed landscape photo.
+   Swaps the box's own dimensions and rotates it back upright within the
+   still-portrait-shaped CSS viewport. */
+.trip-map-full.rotated {
+  top: 0; left: 0; right: auto; bottom: auto;
+  width: 100vh; height: 100vw;
+  transform-origin: top left;
+  transform: rotate(-90deg) translateX(-100%);
+}
+.trip-map-full-close {
+  all: unset; position: absolute; top: 16px; right: 16px;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,0.18);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  color: #f3ead2; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 3;
+}
+.trip-map-full-stage {
+  position: relative; width: 100%; max-width: 900px; flex: 1; min-height: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.trip-map-rotate-hint {
+  display: flex; align-items: center; gap: 10px;
+  color: #f3ead2; font-size: 12px; font-weight: 700; text-align: center; flex-shrink: 0;
+}
+.trip-map-rotate-icon {
+  width: 22px; height: 22px; flex-shrink: 0;
+  animation: trip-map-rotate-loop 2.4s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trip-map-rotate-icon { animation: none; }
+}
+@keyframes trip-map-rotate-loop {
+  0%, 12% { transform: rotate(0deg); }
+  45%, 65% { transform: rotate(-90deg); }
+  95%, 100% { transform: rotate(0deg); }
+}
 
 .trip-pin {
   all: unset;

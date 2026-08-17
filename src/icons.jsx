@@ -87,7 +87,12 @@ const ICONS = {
   'ti-crop': <><path d="M6 2v14a2 2 0 002 2h14" /><path d="M18 22V8a2 2 0 00-2-2H2" /></>,
   'ti-alert-circle': <><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v5.5" /><circle cx="12" cy="16.3" r=".15" /></>,
   'ti-trip': <><rect x="4" y="8.5" width="16" height="10.5" rx="2" /><path d="M8.5 8.5V6.3A1.8 1.8 0 0110.3 4.5h3.4a1.8 1.8 0 011.8 1.8v2.2" /><path d="M4 13.5h16" /></>,
-  'ti-plane': <path d="M12 2.5l1.8 1.8-1 5.4 6.9 4v2l-6.9-2.1-1 5 2.4 1.8v1.7L12 21l-2.2 1.1v-1.7l2.4-1.8-1-5-6.9 2.1v-2l6.9-4-1-5.4z" />,
+  // Ported verbatim from Patina Calendar's own IconPlane (same trip icon in
+  // both apps) -- that icon is already sized to fill its 24x24 box with no
+  // internal padding, unlike this file's own hand-drawn icons, so it needs
+  // an inverse of the shared wrapper's SCALE baked into its own transform
+  // or the outer scale-up clips its wingtips against the viewBox.
+  'ti-plane': <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2.5 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" transform="rotate(60 12 12) translate(12 12) scale(0.714286) translate(-12 -12)" />,
   'ti-movie': <><rect x="3.5" y="6.5" width="17" height="12" rx="2" /><path d="M3.5 10.5h17" /><path d="M7.5 6.5l2 4M12.5 6.5l2 4M17.2 6.5l2 4" /></>,
   'ti-bookmark': <path d="M6.5 4.5h11a1 1 0 011 1V20l-6.5-3.8L5.5 20V5.5a1 1 0 011-1z" />,
   'ti-bookmark-filled': <path d="M6.5 4.5h11a1 1 0 011 1V20l-6.5-3.8L5.5 20V5.5a1 1 0 011-1z" fill="currentColor" stroke="none" />,

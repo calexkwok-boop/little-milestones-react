@@ -4541,7 +4541,7 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) 
   // *more* hesitant to write, not less. Screens, data, and routes are still
   // there if that changes; this is just where its nav slot went.
   const tabsRight = [
-    { id: 'trips-map', icon: 'ti-map-pin', label: 'Trips', group: ['trips-map'] },
+    { id: 'trips-map', icon: 'ti-plane', label: 'Trips', group: ['trips-map'] },
     { id: 'profile', icon: 'ti-profile-quill', label: 'Profile', group: ['profile'] },
   ];
 

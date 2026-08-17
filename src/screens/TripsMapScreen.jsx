@@ -3,7 +3,7 @@ import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
 import mapImage from '../assets/travel-map.png';
 import { findHomePoint, clusterIntoTrips, latLngToMapPercent } from '../tripClustering.js';
-import { cloudinaryTransform, videoThumbUrl, PHOTO_SQUARE } from '../constants.js';
+import { cloudinaryTransform, videoThumbUrl, PHOTO_SQUARE, PHOTO_XS } from '../constants.js';
 
 const PIN_OVERRIDES_KEY = 'patina-trip-pin-overrides';
 
@@ -14,9 +14,11 @@ function loadPinOverrides() {
 // Groups every entry with a tagged location into trips (see tripClustering.js
 // for "what counts as the same trip"), picking one representative entry per
 // trip -- whichever location string recurs most in that cluster -- to supply
-// the pin's real-world coordinates and label. Averaging every entry's lat/lng
-// into a centroid instead would risk landing the pin somewhere between two
-// real places (or in the ocean) rather than on one that was actually visited.
+// the trip's label and a *guess* at where its pin belongs. That guess is a
+// starting point, not a placement -- the illustrated map isn't drawn to a
+// real projection, so it's frequently off by a meaningful amount. A trip
+// only counts as actually pinned once someone drags it into place
+// (persisted per trip id in localStorage, see PIN_OVERRIDES_KEY below).
 function useTrips(entries, kids) {
   return useMemo(() => {
     const homePt = findHomePoint(entries);
@@ -29,13 +31,13 @@ function useTrips(entries, kids) {
       labelCounts.forEach((count, label) => { if (count > bestCount) { bestCount = count; bestLabel = label; } });
       const representative = clusterEntries.find(e => e.location === bestLabel) || sorted[0];
       const label = bestLabel || representative.location || 'Somewhere new';
-      const pos = latLngToMapPercent(representative.locationLat, representative.locationLng);
+      const guess = latLngToMapPercent(representative.locationLat, representative.locationLng);
       const photos = clusterEntries.flatMap(e => (e.media || []).map(m => ({ ...m, entry: e })));
       const tripKidIds = new Set(clusterEntries.flatMap(e => e.kids || []));
       const tripKids = kids.filter(k => tripKidIds.has(k.id));
       const id = `${sorted[0].date}-${Math.round(representative.locationLat * 100)}-${Math.round(representative.locationLng * 100)}`;
       return {
-        id, label, x: pos.x, y: pos.y, photos,
+        id, label, guess, photos,
         entries: sorted,
         earliestDate: sorted[0].date,
         latestDate: sorted[sorted.length - 1].date,
@@ -54,7 +56,264 @@ function dateRangeLabel(earliestDate, latestDate) {
   return `${fmt(earliestDate, !sameYear)} – ${fmt(latestDate, true)}`;
 }
 
-function TripSheet({ trip, onClose, onOpenEntry, onWriteLetter }) {
+const DRAG_THRESHOLD_PX = 6;
+
+// Press-and-drag pin placement, shared between the small map card and the
+// enlarged full-screen view -- the only difference between them is whether
+// the frame is visually rotated 90°. getBoundingClientRect() already
+// reflects that CSS rotation, so a plain (unrotated) fraction-of-rect read
+// would place every pin 90° away from where it was actually pressed;
+// `rotated` inverts the axes to correct for it (same fix Patina Calendar's
+// own full-screen map uses).
+function usePinDrag(frameRef, setOverrides, onTap, rotated) {
+  const [dragPreview, setDragPreview] = useState(null); // { id, x, y }
+  const [draggingId, setDraggingId] = useState(null);
+  const dragStartRef = useRef(null);
+
+  function toLocalPercent(clientX, clientY) {
+    const rect = frameRef.current.getBoundingClientRect();
+    const xFrac = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+    const yFrac = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height));
+    return rotated ? { x: (1 - yFrac) * 100, y: xFrac * 100 } : { x: xFrac * 100, y: yFrac * 100 };
+  }
+
+  useEffect(() => {
+    if (!draggingId) return;
+    function onMove(e) {
+      const d = dragStartRef.current;
+      if (!d) return;
+      const dx = e.clientX - d.startX, dy = e.clientY - d.startY;
+      if (!d.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) d.moved = true;
+      if (d.moved) setDragPreview({ id: draggingId, ...toLocalPercent(e.clientX, e.clientY) });
+    }
+    function onUp(e) {
+      const moved = dragStartRef.current?.moved;
+      dragStartRef.current = null;
+      if (moved) {
+        const pos = toLocalPercent(e.clientX, e.clientY);
+        setOverrides(prev => {
+          const next = { ...prev, [draggingId]: pos };
+          localStorage.setItem(PIN_OVERRIDES_KEY, JSON.stringify(next));
+          return next;
+        });
+        setDragPreview(null);
+      } else {
+        onTap(draggingId);
+      }
+      setDraggingId(null);
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draggingId]);
+
+  function startDrag(tripId, e) {
+    dragStartRef.current = { startX: e.clientX, startY: e.clientY, moved: false };
+    setDraggingId(tripId);
+  }
+
+  function positionFor(trip) {
+    return dragPreview?.id === trip.id ? dragPreview : null;
+  }
+
+  return { positionFor, startDrag };
+}
+
+function TripPin({ trip, pos, confirmed, active, onPointerDown }) {
+  return (
+    <button
+      className={`trip-pin${active ? ' active' : ''}`}
+      style={{ left: `${pos.x}%`, top: `${pos.y}%`, opacity: confirmed ? 1 : 0.5 }}
+      onPointerDown={onPointerDown}
+      aria-label={trip.label}
+    >
+      <span className="trip-pin-visual">
+        {active && <span className="trip-pin-ring" />}
+        <svg width={active ? 20 : 17} height={active ? 25 : 21} viewBox="0 0 16 20">
+          <path fill="#C8993E" d="M8 0C3.6 0 0 3.6 0 8c0 5.5 8 12 8 12s8-6.5 8-12c0-4.4-3.6-8-8-8z" />
+          <circle cx="8" cy="8" r="3" fill="#fff" />
+        </svg>
+      </span>
+    </button>
+  );
+}
+
+function TripMapCard({ trips, overrides, frameRef, dropTarget, onExpand, onTapPin }) {
+  // A plain div, not a button -- it contains its own pin buttons, and
+  // buttons can't nest inside buttons (the browser would silently break out
+  // of the outer one). onClick on the div still gives the "tap the
+  // background to expand" behavior; individual pins stop propagation.
+  return (
+    <div
+      className={`trip-map-frame${dropTarget ? ' drop-target' : ''}`}
+      role="button"
+      tabIndex={0}
+      ref={frameRef}
+      onClick={onExpand}
+    >
+      <img className="trip-map-img" src={mapImage} alt="" />
+      {trips.map(trip => {
+        const pos = overrides[trip.id] || trip.guess;
+        return (
+          <TripPin
+            key={trip.id}
+            trip={trip}
+            pos={pos}
+            confirmed={!!overrides[trip.id]}
+            active={false}
+            onPointerDown={e => { e.stopPropagation(); onTapPin(trip.id); }}
+          />
+        );
+      })}
+      <div className="trip-map-caption-bar">
+        <span>{Object.keys(overrides).filter(id => trips.some(t => t.id === id)).length}/{trips.length} pinned</span>
+        <span style={{ marginLeft: 'auto' }}>{dropTarget ? 'Drop to place' : 'Tap to enlarge →'}</span>
+      </div>
+    </div>
+  );
+}
+
+function TripMapFullView({ trips, overrides, setOverrides, onClose, onTapPin }) {
+  const frameRef = useRef(null);
+  const { positionFor, startDrag } = usePinDrag(frameRef, setOverrides, onTapPin, true);
+  return (
+    <div className="trip-map-full rotated">
+      <button type="button" className="trip-map-full-close" aria-label="Close map" onClick={onClose}>
+        <Icon name="ti-x" />
+      </button>
+      <div className="trip-map-full-stage">
+        <div className="trip-map-frame" ref={frameRef} style={{ cursor: 'grab' }}>
+          <img className="trip-map-img" src={mapImage} alt="" />
+          {trips.map(trip => {
+            const pos = positionFor(trip) || overrides[trip.id] || trip.guess;
+            return (
+              <TripPin
+                key={trip.id}
+                trip={trip}
+                pos={pos}
+                confirmed={!!overrides[trip.id]}
+                active={false}
+                onPointerDown={e => { e.stopPropagation(); startDrag(trip.id, e); }}
+              />
+            );
+          })}
+        </div>
+      </div>
+      <div className="trip-map-rotate-hint">
+        <svg className="trip-map-rotate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="7" y="2" width="10" height="20" rx="2.2" />
+          <path d="M11 19h2" />
+        </svg>
+        <span>Turn your phone sideways · press and drag a pin to place it</span>
+      </div>
+    </div>
+  );
+}
+
+// Press-and-drag a list item up onto the map to place its pin -- more
+// direct than the sheet's "Place on map" detour, especially for an
+// unconfirmed trip where that's the obvious next thing to do. Dropped
+// outside the map frame, nothing happens (list item stays put); a tap under
+// DRAG_THRESHOLD_PX still opens the trip sheet as before. Auto-scrolls the
+// page while dragging near the top of the viewport, since the map card sits
+// above these lists and may already be scrolled out of view by the time
+// there are several trips in "haven't pinned yet."
+function useListDrag(mapFrameRef, scrollAreaRef, setOverrides, onTap) {
+  const [ghost, setGhost] = useState(null); // { tripId, x, y } in viewport coords
+  const [overMap, setOverMap] = useState(false);
+  const [draggingId, setDraggingId] = useState(null);
+  const dragStartRef = useRef(null);
+
+  function isOverFrame(clientX, clientY) {
+    const rect = mapFrameRef.current?.getBoundingClientRect();
+    return !!rect && clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+  }
+
+  useEffect(() => {
+    if (!draggingId) return;
+    function onMove(e) {
+      const d = dragStartRef.current;
+      if (!d) return;
+      const dx = e.clientX - d.startX, dy = e.clientY - d.startY;
+      if (!d.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) d.moved = true;
+      if (!d.moved) return;
+      setGhost({ tripId: draggingId, x: e.clientX, y: e.clientY });
+      setOverMap(isOverFrame(e.clientX, e.clientY));
+      const scroller = scrollAreaRef.current;
+      if (scroller && e.clientY < 110) scroller.scrollTop -= (110 - e.clientY) * 0.4;
+    }
+    function onUp(e) {
+      const moved = dragStartRef.current?.moved;
+      dragStartRef.current = null;
+      if (moved) {
+        if (isOverFrame(e.clientX, e.clientY)) {
+          const rect = mapFrameRef.current.getBoundingClientRect();
+          const pos = {
+            x: Math.min(100, Math.max(0, (e.clientX - rect.left) / rect.width * 100)),
+            y: Math.min(100, Math.max(0, (e.clientY - rect.top) / rect.height * 100)),
+          };
+          setOverrides(prev => {
+            const next = { ...prev, [draggingId]: pos };
+            localStorage.setItem(PIN_OVERRIDES_KEY, JSON.stringify(next));
+            return next;
+          });
+        }
+      } else {
+        onTap(draggingId);
+      }
+      setGhost(null);
+      setOverMap(false);
+      setDraggingId(null);
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draggingId]);
+
+  function startDrag(tripId, e) {
+    dragStartRef.current = { startX: e.clientX, startY: e.clientY, moved: false };
+    setDraggingId(tripId);
+  }
+
+  return { ghost, overMap, startDrag };
+}
+
+function TripListItem({ trip, confirmed, onPointerDown }) {
+  const cover = trip.photos[0];
+  return (
+    <div className="trip-list-item" onPointerDown={onPointerDown} style={{ touchAction: 'none' }}>
+      <div className="trip-list-thumb">
+        {cover
+          ? <img src={cover.type === 'video' ? videoThumbUrl(cover.url, `so_0,${PHOTO_XS}`) : cloudinaryTransform(cover.url, PHOTO_XS)} alt="" loading="lazy" />
+          : <Icon name="ti-map-pin" style={{ fontSize: 16, color: confirmed ? '#C8993E' : 'var(--text-muted)' }} />}
+      </div>
+      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+        <p style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{trip.label}</p>
+        <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '2px 0 0' }}>{dateRangeLabel(trip.earliestDate, trip.latestDate)}</p>
+      </div>
+      {trip.kids.length > 0 && (
+        <div style={{ display: 'flex', flexShrink: 0 }}>
+          {trip.kids.slice(0, 3).map((k, i) => (
+            <div key={k.id} style={{ marginLeft: i > 0 ? -8 : 0, border: '2px solid var(--bg-card)', borderRadius: '50%' }}>
+              <KidThumb kid={k} size={22} />
+            </div>
+          ))}
+        </div>
+      )}
+      {!confirmed && <Icon name="ti-arrows-up-down" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />}
+    </div>
+  );
+}
+
+function TripSheet({ trip, confirmed, onClose, onOpenEntry, onWriteLetter, onPlaceOnMap }) {
   return (
     <div className="sheet-backdrop" onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.4)', zIndex: 40, display: 'flex', alignItems: 'flex-end' }}>
       <div onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-card)', borderRadius: '22px 22px 0 0', width: '100%', maxHeight: '78%', overflowY: 'auto', padding: '10px 20px 28px' }}>
@@ -74,6 +333,13 @@ function TripSheet({ trip, onClose, onOpenEntry, onWriteLetter }) {
             </div>
           )}
         </div>
+
+        {!confirmed && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-elevated)', border: '1px dashed var(--border)', borderRadius: 10, padding: '9px 12px', marginTop: 14 }}>
+            <Icon name="ti-map-pin" style={{ fontSize: 14, color: '#C8993E', flexShrink: 0 }} />
+            <p style={{ fontSize: 12, color: 'var(--text-2)', margin: 0, lineHeight: 1.4 }}>Not on the map yet — place it so it shows up next to your other trips.</p>
+          </div>
+        )}
 
         {trip.photos.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 16 }}>
@@ -97,97 +363,40 @@ function TripSheet({ trip, onClose, onOpenEntry, onWriteLetter }) {
           </div>
         )}
 
-        <button
-          className="btn btn-gold"
-          style={{ width: '100%', marginTop: 18 }}
-          onClick={() => onWriteLetter(trip)}
-        >
-          <Icon name="ti-pencil" style={{ fontSize: 16 }} />
-          Write a letter about this trip
-        </button>
+        <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+          <button className="btn btn-outline" style={{ flex: confirmed ? '0 0 auto' : 1 }} onClick={onPlaceOnMap}>
+            <Icon name="ti-map-pin" style={{ fontSize: 15 }} />
+            {confirmed ? 'Move pin' : 'Place on map'}
+          </button>
+          <button className="btn btn-gold" style={{ flex: 1 }} onClick={() => onWriteLetter(trip)}>
+            <Icon name="ti-pencil" style={{ fontSize: 16 }} />
+            Write a letter
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-// The illustrated map isn't drawn to a real projection, so an auto-plotted
-// pin (tripClustering.js's latLngToMapPercent) is a starting guess, not a
-// guarantee -- it can land a bit off, more so near coastlines/high latitudes
-// where the hand-drawn art itself drifts furthest from the real coastline.
-// Press-and-drag a pin to correct it; a tap under DRAG_THRESHOLD_PX of
-// movement still opens the trip sheet instead. Corrections persist in
-// localStorage per trip id (stable across reloads -- see tripClustering.js's
-// id comment) rather than a DB column, since this is a per-device visual
-// nicety, not data anyone else needs to see.
-const DRAG_THRESHOLD_PX = 6;
-
 function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
   const { homePt, trips } = useTrips(entries, kids);
   const [activeId, setActiveId] = useState(null);
   const [overrides, setOverrides] = useState(loadPinOverrides);
-  const [dragPreview, setDragPreview] = useState(null); // { id, x, y }
-  const [draggingId, setDraggingId] = useState(null);
-  const frameRef = useRef(null);
-  const dragStartRef = useRef(null); // { startX, startY, moved } -- doesn't need to be reactive itself
-
-  function positionFor(trip) {
-    if (dragPreview?.id === trip.id) return dragPreview;
-    const o = overrides[trip.id];
-    return o || trip;
-  }
-
-  // Only attaches while an actual drag is in progress -- draggingId flipping
-  // from null is what (re)runs this, unlike a plain ref mutation, which
-  // React has no way to notice.
-  useEffect(() => {
-    if (!draggingId) return;
-    function toFramePercent(clientX, clientY) {
-      const rect = frameRef.current.getBoundingClientRect();
-      const x = Math.min(100, Math.max(0, (clientX - rect.left) / rect.width * 100));
-      const y = Math.min(100, Math.max(0, (clientY - rect.top) / rect.height * 100));
-      return { x, y };
-    }
-    function onMove(e) {
-      const d = dragStartRef.current;
-      if (!d) return;
-      const dx = e.clientX - d.startX, dy = e.clientY - d.startY;
-      if (!d.moved && Math.hypot(dx, dy) > DRAG_THRESHOLD_PX) d.moved = true;
-      if (d.moved) setDragPreview({ id: draggingId, ...toFramePercent(e.clientX, e.clientY) });
-    }
-    function onUp(e) {
-      const moved = dragStartRef.current?.moved;
-      dragStartRef.current = null;
-      if (moved) {
-        const pos = toFramePercent(e.clientX, e.clientY);
-        setOverrides(prev => {
-          const next = { ...prev, [draggingId]: pos };
-          localStorage.setItem(PIN_OVERRIDES_KEY, JSON.stringify(next));
-          return next;
-        });
-        setDragPreview(null);
-      } else {
-        setActiveId(prev => prev === draggingId ? null : draggingId);
-      }
-      setDraggingId(null);
-    }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-  }, [draggingId]);
-
-  function startDrag(trip, e) {
-    dragStartRef.current = { startX: e.clientX, startY: e.clientY, moved: false };
-    setDraggingId(trip.id);
-  }
+  const [expanded, setExpanded] = useState(false);
+  const mapFrameRef = useRef(null);
+  const scrollAreaRef = useRef(null);
 
   const activeTrip = trips.find(t => t.id === activeId) || null;
+  const confirmedTrips = trips.filter(t => overrides[t.id]);
+  const unconfirmedTrips = trips.filter(t => !overrides[t.id]);
+
+  function openTrip(id) { setActiveId(id); }
+  const { ghost, overMap, startDrag: startListDrag } = useListDrag(mapFrameRef, scrollAreaRef, setOverrides, openTrip);
+  const ghostTrip = ghost ? trips.find(t => t.id === ghost.tripId) : null;
 
   return (
     <div className="screen">
-      <div className="scroll-area">
+      <div className="scroll-area" ref={scrollAreaRef}>
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
             <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
@@ -210,45 +419,69 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
             </div>
           ) : (
             <>
-              <div className="trip-map-frame" ref={frameRef} onClick={() => setActiveId(null)}>
-                <img className="trip-map-img" src={mapImage} alt="" />
-                {trips.map(trip => {
-                  const pos = positionFor(trip);
-                  const active = trip.id === activeId;
-                  return (
-                    <button
-                      key={trip.id}
-                      className={`trip-pin${active ? ' active' : ''}`}
-                      style={{ left: `${pos.x}%`, top: `${pos.y}%` }}
-                      onPointerDown={e => { e.stopPropagation(); startDrag(trip, e); }}
-                      aria-label={trip.label}
-                    >
-                      <span className="trip-pin-visual">
-                        {active && <span className="trip-pin-ring" />}
-                        <svg width={active ? 20 : 17} height={active ? 25 : 21} viewBox="0 0 16 20">
-                          <path fill="#C8993E" d="M8 0C3.6 0 0 3.6 0 8c0 5.5 8 12 8 12s8-6.5 8-12c0-4.4-3.6-8-8-8z" />
-                          <circle cx="8" cy="8" r="3" fill="#fff" />
-                        </svg>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: '12px 0 0', lineHeight: 1.5 }}>
-                {trips.length} {trips.length === 1 ? 'place' : 'places'} you've written home about<br />
-                <span style={{ opacity: 0.75 }}>Pin a little off? Press and drag it to fix.</span>
-              </p>
+              <TripMapCard
+                trips={trips}
+                overrides={overrides}
+                frameRef={mapFrameRef}
+                dropTarget={overMap}
+                onExpand={() => setExpanded(true)}
+                onTapPin={openTrip}
+              />
+
+              {confirmedTrips.length > 0 && (
+                <>
+                  <p className="trip-list-heading">Places you've been</p>
+                  <div className="trip-list">
+                    {confirmedTrips.map(trip => (
+                      <TripListItem key={trip.id} trip={trip} confirmed onPointerDown={e => startListDrag(trip.id, e)} />
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {unconfirmedTrips.length > 0 && (
+                <>
+                  <p className="trip-list-heading">Places you haven't pinned yet</p>
+                  <p className="trip-list-hint">Press and drag one up onto the map to place its pin.</p>
+                  <div className="trip-list">
+                    {unconfirmedTrips.map(trip => (
+                      <TripListItem key={trip.id} trip={trip} confirmed={false} onPointerDown={e => startListDrag(trip.id, e)} />
+                    ))}
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
       </div>
 
-      {activeTrip && (
+      {ghost && ghostTrip && (
+        <div className="trip-ghost-pin" style={{ left: ghost.x, top: ghost.y }}>
+          <svg width="24" height="30" viewBox="0 0 16 20">
+            <path fill="#C8993E" d="M8 0C3.6 0 0 3.6 0 8c0 5.5 8 12 8 12s8-6.5 8-12c0-4.4-3.6-8-8-8z" stroke="#fff" strokeWidth="0.5" />
+            <circle cx="8" cy="8" r="3" fill="#fff" />
+          </svg>
+        </div>
+      )}
+
+      {activeTrip && !expanded && (
         <TripSheet
           trip={activeTrip}
+          confirmed={!!overrides[activeTrip.id]}
           onClose={() => setActiveId(null)}
           onOpenEntry={onOpenEntry}
           onWriteLetter={onWriteLetter}
+          onPlaceOnMap={() => setExpanded(true)}
+        />
+      )}
+
+      {expanded && (
+        <TripMapFullView
+          trips={trips}
+          overrides={overrides}
+          setOverrides={setOverrides}
+          onClose={() => setExpanded(false)}
+          onTapPin={id => { setExpanded(false); openTrip(id); }}
         />
       )}
     </div>
