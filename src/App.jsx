@@ -1182,26 +1182,6 @@ function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFil
       .slice(0, 2);
   }, [entries, kidFilter, recent]);
 
-  const circleSnapshot = useMemo(() => {
-    const byFamily = new Map();
-    for (const e of friendEntries) {
-      if (!e.media?.length) continue;
-      if (!byFamily.has(e.familyId)) byFamily.set(e.familyId, []);
-      byFamily.get(e.familyId).push(e);
-    }
-    const result = [];
-    for (const [fid, pool] of byFamily.entries()) {
-      // Stable daily shuffle — seeded so it doesn't reshuffle on every rerender
-      let h = parseInt(todayMMDD.replace('-', ''), 10) ^ parseInt(fid.replace(/-/g, '').slice(0, 8), 16);
-      const shuffled = [...pool].sort((a, b) => {
-        h ^= h << 13; h ^= h >> 17; h ^= h << 5; h &= 0x7fffffff;
-        return (h & 1) ? 1 : -1;
-      });
-      result.push(...shuffled.slice(0, 2));
-    }
-    return result;
-  }, [friendEntries, todayMMDD]);
-
   const friendUserMap = useMemo(() => {
     const map = {};
     friends.forEach(fr => {
@@ -1274,7 +1254,6 @@ function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFil
   // Anywhere in the final week counts, not just exactly 7 days out — a birthday
   // 3 days away should still surface the banner, not just the 7-day and day-of marks.
   const birthdayNextWeek = useMemo(() => kids.filter(k => { if (k.archivedAt) return false; const d = daysUntilBirthday(k.birthdate); return d > 0 && d <= 7; }), [kids]);
-  const friendBirthdaysToday = useMemo(() => friendKids.filter(k => k.birthdate && daysUntilBirthday(k.birthdate) === 0), [friendKids]);
   const friendBirthdayNextWeek = useMemo(() => friendKids.filter(k => { if (!k.birthdate) return false; const d = daysUntilBirthday(k.birthdate); return d > 0 && d <= 7; }), [friendKids]);
 
   // Client-side mirror of the same-age push's detection (send-scheduled-notifications) —
@@ -1757,87 +1736,6 @@ function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFil
               </div>
             </div>
           )}
-
-
-          {(circleSnapshot.length > 0 || friendBirthdaysToday.length > 0) && (() => {
-            const sharedMoments = circleSnapshot;
-            return (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.8, textTransform: 'uppercase', whiteSpace: 'nowrap' }}>Just a glimpse</span>
-                  {friendBirthdaysToday.length > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(200,153,62,0.12)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: 999, padding: '2px 7px' }}>
-                      <Icon name="ti-cake" style={{ fontSize: 10, color: '#C8993E' }} />
-                      <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', fontFamily: "'Urbanist', sans-serif", letterSpacing: 0.3 }}>{friendBirthdaysToday.length}</span>
-                    </div>
-                  )}
-                  <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                </div>
-                <div className="scrollx" style={{ gap: 10, paddingBottom: 4 }}>
-                  {friendBirthdaysToday.map(k => {
-                    const friendInfo = friendFamilyMap[k.familyId] || {};
-                    const age = turningAge(k.birthdate);
-                    return (
-                      <div key={`bday-${k.id}`} onClick={() => { birthdayNotifications.filter(n => n.kidId === k.id).forEach(n => onDismissBirthday?.(n.id)); onFriendBirthdayClick?.(k); }} style={{ width: 136, flexShrink: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid rgba(200,153,62,0.35)', background: 'linear-gradient(160deg, #2A4035 0%, #3A5548 100%)', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}>
-                        <div style={{ height: 136, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 10px', position: 'relative' }}>
-                          <button
-                            onClick={e => { e.stopPropagation(); window.open(k.wishlistUrl || AMAZON_GIFT_FALLBACK_URL, '_blank', 'noopener,noreferrer'); }}
-                            style={{ position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: '50%', background: 'rgba(0,0,0,0.35)', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                            title={k.wishlistUrl ? `${k.name}'s Amazon wishlist` : 'Shop gift ideas on Amazon'}
-                          >
-                            <AmazonIcon size={14} aColor="#fff" />
-                          </button>
-                          <div style={{ width: 44, height: 44, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(200,153,62,0.5)', background: k.accent || '#4A5E50', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                            {k.avatar
-                              ? <img src={cloudinaryTransform(k.avatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" loading="lazy" />
-                              : <span style={{ fontFamily: "'Urbanist', sans-serif", fontWeight: 700, fontSize: 18, color: '#fff' }}>{k.name?.charAt(0)}</span>
-                            }
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(200,153,62,0.15)', border: '1px solid rgba(200,153,62,0.3)', borderRadius: '50%', width: 28, height: 28 }}>
-                            <Icon name="ti-player-play-filled" style={{ fontSize: 11, color: '#C8993E' }} />
-                          </div>
-                        </div>
-                        <div style={{ padding: '8px 10px', borderTop: '1px solid rgba(200,153,62,0.15)' }}>
-                          <p style={{ fontSize: 12, fontWeight: 600, color: '#C8993E', margin: 0, lineHeight: 1.3 }}>🎂 {k.name}'s {ordinal(age)}</p>
-                          {friendInfo.name && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0', fontFamily: "'Urbanist', sans-serif" }}>{friendInfo.name}'s family</p>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {sharedMoments.map(entry => {
-                    const entryKids = friendKids.filter(k => (entry.kids || []).includes(k.id));
-                    if (!entryKids.length) return null;
-                    const friendInfo = friendUserMap[entry.userId] || friendFamilyMap[entry.familyId] || {};
-                    const friendName = friendInfo.name || '';
-                    const friendAvatar = friendInfo.avatar || null;
-                    const kidLabel = entryKids.map(k => k.name).join(' & ');
-                    const age = entryKids[0].birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
-                    const bgStyle = entryBgStyle(entry);
-                    const hasPhoto = bgStyle.backgroundImage;
-                    const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-                    return (
-                      <div key={entry.id} onClick={() => setCircleViewer({ entry, entryKids, kidLabel, age: entryKids[0].birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null, friendName, friendAvatar, entryDate })} style={{ width: 136, flexShrink: 0, borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', cursor: 'pointer' }}>
-                        <div style={{ height: 136, position: 'relative', overflow: 'hidden', background: hasPhoto ? '#000' : (entry.palette?.bg || 'var(--bg-elevated)'), ...bgStyle, backgroundSize: 'cover', backgroundPosition: 'center' }}>
-                          <div style={{ position: 'absolute', top: 7, left: 7, width: 24, height: 24, borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.92)', border: '1.5px solid rgba(255,255,255,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: 'var(--accent)', flexShrink: 0 }}>
-                            {friendAvatar
-                              ? <img src={cloudinaryTransform(friendAvatar, AVATAR_TRANSFORM_SM)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-                              : friendName?.charAt(0) || '?'}
-                          </div>
-                        </div>
-                        <div style={{ padding: '8px 10px' }}>
-                          <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', margin: 0, lineHeight: 1.3 }}>{kidLabel}</p>
-                          {age && <p style={{ fontSize: 11, color: 'var(--text-muted)', margin: '1px 0 0' }}>{age}</p>}
-                          <p style={{ fontSize: 11, color: 'var(--text-3)', margin: '3px 0 0' }}>{entryDate}{friendName ? ` · ${friendName}` : ''}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })()}
 
         </div>
       </div>
