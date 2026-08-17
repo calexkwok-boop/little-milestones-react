@@ -284,6 +284,9 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   display: flex; align-items: flex-end; justify-content: center;
   transform: translate(-50%, -100%);
   cursor: pointer;
+  /* Otherwise a touchmove drag on the pin scrolls the page underneath it
+     instead of repositioning the pin (TripsMapScreen's press-and-drag). */
+  touch-action: none;
 }
 .trip-pin svg { display: block; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.5)); }
 .trip-pin-visual { position: relative; display: block; }

@@ -52,14 +52,18 @@ export function clusterIntoTrips(entries, homePt) {
 }
 
 // Maps a real lat/lng onto the illustrated travel-map.png (998x558) as a
-// percentage position -- calibrated against known city coordinates (NYC,
-// London, Tokyo, Sydney, Reykjavik, Cape Town, Rio, LA) rather than derived
-// from a formal projection, since the art is hand-drawn, not a strict
-// equirectangular render. Good to within a city's width, not survey-grade --
-// fine for "roughly where we went," which is all a 40px pin target needs.
-const MAP_BOUNDS = { lngMin: -169, lngMax: 191, latMin: -58, latMax: 78 };
+// percentage position. Least-squares fit against 10 landmarks read directly
+// off the image (Gibraltar, Cape of Good Hope, North Cape, Tokyo, Sydney,
+// NYC, Miami, Cape Horn, Baja, Anchorage) rather than a formal projection --
+// the art is hand-drawn, not rendered to a real one, and residual error
+// after the fit still runs ~3-10 percentage points in some regions (checked
+// against the same 10 points). That's the ceiling for *any* linear fit
+// against art this loose, not a bug in the formula -- this gets a pin in
+// the right neighborhood as a starting point; TripsMapScreen lets the pin
+// be dragged the rest of the way, which is the actual fix for "close but
+// not exact."
 export function latLngToMapPercent(lat, lng) {
-  const x = (lng - MAP_BOUNDS.lngMin) / (MAP_BOUNDS.lngMax - MAP_BOUNDS.lngMin) * 100;
-  const y = (MAP_BOUNDS.latMax - lat) / (MAP_BOUNDS.latMax - MAP_BOUNDS.latMin) * 100;
+  const x = 0.27638 * lng + 44.39548;
+  const y = -0.66299 * lat + 61.43460;
   return { x: Math.min(100, Math.max(0, x)), y: Math.min(100, Math.max(0, y)) };
 }
