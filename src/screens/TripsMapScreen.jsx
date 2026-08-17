@@ -46,6 +46,18 @@ function frameLocalPercent(frameEl, clientX, clientY, rotated) {
   return rotated ? { x: (1 - yFrac) * 100, y: xFrac * 100 } : { x: xFrac * 100, y: yFrac * 100 };
 }
 
+// The exact inverse of frameLocalPercent's rotated mapping -- turns a pin's
+// stored local (x%, y%) back into real viewport pixels. Used to place the
+// map popup as a plain fixed-position element outside the rotated frame
+// entirely, so it can be clamped to the screen with ordinary min/max math
+// instead of hand-deriving that clamp through the rotation.
+function localPercentToScreen(frameEl, pos, rotated) {
+  const rect = frameEl.getBoundingClientRect();
+  return rotated
+    ? { x: rect.left + (pos.y / 100) * rect.width, y: rect.top + (1 - pos.x / 100) * rect.height }
+    : { x: rect.left + (pos.x / 100) * rect.width, y: rect.top + (pos.y / 100) * rect.height };
+}
+
 // A raw entry.location can be a full Google-autocompleted address ("1313
 // Disneyland Dr, Anaheim, CA 92802, USA") -- way more than a trip card
 // needs. Trims to just city+state (US) or city+country (everywhere else).
@@ -411,6 +423,11 @@ function NewPinSheet({ onCancel, onSave }) {
   );
 }
 
+const POPUP_WIDTH = 200;
+const POPUP_MARGIN = 12;
+const POPUP_GAP = 42; // clears the pin's own visual height above its tip
+const POPUP_EST_HEIGHT = 100; // rough, just enough to keep it off the top edge
+
 function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, onAddPin }) {
   const frameRef = useRef(null);
   // Tapping a pin here shows its name in place (Calendar's own popup
@@ -422,6 +439,24 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, 
   const { positionFor, startDrag } = usePinDrag(frameRef, setOverrides, setPopupId, true);
   const popupTrip = trips.find(t => t.id === popupId) || null;
   const popupPos = popupTrip ? (positionFor(popupTrip) || overrides[popupTrip.id] || popupTrip.guess) : null;
+
+  // The popup renders as a plain fixed-position element (see its call site,
+  // a sibling of .trip-map-full.rotated, same reasoning as NewPinSheet's own
+  // comment below) so it can be clamped to the real screen with ordinary
+  // pixel math -- a pin near any edge of the rotated map used to push half
+  // the popup off-screen with no way to see what it said. The arrow stays
+  // pointing at the true pin position even when the box itself has to slide
+  // over to stay on screen.
+  let popupStyle = null, popupArrowLeft = null;
+  if (popupTrip && frameRef.current) {
+    const screenPos = localPercentToScreen(frameRef.current, popupPos, true);
+    const rawLeft = screenPos.x - POPUP_WIDTH / 2;
+    const clampedLeft = Math.min(Math.max(rawLeft, POPUP_MARGIN), window.innerWidth - POPUP_WIDTH - POPUP_MARGIN);
+    popupArrowLeft = Math.min(Math.max(screenPos.x - clampedLeft, 16), POPUP_WIDTH - 16);
+    const rawBottom = window.innerHeight - screenPos.y + POPUP_GAP;
+    const bottom = Math.min(rawBottom, window.innerHeight - POPUP_EST_HEIGHT - POPUP_MARGIN);
+    popupStyle = { left: clampedLeft, bottom };
+  }
 
   function handleBackgroundTap(clientX, clientY) {
     setPopupId(null);
@@ -467,15 +502,6 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, 
                   />
                 );
               })}
-              {popupTrip && (
-                <div className="trip-map-popup" style={{ left: `${popupPos.x}%`, transform: `translateX(-50%) scale(${1 / scale})` }} onPointerDown={e => e.stopPropagation()}>
-                  <div className="trip-map-popup-name">{popupTrip.label}</div>
-                  <div className="trip-map-popup-dates">{dateRangeLabel(popupTrip.visits)}</div>
-                  <button type="button" className="trip-map-popup-link" onClick={() => onOpenTrip(popupTrip.id)}>
-                    View details <Icon name="ti-arrow-right" style={{ fontSize: 10 }} />
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -487,6 +513,21 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip, 
           <span>Pinch or use +/- to zoom, drag a pin to place it, or tap an empty spot to add a new one · turn your phone sideways to line it up</span>
         </div>
       </div>
+      {/* Sibling of .trip-map-full.rotated, not a descendant -- same reason
+          as NewPinSheet below: that element's rotation would otherwise drag
+          this popup's fixed-position math into the rotated coordinate
+          space, defeating the whole point of computing plain screen pixels
+          for it above. */}
+      {popupTrip && popupStyle && (
+        <div className="trip-map-popup" style={popupStyle} onPointerDown={e => e.stopPropagation()}>
+          <div className="trip-map-popup-name">{popupTrip.label}</div>
+          <div className="trip-map-popup-dates">{dateRangeLabel(popupTrip.visits)}</div>
+          <button type="button" className="trip-map-popup-link" onClick={() => onOpenTrip(popupTrip.id)}>
+            View details <Icon name="ti-arrow-right" style={{ fontSize: 10 }} />
+          </button>
+          <div className="trip-map-popup-arrow" style={{ left: popupArrowLeft }} />
+        </div>
+      )}
       {pendingSpot && (
         <NewPinSheet
           onCancel={() => setPendingSpot(null)}
@@ -667,12 +708,17 @@ function TripSheet({ trip, confirmed, onClose, onOpenEntry, onWriteLetter, onPla
           <Icon name="ti-map-pin" style={{ fontSize: 15 }} />
           {confirmed ? 'Move pin' : 'Place on map'}
         </button>
-        {trip.manual && onRemovePin && (
+        {/* Manual pins get a real delete (nothing else references them); a
+            confirmed auto trip only gets un-pinned -- its entries are real
+            journal letters, so "remove" here can only mean "take it off the
+            map", sending it back to "haven't pinned yet" rather than
+            deleting anything. */}
+        {confirmed && onRemovePin && (
           <button
             onClick={onRemovePin}
             style={{ all: 'unset', display: 'flex', alignItems: 'center', gap: 4, marginTop: 10, cursor: 'pointer', color: 'var(--coral)', fontSize: 12, fontWeight: 600 }}
           >
-            <Icon name="ti-trash" style={{ fontSize: 13 }} /> Remove this pin
+            <Icon name="ti-trash" style={{ fontSize: 13 }} /> {trip.manual ? 'Remove this pin' : 'Unpin from map'}
           </button>
         )}
 
@@ -820,6 +866,18 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
     setActiveId(null);
   }
 
+  // For an auto-detected trip -- its entries are real letters, so "remove"
+  // can only mean taking the pin off the map, not deleting anything. Drops
+  // it back into "haven't pinned yet" for the sheet stays open either way.
+  function unconfirmTrip(id) {
+    setOverrides(prev => {
+      const next = { ...prev };
+      delete next[id];
+      localStorage.setItem(PIN_OVERRIDES_KEY, JSON.stringify(next));
+      return next;
+    });
+  }
+
   const { ghost, overMap, startDrag: startListDrag } = useListDrag(mapFrameRef, scrollAreaRef, setOverrides, openTrip);
   const ghostTrip = ghost ? trips.find(t => t.id === ghost.tripId) : null;
 
@@ -858,17 +916,11 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
             </div>
           ) : (
             <>
-              {confirmedVisitCards.length > 0 && (
-                <>
-                  <p className="trip-list-heading">Places you've been</p>
-                  <div className="trip-list">
-                    {confirmedVisitCards.map(({ trip, visit }) => (
-                      <TripListItem key={visit.id} trip={trip} visit={visit} confirmed onOpen={() => openTrip(trip.id)} />
-                    ))}
-                  </div>
-                </>
-              )}
-
+              {/* Unconfirmed trips need to be dragged up onto the map above --
+                  listed first, right under it, so that drag has somewhere
+                  close to reach. Below "places you've been" it'd be a much
+                  longer drag, or scrolled out of view entirely once there
+                  are several confirmed trips. */}
               {unconfirmedVisitCards.length > 0 && (
                 <>
                   <p className="trip-list-heading">Places you haven't pinned yet</p>
@@ -876,6 +928,17 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
                   <div className="trip-list">
                     {unconfirmedVisitCards.map(({ trip, visit }) => (
                       <TripListItem key={visit.id} trip={trip} visit={visit} confirmed={false} onPointerDown={e => startListDrag(trip.id, e)} />
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {confirmedVisitCards.length > 0 && (
+                <>
+                  <p className="trip-list-heading">Places you've been</p>
+                  <div className="trip-list">
+                    {confirmedVisitCards.map(({ trip, visit }) => (
+                      <TripListItem key={visit.id} trip={trip} visit={visit} confirmed onOpen={() => openTrip(trip.id)} />
                     ))}
                   </div>
                 </>
@@ -902,7 +965,7 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
           onOpenEntry={onOpenEntry}
           onWriteLetter={onWriteLetter}
           onPlaceOnMap={() => setExpanded(true)}
-          onRemovePin={activeTrip?.manual ? () => removeManualPin(activeTrip.id) : undefined}
+          onRemovePin={activeTrip && overrides[activeTrip.id] ? () => (activeTrip.manual ? removeManualPin(activeTrip.id) : unconfirmTrip(activeTrip.id)) : undefined}
         />
       )}
 

@@ -420,16 +420,20 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 }
 /* Tap (not drag) a pin -- shows what it is without leaving the enlarged
    view, so you can confirm which trip you're about to drag before you
-   actually move it. Ported from Patina Calendar's own map popup. */
+   actually move it. Positioned in plain screen pixels (left/bottom set
+   inline by TripMapFullView, already clamped to stay on-screen) rather
+   than as a percentage of the rotated map frame -- see localPercentToScreen
+   for why. The arrow is a real element, not ::after, because it needs a
+   per-instance `left` to keep pointing at the pin once the box is clamped. */
 .trip-map-popup {
-  position: absolute; left: 50%; transform: translateX(-50%); bottom: 55%;
+  position: fixed;
   width: 200px; background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 14px; padding: 10px;
   box-shadow: 0 10px 24px -8px rgba(0,0,0,0.5);
-  z-index: 4;
+  z-index: 205;
 }
-.trip-map-popup::after {
-  content: ''; position: absolute; left: 50%; bottom: -6px;
+.trip-map-popup-arrow {
+  position: absolute; bottom: -6px;
   transform: translateX(-50%) rotate(45deg);
   width: 11px; height: 11px; background: var(--bg-card);
   border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
