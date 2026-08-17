@@ -3442,7 +3442,16 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
 
       {/* Top bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px 12px', flexShrink: 0, position: 'relative' }}>
-        <button className="icon-btn" onClick={onCancel}><Icon name="ti-x" /></button>
+        {/* Calendar's own IconX, rendered directly rather than through the
+            shared Icon wrapper -- ported for exact parity with the enlarged
+            trip map's close button, at the same 16px/1.7 stroke it uses
+            there. ti-x itself stays untouched since it's used all over the
+            rest of the app. */}
+        <button className="icon-btn" onClick={onCancel}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
         {isNote && (
           <span style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%, -50%)', fontSize: 14, fontWeight: 700, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif" }}>
             {existingEntry ? 'Edit note' : 'New note'}
