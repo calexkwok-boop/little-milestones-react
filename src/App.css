@@ -342,7 +342,12 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
    still-portrait-shaped CSS viewport. */
 .trip-map-full.rotated {
   top: 0; left: 0; right: auto; bottom: auto;
+  /* dvh/dvw, not vh/vw -- on a real phone the address/toolbar chrome makes
+     100vh taller than what's actually visible, so the rotated (dimension-
+     swapped) box overflowed past the top of the real viewport. Falls back
+     fine on browsers without dvh support (effectively the same as vh there). */
   width: 100vh; height: 100vw;
+  width: 100dvh; height: 100dvw;
   transform-origin: top left;
   transform: rotate(-90deg) translateX(-100%);
 }
@@ -357,6 +362,28 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .trip-map-full-stage {
   position: relative; width: 100%; max-width: 900px; flex: 1; min-height: 0;
   display: flex; align-items: center; justify-content: center;
+}
+/* Tap (not drag) a pin -- shows what it is without leaving the enlarged
+   view, so you can confirm which trip you're about to drag before you
+   actually move it. Ported from Patina Calendar's own map popup. */
+.trip-map-popup {
+  position: absolute; left: 50%; transform: translateX(-50%); bottom: 55%;
+  width: 200px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 10px;
+  box-shadow: 0 10px 24px -8px rgba(0,0,0,0.5);
+  z-index: 4;
+}
+.trip-map-popup::after {
+  content: ''; position: absolute; left: 50%; bottom: -6px;
+  transform: translateX(-50%) rotate(45deg);
+  width: 11px; height: 11px; background: var(--bg-card);
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.trip-map-popup-name { font-size: 12.5px; font-weight: 800; color: var(--text); }
+.trip-map-popup-dates { font-size: 10px; color: var(--text-3); margin-top: 1px; }
+.trip-map-popup-link {
+  all: unset; cursor: pointer; display: flex; align-items: center; gap: 3px;
+  font-size: 10.5px; font-weight: 700; color: var(--accent); margin-top: 7px;
 }
 .trip-map-rotate-hint {
   display: flex; align-items: center; gap: 10px;

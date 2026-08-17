@@ -177,16 +177,24 @@ function TripMapCard({ trips, overrides, frameRef, dropTarget, onExpand, onTapPi
   );
 }
 
-function TripMapFullView({ trips, overrides, setOverrides, onClose, onTapPin }) {
+function TripMapFullView({ trips, overrides, setOverrides, onClose, onOpenTrip }) {
   const frameRef = useRef(null);
-  const { positionFor, startDrag } = usePinDrag(frameRef, setOverrides, onTapPin, true);
+  // Tapping a pin here shows its name in place (Calendar's own popup
+  // treatment) rather than immediately leaving the enlarged view -- the
+  // point of enlarging is to see exactly which pin is which before
+  // dragging it, so jumping straight to the full trip sheet defeated that.
+  const [popupId, setPopupId] = useState(null);
+  const { positionFor, startDrag } = usePinDrag(frameRef, setOverrides, setPopupId, true);
+  const popupTrip = trips.find(t => t.id === popupId) || null;
+  const popupPos = popupTrip ? (positionFor(popupTrip) || overrides[popupTrip.id] || popupTrip.guess) : null;
+
   return (
     <div className="trip-map-full rotated">
       <button type="button" className="trip-map-full-close" aria-label="Close map" onClick={onClose}>
         <Icon name="ti-x" />
       </button>
       <div className="trip-map-full-stage">
-        <div className="trip-map-frame" ref={frameRef} style={{ cursor: 'grab' }}>
+        <div className="trip-map-frame" ref={frameRef} style={{ cursor: 'grab' }} onClick={() => setPopupId(null)}>
           <img className="trip-map-img" src={mapImage} alt="" />
           {trips.map(trip => {
             const pos = positionFor(trip) || overrides[trip.id] || trip.guess;
@@ -196,11 +204,20 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onTapPin }) 
                 trip={trip}
                 pos={pos}
                 confirmed={!!overrides[trip.id]}
-                active={false}
+                active={trip.id === popupId}
                 onPointerDown={e => { e.stopPropagation(); startDrag(trip.id, e); }}
               />
             );
           })}
+          {popupTrip && (
+            <div className="trip-map-popup" style={{ left: `${popupPos.x}%` }} onClick={e => e.stopPropagation()}>
+              <div className="trip-map-popup-name">{popupTrip.label}</div>
+              <div className="trip-map-popup-dates">{dateRangeLabel(popupTrip.earliestDate, popupTrip.latestDate)}</div>
+              <button type="button" className="trip-map-popup-link" onClick={() => onOpenTrip(popupTrip.id)}>
+                View details <Icon name="ti-arrow-right" style={{ fontSize: 10 }} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
       <div className="trip-map-rotate-hint">
@@ -208,7 +225,7 @@ function TripMapFullView({ trips, overrides, setOverrides, onClose, onTapPin }) 
           <rect x="7" y="2" width="10" height="20" rx="2.2" />
           <path d="M11 19h2" />
         </svg>
-        <span>Turn your phone sideways · press and drag a pin to place it</span>
+        <span>Press and drag a pin to place it · turn your phone sideways to line it up</span>
       </div>
     </div>
   );
@@ -481,7 +498,7 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
           overrides={overrides}
           setOverrides={setOverrides}
           onClose={() => setExpanded(false)}
-          onTapPin={id => { setExpanded(false); openTrip(id); }}
+          onOpenTrip={id => { setExpanded(false); openTrip(id); }}
         />
       )}
     </div>
