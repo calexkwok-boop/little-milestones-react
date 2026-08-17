@@ -33,6 +33,7 @@ const LazyPatinaJarScreen = lazy(() => import('./screens/PatinaJarScreen'));
 const LazyPatinaJarRecordScreen = lazy(() => import('./screens/PatinaJarRecordScreen'));
 const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
 const LazyNotificationHistoryScreen = lazy(() => import('./screens/NotificationHistoryScreen'));
+const LazyTripsMapScreen = lazy(() => import('./screens/TripsMapScreen'));
 const LazySharedEntryScreen = lazy(() => import('./screens/SharedEntryScreen'));
 const LazySharedReelScreen = lazy(() => import('./screens/SharedReelScreen'));
 import BookBuilderScreen from './screens/BookBuilderScreen';
@@ -3228,7 +3229,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, mode: modeProp, promptText: promptTextProp }) {
+function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, initialLocation, initialLocationCoords, mode: modeProp, promptText: promptTextProp }) {
   const [promptText, setPromptText] = useState(promptTextProp || existingEntry?.prompt || null);
   const mode = modeProp || existingEntry?.type || 'letter';
   const isNote = mode === 'note';
@@ -3255,8 +3256,8 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   const [signedAs, setSignedAs] = useState(existingEntry?.signedAs ?? (isNote ? '' : signedDefault) ?? '');
   const [sharedWith, setSharedWith] = useState(existingEntry?.sharedWith || sharingDefaults);
   const [showSharePicker, setShowSharePicker] = useState(false);
-  const [location, setLocation] = useState(existingEntry?.location || '');
-  const [locationCoords, setLocationCoords] = useState(existingEntry?.locationLat != null ? { lat: existingEntry.locationLat, lng: existingEntry.locationLng } : null);
+  const [location, setLocation] = useState(existingEntry?.location || initialLocation || '');
+  const [locationCoords, setLocationCoords] = useState(existingEntry?.locationLat != null ? { lat: existingEntry.locationLat, lng: existingEntry.locationLng } : initialLocationCoords || null);
   const [locationFromPhoto, setLocationFromPhoto] = useState(false);
   const [song, setSong] = useState(existingEntry?.song || null);
   const [songQuery, setSongQuery] = useState('');
@@ -4523,7 +4524,7 @@ function ReactionToast({ message, onDismiss }) {
 // ──────────────────────────────────────────────────────────────────────────
 
 const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) {
-  const { pendingRequestCount = 0, circleBadge = 0, unseenPartnerIds = [] } = useNotif() ?? {};
+  const { unseenPartnerIds = [] } = useNotif() ?? {};
   const { kids = [] } = useData() ?? {};
   // Only child in the family — Home's kid-pill row (and its per-kid unseen
   // dot) never renders, since there's nothing to filter. That's the only
@@ -4534,8 +4535,13 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) 
     { id: 'home', icon: 'ti-home', label: 'Home', group: ['home'], badge: homeBadge },
     { id: 'recap', icon: 'ti-keepsakes', label: 'Keepsakes', group: ['recap', 'partner-letters', 'compare'] },
   ];
+  // Friends (circle-feed/friends) is intentionally off the bar, not deleted
+  // -- barely anyone actually used it, and a private letter-journaling app
+  // having a social/audience feature at all was suspected of making people
+  // *more* hesitant to write, not less. Screens, data, and routes are still
+  // there if that changes; this is just where its nav slot went.
   const tabsRight = [
-    { id: 'circle-feed', icon: 'ti-users', label: 'Friends', group: ['circle-feed', 'friends'], badge: pendingRequestCount + circleBadge },
+    { id: 'trips-map', icon: 'ti-map-pin', label: 'Trips', group: ['trips-map'] },
     { id: 'profile', icon: 'ti-profile-quill', label: 'Profile', group: ['profile'] },
   ];
 
@@ -6926,7 +6932,7 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={activeKids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} />
+        <NewEntryScreen kids={activeKids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} initialLocation={newEntryInitial?.location} initialLocationCoords={newEntryInitial?.locationCoords} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
@@ -7087,6 +7093,22 @@ export default function App() {
       {screen === 'search' && (
         <Suspense fallback={<div className="screen" />}>
           <LazySearchScreen entries={entries} kids={kids} onBack={() => setScreen('home')} onOpenEntry={openEntry} />
+        </Suspense>
+      )}
+
+      {screen === 'trips-map' && (
+        <Suspense fallback={<div className="screen" />}>
+          <LazyTripsMapScreen
+            entries={entries}
+            kids={kids}
+            onBack={() => setScreen('home')}
+            onOpenEntry={openEntry}
+            onWriteLetter={trip => {
+              setNewEntryInitial({ kidIds: trip.kids.map(k => k.id), location: trip.label, locationCoords: trip.locationCoords });
+              setComposeMode('letter');
+              setScreen('new-entry');
+            }}
+          />
         </Suspense>
       )}
 

@@ -260,6 +260,46 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 
 .empty-state { text-align: center; padding: 50px 24px; }
 
+/* ---------- Trips map (TripsMapScreen) ---------- */
+.trip-map-frame {
+  position: relative;
+  aspect-ratio: 998 / 558;
+  width: 100%;
+  border-radius: 18px;
+  overflow: hidden;
+  margin-top: 12px;
+  /* Fixed regardless of light/dark theme -- a signature illustrated object
+     (like the map art itself), not a themed UI surface. */
+  background: linear-gradient(160deg, #2A4035 0%, #4A5E50 60%, #3A5548 100%);
+}
+.trip-map-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+.trip-pin {
+  all: unset;
+  position: absolute;
+  /* Invisible tap target bigger than the visible pin icon (~16-20px, well
+     under a comfortable touch target) -- the SVG is bottom-anchored within
+     it so the pin's tip still lands exactly on the stored coordinate. */
+  width: 40px; height: 46px;
+  display: flex; align-items: flex-end; justify-content: center;
+  transform: translate(-50%, -100%);
+  cursor: pointer;
+}
+.trip-pin svg { display: block; filter: drop-shadow(0 3px 4px rgba(0,0,0,0.5)); }
+.trip-pin-visual { position: relative; display: block; }
+.trip-pin-ring {
+  position: absolute; left: 50%; top: -13px; width: 14px; height: 14px;
+  margin-left: -7px; border-radius: 50%; background: #C8993E; opacity: 0.55;
+  animation: trip-pin-pulse 2.2s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .trip-pin-ring { animation: none; }
+}
+@keyframes trip-pin-pulse {
+  0% { transform: scale(0.6); opacity: 0.55; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+
 .day-quote-mark {
   font-family: 'Source Serif 4', serif; font-size: 32px; color: var(--border);
   line-height: 0.5; position: absolute; top: 12px; right: 16px;

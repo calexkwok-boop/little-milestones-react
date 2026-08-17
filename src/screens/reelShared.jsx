@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
 import { cloudinaryTransform, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, exactAgeLabel, PHOTO_LG } from '../constants.js';
 import { Coachmark } from '../Coachmark.jsx';
+import { haversine, findHomePoint, clusterIntoTrips } from '../tripClustering.js';
+export { findHomePoint };
 
 // Everything in this file is used by BOTH the live in-app reel
 // (MonthlyReelScreen) and its public replay page (SharedReelScreen) — slide
@@ -81,31 +83,6 @@ function monthTextEntriesFor(entries, startDate, endDate) {
   return entriesInRange(entries, startDate, endDate).filter(e => e.text?.trim());
 }
 
-// Same "home is the coordinate cluster with the most neighbors within 25
-// miles" logic already used for the Journal search's "trips" filter — kept
-// as its own copy here since screens/ files are self-contained.
-const TRIP_DISTANCE_MILES = 25;
-
-function haversine(lat1, lng1, lat2, lng2) {
-  const R = 3958.8;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-export function findHomePoint(entries) {
-  const pts = entries.filter(e => e.locationLat != null && e.locationLng != null);
-  if (pts.length < 2) return null;
-  let best = null, bestCount = 0;
-  pts.forEach(p => {
-    const count = pts.filter(q => haversine(p.locationLat, p.locationLng, q.locationLat, q.locationLng) <= TRIP_DISTANCE_MILES).length;
-    if (count > bestCount) { bestCount = count; best = p; }
-  });
-  if (!best || bestCount < 2) return null;
-  return { lat: best.locationLat, lng: best.locationLng };
-}
-
 // Every distinct trip in range gets its own highlight — entries far from
 // home are grouped by mutual proximity (two far-from-home entries within
 // TRIP_DISTANCE_MILES of each other are the same trip; further apart, they're
@@ -114,19 +91,8 @@ export function findHomePoint(entries) {
 // trip's farthest-from-home entry becomes its destination; the rest of that
 // trip's photos still surface as ordinary slides elsewhere.
 function findTripsThisMonth(monthEntries, homePt, kids, familyMembers) {
-  if (!homePt) return [];
-  const tripEntries = monthEntries.filter(e =>
-    e.locationLat != null && e.locationLng != null && e.media?.length > 0 &&
-    haversine(homePt.lat, homePt.lng, e.locationLat, e.locationLng) > TRIP_DISTANCE_MILES
-  );
-  if (tripEntries.length === 0) return [];
-
-  const clusters = [];
-  for (const e of tripEntries) {
-    const cluster = clusters.find(c => c.some(o => haversine(o.locationLat, o.locationLng, e.locationLat, e.locationLng) <= TRIP_DISTANCE_MILES));
-    if (cluster) cluster.push(e);
-    else clusters.push([e]);
-  }
+  const clusters = clusterIntoTrips(monthEntries.filter(e => e.media?.length > 0), homePt);
+  if (clusters.length === 0) return [];
 
   return clusters.map(clusterEntries => {
     const farthest = clusterEntries.reduce((a, b) =>
