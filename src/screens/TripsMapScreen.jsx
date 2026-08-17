@@ -304,10 +304,21 @@ function useListDrag(mapFrameRef, scrollAreaRef, setOverrides, onTap) {
   return { ghost, overMap, startDrag };
 }
 
-function TripListItem({ trip, confirmed, onPointerDown }) {
+// Drag-to-place only applies while a trip is still unconfirmed -- once it's
+// in "Places you've been," dragging it around from the small list would let
+// someone nudge an already-placed pin without the precision the enlarged
+// view exists for. A confirmed item is a plain tap (open the sheet); moving
+// an already-set pin is only possible via "Move pin" in that sheet, which
+// opens the enlarged view.
+function TripListItem({ trip, confirmed, onOpen, onPointerDown }) {
   const cover = trip.photos[0];
   return (
-    <div className="trip-list-item" onPointerDown={onPointerDown} style={{ touchAction: 'none' }}>
+    <div
+      className="trip-list-item"
+      onClick={confirmed ? onOpen : undefined}
+      onPointerDown={confirmed ? undefined : onPointerDown}
+      style={confirmed ? undefined : { touchAction: 'none' }}
+    >
       <div className="trip-list-thumb">
         {cover
           ? <img src={cover.type === 'video' ? videoThumbUrl(cover.url, `so_0,${PHOTO_XS}`) : cloudinaryTransform(cover.url, PHOTO_XS)} alt="" loading="lazy" />
@@ -451,7 +462,7 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
                   <p className="trip-list-heading">Places you've been</p>
                   <div className="trip-list">
                     {confirmedTrips.map(trip => (
-                      <TripListItem key={trip.id} trip={trip} confirmed onPointerDown={e => startListDrag(trip.id, e)} />
+                      <TripListItem key={trip.id} trip={trip} confirmed onOpen={() => openTrip(trip.id)} />
                     ))}
                   </div>
                 </>
