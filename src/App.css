@@ -261,25 +261,40 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .empty-state { text-align: center; padding: 50px 24px; }
 
 /* ---------- Trips map (TripsMapScreen) ---------- */
-.trip-map-frame {
+/* Split the same way Patina Calendar's own travel map splits .tmap-card
+   from .tmap-frame: .trip-map-card is the decorative outer surface (only
+   used by the small collapsed card), .trip-map-frame is just the
+   aspect-ratio-locked art itself, shared verbatim by both the card and the
+   full-screen stage. Merging these into one class previously dropped the
+   max-height:100% constraint below -- inside the full-screen stage's flex
+   box, a frame sized by width:100% + aspect-ratio (with no max-height cap)
+   could grow taller than the stage actually had room for and get clipped,
+   which is what "cut off at the top" actually was. */
+.trip-map-card {
+  all: unset; box-sizing: border-box;
   position: relative;
-  aspect-ratio: 998 / 558;
-  width: 100%;
-  border-radius: 18px;
-  overflow: hidden;
-  margin-top: 12px;
-  cursor: pointer;
+  border-radius: 18px; overflow: hidden; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 190px; margin-top: 12px;
   /* Fixed regardless of light/dark theme -- a signature illustrated object
      (like the map art itself), not a themed UI surface. */
   background: linear-gradient(160deg, #2A4035 0%, #4A5E50 60%, #3A5548 100%);
 }
+.trip-map-frame {
+  position: relative;
+  aspect-ratio: 998 / 558;
+  max-width: 100%;
+  max-height: 100%;
+  width: 100%;
+}
 .trip-map-img { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; }
+.trip-map-vignette { position: absolute; inset: 0; box-shadow: inset 0 0 46px rgba(0,0,0,0.5); pointer-events: none; }
 
 /* Feedback while a list item is being dragged toward the map (see
    TripsMapScreen's useListDrag) -- a plain box-shadow rather than changing
-   border-radius/size, so the frame doesn't visibly jump when the drag
+   border-radius/size, so the card doesn't visibly jump when the drag
    crosses into it. */
-.trip-map-frame.drop-target {
+.trip-map-card.drop-target {
   box-shadow: 0 0 0 3px #C8993E, 0 8px 24px rgba(200,153,62,0.35);
 }
 
@@ -342,12 +357,7 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
    still-portrait-shaped CSS viewport. */
 .trip-map-full.rotated {
   top: 0; left: 0; right: auto; bottom: auto;
-  /* dvh/dvw, not vh/vw -- on a real phone the address/toolbar chrome makes
-     100vh taller than what's actually visible, so the rotated (dimension-
-     swapped) box overflowed past the top of the real viewport. Falls back
-     fine on browsers without dvh support (effectively the same as vh there). */
   width: 100vh; height: 100vw;
-  width: 100dvh; height: 100dvw;
   transform-origin: top left;
   transform: rotate(-90deg) translateX(-100%);
 }

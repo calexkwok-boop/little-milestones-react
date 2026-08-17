@@ -145,30 +145,31 @@ function TripPin({ trip, pos, confirmed, active, onPointerDown }) {
 function TripMapCard({ trips, overrides, frameRef, dropTarget, onExpand, onTapPin }) {
   // A plain div, not a button -- it contains its own pin buttons, and
   // buttons can't nest inside buttons (the browser would silently break out
-  // of the outer one). onClick on the div still gives the "tap the
+  // of the outer one). onClick on the card still gives the "tap the
   // background to expand" behavior; individual pins stop propagation.
+  // frameRef is on the *inner* .trip-map-frame, not the card -- pin percent
+  // positions and the list-drag drop-detection both measure against the
+  // actual aspect-ratio-locked art, not the (possibly taller/letterboxed)
+  // card around it.
   return (
-    <div
-      className={`trip-map-frame${dropTarget ? ' drop-target' : ''}`}
-      role="button"
-      tabIndex={0}
-      ref={frameRef}
-      onClick={onExpand}
-    >
-      <img className="trip-map-img" src={mapImage} alt="" />
-      {trips.map(trip => {
-        const pos = overrides[trip.id] || trip.guess;
-        return (
-          <TripPin
-            key={trip.id}
-            trip={trip}
-            pos={pos}
-            confirmed={!!overrides[trip.id]}
-            active={false}
-            onPointerDown={e => { e.stopPropagation(); onTapPin(trip.id); }}
-          />
-        );
-      })}
+    <div className={`trip-map-card${dropTarget ? ' drop-target' : ''}`} role="button" tabIndex={0} onClick={onExpand}>
+      <div className="trip-map-frame" ref={frameRef}>
+        <img className="trip-map-img" src={mapImage} alt="" />
+        {trips.map(trip => {
+          const pos = overrides[trip.id] || trip.guess;
+          return (
+            <TripPin
+              key={trip.id}
+              trip={trip}
+              pos={pos}
+              confirmed={!!overrides[trip.id]}
+              active={false}
+              onPointerDown={e => { e.stopPropagation(); onTapPin(trip.id); }}
+            />
+          );
+        })}
+      </div>
+      <div className="trip-map-vignette" />
       <div className="trip-map-caption-bar">
         <span>{Object.keys(overrides).filter(id => trips.some(t => t.id === id)).length}/{trips.length} pinned</span>
         <span style={{ marginLeft: 'auto' }}>{dropTarget ? 'Drop to place' : 'Tap to enlarge →'}</span>
