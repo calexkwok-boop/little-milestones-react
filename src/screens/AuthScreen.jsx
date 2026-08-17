@@ -139,7 +139,7 @@ function AuthScreen() {
             <p style={{ fontSize: 13, color: 'var(--coral)', marginBottom: 12, textAlign: 'center', lineHeight: 1.4 }}>{error}</p>
           )}
           <button
-            className="btn btn-primary"
+            className="btn btn-gold"
             style={{ width: '100%', marginBottom: 16, opacity: loading || !email || (mode !== 'reset' && !password) ? 0.5 : 1 }}
             disabled={loading || !email || (mode !== 'reset' && !password)}
             onClick={handleSubmit}

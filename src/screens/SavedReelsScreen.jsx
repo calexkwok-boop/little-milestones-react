@@ -324,10 +324,10 @@ function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], 
           {savedReels.length === 0 && patinaJarReels.length === 0 ? (
             <div className="empty-state">
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <Icon name="ti-movie" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                <Icon name="ti-movie" style={{ fontSize: 24, color: '#C8993E' }} />
               </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No reels saved yet</p>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Tap + above to build one for any date range.</p>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Tap + above to build one for any date range — a month, a trip, however you'd like to remember it.</p>
             </div>
           ) : savedReels.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

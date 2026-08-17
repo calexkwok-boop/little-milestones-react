@@ -297,9 +297,12 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
               )}
 
               {ageGridItems.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '32px 24px' }}>
-                  <Icon name="ti-camera" style={{ fontSize: 22, color: 'var(--border-light)', display: 'block', marginBottom: 8 }} />
-                  <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>Nothing captured at this age yet</p>
+                <div className="empty-state">
+                  <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                    <Icon name="ti-camera" style={{ fontSize: 24, color: '#C8993E' }} />
+                  </div>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>Nothing captured at this age yet</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Photos tagged around this age will show up here once you've logged some.</p>
                 </div>
               ) : (
                 <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
