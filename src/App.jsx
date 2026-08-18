@@ -36,6 +36,8 @@ const LazyPatinaJarRecordScreen = lazy(() => import('./screens/PatinaJarRecordSc
 const LazyBookPreviewScreen = lazy(() => import('./screens/BookPreviewScreen'));
 const LazyNotificationHistoryScreen = lazy(() => import('./screens/NotificationHistoryScreen'));
 const LazyTripsMapScreen = lazy(() => import('./screens/TripsMapScreen'));
+const LazyMilestoneSeriesScreen = lazy(() => import('./screens/MilestoneSeriesScreen'));
+const LazyLinkedLettersScreen = lazy(() => import('./screens/LinkedLettersScreen'));
 const LazySharedEntryScreen = lazy(() => import('./screens/SharedEntryScreen'));
 const LazySharedReelScreen = lazy(() => import('./screens/SharedReelScreen'));
 import BookBuilderScreen from './screens/BookBuilderScreen';
@@ -837,6 +839,60 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
   );
 });
 
+// Surfaces once a milestone that already happened before (Kindergarten's
+// first day) gets a fresh instance (1st grade's) -- nothing here was
+// manually linked, it's matched purely off the shared milestone type + kid
+// that both entries already carry. See MilestoneSeriesScreen for the full
+// timeline this opens into.
+const MilestoneRevealCard = memo(function MilestoneRevealCard({ series, onClick }) {
+  const info = milestoneInfo(series.milestone);
+  const count = series.entries.length;
+  const ordinalWord = count === 2 ? 'Second' : count === 3 ? 'Third' : `${count}th`;
+  const newest = series.entries[series.entries.length - 1];
+  const prevLabel = series.entries[series.entries.length - 2].date.slice(0, 4);
+  const newestLabel = newest.date.slice(0, 4);
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        cursor: 'pointer', borderRadius: 16, padding: 14,
+        background: 'linear-gradient(155deg, rgba(200,153,62,0.12), rgba(200,153,62,0.04))',
+        border: '1px solid rgba(200,153,62,0.32)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <Icon name="ti-sparkles" style={{ fontSize: 13, color: '#C8993E' }} />
+        <span style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: '#C8993E' }}>{ordinalWord} {info?.label.toLowerCase() || 'milestone'}</span>
+      </div>
+      <p style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 16, color: 'var(--text)', margin: '0 0 12px' }}>
+        {series.kid.name}, {prevLabel} to {newestLabel}
+      </p>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+        {series.entries.map(e => {
+          const thumb = e.media?.[0];
+          const isNewest = e.id === newest.id;
+          return (
+            <div key={e.id} style={{ flex: 1, aspectRatio: '1', borderRadius: 10, overflow: 'hidden', position: 'relative', background: 'var(--bg-input)', outline: isNewest ? '2px solid #C8993E' : 'none', outlineOffset: -2 }}>
+              {thumb ? (
+                <img src={thumb.type === 'video' ? videoThumbUrl(thumb.url, `so_0,${PHOTO_XS}`) : cloudinaryTransform(thumb.url, PHOTO_XS)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name={info?.icon || 'ti-sparkles'} style={{ fontSize: 16, color: 'var(--text-muted)' }} />
+                </div>
+              )}
+              <span style={{ position: 'absolute', bottom: 3, left: 5, fontSize: 9, fontWeight: 700, color: '#fff', textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>{e.date.slice(0, 4)}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: 'var(--accent)' }}>
+        See them together
+        <Icon name="ti-arrow-right" style={{ fontSize: 12 }} />
+      </div>
+    </div>
+  );
+});
+
 function EntryCard({ entry, kid, allKids, onClick, onLongPress, featured, cropY }) {
   if (entry.type === 'note' && entry.prompt) return <PromptCard entry={entry} kid={kid} allKids={allKids} featured={featured} onClick={onClick} onLongPress={onLongPress} />;
   if (entry.type === 'note') return <NoteCard entry={entry} kid={kid} allKids={allKids} featured={featured} onClick={onClick} onLongPress={onLongPress} />;
@@ -998,7 +1054,7 @@ function entryAddedTime(entry) {
   return new Date((entry?.date || TODAY) + 'T12:00:00').getTime();
 }
 
-function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist, onGenerateShareLink, onSameAgeMatch }) {
+function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFilter, onAddMoment, onSeeAll, onCompare, onUpdateCrop, self, onRefresh, onToggleFavorite, onDeleteEntry, friendEntries = [], friendKids = [], friends = [], friendFamilyMap = {}, onCompareAtAge, pendingOpenEntryId, onClearPendingOpen, onAvatarUpload, initialCircleViewer = null, onClearInitialCircleViewer, onBirthdayNextWeekClick, onBirthdayTodayClick, onFriendBirthdayClick, onStartPrompt, onUpdateKidWishlist, onGenerateShareLink, onSameAgeMatch, onOpenMilestoneSeries }) {
   const [quickToast, setQuickToast] = useState(null);
   function showQuickToast(msg) {
     setQuickToast(msg);
@@ -1166,6 +1222,42 @@ function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFil
       && (kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter))))
     .sort((a, b) => new Date(b.date) - new Date(a.date)),
   [entries, todayMMDD, todayYear, kidFilter]);
+
+  // Groups every milestone-tagged entry by (milestone type, kid) -- no
+  // linking step, just matching on the two fields those entries already
+  // carry. Kept to pairs of 2+ since a lone instance has nothing to compare
+  // against yet.
+  const milestoneSeries = useMemo(() => {
+    const groups = new Map();
+    entries.forEach(e => {
+      if (!e.milestone) return;
+      (e.kids || []).forEach(kidId => {
+        const key = `${e.milestone}::${kidId}`;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(e);
+      });
+    });
+    const series = [];
+    groups.forEach((list, key) => {
+      if (list.length < 2) return;
+      const [milestone, kidId] = key.split('::');
+      const kid = kids.find(k => k.id === kidId);
+      if (!kid) return;
+      series.push({ id: key, milestone, kid, entries: list.slice().sort((a, b) => a.date.localeCompare(b.date)) });
+    });
+    return series;
+  }, [entries, kids]);
+
+  // Only surfaces right after the newest entry overall is itself the one
+  // that gave some past milestone a second (or third...) instance -- so it
+  // reads as "you just did the thing that unlocked this," not a standing
+  // section to scroll past every time.
+  const featuredMilestoneSeries = useMemo(() => {
+    if (entries.length === 0) return null;
+    const newest = entries.slice().sort((a, b) => entryAddedTime(b) - entryAddedTime(a))[0];
+    if (!newest?.milestone) return null;
+    return milestoneSeries.find(s => s.milestone === newest.milestone && s.entries[s.entries.length - 1].id === newest.id) || null;
+  }, [entries, milestoneSeries]);
 
   const recent = useMemo(() => entries
     .filter(e => kidFilter === null || (kidFilter === 'both' ? e.kids.length >= 2 : e.kids.includes(kidFilter)))
@@ -1629,6 +1721,10 @@ function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFil
             }
             return <OnThisDayCard entry={entry} kid={kid} allKids={kids} yearsAgo={yearsAgo} onClick={() => handleOpenEntry(entry)} cropY={entry.cropY ?? 50} />;
           })()}
+
+          {featuredMilestoneSeries && (
+            <MilestoneRevealCard series={featuredMilestoneSeries} onClick={() => onOpenMilestoneSeries?.(featuredMilestoneSeries)} />
+          )}
 
           {promptOfDay && !promptDismissed && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 2px' }}>
@@ -2211,7 +2307,76 @@ const VoiceMemoPlayer = memo(function VoiceMemoPlayer({ url }) {
 
 // ─── Entry detail ────────────────────────────────────────────────────────
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', familyMembers = [], onSameAge, onRemoveSameAgeMatch, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch }) {
+// A search-and-pick sheet for tying the current entry to some other letter
+// -- deliberately just a text search over what's already written (date,
+// milestone, location, kids, body text), not a new index or picker UI,
+// since Search/PartnerLetters already prove that's enough to find one
+// specific letter again.
+function LinkEntryPicker({ entries, kids, excludeId, onSelect, onClose }) {
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const results = useMemo(() => {
+    if (entries.length === 0) return [];
+    return entries
+      .filter(e => e.id !== excludeId)
+      .filter(e => {
+        if (!q) return true;
+        const m = e.milestone ? milestoneInfo(e.milestone) : null;
+        const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
+        return (e.text || '').toLowerCase().includes(q)
+          || (m && m.label.toLowerCase().includes(q))
+          || (e.location || '').toLowerCase().includes(q)
+          || entryKids.some(k => k.name.toLowerCase().includes(q));
+      })
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 30);
+  }, [entries, kids, excludeId, q]);
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.35)', display: 'flex', alignItems: 'flex-end', zIndex: 12 }} onClick={onClose}>
+      <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', height: '82%', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '12px auto 4px', flexShrink: 0 }} />
+        <div style={{ padding: '10px 20px', flexShrink: 0 }}>
+          <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--accent)', margin: '0 0 12px', textAlign: 'center' }}>Link to another letter</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, background: 'var(--bg-input)', border: '1px solid var(--border)', borderRadius: 10, padding: '11px 14px' }}>
+            <Icon name="ti-search" style={{ color: 'var(--text-muted)' }} />
+            <input
+              type="text"
+              autoFocus
+              placeholder="Search by date, kid, place, milestone..."
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              style={{ border: 'none', outline: 'none', flex: 1, fontSize: 15, background: 'transparent', color: 'var(--accent)', fontFamily: 'Inter, sans-serif' }}
+            />
+            {query && (
+              <button onClick={() => setQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: 0, display: 'flex' }}>
+                <Icon name="ti-x" style={{ fontSize: 14 }} />
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="scroll-area" style={{ flex: 1, minHeight: 0 }}>
+          <div className="scrollpad" style={{ paddingTop: 4 }}>
+            {results.length === 0 ? (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>
+                {q ? `No letters match "${query}"` : 'No other letters yet'}
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {results.map(e => {
+                  const entryKids = (e.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
+                  return <JournalEntryRow key={e.id} entry={e} entryKids={entryKids} onOpen={onSelect} />;
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', familyMembers = [], onSameAge, onRemoveSameAgeMatch, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch, allEntries = [], onLinkEntries, onUnlinkEntry, onOpenLinkedLetters }) {
   // Only the author can edit or delete an entry's content — family members
   // may only adjust the photo crop (handled separately, below).
   const isOwn = entry.userId === session?.user?.id;
@@ -2251,6 +2416,15 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [peopleInput, setPeopleInput] = useState('');
   const [isShared, setIsShared] = useState(entry.shared ?? true);
   const [showActionSheet, setShowActionSheet] = useState(false);
+  const dotsMenuBtnRef = useRef(null);
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
+  // Matched purely by sharing entry.linkGroupId -- an explicit, one-at-a-
+  // time choice (see the "Link to another letter" action below), not
+  // automatic like Trips or the milestone series screen.
+  const linkedEntries = useMemo(
+    () => entry.linkGroupId ? allEntries.filter(e => e.linkGroupId === entry.linkGroupId && e.id !== entry.id).sort((a, b) => new Date(a.date) - new Date(b.date)) : [],
+    [allEntries, entry.linkGroupId, entry.id]
+  );
   const [showSameAgePicker, setShowSameAgePicker] = useState(false);
   const [sameAgePickerSelection, setSameAgePickerSelection] = useState([]);
   const [showShareLinkSheet, setShowShareLinkSheet] = useState(false);
@@ -2555,20 +2729,33 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                     <Icon name={`ti-star${entry.favorited ? '-filled' : ''}`} />
                   </button>
                   {isOwn && (
-                    <button
-                      onClick={() => {
-                        // The sheet itself sits fixed to the viewport, but
-                        // nothing scrolled the *page* into a state where
-                        // that's obvious -- explicitly scrolling down here
-                        // gives a visible "something just happened" cue
-                        // instead of a silent state change.
-                        scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
-                        setShowActionSheet(true);
-                      }}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}
-                    >
-                      <Icon name="ti-dots" />
-                    </button>
+                    <>
+                      <button
+                        ref={dotsMenuBtnRef}
+                        onClick={() => {
+                          // The sheet itself sits fixed to the viewport, but
+                          // nothing scrolled the *page* into a state where
+                          // that's obvious -- explicitly scrolling down here
+                          // gives a visible "something just happened" cue
+                          // instead of a silent state change.
+                          scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+                          setShowActionSheet(true);
+                        }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}
+                      >
+                        <Icon name="ti-dots" />
+                      </button>
+                      {onLinkEntries && (
+                        <Coachmark
+                          id="entry-link-letters"
+                          userId={session?.user?.id}
+                          active={allEntries.length > 1}
+                          targetRef={dotsMenuBtnRef}
+                          placement="top"
+                          text="Been here before? Tap here to link this letter to another one from the same place or moment."
+                        />
+                      )}
+                    </>
                   )}
                 </div>
               </div>
@@ -2657,6 +2844,20 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               </button>
             );
           })()}
+          {linkedEntries.length > 0 && onOpenLinkedLetters && (
+            <button
+              onClick={() => onOpenLinkedLetters([entry, ...linkedEntries])}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', borderRadius: 999, padding: '8px 14px 8px 8px', background: 'linear-gradient(155deg, rgba(200,153,62,0.12), rgba(200,153,62,0.04))', border: '1px solid rgba(200,153,62,0.32)', cursor: 'pointer', textAlign: 'left' }}
+            >
+              <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(200,153,62,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name="ti-link" style={{ fontSize: 13, color: '#C8993E' }} />
+              </span>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+                Linked to {linkedEntries.length} other letter{linkedEntries.length === 1 ? '' : 's'}
+              </span>
+              <Icon name="ti-chevron-right" style={{ fontSize: 14, color: 'var(--text-muted)', flexShrink: 0 }} />
+            </button>
+          )}
           {supabase && session && (
             <>
               <div style={{ height: 1, background: 'var(--border)' }} />
@@ -2808,6 +3009,8 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               { icon: 'ti-edit', label: 'Edit entry', action: () => { setShowActionSheet(false); onEdit(entry); } },
               onToggleShared && { icon: isShared ? 'ti-lock' : 'ti-users', label: isShared ? 'Private' : 'Share', action: () => { const next = !isShared; setIsShared(next); onToggleShared(entry.id, { partner: next, friends: next }); showToast(next ? 'Visible to friends' : 'Post is private'); setShowActionSheet(false); } },
               supabase && { icon: 'ti-link', label: 'Share link', action: () => { setShowActionSheet(false); setShowShareLinkSheet(true); } },
+              onLinkEntries && { icon: 'ti-link', label: entry.linkGroupId ? 'Link another letter' : 'Link to another letter', action: () => { setShowActionSheet(false); setShowLinkPicker(true); } },
+              onUnlinkEntry && entry.linkGroupId && { icon: 'ti-link-off', label: 'Remove from linked letters', action: () => { setShowActionSheet(false); onUnlinkEntry(entry.id); } },
               { icon: 'ti-trash', label: 'Delete entry', action: () => { setShowActionSheet(false); setShowDeleteConfirm(true); }, danger: true },
             ].filter(Boolean).map(item => (
               <button key={item.label} onClick={item.action} style={{ display: 'flex', alignItems: 'center', gap: 14, width: '100%', background: 'none', border: 'none', padding: '14px 24px', cursor: 'pointer', color: item.danger ? 'var(--coral)' : 'var(--text)', fontFamily: 'Inter, sans-serif', fontSize: 15, fontWeight: 500 }}>
@@ -2865,6 +3068,15 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             </div>
           </div>
         </div>
+      )}
+      {showLinkPicker && (
+        <LinkEntryPicker
+          entries={allEntries}
+          kids={allKids}
+          excludeId={entry.id}
+          onClose={() => setShowLinkPicker(false)}
+          onSelect={target => { onLinkEntries(entry.id, target.id); setShowLinkPicker(false); }}
+        />
       )}
       {showCrop && media[activeSlide] && (
         <CropModal
@@ -4415,6 +4627,7 @@ function normalizeEntry(e) {
     voiceMemoUrl: e.voice_memo_url || null,
     shareToken: e.share_token || null,
     sameAgeDates: e.same_age_dates || null,
+    linkGroupId: e.link_group_id || null,
   };
 }
 
@@ -4489,6 +4702,14 @@ export default function App() {
   const [compareMounted, setCompareMounted] = useState(false);
   const [reelsMounted, setReelsMounted] = useState(false);
   const [newEntryInitial, setNewEntryInitial] = useState(null);
+  // The milestone series (e.g. every "First day of school" letter for one
+  // kid) currently open in the "First Days"-style timeline screen -- see
+  // MilestoneSeriesScreen.jsx.
+  const [activeMilestoneSeries, setActiveMilestoneSeries] = useState(null);
+  // The set of entries currently open in the "Linked letters" timeline --
+  // built manually via EntryDetailScreen's "Link to another letter" action
+  // (entry.linkGroupId), unlike milestone series which match automatically.
+  const [activeLinkedLetters, setActiveLinkedLetters] = useState(null);
   // Set when compose was opened from a manual trip pin's "Write a letter" --
   // consumed (and cleared) the moment this specific compose flow either
   // saves or cancels, so it can never attach itself to some later, unrelated
@@ -5862,6 +6083,36 @@ export default function App() {
     }
   }
 
+  // Ties two letters together into a shared group, purely by explicit
+  // choice -- nothing about location or milestone tags is involved, so it
+  // works for anything a parent recognizes as connected (the same rarely-
+  // visited yogurt shop, three and a half years apart). Linking a third
+  // letter to either one later folds it into the same group rather than
+  // starting a separate one; linking two letters that each already belong
+  // to a *different* existing group merges both groups into one.
+  async function handleLinkEntries(entryId, targetEntryId) {
+    const entry = entries.find(e => e.id === entryId);
+    const target = entries.find(e => e.id === targetEntryId);
+    if (!entry || !target) return;
+    const groupId = entry.linkGroupId || target.linkGroupId || (crypto.randomUUID ? crypto.randomUUID() : `link-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
+    const oldGroupIds = new Set([entry.linkGroupId, target.linkGroupId].filter(id => id && id !== groupId));
+    const idsToUpdate = entries.filter(e => e.id === entryId || e.id === targetEntryId || (e.linkGroupId && oldGroupIds.has(e.linkGroupId))).map(e => e.id);
+
+    setEntries(prev => prev.map(e => idsToUpdate.includes(e.id) ? { ...e, linkGroupId: groupId } : e));
+    if (!localMode && supabase && session) {
+      await supabase.from('entries').update({ link_group_id: groupId }).in('id', idsToUpdate);
+    }
+  }
+
+  // Removes just this one letter from its link group -- the rest of the
+  // group (if any members remain) stays intact.
+  async function handleUnlinkEntry(entryId) {
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, linkGroupId: null } : e));
+    if (!localMode && supabase && session) {
+      await supabase.from('entries').update({ link_group_id: null }).eq('id', entryId);
+    }
+  }
+
   async function handleUpdatePeople(entryId, people) {
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, people: people || [] } : e));
     if (!localMode && supabase && session) {
@@ -6614,6 +6865,7 @@ export default function App() {
               setSameAgeMatch({ sourceEntry: entry, sourceKid, targetKid, queue: [], queueTotal: 1 });
               setScreen('same-age-match');
             }}
+            onOpenMilestoneSeries={series => { setActiveMilestoneSeries(series); setScreen('milestone-series'); }}
           />
         );
       })()}
@@ -6713,6 +6965,10 @@ export default function App() {
             URL.revokeObjectURL(pendingSameAgeMatch.previewUrl);
             setPendingSameAgeMatch(null);
           }}
+          allEntries={entries}
+          onLinkEntries={handleLinkEntries}
+          onUnlinkEntry={handleUnlinkEntry}
+          onOpenLinkedLetters={linked => { setActiveLinkedLetters(linked); setScreen('linked-letters'); }}
         />
       )}
 
@@ -6913,6 +7169,27 @@ export default function App() {
               setComposeMode('letter');
               setScreen('new-entry');
             }}
+          />
+        </Suspense>
+      )}
+
+      {screen === 'milestone-series' && activeMilestoneSeries && (
+        <Suspense fallback={<div className="screen" />}>
+          <LazyMilestoneSeriesScreen
+            series={activeMilestoneSeries}
+            onBack={() => setScreen('home')}
+            onOpenEntry={openEntry}
+          />
+        </Suspense>
+      )}
+
+      {screen === 'linked-letters' && activeLinkedLetters && (
+        <Suspense fallback={<div className="screen" />}>
+          <LazyLinkedLettersScreen
+            entries={activeLinkedLetters}
+            kids={kids}
+            onBack={() => setScreen(entrySource)}
+            onOpenEntry={openEntry}
           />
         </Suspense>
       )}

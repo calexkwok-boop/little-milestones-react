@@ -26,6 +26,10 @@ function AuthorCircle({ selected, dimmed, onClick, avatarUrl, name }) {
 function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserId, self, partner, onBack, onOpenEntry, onMarkAllRead, scrollPos, onSwitchSection }) {
   const scrollRef = useRef(null);
   const [activeAuthorId, setActiveAuthorId] = useState(authorId);
+  // Independent of the author circles -- composes with whichever author is
+  // selected (e.g. "Pearl" + star = just Pearl's milestone letters) rather
+  // than being another exclusive option in that same row.
+  const [starOnly, setStarOnly] = useState(false);
   const isSelf = activeAuthorId != null && currentUserId && activeAuthorId === currentUserId;
   const [query, setQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
@@ -63,14 +67,15 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
   const showAll = activeAuthorId === null;
   const partnerName = partner?.real_name || partner?.display_name || 'Partner';
   const unseenEntriesAll = useMemo(
-    () => (isSelf || showAll) ? [] : entries.filter(e => unseenIds.includes(e.id)).sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [entries, unseenIds, isSelf, showAll]
+    () => (isSelf || showAll) ? [] : entries.filter(e => unseenIds.includes(e.id) && (!starOnly || !!e.milestone)).sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [entries, unseenIds, isSelf, showAll, starOnly]
   );
   const earlierEntriesAll = useMemo(
     () => entries
       .filter(e => showAll ? true : (activeAuthorId && e.authorId === activeAuthorId && (isSelf || !unseenIds.includes(e.id))))
+      .filter(e => !starOnly || !!e.milestone)
       .sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [entries, activeAuthorId, unseenIds, isSelf, showAll]
+    [entries, activeAuthorId, unseenIds, isSelf, showAll, starOnly]
   );
   const unseenEntries = useMemo(() => unseenEntriesAll.filter(matchesQuery), [unseenEntriesAll, query, kids]);
   const earlierEntries = useMemo(() => earlierEntriesAll.filter(matchesQuery), [earlierEntriesAll, query, kids]);
@@ -127,16 +132,44 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
                 avatarUrl={partner.avatar_url}
                 name={partnerName}
               />
+              {/* Not another author to filter by -- toggles on top of
+                  whichever author is already selected, so "Pearl" + star
+                  narrows to just Pearl's milestone letters. Gold rather than
+                  the author circles' accent green, matching how milestones
+                  are marked everywhere else (Trips pins, the milestone
+                  reveal card on Home). */}
+              <button
+                onClick={() => setStarOnly(s => !s)}
+                aria-label="Milestones only"
+                style={{
+                  width: 48, height: 48, borderRadius: '50%', flexShrink: 0, cursor: 'pointer',
+                  border: starOnly ? '2.5px solid #C8993E' : '2px solid var(--border)',
+                  background: starOnly ? '#C8993E' : 'var(--bg-input)',
+                  color: starOnly ? '#fff' : 'var(--text-muted)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Icon name={starOnly ? 'ti-star-filled' : 'ti-star'} style={{ fontSize: 18 }} />
+              </button>
             </div>
           )}
 
           {!hasAny && (
             <div className="empty-state">
               <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <Icon name="ti-mail" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                <Icon name={starOnly ? 'ti-star' : 'ti-mail'} style={{ fontSize: 24, color: 'var(--text-muted)' }} />
               </div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No letters yet</p>
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Letters you and your partner write will show up here.</p>
+              {starOnly ? (
+                <>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No milestone letters yet</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Tag a letter with a milestone when you write it, and it'll show up here.</p>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No letters yet</p>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>Letters you and your partner write will show up here.</p>
+                </>
+              )}
             </div>
           )}
 
