@@ -2576,6 +2576,12 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                         cropY={photoCropY(media, i, entry)}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         preload="metadata" playsInline controls
+                        // A tap reveals the native controls (including its own
+                        // fullscreen button) before playback actually starts --
+                        // waiting for onPlay to hide the back button left a
+                        // brief window where both were visible and could
+                        // overlap. Hiding on the tap itself closes that gap.
+                        onPointerDown={() => setVideoPlaying(true)}
                         onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)}
                       />
                     </div>
