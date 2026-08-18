@@ -9,7 +9,6 @@ import { cloudinaryTransform, videoThumbUrl, PHOTO_MD } from '../constants.js';
 // Each card shows whichever kids that specific entry was actually about.
 function LinkedLettersScreen({ entries, kids, onBack, onOpenEntry }) {
   const sorted = entries.slice().sort((a, b) => a.date.localeCompare(b.date));
-  const latestId = sorted[sorted.length - 1].id;
 
   return (
     <div className="screen">
@@ -38,17 +37,18 @@ function LinkedLettersScreen({ entries, kids, onBack, onOpenEntry }) {
           <div style={{ position: 'relative', paddingLeft: 22 }}>
             <div style={{ position: 'absolute', left: 5, top: 8, bottom: 8, width: 2, background: 'var(--border)' }} />
             {sorted.map(entry => {
-              const isLatest = entry.id === latestId;
               const thumb = entry.media?.[0];
               const preview = entry.text?.length > 160 ? entry.text.slice(0, 160) + '…' : entry.text;
               const entryKids = (entry.kids || []).map(id => kids.find(k => k.id === id)).filter(Boolean);
               return (
                 <div key={entry.id} style={{ position: 'relative', marginBottom: 26 }}>
+                  {/* Plain accent, no gold -- gold marks a milestone
+                      elsewhere in the app (Trips pins, the milestone
+                      timeline), and these letters aren't necessarily
+                      milestones, just something a parent chose to connect. */}
                   <div style={{
                     position: 'absolute', left: -22, top: 3, width: 12, height: 12, borderRadius: '50%',
-                    background: isLatest ? '#C8993E' : 'var(--bg-card)',
-                    border: `2px solid ${isLatest ? '#C8993E' : 'var(--accent)'}`,
-                    boxShadow: isLatest ? '0 0 0 4px rgba(200,153,62,0.18)' : 'none',
+                    background: 'var(--bg-card)', border: '2px solid var(--accent)',
                   }} />
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}>
                     <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>

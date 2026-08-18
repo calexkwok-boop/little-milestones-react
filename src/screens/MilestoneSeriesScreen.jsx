@@ -9,7 +9,6 @@ import { milestoneInfo, exactAgeLabel, cloudinaryTransform, videoThumbUrl, PHOTO
 function MilestoneSeriesScreen({ series, onBack, onOpenEntry }) {
   const info = milestoneInfo(series.milestone);
   const entries = series.entries;
-  const latestId = entries[entries.length - 1].id;
 
   return (
     <div className="screen">
@@ -41,25 +40,22 @@ function MilestoneSeriesScreen({ series, onBack, onOpenEntry }) {
           <div style={{ position: 'relative', paddingLeft: 22 }}>
             <div style={{ position: 'absolute', left: 5, top: 8, bottom: 8, width: 2, background: 'var(--border)' }} />
             {entries.map(entry => {
-              const isLatest = entry.id === latestId;
               const thumb = entry.media?.[0];
               const preview = entry.text?.length > 160 ? entry.text.slice(0, 160) + '…' : entry.text;
               return (
                 <div key={entry.id} style={{ position: 'relative', marginBottom: 26 }}>
+                  {/* Gold on every dot -- they're all instances of the same
+                      milestone, so the color marks "this is a milestone,"
+                      not which one happens to be newest. */}
                   <div style={{
                     position: 'absolute', left: -22, top: 3, width: 12, height: 12, borderRadius: '50%',
-                    background: isLatest ? '#C8993E' : 'var(--bg-card)',
-                    border: `2px solid ${isLatest ? '#C8993E' : 'var(--accent)'}`,
-                    boxShadow: isLatest ? '0 0 0 4px rgba(200,153,62,0.18)' : 'none',
+                    background: '#C8993E', border: '2px solid #C8993E',
                   }} />
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, marginBottom: 8 }}>
                     <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>{exactAgeLabel(series.kid.birthdate, entry.date)}</span>
                     <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                       · {new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </span>
-                    {isLatest && (
-                      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.5, textTransform: 'uppercase', color: '#fff', background: '#C8993E', padding: '2px 6px', borderRadius: 5 }}>Newest</span>
-                    )}
                   </div>
 
                   <div

@@ -870,9 +870,8 @@ const MilestoneRevealCard = memo(function MilestoneRevealCard({ series, onClick 
       <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
         {series.entries.map(e => {
           const thumb = e.media?.[0];
-          const isNewest = e.id === newest.id;
           return (
-            <div key={e.id} style={{ flex: 1, aspectRatio: '1', borderRadius: 10, overflow: 'hidden', position: 'relative', background: 'var(--bg-input)', outline: isNewest ? '2px solid #C8993E' : 'none', outlineOffset: -2 }}>
+            <div key={e.id} style={{ flex: 1, aspectRatio: '1', borderRadius: 10, overflow: 'hidden', position: 'relative', background: 'var(--bg-input)', outline: '2px solid #C8993E', outlineOffset: -2 }}>
               {thumb ? (
                 <img src={thumb.type === 'video' ? videoThumbUrl(thumb.url, `so_0,${PHOTO_XS}`) : cloudinaryTransform(thumb.url, PHOTO_XS)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
               ) : (
