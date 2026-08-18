@@ -572,8 +572,12 @@ function AmazonIcon({ size = 13, aColor = 'currentColor', arrowColor = '#FF9900'
   );
 }
 
-function CroppedVideo({ src, poster, cropY = 50, style, ...props }) {
-  const videoRef = useRef(null);
+function CroppedVideo({ src, poster, cropY = 50, style, videoRef: externalRef, ...props }) {
+  const internalRef = useRef(null);
+  // Callers that need to call .play()/.pause() themselves (see the entry
+  // detail gallery's custom controls) pass their own ref in; everyone else
+  // gets one created here, same as before.
+  const videoRef = externalRef || internalRef;
   const { objY } = useImageCropPosition(poster, cropY, videoRef);
   // Always mounted (native poster attribute, not a poster/video swap), so on
   // scrolling out of view just pause it directly rather than unmounting.
@@ -2439,6 +2443,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const detailTapTimerRef = useRef(null);
   const detailSwipeStart = useRef(null);
   const scrollAreaRef = useRef(null);
+  const galleryVideoRef = useRef(null);
 
   useEffect(() => {
     if (!supabase || !session) return;
@@ -2569,21 +2574,41 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               >
                 {media.map((item, i) => (
                   item.type === 'video' ? (
-                    <div key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }}>
+                    <div
+                      key={i}
+                      className="gallery-slide"
+                      style={{ opacity: i === activeSlide ? 1 : 0 }}
+                      onClick={e => {
+                        e.stopPropagation();
+                        const v = galleryVideoRef.current;
+                        if (!v) return;
+                        if (v.paused) v.play(); else v.pause();
+                      }}
+                    >
+                      {/* No native `controls` -- that control bar (including
+                          its own fullscreen button) stays visible for as
+                          long as the video is paused, not just while
+                          playing, which kept colliding with the back and
+                          crop buttons in the exact same corners no matter
+                          how their own visibility was timed. A custom
+                          tap-to-toggle overlay sidesteps the problem instead
+                          of chasing it. */}
                       <CroppedVideo
+                        videoRef={i === activeSlide ? galleryVideoRef : undefined}
                         src={item.url}
                         poster={videoThumbUrl(item.url, `so_0,${PHOTO_LG}`)}
                         cropY={photoCropY(media, i, entry)}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                        preload="metadata" playsInline controls
-                        // A tap reveals the native controls (including its own
-                        // fullscreen button) before playback actually starts --
-                        // waiting for onPlay to hide the back button left a
-                        // brief window where both were visible and could
-                        // overlap. Hiding on the tap itself closes that gap.
-                        onPointerDown={() => setVideoPlaying(true)}
+                        preload="metadata" playsInline
                         onPlay={() => setVideoPlaying(true)} onPause={() => setVideoPlaying(false)} onEnded={() => setVideoPlaying(false)}
                       />
+                      {i === activeSlide && !videoPlaying && (
+                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                          <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icon name="ti-player-play-filled" style={{ fontSize: 22, color: '#fff' }} />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <CroppedBg key={i} className="gallery-slide" style={{ opacity: i === activeSlide ? 1 : 0 }} src={cloudinaryTransform(item.url, PHOTO_LG)} cropY={photoCropY(media, i, entry)}>
