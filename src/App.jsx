@@ -491,7 +491,6 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
   useVideoAutoPause(photoRef, videoPlaying, () => setVideoPlaying(false));
   const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const preview = cleanText.length > 70 ? cleanText.slice(0, 70) + '…' : cleanText;
-  const dateLabel = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
     <div onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd} style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
@@ -539,14 +538,23 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
       )}
       <div style={{ padding: '10px 14px 12px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: preview ? 6 : 0 }}>
-          {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => (
-            <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-              <KidThumb kid={k} size={18} />
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                {exactAgeLabel(k.birthdate, entry.date)} · {dateLabel}
-              </span>
-            </div>
-          ))}
+          {(allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid]).map(k => {
+            // A merged same-age entry has one date per kid (the anchor's own
+            // entry.date, plus one entry.sameAgeDates[kidId] per kid folded
+            // in later) -- using entry.date for every kid regardless was
+            // showing the non-anchor kid's age against the *anchor's* date,
+            // same mistake the entry-detail screen already avoids.
+            const kidDate = entry.sameAgeDates?.[k.id] ?? entry.date;
+            const kidDateLabel = new Date(kidDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            return (
+              <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                <KidThumb kid={k} size={18} />
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  {exactAgeLabel(k.birthdate, kidDate)} · {kidDateLabel}
+                </span>
+              </div>
+            );
+          })}
         </div>
         {preview && (
           <p style={{
@@ -829,10 +837,13 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
             {entry.kids.map(kidId => {
               const k = allKids.find(k => k.id === kidId);
               if (!k) return null;
+              // See LetterCard's own fix for the same mistake -- a merged
+              // same-age entry has one date per kid, not one shared date.
+              const kidDate = entry.sameAgeDates?.[k.id] ?? entry.date;
               return (
                 <div key={kidId} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <KidThumb kid={k} size={20} />
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{k.name} was {exactAgeLabel(k.birthdate, entry.date)}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{k.name} was {exactAgeLabel(k.birthdate, kidDate)}</span>
                 </div>
               );
             })}
@@ -1183,7 +1194,12 @@ function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFil
     }
     const entryKids = kids.filter(k => (entry.kids || []).includes(k.id));
     const kidLabel = entryKids.map(k => k.name).join(' & ') || 'Photo';
-    const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
+    // entry.kids[0] is always the entry's actual anchor kid (see
+    // handleAddSameAgeMatch), unlike entryKids[0] which just follows
+    // whichever order the family's kid roster happens to be in -- using the
+    // latter could label the wrong kid's age against the anchor's date.
+    const anchorKid = kids.find(k => k.id === entry.kids?.[0]);
+    const age = anchorKid?.birthdate ? exactAgeLabel(anchorKid.birthdate, entry.date) : null;
     const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const member = familyMembers.find(m => m.user_id === entry.user_id);
     setCircleViewer({ entry, entryKids, kidLabel, age, friendName: member?.real_name || member?.display_name || '', friendAvatar: member?.avatar_url || null, entryDate });
@@ -1302,7 +1318,10 @@ function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFil
       if (!entryKids.length) { if (onClearPendingOpen) onClearPendingOpen(); return; }
       const friendInfo = friendUserMap[friendEntry.userId] || friendFamilyMap[friendEntry.familyId] || {};
       const kidLabel = entryKids.map(k => k.name).join(' & ');
-      const age = entryKids[0].birthdate ? exactAgeLabel(entryKids[0].birthdate, friendEntry.date) : null;
+      // Same fix as handleOpenEntry -- friendEntry.kids[0] is the real
+      // anchor, entryKids[0] just follows friendKids' own roster order.
+      const anchorKid = friendKids.find(k => k.id === friendEntry.kids?.[0]) || entryKids[0];
+      const age = anchorKid.birthdate ? exactAgeLabel(anchorKid.birthdate, friendEntry.date) : null;
       const entryDate = new Date(friendEntry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       setCircleViewer({ entry: friendEntry, entryKids, kidLabel, age, friendName: friendInfo.name || '', friendAvatar: friendInfo.avatar || null, entryDate });
       if (onClearPendingOpen) onClearPendingOpen();
@@ -7160,7 +7179,10 @@ export default function App() {
                 if (!entry) return;
                 const entryKids = kids.filter(k => (entry.kids || []).includes(k.id));
                 const kidLabel = entryKids.map(k => k.name).join(' & ') || 'Photo';
-                const age = entryKids[0]?.birthdate ? exactAgeLabel(entryKids[0].birthdate, entry.date) : null;
+                // See handleOpenEntry's own version of this fix -- entry.kids[0]
+                // is the real anchor, entryKids[0] just follows roster order.
+                const anchorKid = kids.find(k => k.id === entry.kids?.[0]);
+                const age = anchorKid?.birthdate ? exactAgeLabel(anchorKid.birthdate, entry.date) : null;
                 const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                 const member = familyMembers.find(m => m.user_id === entry.user_id);
                 setCircleViewerEntry({ entry, entryKids, kidLabel, age, friendName: member?.real_name || member?.display_name || '', friendAvatar: member?.avatar_url || null, entryDate });
