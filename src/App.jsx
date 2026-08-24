@@ -92,6 +92,14 @@ const NOTE_PROMPTS = [
 ];
 let _pendingCircleViewer = null;
 
+// A real description for content photos/videos, not the empty alt="" they
+// mostly carried before -- these are the actual content of a photo
+// journal, not decoration, and were otherwise invisible to screen readers.
+function entryMediaAlt(entry, kidNames) {
+  const dateStr = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  return kidNames?.length ? `Photo of ${kidNames.join(' & ')}, ${dateStr}` : `Photo from ${dateStr}`;
+}
+
 function hexToRgba(hex, alpha) {
   const clean = (hex || '').replace('#', '');
   const r = parseInt(clean.slice(0, 2), 16) || 0;
@@ -491,9 +499,16 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
   useVideoAutoPause(photoRef, videoPlaying, () => setVideoPlaying(false));
   const cleanText = entry.text.replace(/^dear\s+[\w\s,&]+[,.]?\s*/i, '').trim();
   const preview = cleanText.length > 70 ? cleanText.slice(0, 70) + '…' : cleanText;
+  const entryKidNames = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid].filter(Boolean)).map(k => k.name);
+  const mediaAlt = entryMediaAlt(entry, entryKidNames);
 
   return (
-    <div onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd} style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}>
+    <div
+      role="button" tabIndex={0}
+      onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
+      style={{ position: 'relative', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}
+    >
       {entry.shared === false && (
         <div style={{ position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }} title="Private">
           <Icon name="ti-lock" style={{ color: '#fff', fontSize: 12 }} />
@@ -511,7 +526,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
                 <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
               ) : (
                 <>
-                  <CroppedImg src={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} />
+                  <CroppedImg src={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} alt={mediaAlt} />
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 14 }} />
@@ -520,7 +535,7 @@ const LetterCard = memo(function LetterCard({ entry, kid, allKids, featured, onC
                 </>
               )}
             </div>
-          ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, PHOTO_LG)} cropY={photoCropY(entry.media, 0, entry)} fade />
+          ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, PHOTO_LG)} cropY={photoCropY(entry.media, 0, entry)} alt={mediaAlt} fade />
           }
         </div>
       )}
@@ -636,7 +651,9 @@ const NoteCard = memo(function NoteCard({ entry, kid, allKids, featured = true, 
 
   return (
     <div
+      role="button" tabIndex={0}
       onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
       style={{ position: 'relative', background: tintBg, border: `1px solid ${tintBorder}`, borderRadius: 13, padding: featured ? '15px 17px 13px' : '12px 13px 11px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.07)', transform: `rotate(${rotation}deg)` }}
     >
       <div style={{ position: 'absolute', top: 0, right: 0, width: 0, height: 0, borderStyle: 'solid', borderWidth: '0 15px 15px 0', borderColor: `transparent ${tintFold} transparent transparent`, borderRadius: '0 13px 0 0' }} />
@@ -701,7 +718,9 @@ const PromptCard = memo(function PromptCard({ entry, kid, allKids, featured = tr
 
   return (
     <div
+      role="button" tabIndex={0}
       onClick={lp.wrapClick(onClick)} onTouchStart={lp.onTouchStart} onTouchMove={lp.onTouchMove} onTouchEnd={lp.onTouchEnd}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick?.(); } }}
       style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden', cursor: 'pointer', boxShadow: '0 2px 8px rgba(44,56,40,0.08)' }}
     >
       <div style={{ background: PROMPT_ACCENT, padding: featured ? '13px 17px' : '10px 13px' }}>
@@ -770,6 +789,8 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
   useVideoAutoPause(photoRef, videoPlaying, () => setVideoPlaying(false));
   const preview = entry.text.length > 140 ? entry.text.slice(0, 140) + '…' : entry.text;
   const yearLabel = yearsAgo === 1 ? 'One year ago today' : `${yearsAgo} years ago today`;
+  const entryKidNames = (allKids ? entry.kids.map(id => allKids.find(k => k.id === id)).filter(Boolean) : [kid].filter(Boolean)).map(k => k.name);
+  const mediaAlt = entryMediaAlt(entry, entryKidNames);
 
   return (
     <div>
@@ -796,7 +817,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
                   <CroppedVideo src={entry.media[0].url} poster={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} autoPlay playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} onClick={e => e.stopPropagation()} />
                 ) : (
                   <>
-                    <CroppedImg src={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} onError={e => { e.target.style.display = 'none'; }} />
+                    <CroppedImg src={videoThumbUrl(entry.media[0].url, `so_0,${PHOTO_LG}`)} cropY={photoCropY(entry.media, 0, entry)} alt={mediaAlt} onError={e => { e.target.style.display = 'none'; }} />
                     <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={e => { e.stopPropagation(); setVideoPlaying(true); }}>
                       <div style={{ width: 30, height: 30, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <Icon name="ti-player-play-filled" style={{ color: '#fff', fontSize: 14 }} />
@@ -805,7 +826,7 @@ const OnThisDayCard = memo(function OnThisDayCard({ entry, kid, allKids, yearsAg
                   </>
                 )}
               </div>
-            ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, PHOTO_LG)} cropY={photoCropY(entry.media, 0, entry)} fade />
+            ) : <CroppedImg src={cloudinaryTransform(entry.media[0].url, PHOTO_LG)} cropY={photoCropY(entry.media, 0, entry)} alt={mediaAlt} fade />
             }
           </div>
         )}
@@ -2774,13 +2795,18 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => { onToggleFavorite(entry.id); showToast(entry.favorited ? 'Removed from favorites' : 'Saved to favorites'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: entry.favorited ? '#C8993E' : 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}>
+                  <button
+                    onClick={() => { onToggleFavorite(entry.id); showToast(entry.favorited ? 'Removed from favorites' : 'Saved to favorites'); }}
+                    aria-label={entry.favorited ? 'Remove from favorites' : 'Save to favorites'}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 6, color: entry.favorited ? 'var(--accent)' : 'var(--text-muted)', fontSize: 20, display: 'flex', alignItems: 'center' }}
+                  >
                     <Icon name={`ti-star${entry.favorited ? '-filled' : ''}`} />
                   </button>
                   {isOwn && (
                     <>
                       <button
                         ref={dotsMenuBtnRef}
+                        aria-label="More actions"
                         onClick={() => {
                           // The sheet itself sits fixed to the viewport, but
                           // nothing scrolled the *page* into a state where
@@ -2896,10 +2922,10 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           {linkedEntries.length > 0 && onOpenLinkedLetters && (
             <button
               onClick={() => onOpenLinkedLetters([entry, ...linkedEntries])}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', borderRadius: 999, padding: '8px 14px 8px 8px', background: 'linear-gradient(155deg, rgba(200,153,62,0.12), rgba(200,153,62,0.04))', border: '1px solid rgba(200,153,62,0.32)', cursor: 'pointer', textAlign: 'left' }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', borderRadius: 999, padding: '8px 14px 8px 8px', background: 'var(--bg-card)', border: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}
             >
-              <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(200,153,62,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Icon name="ti-link" style={{ fontSize: 13, color: '#C8993E' }} />
+              <span style={{ width: 26, height: 26, borderRadius: '50%', background: 'rgba(var(--accent-rgb),0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Icon name="ti-link" style={{ fontSize: 13, color: 'var(--accent)' }} />
               </span>
               <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
                 Linked to {linkedEntries.length} other letter{linkedEntries.length === 1 ? '' : 's'}
@@ -3014,7 +3040,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
               })}
             </div>
             <button
-              className="btn btn-gold"
+              className="btn btn-primary"
               style={{ width: '100%', opacity: sameAgePickerSelection.length > 0 ? 1 : 0.4 }}
               disabled={sameAgePickerSelection.length === 0}
               onClick={() => {
@@ -3045,7 +3071,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button className="btn btn-outline" style={{ flex: 1 }} onClick={onCancelSameAgeMatch}>Cancel</button>
-              <button className="btn btn-gold" style={{ flex: 1 }} onClick={onConfirmSameAgeMatch}>Add {pendingSameAgeMatch.file?.type?.startsWith('video') ? 'video' : 'photo'}</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={onConfirmSameAgeMatch}>Add {pendingSameAgeMatch.file?.type?.startsWith('video') ? 'video' : 'photo'}</button>
             </div>
           </div>
         </div>
@@ -4376,7 +4402,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
               })}
             </div>
             <button
-              className="btn btn-gold"
+              className="btn btn-primary"
               style={{ width: '100%', opacity: draftSameAgePickerSelection.length > 0 ? 1 : 0.4 }}
               disabled={draftSameAgePickerSelection.length === 0}
               onClick={() => {
@@ -4614,10 +4640,10 @@ const NavBar = memo(function NavBar({ active, onNavigate, myAvatarUrl, onAdd }) 
             </button>
           ))}
           <div className="nv-add-wrap">
-            <button className="nv-add" onClick={onAdd ?? (() => onNavigate('new-entry'))}><Icon name="ti-plus" /></button>
+            <button className="nv-add" aria-label="Write a new letter" onClick={onAdd ?? (() => onNavigate('new-entry'))}><Icon name="ti-plus" /></button>
           </div>
           {tabsRight.map(tab => (
-            <button key={tab.id} className="nv-tab" style={tabStyle(tab)} onClick={() => onNavigate(tab.id)}>
+            <button key={tab.id} className="nv-tab" style={tabStyle(tab)} aria-label={tab.label} onClick={() => onNavigate(tab.id)}>
               {tab.id === 'profile' ? (
                 <>
                   {myAvatarUrl ? (
@@ -7618,7 +7644,7 @@ export default function App() {
             </p>
             <button
               onClick={() => setShowFriendsPrivacyExplainer(false)}
-              className="btn btn-gold"
+              className="btn btn-primary"
               style={{ width: '100%', border: 'none', borderRadius: 14, padding: '14px', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}
             >
               Got it

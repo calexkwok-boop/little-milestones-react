@@ -207,7 +207,12 @@ function LetterPage({ entry, pageText, index, sortedLength, kids, isContinued, h
 const NOTES_PAGE_BUDGET = 480;
 
 const NOTE_ACCENT_FALLBACK = '#8AA98C';
-const PROMPT_ACCENT = '#C8993E';
+// Fixed hex, not the shared constants.js PROMPT_ACCENT (which is now
+// var(--accent) for the live UI) -- exported book pages render as static
+// print images independent of the viewer's theme, so this one needs to
+// stay a plain, always-correct hex. Sage, not gold, for the same reason
+// as the live UI's version: a prompt isn't a milestone.
+const PROMPT_ACCENT = '#4A5E50';
 
 function NotesPage({ notes, monthKey, kids, isContinued, hasMore }) {
   const monthLabel = new Date(monthKey + '-01T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -923,7 +928,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
       </div>
 
       <div style={{ padding: '8px 20px 28px', flexShrink: 0 }}>
-        <button className="btn btn-gold" style={{ width: '100%', borderRadius: 14 }}
+        <button className="btn btn-primary" style={{ width: '100%', borderRadius: 14 }}
           onClick={() => setShowWaitlist(true)}>
           <Icon name="ti-bell" style={{ fontSize: 16 }} />
           Join the book waitlist
@@ -951,7 +956,7 @@ function BookPreviewScreen({ kids, bookConfig, onBack, onUpdateCrop, currentUser
                   style={{ marginBottom: 12 }}
                 />
                 <button
-                  className="btn btn-gold"
+                  className="btn btn-primary"
                   style={{ width: '100%', opacity: (!waitlistEmail.trim() || waitlistSubmitting) ? 0.5 : 1 }}
                   disabled={!waitlistEmail.trim() || waitlistSubmitting}
                   onClick={async () => {

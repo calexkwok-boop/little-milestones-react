@@ -82,7 +82,7 @@ const JournalEntryRow = memo(function JournalEntryRow({ entry, entryKids, onOpen
                     {reactionCount.comments}
                   </span>
                 )}
-                {entry.favorited && <Icon name="ti-star-filled" style={{ fontSize: 11, color: '#C8993E' }} />}
+                {entry.favorited && <Icon name="ti-star-filled" style={{ fontSize: 11, color: 'var(--accent)' }} />}
                 {m && <span style={{ fontSize: 10, fontWeight: 700, color: '#C8993E' }}>{m.label}</span>}
               </div>
             </div>

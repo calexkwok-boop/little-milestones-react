@@ -41,8 +41,13 @@
   --bg-overlay: rgba(242,244,236,0.98);
   --text: #2C3828;
   --text-2: #5C6B5E;
-  --text-3: #7A8C78;
-  --text-muted: #9AA89C;
+  /* text-3/text-muted darkened from their original values (measured at
+     3.39:1 / 2.34:1 against --bg) to clear WCAG AA's 4.5:1 for normal text
+     -- these carry real content (dates, ages, locations), not decoration.
+     Same fix mirrored in the dark-mode block below, and in the duplicate
+     [data-theme="light"] block, which must stay in sync with this one. */
+  --text-3: #627161;
+  --text-muted: #6B756C;
   --border: #CCDAC8;
   --border-light: #B8CCB4;
   --accent: #4A5E50;
@@ -71,8 +76,8 @@
   --bg-overlay: rgba(242,244,236,0.98);
   --text: #2C3828;
   --text-2: #5C6B5E;
-  --text-3: #7A8C78;
-  --text-muted: #9AA89C;
+  --text-3: #627161;
+  --text-muted: #6B756C;
   --border: #CCDAC8;
   --border-light: #B8CCB4;
   --accent: #4A5E50;
@@ -91,8 +96,8 @@
   --bg-overlay: rgba(23,24,26,0.98);
   --text: #E8E9E4;
   --text-2: #A8ACA4;
-  --text-3: #7C807A;
-  --text-muted: #6B6F68;
+  --text-3: #949992;
+  --text-muted: #83887F;
   --border: #2C2F2C;
   --border-light: #242625;
   /* Toned down from their light-mode source colors — full-brightness green/coral
@@ -213,6 +218,17 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
   flex-shrink: 0;
 }
 
+/* Visible circle stays 36px (headers across ~10 screens pair this with a
+   matching-width spacer div to keep a centered title actually centered --
+   growing the box itself would mean re-tuning every one of those). The
+   ::before instead pads the real *tappable* area out to 44px, meeting the
+   minimum touch target size without moving anything visually. Pseudo-
+   elements count as part of their host for hit-testing, so a tap landing
+   in that invisible padding still fires the button's own onClick. */
+.icon-btn, .icon-btn-ghost { position: relative; }
+.icon-btn::before, .icon-btn-ghost::before {
+  content: ''; position: absolute; inset: -4px;
+}
 .icon-btn {
   background: var(--bg-input); border: 1px solid var(--border); cursor: pointer;
   color: var(--accent); font-size: 18px; width: 36px; height: 36px;
@@ -564,9 +580,12 @@ input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin
 .nv-add {
   all: unset;
   width: 52px; height: 52px; border-radius: 50%;
-  background: linear-gradient(180deg, #D4A84B 0%, #B8872E 100%); display: flex; align-items: center;
+  /* Sage, not gold -- gold is reserved for milestones (Trips pins, the
+     milestone timeline), and this is the single most-tapped button in the
+     app, not a special-occasion one. Matches .btn-primary's gradient. */
+  background: linear-gradient(180deg, #5C7263 0%, #3E5244 100%); display: flex; align-items: center;
   justify-content: center; cursor: pointer; color: #ffffff;
-  border: 3px solid var(--bg-nav); box-shadow: 0 2px 6px rgba(140,100,20,0.35);
+  border: 3px solid var(--bg-nav); box-shadow: 0 2px 6px rgba(44,56,40,0.35);
 }
 .nv-add svg { font-size: 24px; color: #ffffff; }
 

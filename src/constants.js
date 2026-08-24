@@ -9,9 +9,19 @@ export const KIDS_INITIAL = [];
 
 export const AMAZON_GIFT_FALLBACK_URL = 'https://www.amazon.com/s?k=gifts+for+kids';
 
-export const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C8993E', '#A889B0'];
+// Gold (#C8993E) deliberately excluded -- it's reserved for milestone
+// moments elsewhere in the app (Trips pins, the milestone timeline), so a
+// family's 4th kid can't end up wearing the same color as "this is a
+// milestone." Dusty rose fills that slot instead, distinct from the
+// existing coral/teal/blue/mauve.
+export const KID_ACCENTS = ['#D4856A', '#7BA99A', '#6A9EB0', '#C97B8C', '#A889B0'];
 
-export const PROMPT_ACCENT = '#C8993E';
+// Sage, not gold -- a prompt/same-age card isn't a milestone, and gold is
+// reserved for those. A fixed hex, not the CSS var, because this also
+// feeds hexToRgba() (NoteCard's tint) which can't parse a var() string --
+// matches light mode's --accent; doesn't adapt under dark mode, same
+// tradeoff KID_ACCENTS already makes.
+export const PROMPT_ACCENT = '#4A5E50';
 
 // Book cover/chapter-divider/back-cover looks a user can pick in the book builder.
 // `kind: 'solid'` is a flat dark ground — the grid texture, cream text (#F8F4EC),

@@ -436,7 +436,7 @@ function SavedReelsScreen({ entries = [], savedReels = [], patinaJarReels = [], 
 
             <div style={{ flexShrink: 0, padding: '14px 24px 28px', borderTop: '1px solid var(--border)' }}>
               <button
-                className="btn btn-gold"
+                className="btn btn-primary"
                 style={{ width: '100%', opacity: canContinue ? 1 : 0.5 }}
                 disabled={!canContinue}
                 onClick={handleContinue}

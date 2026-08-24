@@ -106,7 +106,7 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
             </div>
 
             <input ref={fileInputRef} type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={handleFileChange} />
-            <button className="btn btn-gold" style={{ width: '100%', maxWidth: 320, marginTop: 18, opacity: picking ? 0.7 : 1 }} disabled={picking} onClick={() => fileInputRef.current?.click()}>
+            <button className="btn btn-primary" style={{ width: '100%', maxWidth: 320, marginTop: 18, opacity: picking ? 0.7 : 1 }} disabled={picking} onClick={() => fileInputRef.current?.click()}>
               <Icon name="ti-photo" style={{ fontSize: 17 }} />
               {picking ? 'One moment…' : `Find something from ${monthYearLabel}`}
             </button>

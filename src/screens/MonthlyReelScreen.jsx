@@ -641,7 +641,7 @@ function MonthlyReelScreen({ entries, kids, familyMembers = [], startDate, endDa
                   </>
                 ) : (
                   <>
-                    <button onClick={handleExportShare} className="btn btn-gold" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
+                    <button onClick={handleExportShare} className="btn btn-primary" style={{ width: '100%', border: 'none', borderRadius: 12, padding: '13px', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif" }}>
                       Export video
                     </button>
                     <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: '8px 0 0' }}>
