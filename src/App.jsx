@@ -7286,6 +7286,21 @@ export default function App() {
             series={activeMilestoneSeries}
             onBack={() => setScreen(milestoneSeriesSource)}
             onOpenEntry={openEntry}
+            onWriteAnother={series => {
+              // Pre-fills the exact same milestone this series is already
+              // matched on, so the new letter is guaranteed to join it --
+              // splitting a "custom:Label" tag back into the picker's own
+              // 'custom' + separate label fields, same shape it expects
+              // from typing one in fresh.
+              const isCustom = series.milestone.startsWith('custom:');
+              setNewEntryInitial({
+                kidIds: [series.kid.id],
+                milestone: isCustom ? 'custom' : series.milestone,
+                customMilestone: isCustom ? series.milestone.slice(7) : undefined,
+              });
+              setComposeMode('letter');
+              setScreen('new-entry');
+            }}
           />
         </Suspense>
       )}

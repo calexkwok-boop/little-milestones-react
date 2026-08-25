@@ -6,7 +6,7 @@ import { milestoneInfo, exactAgeLabel, cloudinaryTransform, videoThumbUrl, PHOTO
 // here is data the app didn't already have -- every card is one of the
 // user's own entries, matched to the others purely by sharing the same
 // milestone type and kid (see HomeScreen's featuredMilestoneSeries).
-function MilestoneSeriesScreen({ series, onBack, onOpenEntry }) {
+function MilestoneSeriesScreen({ series, onBack, onOpenEntry, onWriteAnother }) {
   const info = milestoneInfo(series.milestone);
   const entries = series.entries;
 
@@ -84,6 +84,13 @@ function MilestoneSeriesScreen({ series, onBack, onOpenEntry }) {
               );
             })}
           </div>
+
+          {onWriteAnother && (
+            <button className="btn btn-primary" style={{ width: '100%', marginTop: 22 }} onClick={() => onWriteAnother(series)}>
+              <Icon name="ti-pencil" style={{ fontSize: 16 }} />
+              Write another {info?.label?.toLowerCase() || 'letter'}
+            </button>
+          )}
         </div>
       </div>
     </div>
