@@ -45,7 +45,7 @@ import SameAgeMatchScreen from './screens/SameAgeMatchScreen';
 import {
   KIDS_INITIAL, ENTRIES_INITIAL, KID_ACCENTS, PROMPT_ACCENT,
   MOODS, MILESTONE_TYPES, PALETTES, TODAY, AMAZON_GIFT_FALLBACK_URL,
-  ageLabel, exactAge, exactAgeLabel, milestoneInfo, entryBgStyle, tintedScrimStyle, photoCropY, cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl,
+  ageLabel, exactAge, exactAgeLabel, dateForAge, milestoneInfo, entryBgStyle, tintedScrimStyle, photoCropY, cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl,
   AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, PHOTO_XS, PHOTO_MD, PHOTO_LG, getAuthRedirectUrl, timeAgo, daysUntilBirthday, ASSET_BASE,
 } from './constants.js';
 import usePullToRefresh from './usePullToRefresh.jsx';
@@ -1409,6 +1409,12 @@ function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFil
           if (!entry.kids?.includes(kidB.id) || entry.kids?.includes(kidA.id)) continue;
           const ageB = exactAge(kidB.birthdate, entry.date);
           if (ageB.years * 12 + ageB.months !== ageAMonths) continue;
+          // Matching by year+month alone ignores days -- kidB could have
+          // been photographed later in that month than kidA has reached
+          // yet, which sent kidA's own target date (birthdate + kidB's
+          // exact years/months/days) into the future. Skip anything that
+          // hasn't actually happened for kidA yet.
+          if (dateForAge(kidA.birthdate, ageB) > TODAY) continue;
           const hasMedia = entry.media?.length > 0;
           if (!best || (hasMedia && !best.hasMedia)) best = { entry, hasMedia };
         }
@@ -2451,11 +2457,15 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
     const anchorKid = allKids.find(ak => ak.id === anchorKidId);
     if (!anchorKid) return [];
     const anchorAge = exactAge(anchorKid.birthdate, entry.date);
-    const anchorAgeMonths = anchorAge.years * 12 + anchorAge.months;
     return allKids.filter(ak => {
       if (entry.kids.includes(ak.id) || ak.archivedAt) return false;
-      const { years, months } = exactAge(ak.birthdate, TODAY);
-      return years * 12 + months >= anchorAgeMonths;
+      // Was straight months-vs-months (>=), which ignored days -- a sibling
+      // could round to the same months-old as the anchor without having
+      // actually reached that exact day yet, sending SameAgeMatchScreen's
+      // computed target date into the future ("find something from next
+      // month"). Checking the real target date directly is both correct
+      // and simpler than the month-bucket math it replaces.
+      return dateForAge(ak.birthdate, anchorAge) <= TODAY;
     });
   }, [allKids, anchorKidId, entry.kids, entry.date]);
   const [activeSlide, setActiveSlide] = useState(0);

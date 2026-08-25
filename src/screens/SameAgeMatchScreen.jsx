@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
 import CroppedImg from '../CroppedImg.jsx';
-import { exactAge, dateForAge, cloudinaryTransform, videoThumbUrl, photoCropY, PHOTO_XS } from '../constants.js';
+import { exactAge, dateForAge, cloudinaryTransform, videoThumbUrl, photoCropY, PHOTO_XS, TODAY } from '../constants.js';
 
 let _exifr = null;
 const loadExifr = () => _exifr ?? (_exifr = import('exifr').then(m => m.default));
@@ -43,6 +43,11 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
       : `${age.days} day${age.days !== 1 ? 's' : ''} old`;
   const targetDateLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const monthYearLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  // Callers pre-filter for this (see App.jsx's sameAgeEligibleOthers/
+  // sameAgeMatchBanner), but the draft-compose entry point doesn't filter
+  // at all -- guard here too rather than asking for a photo of a moment
+  // that hasn't happened yet ("find something from next month").
+  const isFuture = targetDate > TODAY;
   const sourceAccent = sourceKid.accent || '#4A5E50';
   const targetAccent = targetKid.accent || '#4A5E50';
   // Show the actual photo/video being compared against, not just the source
@@ -101,15 +106,23 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
                 </div>
               </div>
               <p style={{ fontSize: 16, color: 'var(--text)', margin: 0, lineHeight: 1.55, maxWidth: '28ch', marginLeft: 'auto', marginRight: 'auto' }}>
-                {targetKid.name.split(' ')[0]} was <strong style={{ color: 'var(--accent)' }}>{ageLabel}</strong> on <strong style={{ color: 'var(--accent)' }}>{targetDateLabel}</strong>
+                {targetKid.name.split(' ')[0]} {isFuture ? 'will be' : 'was'} <strong style={{ color: 'var(--accent)' }}>{ageLabel}</strong> on <strong style={{ color: 'var(--accent)' }}>{targetDateLabel}</strong>
               </p>
             </div>
 
-            <input ref={fileInputRef} type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={handleFileChange} />
-            <button className="btn btn-primary" style={{ width: '100%', maxWidth: 320, marginTop: 18, opacity: picking ? 0.7 : 1 }} disabled={picking} onClick={() => fileInputRef.current?.click()}>
-              <Icon name="ti-photo" style={{ fontSize: 17 }} />
-              {picking ? 'One moment…' : `Find something from ${monthYearLabel}`}
-            </button>
+            {isFuture ? (
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '18px 0 0', maxWidth: 300, lineHeight: 1.5 }}>
+                {targetKid.name.split(' ')[0]} hasn't reached that age yet — check back after {targetDateLabel}.
+              </p>
+            ) : (
+              <>
+                <input ref={fileInputRef} type="file" accept="image/*,video/*" style={{ display: 'none' }} onChange={handleFileChange} />
+                <button className="btn btn-primary" style={{ width: '100%', maxWidth: 320, marginTop: 18, opacity: picking ? 0.7 : 1 }} disabled={picking} onClick={() => fileInputRef.current?.click()}>
+                  <Icon name="ti-photo" style={{ fontSize: 17 }} />
+                  {picking ? 'One moment…' : `Find something from ${monthYearLabel}`}
+                </button>
+              </>
+            )}
             <button onClick={onCancel} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', fontSize: 13, fontWeight: 600, marginTop: 10, padding: 8, fontFamily: "'Urbanist', sans-serif" }}>
               Never mind
             </button>
