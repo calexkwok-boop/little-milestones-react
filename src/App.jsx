@@ -2687,6 +2687,24 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
                     <Icon name="ti-crop" style={{ fontSize: 12 }} />
                   </button>
                 )}
+                {/* Same "tap to lead with this one" mechanism already used for
+                    same-age comparison photos, extended to a regular
+                    multi-photo letter -- previously only reachable there. */}
+                {media.length > 1 && isOwn && onReorderMedia && !videoPlaying && (
+                  activeSlide === 0 ? (
+                    <span style={{ position: 'absolute', top: 12, right: 12, background: 'rgba(0,0,0,0.45)', color: '#fff', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', padding: '4px 8px', borderRadius: 999, zIndex: 5 }}>
+                      Cover
+                    </span>
+                  ) : (
+                    <button
+                      onClick={e => { e.stopPropagation(); handleSetCoverPhoto(media[activeSlide]); }}
+                      style={{ position: 'absolute', top: 12, right: 12, display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(0,0,0,0.45)', border: 'none', color: '#fff', fontSize: 9.5, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', padding: '4px 8px 4px 6px', borderRadius: 999, cursor: 'pointer', zIndex: 5 }}
+                    >
+                      <Icon name="ti-star" style={{ fontSize: 10 }} />
+                      Set as cover
+                    </button>
+                  )
+                )}
                 {media[activeSlide]?.type !== 'video' && (
                   <button
                     onClick={e => { e.stopPropagation(); if (isOwn) setShowPeopleTagger(true); }}
