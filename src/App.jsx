@@ -2419,7 +2419,7 @@ function LinkEntryPicker({ entries, kids, excludeId, onSelect, onClose }) {
   );
 }
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', familyMembers = [], onSameAge, onRemoveSameAgeMatch, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch, allEntries = [], onLinkEntries, onUnlinkEntry, onOpenLinkedLetters }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', familyMembers = [], onSameAge, onRemoveSameAgeMatch, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch, allEntries = [], onLinkEntries, onUnlinkEntry, onOpenLinkedLetters, onOpenMilestoneSeries }) {
   // Only the author can edit or delete an entry's content — family members
   // may only adjust the photo crop (handled separately, below).
   const isOwn = entry.userId === session?.user?.id;
@@ -2429,6 +2429,19 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   // The kid this entry was originally about — the one with no key in sameAgeDates.
   // Every kid folded in later gets compared against this same anchor.
   const anchorKidId = entry.kids.find(id => !(entry.sameAgeDates || {})[id]);
+  // Every other letter sharing this exact milestone tag and kid -- same
+  // matching rule as Home's reveal card, just triggered by tapping the
+  // milestone banner here instead of a fresh entry completing a pair.
+  // Null (not just empty) when there's nothing to open, so the banner can
+  // tell "no series yet" apart from "haven't checked."
+  const milestoneSeries = useMemo(() => {
+    if (!entry.milestone || !allKids) return null;
+    const anchorKid = allKids.find(k => k.id === anchorKidId);
+    if (!anchorKid) return null;
+    const matches = allEntries.filter(e => e.milestone === entry.milestone && (e.kids || []).includes(anchorKid.id));
+    if (matches.length < 2) return null;
+    return { id: `${entry.milestone}::${anchorKid.id}`, milestone: entry.milestone, kid: anchorKid, entries: matches.slice().sort((a, b) => a.date.localeCompare(b.date)) };
+  }, [allEntries, allKids, entry.milestone, anchorKidId]);
   const sides = allKids ? sameAgeSides(entry, allKids) : null;
   // Only offer siblings who've actually reached the anchor's age at this entry —
   // otherwise the match flow ends up asking for a photo dated in the future
@@ -2719,12 +2732,24 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
         </div>
         <div className="scrollpad">
           {m && (
-            <div className="milestone-entry" style={{ borderRadius: 16, padding: '18px 20px', textAlign: 'center' }}>
+            <div
+              className="milestone-entry"
+              role={milestoneSeries ? 'button' : undefined}
+              tabIndex={milestoneSeries ? 0 : undefined}
+              onClick={milestoneSeries ? () => onOpenMilestoneSeries?.(milestoneSeries) : undefined}
+              onKeyDown={milestoneSeries ? (e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenMilestoneSeries?.(milestoneSeries); } }) : undefined}
+              style={{ borderRadius: 16, padding: '18px 20px', textAlign: 'center', cursor: milestoneSeries ? 'pointer' : 'default' }}
+            >
               <p style={{ fontSize: 10, fontWeight: 700, color: '#C8993E', letterSpacing: 1.4, textTransform: 'uppercase', margin: '0 0 10px' }}>Milestone</p>
               <div style={{ width: 52, height: 52, borderRadius: '50%', margin: '0 auto 10px', background: 'linear-gradient(160deg, #F5D78E 0%, #C8993E 100%)', boxShadow: '0 3px 10px rgba(200,153,62,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <Icon name={m.icon} style={{ fontSize: 24, color: '#fff' }} />
               </div>
               <p style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: '#7A6030', margin: 0 }}>{m.label}</p>
+              {milestoneSeries && (
+                <p style={{ fontSize: 11, fontWeight: 600, color: '#B8872E', margin: '6px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
+                  See all {milestoneSeries.entries.length} <Icon name="ti-chevron-right" style={{ fontSize: 10 }} />
+                </p>
+              )}
             </div>
           )}
           {sides && (() => {
@@ -4779,8 +4804,11 @@ export default function App() {
   const [newEntryInitial, setNewEntryInitial] = useState(null);
   // The milestone series (e.g. every "First day of school" letter for one
   // kid) currently open in the "First Days"-style timeline screen -- see
-  // MilestoneSeriesScreen.jsx.
+  // MilestoneSeriesScreen.jsx. Reachable from two places (Home's reveal
+  // card, or tapping a milestone entry's own banner in entry detail), so
+  // this tracks which one to return to on back rather than hardcoding it.
   const [activeMilestoneSeries, setActiveMilestoneSeries] = useState(null);
+  const [milestoneSeriesSource, setMilestoneSeriesSource] = useState('home');
   // The set of entries currently open in the "Linked letters" timeline --
   // built manually via EntryDetailScreen's "Link to another letter" action
   // (entry.linkGroupId), unlike milestone series which match automatically.
@@ -6940,7 +6968,7 @@ export default function App() {
               setSameAgeMatch({ sourceEntry: entry, sourceKid, targetKid, queue: [], queueTotal: 1 });
               setScreen('same-age-match');
             }}
-            onOpenMilestoneSeries={series => { setActiveMilestoneSeries(series); setScreen('milestone-series'); }}
+            onOpenMilestoneSeries={series => { setActiveMilestoneSeries(series); setMilestoneSeriesSource('home'); setScreen('milestone-series'); }}
           />
         );
       })()}
@@ -7044,6 +7072,7 @@ export default function App() {
           onLinkEntries={handleLinkEntries}
           onUnlinkEntry={handleUnlinkEntry}
           onOpenLinkedLetters={linked => { setActiveLinkedLetters(linked); setScreen('linked-letters'); }}
+          onOpenMilestoneSeries={series => { setActiveMilestoneSeries(series); setMilestoneSeriesSource('entry-detail'); setScreen('milestone-series'); }}
         />
       )}
 
@@ -7255,7 +7284,7 @@ export default function App() {
         <Suspense fallback={<div className="screen" />}>
           <LazyMilestoneSeriesScreen
             series={activeMilestoneSeries}
-            onBack={() => setScreen('home')}
+            onBack={() => setScreen(milestoneSeriesSource)}
             onOpenEntry={openEntry}
           />
         </Suspense>
