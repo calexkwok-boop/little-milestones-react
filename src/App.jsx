@@ -40,6 +40,7 @@ const LazyMilestoneSeriesScreen = lazy(() => import('./screens/MilestoneSeriesSc
 const LazyLinkedLettersScreen = lazy(() => import('./screens/LinkedLettersScreen'));
 const LazySharedEntryScreen = lazy(() => import('./screens/SharedEntryScreen'));
 const LazySharedReelScreen = lazy(() => import('./screens/SharedReelScreen'));
+const LazyImageSearchSheet = lazy(() => import('./screens/ImageSearchSheet'));
 import BookBuilderScreen from './screens/BookBuilderScreen';
 import SameAgeMatchScreen from './screens/SameAgeMatchScreen';
 import {
@@ -3342,7 +3343,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, initialLocation, initialLocationCoords, mode: modeProp, promptText: promptTextProp }) {
+function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, initialLocation, initialLocationCoords, mode: modeProp, promptText: promptTextProp, uploadImage }) {
   const [promptText, setPromptText] = useState(promptTextProp || existingEntry?.prompt || null);
   const mode = modeProp || existingEntry?.type || 'letter';
   const isNote = mode === 'note';
@@ -3769,6 +3770,30 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
     } else {
       setDraftSameAgeTarget(null);
       setDraftSameAgeQueueTotal(0);
+    }
+  }
+
+  const [showImageSearch, setShowImageSearch] = useState(false);
+  const [addingWebImage, setAddingWebImage] = useState(false);
+
+  // Web search results are just URLs, not File objects — most image hosts
+  // don't send CORS headers so fetching the bytes into the browser first
+  // would fail for a lot of results. uploadToCloudinary already accepts a
+  // plain URL string in place of a File (Cloudinary fetches it server-side),
+  // so this uploads immediately instead of deferring to save time like local
+  // picks do. fileObjects gets a `null` placeholder to keep it index-aligned
+  // with media, same as how already-uploaded existing-entry media works.
+  async function handleWebImageSelected(result) {
+    setAddingWebImage(true);
+    try {
+      const uploaded = await uploadImage(result.imageUrl, 'image');
+      setMedia(prev => [...prev, { url: uploaded, type: 'image', thumbnail: null }]);
+      setFileObjects(prev => [...prev, null]);
+      setShowImageSearch(false);
+    } catch (err) {
+      setMediaError('Could not add that photo: ' + (err?.message || 'unknown error'));
+    } finally {
+      setAddingWebImage(false);
     }
   }
 
@@ -4267,6 +4292,14 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
                 <button onClick={() => { uploadInputRef.current?.click(); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500 }}>
                   <Icon name="ti-photo" style={{ fontSize: 17, color: 'var(--accent)' }} /> Upload from library
                 </button>
+                {uploadImage && (
+                  <>
+                    <div style={{ height: 1, background: 'var(--border)' }} />
+                    <button onClick={() => { setShowImageSearch(true); setShowMediaMenu(false); }} style={{ display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 16px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text)', fontFamily: "'Urbanist', sans-serif", fontWeight: 500 }}>
+                      <Icon name="ti-search" style={{ fontSize: 17, color: 'var(--accent)' }} /> Search the web
+                    </button>
+                  </>
+                )}
               </div>
             </>
           )}
@@ -4471,6 +4504,16 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             </button>
           </div>
         </div>
+      )}
+
+      {showImageSearch && (
+        <Suspense fallback={<div className="screen" />}>
+          <LazyImageSearchSheet
+            onClose={() => setShowImageSearch(false)}
+            onSelect={handleWebImageSelected}
+            adding={addingWebImage}
+          />
+        </Suspense>
       )}
 
       {draftSameAgeTarget && (
@@ -7120,7 +7163,7 @@ export default function App() {
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={activeKids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); pendingPinConversionRef.current = null; }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} initialLocation={newEntryInitial?.location} initialLocationCoords={newEntryInitial?.locationCoords} />
+        <NewEntryScreen kids={activeKids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); pendingPinConversionRef.current = null; }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} initialLocation={newEntryInitial?.location} initialLocationCoords={newEntryInitial?.locationCoords} uploadImage={uploadToCloudinary} />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
@@ -7135,6 +7178,7 @@ export default function App() {
           allPeople={allPeople}
           familyMembers={familyMembers}
           currentUserId={session?.user?.id}
+          uploadImage={uploadToCloudinary}
         />
       )}
 
