@@ -4911,7 +4911,7 @@ export default function App() {
   const [editingReel, setEditingReel] = useState(null); // the saved_reels row currently open in the reel editor, or null when closed
   const [patinaJarKidId, setPatinaJarKidId] = useState(null); // which kid's Patina Jar/record screen is open
   const [patinaJarBackScreen, setPatinaJarBackScreen] = useState('profile'); // where "back" returns to — 'profile' or 'reels'
-  const [patinaJarEntries, setPatinaJarEntries] = useState([]); // patina_jar_entries rows: { id, kidId, year, monthIndex, videoUrl, createdAt }
+  const [patinaJarEntries, setPatinaJarEntries] = useState([]); // patina_jar_entries rows: { id, kidId, year, monthIndex, videoUrl, photoUrl, createdAt } — exactly one of videoUrl/photoUrl is ever set
   const [showNotificationHistory, setShowNotificationHistory] = useState(false);
   const [showFriendsPrivacyExplainer, setShowFriendsPrivacyExplainer] = useState(false);
   const [birthdayNotifications, setBirthdayNotifications] = useState([]);
@@ -5214,8 +5214,8 @@ export default function App() {
         const { data: savedReelsData } = await supabase.from('saved_reels').select('id, title, start_date, end_date, song, song2, duration_sec, slide_refs, created_at').eq('family_id', currentFamilyId).order('created_at', { ascending: false });
         if (savedReelsData) setSavedReels(savedReelsData.map(r => ({ id: r.id, title: r.title, startDate: r.start_date, endDate: r.end_date, song: r.song || null, song2: r.song2 || null, durationSec: r.duration_sec || 30, slideRefs: r.slide_refs || null })));
 
-        const { data: patinaJarData } = await supabase.from('patina_jar_entries').select('id, kid_id, year, month_index, video_url, created_at').eq('family_id', currentFamilyId);
-        if (patinaJarData) setPatinaJarEntries(patinaJarData.map(r => ({ id: r.id, kidId: r.kid_id, year: r.year, monthIndex: r.month_index, videoUrl: r.video_url, createdAt: r.created_at })));
+        const { data: patinaJarData } = await supabase.from('patina_jar_entries').select('id, kid_id, year, month_index, video_url, photo_url, created_at').eq('family_id', currentFamilyId);
+        if (patinaJarData) setPatinaJarEntries(patinaJarData.map(r => ({ id: r.id, kidId: r.kid_id, year: r.year, monthIndex: r.month_index, videoUrl: r.video_url, photoUrl: r.photo_url, createdAt: r.created_at })));
       }
 
       // Load friend data (gracefully skipped if tables don't exist yet)
@@ -5817,15 +5817,15 @@ export default function App() {
   // One row per kid per (year, month) — re-recording a month is delete-then-
   // insert (see the unique constraint in patina-jar-entries-table.sql), not
   // an update, so there's no corresponding handleUpdatePatinaJarEntry.
-  async function handleCreatePatinaJarEntry({ kidId, year, monthIndex, videoUrl }) {
+  async function handleCreatePatinaJarEntry({ kidId, year, monthIndex, videoUrl, photoUrl }) {
     if (localMode || !supabase || !session || !familyId) {
-      const row = { id: Date.now(), kidId, year, monthIndex, videoUrl, createdAt: new Date().toISOString() };
+      const row = { id: Date.now(), kidId, year, monthIndex, videoUrl: videoUrl || null, photoUrl: photoUrl || null, createdAt: new Date().toISOString() };
       setPatinaJarEntries(prev => [...prev, row]);
       return row;
     }
     const { data, error } = await supabase.from('patina_jar_entries').insert({
-      kid_id: kidId, family_id: familyId, year, month_index: monthIndex, video_url: videoUrl, created_by: session.user.id,
-    }).select('id, kid_id, year, month_index, video_url, created_at').single();
+      kid_id: kidId, family_id: familyId, year, month_index: monthIndex, video_url: videoUrl || null, photo_url: photoUrl || null, created_by: session.user.id,
+    }).select('id, kid_id, year, month_index, video_url, photo_url, created_at').single();
     if (error || !data) {
       // 23505 = unique_violation — someone else in the family recorded this
       // exact kid+year+month between this screen loading and this insert
@@ -5834,9 +5834,9 @@ export default function App() {
       // it actually is and pull in the real row that won the race, rather
       // than leaving this client's grid stuck showing the month as empty.
       if (error?.code === '23505') {
-        const { data: existing } = await supabase.from('patina_jar_entries').select('id, kid_id, year, month_index, video_url, created_at').eq('kid_id', kidId).eq('year', year).eq('month_index', monthIndex).maybeSingle();
+        const { data: existing } = await supabase.from('patina_jar_entries').select('id, kid_id, year, month_index, video_url, photo_url, created_at').eq('kid_id', kidId).eq('year', year).eq('month_index', monthIndex).maybeSingle();
         if (existing) {
-          const row = { id: existing.id, kidId: existing.kid_id, year: existing.year, monthIndex: existing.month_index, videoUrl: existing.video_url, createdAt: existing.created_at };
+          const row = { id: existing.id, kidId: existing.kid_id, year: existing.year, monthIndex: existing.month_index, videoUrl: existing.video_url, photoUrl: existing.photo_url, createdAt: existing.created_at };
           setPatinaJarEntries(prev => prev.some(r => r.id === row.id) ? prev : [...prev, row]);
         }
         alert("Someone in your family already recorded this month's question — you can watch it from the jar instead.");
@@ -5845,7 +5845,7 @@ export default function App() {
       }
       return null;
     }
-    const row = { id: data.id, kidId: data.kid_id, year: data.year, monthIndex: data.month_index, videoUrl: data.video_url, createdAt: data.created_at };
+    const row = { id: data.id, kidId: data.kid_id, year: data.year, monthIndex: data.month_index, videoUrl: data.video_url, photoUrl: data.photo_url, createdAt: data.created_at };
     setPatinaJarEntries(prev => [...prev, row]);
     return row;
   }
@@ -5855,6 +5855,7 @@ export default function App() {
     setPatinaJarEntries(prev => prev.filter(r => r.id !== id));
     if (!localMode && supabase) await supabase.from('patina_jar_entries').delete().eq('id', id);
     if (removed?.videoUrl) deleteCloudinaryMedia([], [removed.videoUrl]);
+    if (removed?.photoUrl) deleteCloudinaryMedia([{ url: removed.photoUrl, type: 'image' }]);
   }
 
   async function handleUpdatePatinaJarSong(kidId, song) {
@@ -7534,8 +7535,8 @@ export default function App() {
               monthIndex={now.getMonth() + 1}
               onCancel={() => setScreen('patina-jar')}
               onUploadToCloudinary={uploadToCloudinary}
-              onSave={async ({ year, monthIndex, videoUrl }) => {
-                await handleCreatePatinaJarEntry({ kidId: kid.id, year, monthIndex, videoUrl });
+              onSave={async ({ year, monthIndex, videoUrl, photoUrl }) => {
+                await handleCreatePatinaJarEntry({ kidId: kid.id, year, monthIndex, videoUrl, photoUrl });
                 setScreen('patina-jar');
               }}
             />

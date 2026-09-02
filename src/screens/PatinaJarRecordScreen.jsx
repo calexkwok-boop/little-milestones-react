@@ -30,6 +30,7 @@ function PatinaJarRecordScreen({ kid, year, monthIndex, onCancel, onUploadToClou
   const chunksRef = useRef([]);
   const elapsedTimerRef = useRef(null);
   const autoStopTimerRef = useRef(null);
+  const photoInputRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +72,27 @@ function PatinaJarRecordScreen({ kid, year, monthIndex, onCancel, onUploadToClou
       await onSave({ year, monthIndex, videoUrl });
     } catch {
       setMediaError("Couldn't save this recording — check your connection and try again.");
+      setUploading(false);
+    }
+  }
+
+  // The fallback for parents who'd rather grab a photo already on their
+  // phone than record live in the app right now (or whose camera access
+  // just failed above) — this month's question overlays it at display
+  // time (see PATINA_JAR_QUESTIONS/PatinaJarScreen's own comment) rather
+  // than being baked into the uploaded image, so the same source photo
+  // stays reusable if the question copy ever changes.
+  async function handlePhotoFile(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setMediaError('');
+    setUploading(true);
+    try {
+      const photoUrl = await onUploadToCloudinary(file, 'image');
+      await onSave({ year, monthIndex, photoUrl });
+    } catch {
+      setMediaError("Couldn't upload that photo — check your connection and try again.");
       setUploading(false);
     }
   }
@@ -140,23 +162,35 @@ function PatinaJarRecordScreen({ kid, year, monthIndex, onCancel, onUploadToClou
         <p style={{ fontSize: 17, color: '#fff', fontWeight: 700, margin: 0, lineHeight: 1.4 }}>{PATINA_JAR_QUESTIONS[monthIndex]}</p>
       </div>
 
-      <div style={{ position: 'absolute', bottom: 22, left: 0, right: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+      <div style={{ position: 'absolute', bottom: 16, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 2 }}>
         {uploading ? (
           <span style={{ color: '#fff', fontSize: 13, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", display: 'flex', alignItems: 'center', gap: 8 }}>
             <Icon name="ti-loader-2" style={{ fontSize: 18, animation: 'spin 1s linear infinite' }} /> Saving…
           </span>
         ) : (
-          <button
-            onClick={recording ? stopRecording : startRecording}
-            disabled={!streamReady && !recording}
-            style={{ width: 62, height: 62, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.85)', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          >
-            {recording
-              ? <span style={{ width: 24, height: 24, borderRadius: 6, background: '#E05C6A' }} />
-              : <span style={{ width: 50, height: 50, borderRadius: '50%', background: '#E05C6A' }} />}
-          </button>
+          <>
+            <button
+              onClick={recording ? stopRecording : startRecording}
+              disabled={!streamReady && !recording}
+              style={{ width: 62, height: 62, borderRadius: '50%', border: '3px solid rgba(255,255,255,0.85)', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              {recording
+                ? <span style={{ width: 24, height: 24, borderRadius: 6, background: '#E05C6A' }} />
+                : <span style={{ width: 50, height: 50, borderRadius: '50%', background: '#E05C6A' }} />}
+            </button>
+            {!recording && (
+              <button
+                onClick={() => photoInputRef.current?.click()}
+                style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.85)', fontSize: 12.5, fontWeight: 600, fontFamily: "'Urbanist', sans-serif", display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: 4 }}
+              >
+                <Icon name="ti-photo" style={{ fontSize: 14 }} /> Upload a photo instead
+              </button>
+            )}
+          </>
         )}
       </div>
+
+      <input ref={photoInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoFile} />
     </div>
   );
 }

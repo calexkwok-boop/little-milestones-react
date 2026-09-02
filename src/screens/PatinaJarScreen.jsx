@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
 import { supabase } from '../supabase.js';
-import { cloudinaryTransform, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, PATINA_JAR_QUESTIONS } from '../constants.js';
-import { SongSearchField, usePatinaJarAudioEngine } from './reelShared.jsx';
+import { cloudinaryTransform, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, PHOTO_LG, PATINA_JAR_QUESTIONS } from '../constants.js';
+import { SongSearchField, usePatinaJarAudioEngine, MIN_TEXT_READ_MS } from './reelShared.jsx';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -10,38 +10,68 @@ function monthYearLabel(year, monthIndex) {
   return new Date(year, monthIndex - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
-// Every recorded clip mounted up front, opacity-crossfaded (same convention
-// ReelSlideVideo/MonthlyReelScreen already use) — but unlike those, clips
-// here are unmuted (the whole point is hearing the answer) and advance on
-// each clip's own `onended`, not a fixed/estimated slide timer, since these
-// are real recordings of unknown, variable length.
+// A photo entry has no spoken answer for a viewer to hear the way a
+// recorded video does, so the same question PatinaJarRecordScreen shows
+// live while recording gets overlaid here instead — always
+// PATINA_JAR_QUESTIONS[monthIndex], never a stored caption (see
+// patina-jar-entries-photo-upload.sql's own comment), so it can never
+// drift from what the video flow already shows for the same month.
+function PatinaJarCaption({ monthIndex }) {
+  return (
+    <div style={{ position: 'absolute', left: 14, right: 14, bottom: 14, background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 16, padding: '12px 14px', textAlign: 'center', pointerEvents: 'none' }}>
+      <p style={{ fontSize: 15, color: '#fff', fontWeight: 700, margin: 0, lineHeight: 1.4 }}>{PATINA_JAR_QUESTIONS[monthIndex]}</p>
+    </div>
+  );
+}
+
+// Every recorded clip (or uploaded photo) mounted up front, opacity-
+// crossfaded (same convention ReelSlideVideo/MonthlyReelScreen already
+// use). A video clip is unmuted (the whole point is hearing the answer)
+// and advances on its own `onended`, since it's a real recording of
+// unknown, variable length; a photo entry has no natural end, so it
+// advances after MIN_TEXT_READ_MS instead — the same "long enough to
+// actually read a caption" floor MonthlyReelScreen's text slides use,
+// since a photo slide here always carries one (see PatinaJarCaption).
 function PatinaJarCompilation({ entries, song, onClose }) {
   const [index, setIndex] = useState(0);
   const [started, setStarted] = useState(false);
   const videoRefs = useRef([]);
+  const photoTimerRef = useRef(null);
   const audio = usePatinaJarAudioEngine({ song });
+
+  function playSlide(i) {
+    const entry = entries[i];
+    if (entry.photoUrl) {
+      photoTimerRef.current = setTimeout(handleEnded, MIN_TEXT_READ_MS);
+      return;
+    }
+    const el = videoRefs.current[i];
+    if (el) { el.currentTime = 0; el.play().catch(() => {}); }
+  }
 
   function handleStart() {
     if (started) return;
     setStarted(true);
     audio.start();
-    const el = videoRefs.current[0];
-    if (el) { el.currentTime = 0; el.play().catch(() => {}); }
+    playSlide(0);
   }
 
   useEffect(() => {
     if (!started || index === 0) return;
-    const el = videoRefs.current[index];
-    if (el) { el.currentTime = 0; el.play().catch(() => {}); }
+    playSlide(index);
+    return () => clearTimeout(photoTimerRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
   function handleEnded() {
-    if (index < entries.length - 1) setIndex(i => i + 1);
-    else audio.stop();
+    setIndex(i => {
+      if (i < entries.length - 1) return i + 1;
+      audio.stop();
+      return i;
+    });
   }
 
-  useEffect(() => () => { audio.stop(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { audio.stop(); clearTimeout(photoTimerRef.current); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const active = entries[index];
 
@@ -49,14 +79,26 @@ function PatinaJarCompilation({ entries, song, onClose }) {
     <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 45 }} onClick={handleStart}>
       <audio ref={audio.audioRef} {...audio.audioElementProps} />
       {entries.map((e, i) => (
-        <video
-          key={e.id}
-          ref={el => { videoRefs.current[i] = el; }}
-          src={cloudinaryTransform(e.videoUrl, VIDEO_DELIVERY_TRANSFORM)}
-          playsInline
-          onEnded={i === index ? handleEnded : undefined}
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: i === index ? 1 : 0, transition: 'opacity 0.4s ease', pointerEvents: 'none' }}
-        />
+        <div key={e.id} style={{ position: 'absolute', inset: 0, opacity: i === index ? 1 : 0, transition: 'opacity 0.4s ease', pointerEvents: 'none' }}>
+          {e.photoUrl ? (
+            <>
+              <img
+                src={cloudinaryTransform(e.photoUrl, PHOTO_LG)}
+                alt=""
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+              <PatinaJarCaption monthIndex={e.monthIndex} />
+            </>
+          ) : (
+            <video
+              ref={el => { videoRefs.current[i] = el; }}
+              src={cloudinaryTransform(e.videoUrl, VIDEO_DELIVERY_TRANSFORM)}
+              playsInline
+              onEnded={i === index ? handleEnded : undefined}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          )}
+        </div>
       ))}
 
       <div style={{ position: 'absolute', top: 14, left: 14, right: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 2 }}>
@@ -184,7 +226,10 @@ function PatinaJarScreen({ kid, entries, song, onUpdateSong, onBack, onRecord, o
                     opacity: active ? 1 : 0.45,
                   }}
                 >
-                  <Icon name={entry ? 'ti-player-play-filled' : isCurrent ? 'ti-plus' : 'ti-lock'} style={{ fontSize: 14, color: entry ? '#fff' : 'var(--text-muted)' }} />
+                  <Icon
+                    name={entry ? (entry.photoUrl ? 'ti-photo' : 'ti-player-play-filled') : isCurrent ? 'ti-plus' : 'ti-lock'}
+                    style={{ fontSize: 14, color: entry ? '#fff' : 'var(--text-muted)' }}
+                  />
                   <span style={{ fontSize: 11, fontWeight: 700, color: entry ? '#fff' : 'var(--text-muted)' }}>{label}</span>
                 </div>
               );
@@ -224,7 +269,9 @@ function PatinaJarScreen({ kid, entries, song, onUpdateSong, onBack, onRecord, o
             <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', fontStyle: 'italic' }}>{PATINA_JAR_QUESTIONS[sheetEntry.monthIndex]}</p>
             {confirmingDelete ? (
               <>
-                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 14px', textAlign: 'center' }}>Delete this recording? This can't be undone.</p>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 14px', textAlign: 'center' }}>
+                  Delete this {sheetEntry.photoUrl ? 'photo' : 'recording'}? This can't be undone.
+                </p>
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setConfirmingDelete(false)}>Cancel</button>
                   <button
@@ -238,12 +285,14 @@ function PatinaJarScreen({ kid, entries, song, onUpdateSong, onBack, onRecord, o
               </>
             ) : (
               <>
-                <button className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={() => { setSingleWatchEntry(sheetEntry); setSheetEntry(null); }}>Watch</button>
+                <button className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={() => { setSingleWatchEntry(sheetEntry); setSheetEntry(null); }}>
+                  {sheetEntry.photoUrl ? 'View' : 'Watch'}
+                </button>
                 <button
                   onClick={() => setConfirmingDelete(true)}
                   style={{ display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', color: 'var(--coral)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'Urbanist', sans-serif", padding: 0 }}
                 >
-                  Delete this recording
+                  Delete this {sheetEntry.photoUrl ? 'photo' : 'recording'}
                 </button>
               </>
             )}
@@ -256,12 +305,23 @@ function PatinaJarScreen({ kid, entries, song, onUpdateSong, onBack, onRecord, o
           <button onClick={() => setSingleWatchEntry(null)} style={{ position: 'absolute', top: 16, left: 16, width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
             <Icon name="ti-x" />
           </button>
-          <video
-            src={cloudinaryTransform(singleWatchEntry.videoUrl, VIDEO_DELIVERY_TRANSFORM)}
-            controls autoPlay playsInline
-            style={{ maxWidth: '100%', maxHeight: '100%' }}
-            onClick={e => e.stopPropagation()}
-          />
+          {singleWatchEntry.photoUrl ? (
+            <div style={{ position: 'relative', maxWidth: '100%', maxHeight: '100%' }} onClick={e => e.stopPropagation()}>
+              <img
+                src={cloudinaryTransform(singleWatchEntry.photoUrl, PHOTO_LG)}
+                alt=""
+                style={{ display: 'block', maxWidth: '100%', maxHeight: '100%' }}
+              />
+              <PatinaJarCaption monthIndex={singleWatchEntry.monthIndex} />
+            </div>
+          ) : (
+            <video
+              src={cloudinaryTransform(singleWatchEntry.videoUrl, VIDEO_DELIVERY_TRANSFORM)}
+              controls autoPlay playsInline
+              style={{ maxWidth: '100%', maxHeight: '100%' }}
+              onClick={e => e.stopPropagation()}
+            />
+          )}
         </div>
       )}
 
