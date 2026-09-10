@@ -4980,7 +4980,6 @@ export default function App() {
     setScreen('same-age-match');
     setPendingOpenSameAgeKidId(null);
   }, [pendingOpenSameAgeKidId, activeEntry, screen, kids]);
-  const [discoverable, setDiscoverable] = useState(true);
   const [sharingDefaults, setSharingDefaults] = useState({ partner: true, family: false, friends: false });
   const [postOnboardInvite, setPostOnboardInvite] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
@@ -5301,12 +5300,9 @@ export default function App() {
           }
         }
 
-        // Load own profile (discoverable setting)
-        const { data: ownProfile } = await supabase.from('profiles').select('discoverable, sharing_defaults').eq('id', session.user.id).maybeSingle();
-        if (ownProfile) {
-          setDiscoverable(ownProfile.discoverable ?? true);
-          if (ownProfile.sharing_defaults) setSharingDefaults(ownProfile.sharing_defaults);
-        }
+        // Load own profile (sharing defaults)
+        const { data: ownProfile } = await supabase.from('profiles').select('sharing_defaults').eq('id', session.user.id).maybeSingle();
+        if (ownProfile?.sharing_defaults) setSharingDefaults(ownProfile.sharing_defaults);
         // Activity feed (likes/comments/replies) is seeded separately, from
         // notification_log — see the backfill effect below. This used to also
         // run its own raw entry_likes/entry_comments query here with a different
@@ -6733,32 +6729,6 @@ export default function App() {
     return data || [];
   }
 
-  async function handleToggleDiscoverable(val) {
-    setDiscoverable(val);
-    if (supabase && session) {
-      await supabase.from('profiles').update({ discoverable: val }).eq('id', session.user.id);
-    }
-  }
-
-  async function handleHidePostsFromFriends() {
-    const toUpdate = entries.filter(e => e.sharedWith?.friends);
-    if (toUpdate.length === 0) {
-      setReactionToast({ message: "You don't have any posts shared with friends" });
-      return;
-    }
-    const nextSharedWith = e => ({ ...e.sharedWith, friends: false });
-    setEntries(prev => prev.map(e => e.sharedWith?.friends
-      ? { ...e, sharedWith: nextSharedWith(e), shared: Object.values(nextSharedWith(e)).some(Boolean) }
-      : e));
-    if (!localMode && supabase && session) {
-      await Promise.all(toUpdate.map(e => {
-        const sw = nextSharedWith(e);
-        return supabase.from('entries').update({ shared: Object.values(sw).some(Boolean), shared_with: sw }).eq('id', e.id);
-      }));
-    }
-    setReactionToast({ message: `Hidden from friends — ${toUpdate.length} post${toUpdate.length !== 1 ? 's' : ''}` });
-  }
-
   async function handleSendFriendRequest(userId, displayName, avatarUrl) {
     if (!supabase || !session) return { error: 'Not signed in' };
     const { data, error } = await supabase
@@ -7455,9 +7425,6 @@ export default function App() {
           darkMode={darkMode}
           onToggleDarkMode={toggleDarkMode}
           onSetDarkMode={setDarkModeValue}
-          discoverable={discoverable}
-          onToggleDiscoverable={handleToggleDiscoverable}
-          onHidePostsFromFriends={handleHidePostsFromFriends}
           onShowPrivacy={() => setScreen('privacy')}
           onShowTerms={() => setScreen('terms')}
           onSignOut={() => {

@@ -45,16 +45,14 @@ function AvatarImg({ src, alt, fallback }) {
   return <img src={src} alt={alt} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={() => setBroken(true)} loading="lazy" />;
 }
 
-function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, familyName, onUpdateFamilyName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onArchiveKid, onRestoreKid, onEraseKid, onOpenGrowth, patinaJarEntries = [], onOpenPatinaJar, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, discoverable, onToggleDiscoverable, onHidePostsFromFriends, onShowPrivacy, onShowTerms, onViewKidMoments, onViewKidMilestones }) {
+function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, familyMembers, myDisplayName, familyName, onUpdateFamilyName, onInvite, onUpdateDisplayName, onUpdateRealName, onAddKid, onFamilyAvatarUpload, avatarUploading, currentUserId, onRenameKid, onUpdateKidSex, onUpdateKidWishlist, onArchiveKid, onRestoreKid, onEraseKid, onOpenGrowth, patinaJarEntries = [], onOpenPatinaJar, onCreateBook, onDeleteAccount, hasPartner, darkMode, onToggleDarkMode, onSetDarkMode, onShowPrivacy, onShowTerms, onViewKidMoments, onViewKidMilestones }) {
   const fileInputRef = useRef(null);
   const familyAvatarInputRef = useRef(null);
   const patinaJarBtnRef = useRef(null);
   const [uploadKidId, setUploadKidId] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [showHidePostsPrompt, setShowHidePostsPrompt] = useState(false);
   const [justEnabledNotifs, setJustEnabledNotifs] = useState(false);
-  const [hidingPosts, setHidingPosts] = useState(false);
   const [activeFamilyAvatarId, setActiveFamilyAvatarId] = useState(null);
   const [inviteCode, setInviteCode] = useState(null);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -292,26 +290,6 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
           <button className="btn btn-primary" onClick={() => { setMemberPickerOpen(true); setPickerStep('type'); setPickerRole(null); setInviteCode(null); }}>
             <Icon name="ti-plus" />Add a family member
           </button>
-
-          {/* ── Discoverable ── */}
-          <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 14, padding: '13px 16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', margin: 0 }}>Discoverable</p>
-                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '2px 0 0' }}>{discoverable ? 'A shared journey, just different chapters.' : 'A quiet journey, just your close ones.'}</p>
-              </div>
-              <div onClick={() => {
-                const next = !discoverable;
-                onToggleDiscoverable?.(next);
-                if (!next) setShowHidePostsPrompt(true);
-              }} style={{ width: 44, height: 26, borderRadius: 13, background: discoverable ? 'var(--accent)' : 'var(--border)', cursor: 'pointer', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
-                <div style={{ position: 'absolute', top: 3, left: discoverable ? 21 : 3, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
-              </div>
-            </div>
-            <p style={{ fontSize: 11.5, color: 'var(--text-muted)', margin: '10px 0 0', paddingTop: 10, borderTop: '1px solid var(--border)', lineHeight: 1.55 }}>
-              Your <strong>letters</strong> are always kept private between you and your family (added via share link).
-            </p>
-          </div>
 
           {/* ── Appearance ── */}
           <div>
@@ -764,35 +742,6 @@ function ProfileScreen({ kids, entries, onBack, onAvatarUpload, onSignOut, famil
         </div>
       )}
 
-      {showHidePostsPrompt && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 20 }} onClick={() => !hidingPosts && setShowHidePostsPrompt(false)}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', padding: '28px 24px 44px', width: '100%' }} onClick={e => e.stopPropagation()}>
-            <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'var(--bg-elevated)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-              <Icon name="ti-eye-off" style={{ fontSize: 20, color: 'var(--accent)' }} />
-            </div>
-            <p style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: '0 0 8px', textAlign: 'center' }}>Hide your previous posts from friends?</p>
-            <p style={{ fontSize: 14, color: 'var(--text-muted)', margin: '0 0 24px', textAlign: 'center', lineHeight: 1.55 }}>
-              Turning off discoverable only stops new people from finding you — friends you already have can still see what you've shared with them. Hiding your past posts removes them from friends only; your partner and family keep seeing everything.
-            </p>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button className="btn btn-outline" style={{ flex: 1 }} onClick={() => setShowHidePostsPrompt(false)} disabled={hidingPosts}>Keep them visible</button>
-              <button
-                className="btn"
-                style={{ flex: 1, background: 'var(--coral)', color: '#fff', opacity: hidingPosts ? 0.6 : 1 }}
-                disabled={hidingPosts}
-                onClick={async () => {
-                  setHidingPosts(true);
-                  await onHidePostsFromFriends?.();
-                  setHidingPosts(false);
-                  setShowHidePostsPrompt(false);
-                }}
-              >
-                {hidingPosts ? <><Icon name="ti-loader-2" style={{ animation: 'spin 1s linear infinite' }} /> Hiding…</> : 'Hide from friends'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
