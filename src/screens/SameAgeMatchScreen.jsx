@@ -42,12 +42,19 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
       ? `${age.months} month${age.months !== 1 ? 's' : ''}, ${age.days} day${age.days !== 1 ? 's' : ''} old`
       : `${age.days} day${age.days !== 1 ? 's' : ''} old`;
   const targetDateLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const sourceDateLabel = new Date(sourceEntry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const monthYearLabel = new Date(targetDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   // Callers pre-filter for this (see App.jsx's sameAgeEligibleOthers/
   // sameAgeMatchBanner), but the draft-compose entry point doesn't filter
   // at all -- guard here too rather than asking for a photo of a moment
   // that hasn't happened yet ("find something from next month").
   const isFuture = targetDate > TODAY;
+  // The same-age push notification always lands here with targetDate ===
+  // today (that's what triggers the notification in the first place) --
+  // "Miles was ... old on <today's date>" reads as stale/past-tense for
+  // something that's true right now, so lead with the source kid's own
+  // historical date instead and frame the match as happening today.
+  const isToday = targetDate === TODAY;
   const sourceAccent = sourceKid.accent || '#4A5E50';
   const targetAccent = targetKid.accent || '#4A5E50';
   // Show the actual photo/video being compared against, not just the source
@@ -106,7 +113,9 @@ export default function SameAgeMatchScreen({ sourceEntry, sourceKid, targetKid, 
                 </div>
               </div>
               <p style={{ fontSize: 16, color: 'var(--text)', margin: 0, lineHeight: 1.55, maxWidth: '28ch', marginLeft: 'auto', marginRight: 'auto' }}>
-                {targetKid.name.split(' ')[0]} {isFuture ? 'will be' : 'was'} <strong style={{ color: 'var(--accent)' }}>{ageLabel}</strong> on <strong style={{ color: 'var(--accent)' }}>{targetDateLabel}</strong>
+                {isToday
+                  ? <>{sourceKid.name.split(' ')[0]} was <strong style={{ color: 'var(--accent)' }}>{ageLabel}</strong> on <strong style={{ color: 'var(--accent)' }}>{sourceDateLabel}</strong> — the same age {targetKid.name.split(' ')[0]} is today</>
+                  : <>{targetKid.name.split(' ')[0]} {isFuture ? 'will be' : 'was'} <strong style={{ color: 'var(--accent)' }}>{ageLabel}</strong> on <strong style={{ color: 'var(--accent)' }}>{targetDateLabel}</strong></>}
               </p>
             </div>
 
