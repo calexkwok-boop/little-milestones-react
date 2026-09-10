@@ -3912,7 +3912,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
             </>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-              <button onClick={() => { setShowKidPicker(true);}} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: 'var(--border)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <button onClick={() => { setShowKidPicker(true);}} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: 15, color: 'var(--text-muted)', fontFamily: "'Urbanist', sans-serif", fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                 Who is this for?
                 <Icon name="ti-chevron-down" style={{ fontSize: 13 }} />
               </button>
