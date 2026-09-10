@@ -74,7 +74,11 @@
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
     <script>
-      if ('serviceWorker' in navigator) {
+      // Skipped on localhost -- registering the service worker against a
+      // Vite dev server caches its ever-changing module/dep-chunk URLs,
+      // which then 404s/504s ("Outdated Optimize Dep") on the next dev
+      // server restart until the stale worker is manually unregistered.
+      if ('serviceWorker' in navigator && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('%BASE_URL%sw.js').then(reg => {
             // Installed (standalone) PWAs, especially on iOS, are lazy about
