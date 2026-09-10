@@ -164,8 +164,10 @@ export function buildReelCandidates(entries, kids, familyMembers, startDate, end
       if (seen.has(m.url)) continue;
       seen.add(m.url);
       // A same-age-match photo carries its own kidId + a stashed historical
-      // date in sameAgeDates (App.jsx's handleAddSameAgeMatch) — the entry's
-      // own `date` is when the *anchor* photo was taken, not this one, so
+      // date in sameAgeDates (older merged entries only — a same-age match
+      // now creates its own separate linked letter instead, see App.jsx's
+      // onSameAge flow) — the entry's own `date` is when the *anchor*
+      // photo was taken, not this one, so
       // captioning off e.date would give the matched kid her current age
       // instead of her age in the actual photo. Ordinary media (kidId null)
       // falls back to the old entry-level resolution, unchanged.

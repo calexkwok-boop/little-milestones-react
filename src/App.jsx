@@ -1216,10 +1216,13 @@ function HomeScreen({ onOpenEntry, onOpenLetters, onSearch, kidFilter, setKidFil
     }
     const entryKids = kids.filter(k => (entry.kids || []).includes(k.id));
     const kidLabel = entryKids.map(k => k.name).join(' & ') || 'Photo';
-    // entry.kids[0] is always the entry's actual anchor kid (see
-    // handleAddSameAgeMatch), unlike entryKids[0] which just follows
-    // whichever order the family's kid roster happens to be in -- using the
-    // latter could label the wrong kid's age against the anchor's date.
+    // entry.kids[0] is always the entry's actual anchor kid (true by
+    // construction -- a same-age match now creates a separate linked letter
+    // per kid rather than folding a second kid into this one, see
+    // App.jsx's onSameAge/SameAgeMatchScreen flow), unlike entryKids[0]
+    // which just follows whichever order the family's kid roster happens to
+    // be in -- using the latter could label the wrong kid's age against the
+    // anchor's date.
     const anchorKid = kids.find(k => k.id === entry.kids?.[0]);
     const age = anchorKid?.birthdate ? exactAgeLabel(anchorKid.birthdate, entry.date) : null;
     const entryDate = new Date(entry.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -2426,7 +2429,7 @@ function LinkEntryPicker({ entries, kids, excludeId, onSelect, onClose }) {
   );
 }
 
-function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', familyMembers = [], onSameAge, onRemoveSameAgeMatch, pendingSameAgeMatch, onConfirmSameAgeMatch, onCancelSameAgeMatch, allEntries = [], onLinkEntries, onUnlinkEntry, onOpenLinkedLetters, onOpenMilestoneSeries }) {
+function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavorite, onDelete, onUpdateCrop, onUpdateLocation, onUpdatePeople, onUpdateKids, onToggleShared, onGenerateShareLink, onRevokeShareLink, onReorderMedia, allPeople = [], friendKids = [], supabase, session, socialName = '', familyMembers = [], onSameAge, onRemoveSameAgeMatch, allEntries = [], onLinkEntries, onUnlinkEntry, onOpenLinkedLetters, onOpenMilestoneSeries }) {
   // Only the author can edit or delete an entry's content — family members
   // may only adjust the photo crop (handled separately, below).
   const isOwn = entry.userId === session?.user?.id;
@@ -2450,9 +2453,20 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
     return { id: `${entry.milestone}::${anchorKid.id}`, milestone: entry.milestone, kid: anchorKid, entries: matches.slice().sort((a, b) => a.date.localeCompare(b.date)) };
   }, [allEntries, allKids, entry.milestone, anchorKidId]);
   const sides = allKids ? sameAgeSides(entry, allKids) : null;
+  // Matched purely by sharing entry.linkGroupId -- an explicit, one-at-a-
+  // time choice (see the "Link to another letter" action below), not
+  // automatic like Trips or the milestone series screen. Declared before
+  // sameAgeEligibleOthers below, which also reads it (to avoid re-offering
+  // a sibling who already has a same-age letter linked here).
+  const linkedEntries = useMemo(
+    () => entry.linkGroupId ? allEntries.filter(e => e.linkGroupId === entry.linkGroupId && e.id !== entry.id).sort((a, b) => new Date(a.date) - new Date(b.date)) : [],
+    [allEntries, entry.linkGroupId, entry.id]
+  );
   // Only offer siblings who've actually reached the anchor's age at this entry —
   // otherwise the match flow ends up asking for a photo dated in the future
-  // (e.g. a 2-year-old "at age 8").
+  // (e.g. a 2-year-old "at age 8") -- and who don't already have their own
+  // same-age letter linked here (each match now creates a separate letter,
+  // see onSameAge below, rather than folding into this one).
   const sameAgeEligibleOthers = useMemo(() => {
     if (!allKids) return [];
     const anchorKid = allKids.find(ak => ak.id === anchorKidId);
@@ -2460,6 +2474,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
     const anchorAge = exactAge(anchorKid.birthdate, entry.date);
     return allKids.filter(ak => {
       if (entry.kids.includes(ak.id) || ak.archivedAt) return false;
+      if (linkedEntries.some(le => le.kids?.includes(ak.id))) return false;
       // Was straight months-vs-months (>=), which ignored days -- a sibling
       // could round to the same months-old as the anchor without having
       // actually reached that exact day yet, sending SameAgeMatchScreen's
@@ -2468,7 +2483,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
       // and simpler than the month-bucket math it replaces.
       return dateForAge(ak.birthdate, anchorAge) <= TODAY;
     });
-  }, [allKids, anchorKidId, entry.kids, entry.date]);
+  }, [allKids, anchorKidId, entry.kids, entry.date, linkedEntries]);
   const [activeSlide, setActiveSlide] = useState(0);
 
   function handleSetCoverPhoto(photo) {
@@ -2485,13 +2500,6 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
   const [showActionSheet, setShowActionSheet] = useState(false);
   const dotsMenuBtnRef = useRef(null);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
-  // Matched purely by sharing entry.linkGroupId -- an explicit, one-at-a-
-  // time choice (see the "Link to another letter" action below), not
-  // automatic like Trips or the milestone series screen.
-  const linkedEntries = useMemo(
-    () => entry.linkGroupId ? allEntries.filter(e => e.linkGroupId === entry.linkGroupId && e.id !== entry.id).sort((a, b) => new Date(a.date) - new Date(b.date)) : [],
-    [allEntries, entry.linkGroupId, entry.id]
-  );
   const [showSameAgePicker, setShowSameAgePicker] = useState(false);
   const [sameAgePickerSelection, setSameAgePickerSelection] = useState([]);
   const [showShareLinkSheet, setShowShareLinkSheet] = useState(false);
@@ -3076,7 +3084,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
           <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
             <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px', textAlign: 'center' }}>Same age as who?</p>
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px', textAlign: 'center' }}>Pick as many as you'd like to add.</p>
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 14px', textAlign: 'center' }}>Pick as many as you'd like — each gets their own letter, linked to this one.</p>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 20 }}>
               {sameAgeEligibleOthers.map(other => {
                 const selected = sameAgePickerSelection.includes(other.id);
@@ -3105,28 +3113,6 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
             >
               {sameAgePickerSelection.length > 1 ? `Continue with ${sameAgePickerSelection.length}` : 'Continue'}
             </button>
-          </div>
-        </div>
-      )}
-      {pendingSameAgeMatch && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(44,56,40,0.4)', display: 'flex', alignItems: 'flex-end', zIndex: 12 }} onClick={onCancelSameAgeMatch}>
-          <div style={{ background: 'var(--bg-card)', borderRadius: '24px 24px 0 0', width: '100%', padding: '20px 24px 32px' }} onClick={e => e.stopPropagation()}>
-            <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--border)', margin: '0 auto 20px' }} />
-            <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 18 }}>
-              <div style={{ width: 64, height: 64, borderRadius: 12, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-elevated)' }}>
-                {pendingSameAgeMatch.file?.type?.startsWith('video')
-                  ? <video src={pendingSameAgeMatch.previewUrl} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                  : <img src={pendingSameAgeMatch.previewUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} alt="" loading="lazy" />}
-              </div>
-              <div>
-                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Add {pendingSameAgeMatch.targetKid.name.split(' ')[0]} to this post?</p>
-                <p style={{ fontSize: 12.5, color: 'var(--text-muted)', margin: '4px 0 0' }}>This {pendingSameAgeMatch.file?.type?.startsWith('video') ? 'video' : 'photo'} will be added and the post will show both kids.</p>
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button className="btn btn-outline" style={{ flex: 1 }} onClick={onCancelSameAgeMatch}>Cancel</button>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={onConfirmSameAgeMatch}>Add {pendingSameAgeMatch.file?.type?.startsWith('video') ? 'video' : 'photo'}</button>
-            </div>
           </div>
         </div>
       )}
@@ -3343,7 +3329,7 @@ function EntryDetailScreen({ entry, kid, allKids, onBack, onEdit, onToggleFavori
 
 // ─── New entry form ────────────────────────────────────────────────────────
 
-function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, initialLocation, initialLocationCoords, mode: modeProp, promptText: promptTextProp, uploadImage }) {
+function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, existingEntry, signedDefault, draftKey, allPeople = [], familyMembers = [], currentUserId, sharingDefaults = { partner: true, family: false, friends: false }, initialKidIds, initialMilestone, initialCustomMilestone, initialLocation, initialLocationCoords, initialMediaFile, initialDate, initialLinkToEntryId, mode: modeProp, promptText: promptTextProp, uploadImage }) {
   const [promptText, setPromptText] = useState(promptTextProp || existingEntry?.prompt || null);
   const mode = modeProp || existingEntry?.type || 'letter';
   const isNote = mode === 'note';
@@ -3379,7 +3365,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
   const [songSearching, setSongSearching] = useState(false);
   const [showSongPicker, setShowSongPicker] = useState(false);
   const [previewMedia, setPreviewMedia] = useState(null);
-  const [entryDate, setEntryDate] = useState(existingEntry?.date || TODAY);
+  const [entryDate, setEntryDate] = useState(existingEntry?.date || initialDate || TODAY);
   const [dateFromPhoto, setDateFromPhoto] = useState(false);
   const [showNoExifHint, setShowNoExifHint] = useState(false);
   const noExifHintShownRef = useRef(false);
@@ -3421,6 +3407,31 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
         if (item.url?.startsWith('blob:')) URL.revokeObjectURL(item.url);
       });
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Pre-fills the photo already picked one screen ago in SameAgeMatchScreen
+  // (see App.jsx's onSameAge flow) so this compose screen opens ready to
+  // write instead of asking the user to re-pick a file they already chose.
+  // Skips the usual EXIF date lookup that a normal file pick runs -- the
+  // date was already resolved there (from the photo's own EXIF, or the
+  // computed same-age target date) and is authoritative here.
+  useEffect(() => {
+    if (!initialMediaFile || existingEntry) return;
+    const file = initialMediaFile;
+    const url = URL.createObjectURL(file);
+    const isVideo = file.type.startsWith('video');
+    setMedia([{ url, type: isVideo ? 'video' : 'image', thumbnail: null }]);
+    setFileObjects([file]);
+    setDateFromPhoto(true);
+    if (!isVideo) {
+      compressedFilesRef.current.set(url, compressImage(file));
+    } else {
+      generateVideoThumbnail(file).then(thumbnail => {
+        if (!mountedRef.current || !thumbnail) return;
+        setMedia(prev => prev.map(m => m.url === url ? { ...m, thumbnail } : m));
+      });
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -3727,6 +3738,7 @@ function NewEntryScreen({ kids, friendKids = [], onCancel, onSave, onDelete, exi
       type: mode,
       prompt: isNote ? (promptText || null) : null,
       sameAgeDates: Object.keys(sameAgeDates).length > 0 ? sameAgeDates : null,
+      linkToEntryId: initialLinkToEntryId || null,
     };
   }
 
@@ -4857,8 +4869,7 @@ export default function App() {
   const [friendUserFamilyMap, setFriendUserFamilyMap] = useState({});
   const [compareTarget, setCompareTarget] = useState(null);
   const [recapTarget, setRecapTarget] = useState(null);
-  const [sameAgeMatch, setSameAgeMatch] = useState(null); // { sourceEntry, sourceKid, targetKid }
-  const [pendingSameAgeMatch, setPendingSameAgeMatch] = useState(null); // { sourceEntry, targetKid, photoDate, file, previewUrl } — awaiting explicit confirmation before writing
+  const [sameAgeMatch, setSameAgeMatch] = useState(null); // { sourceEntry, sourceKid, targetKid, queue, queueTotal }
   // Once a user visits either sub-tab in a merged section, keep the whole
   // group mounted (just hidden) so switching between its tabs is instant —
   // no remount flash, no scroll/filter reset, no refetch.
@@ -6050,7 +6061,7 @@ export default function App() {
     setScreen('edit-entry');
   }
 
-  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null, sameAgeDates = null }) {
+  async function handleSaveEntry({ kids: kidIds, text, mood, milestone, media, fileObjects, compressedFiles, date, entryId, signedAs, location, locationLat, locationLng, song, sharedWith = { partner: true, family: false, friends: false }, people, voiceMemoBlob, voiceMemoUrl, type: entryType = 'letter', prompt = null, sameAgeDates = null, linkToEntryId = null }) {
     const shared = Object.values(sharedWith).some(Boolean);
     const primaryKid = kids.find(k => kidIds.includes(k.id)) ?? friendKids.find(k => kidIds.includes(k.id));
     if (!primaryKid) throw new Error('Could not find kid — please close and reopen the entry.');
@@ -6148,6 +6159,7 @@ export default function App() {
       };
       setEntries(prev => [newEntry, ...prev]);
       consumePendingPinConversion(newEntry.id, locationLat, locationLng);
+      if (linkToEntryId) await linkEntryIds(newEntry.id, linkToEntryId, [newEntry, ...entries]);
       if (milestone) {
         setCelebration({ kid: primaryKid, milestoneType: milestone, entry: newEntry });
       } else {
@@ -6190,6 +6202,7 @@ export default function App() {
     const optimisticEntry = { id: entry.id, userId: session.user.id, kids: kidIds, date, type: entryType, prompt, createdAt: entry.created_at || new Date().toISOString(), text: text || '', mood, milestone, ageMonths, palette, media: [], signedAs: signedAs || null, location: location || null, locationLat: locationLat ?? null, locationLng: locationLng ?? null, song: song || null, people: people || [], shared, sharedWith, voiceMemoUrl: voiceMemoUrlFinal, sameAgeDates };
     setEntries(prev => [optimisticEntry, ...prev]);
     consumePendingPinConversion(entry.id, locationLat, locationLng);
+    if (linkToEntryId) await linkEntryIds(entry.id, linkToEntryId, [optimisticEntry, ...entries]);
     if (milestone) {
       setCelebration({ kid: primaryKid, milestoneType: milestone, entry: optimisticEntry });
     } else {
@@ -6261,18 +6274,27 @@ export default function App() {
   // letter to either one later folds it into the same group rather than
   // starting a separate one; linking two letters that each already belong
   // to a *different* existing group merges both groups into one.
-  async function handleLinkEntries(entryId, targetEntryId) {
-    const entry = entries.find(e => e.id === entryId);
-    const target = entries.find(e => e.id === targetEntryId);
+  // Takes an explicit entries snapshot (rather than always reading the
+  // `entries` state closure) so a same-age letter can be linked to its
+  // source letter right after being created -- at that point `entries`
+  // hasn't re-rendered with the new row yet, so the caller passes one that
+  // already includes it.
+  async function linkEntryIds(entryId, targetEntryId, entriesSnapshot) {
+    const entry = entriesSnapshot.find(e => e.id === entryId);
+    const target = entriesSnapshot.find(e => e.id === targetEntryId);
     if (!entry || !target) return;
     const groupId = entry.linkGroupId || target.linkGroupId || (crypto.randomUUID ? crypto.randomUUID() : `link-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`);
     const oldGroupIds = new Set([entry.linkGroupId, target.linkGroupId].filter(id => id && id !== groupId));
-    const idsToUpdate = entries.filter(e => e.id === entryId || e.id === targetEntryId || (e.linkGroupId && oldGroupIds.has(e.linkGroupId))).map(e => e.id);
+    const idsToUpdate = entriesSnapshot.filter(e => e.id === entryId || e.id === targetEntryId || (e.linkGroupId && oldGroupIds.has(e.linkGroupId))).map(e => e.id);
 
     setEntries(prev => prev.map(e => idsToUpdate.includes(e.id) ? { ...e, linkGroupId: groupId } : e));
     if (!localMode && supabase && session) {
       await supabase.from('entries').update({ link_group_id: groupId }).in('id', idsToUpdate);
     }
+  }
+
+  async function handleLinkEntries(entryId, targetEntryId) {
+    await linkEntryIds(entryId, targetEntryId, entries);
   }
 
   // Removes just this one letter from its link group -- the rest of the
@@ -6305,35 +6327,7 @@ export default function App() {
     }
   }
 
-  // Folds another kid + their matching-age photo into an existing entry, turning
-  // it into one merged post addressed to all of them — rather than creating a
-  // separate entry per matched kid. Returns the updated entry (or null on failure)
-  // so a caller matching several kids in a row can chain off the freshest kid_ids/
-  // sameAgeDates instead of a stale pre-update reference.
-  async function handleAddSameAgeMatch(sourceEntry, targetKid, photoDate, file) {
-    const newKidIds = [...sourceEntry.kids, targetKid.id];
-    const newSameAgeDates = { ...(sourceEntry.sameAgeDates || {}), [targetKid.id]: photoDate };
-    const mediaType = file.type.startsWith('video') ? 'video' : 'image';
-    if (localMode || !supabase || !session) {
-      const url = URL.createObjectURL(file);
-      const updated = { ...sourceEntry, kids: newKidIds, sameAgeDates: newSameAgeDates, media: [...sourceEntry.media, { url, type: mediaType, kidId: targetKid.id }] };
-      setEntries(prev => prev.map(e => e.id === sourceEntry.id ? updated : e));
-      return updated;
-    }
-    try {
-      const url = await uploadToCloudinary(file, mediaType);
-      await supabase.from('entry_media').insert({ entry_id: sourceEntry.id, url, type: mediaType, kid_id: targetKid.id });
-      await supabase.from('entries').update({ kid_ids: newKidIds, same_age_dates: newSameAgeDates }).eq('id', sourceEntry.id);
-      const updated = { ...sourceEntry, kids: newKidIds, sameAgeDates: newSameAgeDates, media: [...sourceEntry.media, { url, type: mediaType, kidId: targetKid.id }] };
-      setEntries(prev => prev.map(e => e.id === sourceEntry.id ? updated : e));
-      return updated;
-    } catch (err) {
-      alert('Could not save that photo. Please try again.\n' + (err?.message || ''));
-      return null;
-    }
-  }
-
-  // The inverse of handleAddSameAgeMatch — undoes a wrong match by deleting the
+  // The inverse of the legacy merge flow — undoes a wrong match by deleting the
   // matched kid's photo outright and reverting the entry back to its original
   // solo post. (An earlier version spun the removed photo off into its own new
   // note instead of deleting it — but that new note inherited the original
@@ -7094,22 +7088,6 @@ export default function App() {
             setScreen('same-age-match');
           }}
           onRemoveSameAgeMatch={handleRemoveSameAgeMatch}
-          pendingSameAgeMatch={pendingSameAgeMatch?.sourceEntry.id === entries.find(e => e.id === activeEntry.id)?.id ? pendingSameAgeMatch : null}
-          onConfirmSameAgeMatch={async () => {
-            const { sourceEntry, sourceKid, targetKid, queue, photoDate, file, previewUrl, queueTotal } = pendingSameAgeMatch;
-            const updated = await handleAddSameAgeMatch(sourceEntry, targetKid, photoDate, file);
-            URL.revokeObjectURL(previewUrl);
-            setPendingSameAgeMatch(null);
-            if (updated && queue.length > 0) {
-              const [nextTarget, ...rest] = queue;
-              setSameAgeMatch({ sourceEntry: updated, sourceKid, targetKid: nextTarget, queue: rest, queueTotal });
-              setScreen('same-age-match');
-            }
-          }}
-          onCancelSameAgeMatch={() => {
-            URL.revokeObjectURL(pendingSameAgeMatch.previewUrl);
-            setPendingSameAgeMatch(null);
-          }}
           allEntries={entries}
           onLinkEntries={handleLinkEntries}
           onUnlinkEntry={handleUnlinkEntry}
@@ -7126,15 +7104,57 @@ export default function App() {
           stepLabel={sameAgeMatch.queueTotal > 1 ? `${sameAgeMatch.queueTotal - sameAgeMatch.queue.length} of ${sameAgeMatch.queueTotal}` : null}
           onCancel={() => { setScreen('entry-detail'); setSameAgeMatch(null); }}
           onConfirm={(photoDate, file) => {
-            setPendingSameAgeMatch({ sourceEntry: sameAgeMatch.sourceEntry, sourceKid: sameAgeMatch.sourceKid, targetKid: sameAgeMatch.targetKid, queue: sameAgeMatch.queue, queueTotal: sameAgeMatch.queueTotal, photoDate, file, previewUrl: URL.createObjectURL(file) });
-            setScreen('entry-detail');
+            // Rather than folding targetKid into sourceEntry (the old
+            // "Dear Ellie & Miles" merge), open a fresh letter for
+            // targetKid alone, prefilled with the matched photo/date --
+            // onSave below links it back to sourceEntry once saved, and
+            // continues sameAgeMatch.queue (if several kids were picked at
+            // once) after that.
+            setNewEntryInitial({
+              kidIds: [sameAgeMatch.targetKid.id],
+              sameAgePhoto: { file, photoDate, sourceEntry: sameAgeMatch.sourceEntry, sourceKid: sameAgeMatch.sourceKid, queue: sameAgeMatch.queue, queueTotal: sameAgeMatch.queueTotal },
+            });
+            setComposeMode('letter');
             setSameAgeMatch(null);
+            setScreen('new-entry');
           }}
         />
       )}
 
       {screen === 'new-entry' && (
-        <NewEntryScreen kids={activeKids} friendKids={friendKids} mode={composeMode} promptText={activePrompt} onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); pendingPinConversionRef.current = null; }} onSave={(...args) => { handleSaveEntry(...args); setNewEntryInitial(null); setActivePrompt(null); }} signedDefault={myDisplayName || undefined} draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)} allPeople={allPeople} familyMembers={familyMembers} currentUserId={session?.user?.id} sharingDefaults={sharingDefaults} initialKidIds={newEntryInitial?.kidIds} initialMilestone={newEntryInitial?.milestone} initialCustomMilestone={newEntryInitial?.customMilestone} initialLocation={newEntryInitial?.location} initialLocationCoords={newEntryInitial?.locationCoords} uploadImage={uploadToCloudinary} />
+        <NewEntryScreen
+          kids={activeKids}
+          friendKids={friendKids}
+          mode={composeMode}
+          promptText={activePrompt}
+          onCancel={() => { setScreen('home'); setNewEntryInitial(null); setActivePrompt(null); pendingPinConversionRef.current = null; }}
+          onSave={async (...args) => {
+            const sameAge = newEntryInitial?.sameAgePhoto;
+            await handleSaveEntry(...args);
+            setNewEntryInitial(null);
+            setActivePrompt(null);
+            if (sameAge?.queue?.length > 0) {
+              const [nextTarget, ...rest] = sameAge.queue;
+              setSameAgeMatch({ sourceEntry: sameAge.sourceEntry, sourceKid: sameAge.sourceKid, targetKid: nextTarget, queue: rest, queueTotal: sameAge.queueTotal });
+              setScreen('same-age-match');
+            }
+          }}
+          signedDefault={myDisplayName || undefined}
+          draftKey={newEntryInitial ? null : (session?.user?.id ? `patina-new-draft-${composeMode}-${session.user.id}` : `patina-new-draft-${composeMode}`)}
+          allPeople={allPeople}
+          familyMembers={familyMembers}
+          currentUserId={session?.user?.id}
+          sharingDefaults={sharingDefaults}
+          initialKidIds={newEntryInitial?.kidIds}
+          initialMilestone={newEntryInitial?.milestone}
+          initialCustomMilestone={newEntryInitial?.customMilestone}
+          initialLocation={newEntryInitial?.location}
+          initialLocationCoords={newEntryInitial?.locationCoords}
+          initialMediaFile={newEntryInitial?.sameAgePhoto?.file}
+          initialDate={newEntryInitial?.sameAgePhoto?.photoDate}
+          initialLinkToEntryId={newEntryInitial?.sameAgePhoto?.sourceEntry?.id}
+          uploadImage={uploadToCloudinary}
+        />
       )}
 
       {screen === 'edit-entry' && activeEntry && (
@@ -7243,9 +7263,10 @@ export default function App() {
               initialEntryId={compareTarget?.entryId ?? null}
               onSwitchSection={switchSection}
               onSameAge={(sourceEntry, sourceKid, targets) => {
-                // Same-age's match/confirm flow always lands back on entry-detail
-                // for the anchor entry — set that up first since, unlike the
-                // entry-detail icon, we're not already viewing it from here.
+                // Canceling the same-age photo picker lands back on
+                // entry-detail for the anchor entry — set that up first
+                // since, unlike the entry-detail icon, we're not already
+                // viewing it from here.
                 setEntrySource('compare');
                 setActiveEntry(sourceEntry);
                 const [targetKid, ...queue] = targets;
