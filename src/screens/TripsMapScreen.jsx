@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
 import LocationInput from '../LocationInput.jsx';
+import TitleWatermark from '../TitleWatermark.jsx';
 import mapImage from '../assets/travel-map.png';
 import { findHomePoint, clusterIntoTrips, latLngToMapPercent } from '../tripClustering.js';
 import { resolvePendingPinConversions } from '../tripPinConversion.js';
@@ -926,9 +927,12 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
         <div className="scrollpad">
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: 6 }}>
             <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Trips</h2>
+            <div style={{ flex: 1, textAlign: 'center', position: 'relative' }}>
+              <TitleWatermark />
+              <div style={{ position: 'relative', zIndex: 1 }}>
+                <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Trips</h2>
+              </div>
             </div>
             <div style={{ width: 36 }} />
           </div>

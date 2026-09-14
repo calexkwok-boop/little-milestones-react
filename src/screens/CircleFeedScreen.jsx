@@ -8,6 +8,7 @@ import FriendAvatar from '../FriendAvatar.jsx';
 import usePullToRefresh from '../usePullToRefresh.jsx';
 import triggerPush from '../triggerPush.js';
 import CroppedImg, { useImageCropPosition } from '../CroppedImg.jsx';
+import TitleWatermark from '../TitleWatermark.jsx';
 import {
   PROMPT_ACCENT, AVATAR_TRANSFORM_SM, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM,
   cloudinaryTransform, sameAgeSides, sameAgeDaysApart, videoThumbUrl, exactAgeLabel, photoCropY,
@@ -653,9 +654,12 @@ function CircleFeedScreen({ onBack, friendKids = [], friendFamilyMap = {}, onCom
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 16px 0' }}>
               <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Friends</h2>
+              <div style={{ textAlign: 'center', position: 'relative' }}>
+                <TitleWatermark />
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+                  <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Friends</h2>
+                </div>
               </div>
               <button className="icon-btn" onClick={() => { if (showSearch) { setSearchQuery(''); setUserSearchResults([]); } setShowSearch(s => !s); }}>
                 <Icon name={showSearch ? 'ti-x' : 'ti-search'} />

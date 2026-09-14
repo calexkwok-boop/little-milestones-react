@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import { Icon } from '../icons';
 import KidThumb from '../KidThumb.jsx';
+import TitleWatermark from '../TitleWatermark.jsx';
 import { TODAY, cloudinaryTransform, AVATAR_TRANSFORM_SM, BOOK_COVER_THEMES } from '../constants.js';
 
 export default function BookBuilderScreen({ kids = [], entries = [], familyMembers = [], myDisplayName, darkMode, onBack, onPreview, onUploadToCloudinary }) {
@@ -98,9 +99,12 @@ export default function BookBuilderScreen({ kids = [], entries = [], familyMembe
 
       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 4 }}>
         <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
-        <div style={{ margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Create a book</h2>
+        <div style={{ margin: '0 auto', textAlign: 'center', position: 'relative' }}>
+          <TitleWatermark />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Create a book</h2>
+          </div>
         </div>
         <div style={{ width: 36 }} />
       </div>
