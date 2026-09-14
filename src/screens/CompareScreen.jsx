@@ -3,6 +3,7 @@ import { Icon } from '../icons';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 import KidThumb from '../KidThumb.jsx';
 import FriendAvatar from '../FriendAvatar.jsx';
+import TitleWatermark from '../TitleWatermark.jsx';
 import {
   TODAY,
   milestoneInfo, sameAgeSides, exactAge, exactAgeLabel, ageLabel,
@@ -188,9 +189,12 @@ function CompareScreen({ entries, kids, friendKids = [], friendEntries = [], fri
               <div style={{ flex: 1 }}>
                 <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
               </div>
-              <div style={{ textAlign: 'center', flexShrink: 0 }}>
-                <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
+              <div style={{ textAlign: 'center', flexShrink: 0, position: 'relative' }}>
+                <TitleWatermark />
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+                  <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
+                </div>
               </div>
               <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
                 <button className="icon-btn" onClick={() => filterTab === 'search' ? switchTab('age') : switchTab('search')}>

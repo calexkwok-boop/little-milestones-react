@@ -948,6 +948,9 @@ function TripsMapScreen({ entries, kids, onBack, onOpenEntry, onWriteLetter }) {
 
           {trips.length === 0 ? (
             <div className="empty-state">
+              <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                <Icon name="ti-map-pin" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+              </div>
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--accent)', margin: '0 0 6px' }}>No trips mapped yet</p>
               <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
                 Tag a location when you write a letter, or tap the map above to drop a pin for somewhere you remember going.

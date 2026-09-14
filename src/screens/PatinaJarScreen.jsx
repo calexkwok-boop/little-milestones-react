@@ -3,6 +3,7 @@ import { Icon } from '../icons';
 import { supabase } from '../supabase.js';
 import { cloudinaryTransform, AVATAR_TRANSFORM_LG, VIDEO_DELIVERY_TRANSFORM, PHOTO_LG, PATINA_JAR_QUESTIONS } from '../constants.js';
 import { SongSearchField, usePatinaJarAudioEngine, MIN_TEXT_READ_MS } from './reelShared.jsx';
+import TitleWatermark from '../TitleWatermark.jsx';
 
 const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -160,9 +161,12 @@ function PatinaJarScreen({ kid, entries, song, onUpdateSong, onBack, onRecord, o
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
       <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-        <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Patina Jar</h2>
+      <div style={{ textAlign: 'center', position: 'relative' }}>
+        <TitleWatermark />
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Patina Jar</h2>
+        </div>
       </div>
       <span style={{ width: 36 }} />
     </div>

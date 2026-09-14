@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Icon } from '../icons';
 import SectionSwitcher from '../SectionSwitcher.jsx';
 import JournalEntryRow from '../JournalEntryRow.jsx';
+import TitleWatermark from '../TitleWatermark.jsx';
 import { milestoneInfo, cloudinaryTransform, AVATAR_TRANSFORM_SM } from '../constants.js';
 
 // Circular avatar filter, styled to match RecapScreen's kid-filter circles /
@@ -89,9 +90,12 @@ function PartnerLettersScreen({ entries, kids, unseenIds, authorId, currentUserI
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <button className="icon-btn" onClick={onBack}><Icon name="ti-arrow-left" /></button>
-              <div onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} style={{ textAlign: 'center', cursor: 'pointer' }}>
-                <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
-                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
+              <div onClick={() => scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })} style={{ textAlign: 'center', cursor: 'pointer', position: 'relative' }}>
+                <TitleWatermark />
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                  <div style={{ width: 28, height: 1, background: 'rgba(200,153,62,0.4)', margin: '0 auto 5px' }} />
+                  <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 19, fontWeight: 700, color: 'var(--accent)', margin: 0 }}>Keepsakes</h2>
+                </div>
               </div>
               {hasAny ? (
                 <button className="icon-btn" onClick={() => { if (showSearch) setQuery(''); setShowSearch(s => !s); }}>

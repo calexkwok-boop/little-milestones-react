@@ -1,5 +1,16 @@
 * { box-sizing: border-box; }
 @keyframes spin { to { transform: rotate(360deg); } }
+/* Boot screen (App.jsx's authLoading/dataLoading gate) -- a gently pulsing
+   app icon instead of a plain spinner, so the wait at least reads as "the
+   app itself" rather than a generic loading state. */
+.app-boot-logo { animation: app-boot-pulse 1.6s ease-in-out infinite; }
+@keyframes app-boot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.06); opacity: 0.85; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-boot-logo { animation: none; }
+}
 @keyframes likeHeartPop {
   0%   { transform: scale(0.5); opacity: 1; }
   25%  { transform: scale(1.2); opacity: 1; }

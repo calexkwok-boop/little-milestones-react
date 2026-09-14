@@ -2411,9 +2411,14 @@ function LinkEntryPicker({ entries, kids, excludeId, onSelect, onClose }) {
         <div className="scroll-area" style={{ flex: 1, minHeight: 0 }}>
           <div className="scrollpad" style={{ paddingTop: 4 }}>
             {results.length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', padding: '24px 0' }}>
-                {q ? `No letters match "${query}"` : 'No other letters yet'}
-              </p>
+              <div className="empty-state" style={{ padding: '24px 0' }}>
+                <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                  <Icon name="ti-link" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+                  {q ? `No letters match "${query}"` : 'No other letters yet'}
+                </p>
+              </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {results.map(e => {
@@ -6896,7 +6901,7 @@ export default function App() {
   if (authLoading || dataLoading) {
     return (
       <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <Icon name="ti-loader-2" style={{ fontSize: 32, color: 'var(--text-muted)', animation: 'spin 1s linear infinite' }} />
+        <img src={`${ASSET_BASE}icon-192.png`} className="app-boot-logo" style={{ width: 64, height: 64, borderRadius: 15 }} alt="" />
       </div>
     );
   }
