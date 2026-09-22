@@ -6901,7 +6901,7 @@ export default function App() {
   if (authLoading || dataLoading) {
     return (
       <div className="app-root" data-theme={effectiveDark ? 'dark' : undefined} style={{ alignItems: 'center', justifyContent: 'center' }}>
-        <img src={`${ASSET_BASE}icon-mark-gold.png`} className="app-boot-logo" style={{ width: 64, height: 64 }} alt="" />
+        <img src={`${ASSET_BASE}icon-mark-gold.png`} className="app-boot-logo" style={{ width: 'auto', height: 64 }} alt="" />
       </div>
     );
   }
